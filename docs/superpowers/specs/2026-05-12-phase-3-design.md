@@ -79,7 +79,47 @@ Every `run_program` follows this call order before any target traffic:
 4. `policy.require_policy_allows(s, mode="active")`
 5. Load candidate assets or URLs, then filter every target with `scope.is_in_scope(..., s.in_scope, s.out_of_scope)`
 
-Long-running runners also re-check the master switch and freeze flag before each batch. The shared result shape includes `run_id`, `targets_considered`, `targets_scanned`, `artifacts_written`, `signals_emitted`, and `source_failures`.
+The shared result shape includes `run_id`, `targets_considered`, `targets_scanned`, `artifacts_written`, `signals_emitted`, `source_failures`, and `terminated_reason` (one of `null`, `kill_switch`, `freeze`, `timeout`).
+
+#### Per-request scope enforcement
+
+A pre-flight in-scope filter on the *initial* target list is not sufficient. Active tools follow redirects, crawl links, and discover paths during a run. Every runner must also enforce scope on every URL or host it touches after startup:
+
+- **httpx**: invoke with `-no-follow-redirects`. If a target returns 3xx, record the redirect target and decide downstream whether to add it as a new candidate; never let the tool follow it automatically.
+- **nuclei**: pass `-disable-redirects`. Templates that require redirect-following are explicitly disallowed in the approved profile.
+- **katana**: invoke with `-scope-all-hosts=false` plus an explicit `-fs` (field scope) and `-cs` (crawl scope) regex derived from `s.in_scope` and `s.out_of_scope` at run start. After katana exits, the wrapper filters every emitted URL through `scope.is_in_scope` again before any signal is written; OOS URLs are silently dropped and counted in `oos_drops`.
+- **ffuf**: invoke with `-fr` (filter regex) and `-fc` (filter codes) plus a `-r` (follow-redirects) flag set to **false**. Every match the wrapper consumes is re-checked against `scope.is_in_scope`. Wordlists must not contain absolute URLs.
+
+The wrapper rejects any tool output line that resolves to an OOS host, even if the tool produced it. OOS leakage is a configuration bug — the wrapper records it in the manifest under `oos_drops`, and a non-zero `oos_drops` count emits a `recon_anomalies` signal that surfaces in the daily digest.
+
+#### Batch contract
+
+A **batch** is one subprocess invocation. The wrapper splits the input target list into batches with explicit bounds:
+
+- **Max batch size:** 50 targets per subprocess (configurable per runner, never more than 200).
+- **Max batch duration:** 5 minutes wall-clock for httpx/nuclei, 10 minutes for katana/ffuf. Beyond the cap, the wrapper sends SIGTERM, waits 5s, then SIGKILL.
+
+Between batches, the wrapper re-checks `RECON_ENABLED` and the per-program `FROZEN` flag. If either changed since startup, the wrapper:
+
+1. Terminates any in-flight subprocess immediately (SIGTERM → SIGKILL).
+2. Marks the current `recon_runs` row `status=partial` with `terminated_reason` set.
+3. Writes a final manifest and exits with the corresponding non-zero exit code.
+
+This bounds the worst-case window between operator pulling the kill-switch and active traffic stopping to one batch duration plus shutdown grace.
+
+#### Failure taxonomy
+
+Every runner classifies failures into five disjoint buckets. Counters and exit codes follow:
+
+| Class | Examples | Counter | Exit |
+| --- | --- | --- | --- |
+| **Config failure** (before traffic) | missing binary, unapproved template profile, missing wordlist, scope file unreadable | n/a (fail closed) | non-zero, no artifacts |
+| **Target failure** | DNS error, TLS error, single 5xx, single timeout | `source_failures` per target | 0, run `partial` |
+| **Batch failure** | batch subprocess timed out or crashed | `source_failures` += batch size, anomaly signal | 0, run `partial` |
+| **Parser failure** | non-JSONL line, schema mismatch | per-line, log to stderr, anomaly signal if >1% of lines | 0, run `partial` |
+| **Artifact / DB failure** | cannot write manifest, SQLite locked > N seconds, disk full | fatal | non-zero |
+
+Config failures **must fail closed before any subprocess starts**. The runner exits with a clear stderr message and never opens the network.
 
 ### Shared Artifact Contract
 
@@ -339,7 +379,7 @@ Priority is `high` when there is an active freeze, a triage reply inside its SLA
 **Outputs:**
 
 - One claude-chat bus message per digest run
-- A `phone_ping_sent_at` field in the digest runner result or manifest
+- A row in the per-program SQLite `ops_runs` table (new in Phase 3, see section 4) with `kind="phone_ping"`, `started_at`, `status`, and a short payload digest. This is the *only* place ping state lives — recon manifests stay focused on target traffic.
 
 **Dependencies:**
 
@@ -400,14 +440,62 @@ Priority is `high` when there is an active freeze, a triage reply inside its SLA
 
 The existing per-program SQLite file remains the source of truth. Phase 3 expands it instead of adding a second database.
 
+### Schema migration
+
+Phase 2 ships `assets` and a six-column `findings` table. Phase 3 must add tables and widen `findings` without breaking Phase 2 DBs that already have data.
+
+The migration is gated by SQLite's `PRAGMA user_version`:
+
+- **v0** — pre-Phase-2 (no migration applies; treat as empty)
+- **v1** — Phase 2 schema as currently shipped
+- **v2** — Phase 3a additions: `recon_runs`, `http_services`, `signals`, `ops_runs` tables; `assets.fingerprint` and `assets.ports` semantics widened
+- **v3** — Phase 3b additions: expanded `findings` columns, `findings_state_history` table
+
+Migration runs at runner startup (every runner, not just the first one) via `earn_money.db.migrate(conn, target_version)`. The migration function:
+
+1. Reads `PRAGMA user_version`.
+2. If `< target_version`, runs each pending migration step inside a transaction.
+3. Each step uses `ALTER TABLE` for additive column changes and `CREATE TABLE IF NOT EXISTS` for new tables.
+4. For non-nullable column additions on existing rows, the migration supplies a literal default (e.g. `severity_hint TEXT NOT NULL DEFAULT 'unknown'`).
+5. After all steps succeed, bumps `PRAGMA user_version` to the target inside the same transaction.
+6. On failure: rolls back, leaves user_version unchanged, exits with a clear error.
+
+Test contract:
+
+- Unit tests cover each migration step.
+- An integration test seeds a Phase 2 DB with realistic rows, runs `migrate(conn, 3)`, and asserts the resulting schema matches Phase 3 plus all original data is preserved.
+- A test that runs `migrate(conn, 3)` twice in a row asserts it's idempotent and writes nothing the second time.
+
 ### `assets` additions
 
-Existing columns stay in place. Phase 3 may widen how `ports` and `fingerprint` are populated:
+Existing columns stay in place. Phase 3 widens how `ports` and `fingerprint` are populated, but **the canonical service inventory lives in the new `http_services` table** (see below). The `assets.fingerprint` JSON blob remains as a convenience denormalization, not a source of truth.
 
 - `ports` stores a comma-separated list of observed HTTP(S) ports.
-- `fingerprint` stores compact JSON with the latest httpx fingerprint summary.
+- `fingerprint` stores compact JSON with the latest httpx fingerprint summary, mirrored from the most recent `http_services` row.
 
-No new `assets` columns are required for Phase 3a unless implementation shows the compact JSON is too awkward.
+### New table: `http_services`
+
+Normalized service inventory keyed by asset + scheme + port. Every nuclei/katana/ffuf invocation reads from this table — not from `assets.fingerprint` JSON.
+
+Concrete columns:
+
+- `id INTEGER PRIMARY KEY AUTOINCREMENT`
+- `subdomain TEXT NOT NULL` (foreign reference to `assets.subdomain`)
+- `scheme TEXT NOT NULL` (`http` or `https`)
+- `port INTEGER NOT NULL`
+- `url TEXT NOT NULL` (canonical root: `<scheme>://<subdomain>[:<port>]/`)
+- `status_code INTEGER`
+- `title TEXT`
+- `server TEXT`
+- `technologies TEXT` (JSON array of strings)
+- `redirect_to TEXT`
+- `tls_summary TEXT` (JSON or empty)
+- `observed_at TEXT NOT NULL`
+- `last_run_id TEXT NOT NULL`
+- `in_scope_at_observation INTEGER NOT NULL DEFAULT 1`
+- `UNIQUE(subdomain, scheme, port)`
+
+Upserts: each httpx run replaces the row for its `(subdomain, scheme, port)` triple with the latest observation. Stale rows (no observation in the last N days) are kept but the digest flags them as cold.
 
 ### New table: `recon_runs`
 
@@ -464,6 +552,39 @@ The existing columns are kept and expanded. Concrete columns:
 - `payout_amount TEXT`
 - `payout_currency TEXT`
 
+### New table: `signals`
+
+A durable, queryable index of every normalized signal a runner emits. The triage engine queries this table — it does not parse `signals.jsonl` files at triage time. The JSONL artifact still exists for human review and disaster recovery, but the DB is the source of truth.
+
+Concrete columns:
+
+- `id INTEGER PRIMARY KEY AUTOINCREMENT`
+- `run_id TEXT NOT NULL` (FK → `recon_runs.run_id`)
+- `tool TEXT NOT NULL`
+- `signal_type TEXT NOT NULL` (e.g. `template_match`, `endpoint_discovered`, `content_match`, `fingerprint_drift`)
+- `asset TEXT NOT NULL` (normalized; see normalization rules)
+- `target TEXT NOT NULL` (normalized; see normalization rules)
+- `signature TEXT NOT NULL`
+- `payload TEXT NOT NULL` (compact JSON with tool-specific evidence pointers)
+- `observed_at TEXT NOT NULL`
+- `UNIQUE(run_id, signal_type, asset, target, signature)`
+
+Runners write to `signals.jsonl` AND insert into this table atomically per batch (transaction commits at batch boundary). If the DB write fails, the wrapper treats it as an artifact-class failure (fatal).
+
+### New table: `ops_runs`
+
+Tracks non-recon runs (daily digest, phone ping, freeze ack). Keeps `recon_runs` focused on target-traffic operations.
+
+Concrete columns:
+
+- `id INTEGER PRIMARY KEY AUTOINCREMENT`
+- `kind TEXT NOT NULL` (`daily_digest`, `phone_ping`, `freeze_ack`)
+- `started_at TEXT NOT NULL`
+- `finished_at TEXT`
+- `status TEXT NOT NULL` (`success`, `partial`, `failed`)
+- `payload_digest TEXT` (short summary or sha256 of payload, not the full payload)
+- `error_summary TEXT`
+
 ### Finding hash composition
 
 `finding_hash` is `sha256` over this canonical string:
@@ -474,12 +595,28 @@ v1|<platform>|<slug>|<vuln_class>|<normalized_asset>|<normalized_target>|<signat
 
 The hash does not include run ID, timestamps, evidence path, title, or severity. Those can change without creating a duplicate candidate.
 
-Examples of `signature`:
+#### Normalization rules
 
-- nuclei: `<template_id>|<matcher_name>`
-- httpx anomaly: `<signal_type>|<old_fingerprint>|<new_fingerprint>`
-- katana: `<endpoint_shape>|<sorted_parameter_names>`
-- ffuf: `<path>|<status>|<response_length_bucket>|<content_type>`
+`normalized_asset` and `normalized_target` are derived from raw input with these deterministic transformations:
+
+1. Lowercase the entire string (hostnames are case-insensitive; paths are conventionally case-sensitive but we treat them case-insensitively for dedup robustness against tool inconsistency).
+2. Strip default ports: `:80` for `http://`, `:443` for `https://`.
+3. Punycode IDN labels via `idna.encode(..., uts46=True)`.
+4. Normalize path: remove duplicate slashes (`//` → `/`), resolve `.` and `..` segments, strip trailing slash except on root path `/`.
+5. Drop the URL fragment (`#...`).
+6. Sort query parameters by key, then by value. Drop empty-value params unless the key is in an allowlist (e.g. `?debug` is meaningful even with no value).
+7. Percent-decode unreserved characters per RFC 3986; re-encode reserved characters in a canonical form.
+
+`normalized_asset` is just the hostname (after steps 1, 3). `normalized_target` is the full URL after all seven steps. For non-URL targets (e.g. raw hostnames passed to httpx), `normalized_target == normalized_asset`.
+
+#### Signature composition by tool
+
+- **nuclei**: `<template_id>|<matcher_name>|<extracted_normalized>` — `extracted_normalized` is the matcher's primary captured value normalized via rules 1-7 (or empty string when nuclei produces no extraction).
+- **httpx anomaly**: `<signal_type>|<old_fingerprint_sha256_prefix12>|<new_fingerprint_sha256_prefix12>` — fingerprints are hashed and truncated so changes in noise (timestamp headers) don't propagate to the dedup key.
+- **katana**: `<endpoint_path_normalized>|<sorted_parameter_names>|<method>` — parameter names sorted alphabetically, methods uppercased.
+- **ffuf**: `<path_normalized>|<status_code>|<response_length_bucket>|<content_type_normalized>` — `response_length_bucket` is one of `<1KB`, `1-10KB`, `10-100KB`, `100KB-1MB`, `>1MB` to avoid splitting on jittery body sizes.
+
+Test contract: every tool's signature composition gets two property-based tests — one for collision resistance (10k random distinct findings produce 10k distinct hashes), one for normalization stability (a finding and its semantically equivalent variant hash to the same value).
 
 ### Finding state machine
 
@@ -504,23 +641,48 @@ Allowed transitions:
 - Operator action may move `submitted -> resolved_paid`, `submitted -> resolved_dupe`, `submitted -> resolved_na`, or `submitted -> resolved_info`.
 - Retention tooling may move any resolved state to `archived`.
 
-## 5. Cron Schedule
+## 5. Scheduling
 
-Cron runs on the VPS only. Development on the operator laptop is limited to tests, dry runs with mocked tools, and code review.
+Scheduling runs on the VPS only. Development on the operator laptop is limited to tests, dry runs with mocked tools, and code review.
 
-| Job | Cron | Time zone | Cadence | Rationale |
+### Why systemd timers, not cron
+
+A normal Debian crontab cannot mix time zones per entry, doesn't survive missed runs from boots/downtime, and has weak observability. Phase 3 uses **systemd timers + services**, one pair per job. This gives:
+
+- Per-timer `OnCalendar=` with explicit `Timezone=` (or implicit UTC), no ambient assumption.
+- `Persistent=true` to catch up after VPS reboots that miss a scheduled run.
+- `journalctl -u <unit>` for structured logs per job, with rotation handled by the system.
+- `Type=oneshot` services with `TimeoutStartSec=` for hard runtime caps.
+- Explicit `After=` ordering between units (triage after active runners, digest after triage, ping after digest).
+
+### Job table
+
+| Unit | OnCalendar | TZ | Hard timeout | Depends on (After=) |
 | --- | --- | --- | --- | --- |
-| Scope sync | `0 * * * *` | UTC | Hourly | Scope is the safety boundary. Fast freeze beats stale target lists. |
-| Passive recon | `10 */6 * * *` | UTC | Every 6 hours | Asset churn is useful, but passive sources are cheap and low friction. |
-| httpx probe | `35 */6 * * *` | UTC | Every 6 hours | Liveness and fingerprints change more often than deeper findings. Keep this light and frequent. |
-| nuclei scan | `15 2 * * *` | UTC | Daily | Standard CVE and misconfig checks are useful daily, but should stay inside the off-peak active window. |
-| katana crawl | `15 3 */2 * *` | UTC | Every 2 days | Endpoint discovery changes slower than liveness and creates more traffic. |
-| ffuf scan | `20 4 * * 0` | UTC | Weekly | Content fuzzing is the highest-friction unit, so it starts weekly with small approved lists. |
-| Triage | `30 5 * * *` | UTC | Daily | Correlates all untriaged runs after the active window and before the digest. |
-| Daily digest | `0 8 * * *` | Europe/Copenhagen | Daily | Matches the operator's daily work slot. |
-| Phone ping | `5 8 * * *` | Europe/Copenhagen | Daily | Runs after the digest exists and sends only a short notification. |
+| `scope-sync.timer` | `*-*-* *:00:00` (hourly) | UTC | 5 min | none |
+| `passive-recon.timer` | `*-*-* 00,06,12,18:10:00` | UTC | 30 min | `scope-sync.service` |
+| `httpx-probe.timer` | `*-*-* 00,06,12,18:35:00` | UTC | 30 min | `passive-recon.service` |
+| `nuclei-scan.timer` | `*-*-* 02:15:00` | UTC | 90 min | `httpx-probe.service` |
+| `katana-crawl.timer` | `*-*-2/2 03:15:00` (every 2 days) | UTC | 90 min | `httpx-probe.service` |
+| `ffuf-scan.timer` | `Sun *-*-* 04:20:00` (weekly) | UTC | 90 min | `httpx-probe.service` |
+| `triage.timer` | `*-*-* 06:30:00` | UTC | 30 min | `nuclei-scan.service` |
+| `daily-digest.timer` | `*-*-* 08:00:00` | Europe/Copenhagen | 5 min | `triage.service` |
+| `phone-ping.timer` | `*-*-* 08:05:00` | Europe/Copenhagen | 2 min | `daily-digest.service` |
 
-All active runners also support manual invocation on the VPS for incident response or implementation verification. Manual active invocation still checks `RECON_ENABLED`, freeze flags, scope, and policy.
+The triage slot moved to 06:30 UTC (was 05:30) to add buffer against long-running active jobs during CEST. The digest then fires at 08:00 Copenhagen (06:00 UTC during CEST, 07:00 UTC during CET) — comfortably after triage in both cases.
+
+### Concurrency, locks, and missed-run semantics
+
+SQLite handles concurrent readers fine but serializes writers. To prevent runner pile-ups:
+
+- **Per-program write lock.** Each runner acquires a `BEGIN IMMEDIATE` transaction on the per-program DB at the start of each batch's DB-write phase. Concurrent runners on the same program serialize naturally.
+- **Per-runner busy lock.** Each systemd service writes a `/run/earn_money/<runner>.lock` PID file at start; if the lock exists and points to a live process, the service exits with a clear "already running" status. This catches the case where a previous invocation is still alive when the next timer fires.
+- **Digest excludes in-flight runs.** The digest queries only `recon_runs` rows with `status IN ('success', 'partial', 'failed', 'skipped')` AND `finished_at IS NOT NULL`. Rows still in flight surface as `Runner Health → in_progress` rows, not as missing data.
+- **Persistent timers backfill at most once.** `Persistent=true` makes systemd run a missed timer once after a reboot, not catch up to every missed slot. This prevents a 24-hour outage producing 4 stacked httpx runs.
+
+### Manual invocation
+
+All active runners also support manual invocation on the VPS for incident response or implementation verification: `bin/<runner> --program <slug>` runs the same code path as the timer-driven unit. Manual invocation still acquires the busy lock, still checks `RECON_ENABLED`, freeze flags, scope, and policy, and still writes a `recon_runs` row.
 
 ## 6. Sub-Phase Implementation Roadmap
 
@@ -554,21 +716,36 @@ Ships the broader active recon surface:
 - `katana` runner with depth, duration, and URL caps
 - `ffuf` runner with approved wordlists and request caps
 - Normalized signal emitters for crawl and content-discovery output
-- Triage adapters for katana and ffuf signals
+- Triage adapters for katana and ffuf signals (extends the v1 triage contract from 3b)
 
-Dependency: 3a. It integrates with the triage contract from 3b.
+Dependency: **3a and 3b**. The triage adapters require the triage contract that ships in 3b.
 
-### 3d - Daily Digest, Phone Ping, and Cron Hardening
+### 3d - Daily Digest, Phone Ping, Freeze-Ack, and Timer Hardening
 
 Ships the operator-facing daily loop:
 
 - `ops/daily-digest.md` generator
 - Phone ping via claude-chat bus
-- Cron table documentation in `ops/cron.md`
+- `bin/ack-freeze` CLI (see audit contract below)
+- systemd timer + service units in `ops/systemd/` (templates), documented in `ops/scheduling.md`
 - Runner health and anomaly reporting
-- End-to-end smoke test on the VPS against `hackerone/security`
+- **Mock-target integration smoke** that exercises the full timer chain (scope-sync → httpx → triage → digest → ping) against a fixture program in a tmp-repo. This proves the chain works without sending any real traffic.
+- A separate **operator-approved manual verification pass** against the current scoped program *after* the mock-target smoke passes. The operator runs each timer's service unit manually, in order, with `RECON_ENABLED` armed, and inspects the run trail. No program is hardcoded in source or tests.
 
-Dependency: 3a and 3b. It should include 3c data when 3c is already merged, but the digest generator must tolerate missing katana or ffuf runs.
+Dependency: 3a and 3b. The digest must tolerate missing katana/ffuf runs (3c not yet merged).
+
+#### `bin/ack-freeze` contract
+
+Removing a `FROZEN` flag is a privileged operator action with an audit trail. `bin/ack-freeze <platform>/<slug>`:
+
+1. Refuses to run unless `FROZEN` exists for the named program.
+2. Reads and displays the FROZEN content (reason, originating runner, timestamp).
+3. Prompts the operator for an acknowledgement message (non-empty, required).
+4. Writes an `ops_runs` row with `kind="freeze_ack"`, the original FROZEN content as `payload_digest`, and the operator's message as `error_summary` (despite the name; ops_runs reuses the column for free-form notes).
+5. Appends to `programs/<platform>/<slug>/freeze-acks.log` (gitignored) with full content for forensic history.
+6. Removes the `FROZEN` flag last, after all the audit writes succeeded.
+
+There is no `--force` flag. There is no auto-removal path. Operators who want to bypass the prompt for scripting must use the lower-level primitive directly and accept that nothing audits that path.
 
 Each sub-phase follows TDD: failing tests first, green implementation, then refactor. Every source file stays under the 200-line cap.
 
