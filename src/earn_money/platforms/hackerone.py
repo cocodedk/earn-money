@@ -35,7 +35,12 @@ class Client:
 
     def fetch_structured_scope(self, handle: str) -> tuple[list[str], list[str]]:
         """Return (in_scope, out_of_scope) asset identifiers for a program handle."""
-        response = self._client.get(f"/hackers/programs/{handle}/structured_scopes")
+        try:
+            response = self._client.get(f"/hackers/programs/{handle}/structured_scopes")
+        except httpx.RequestError as exc:
+            raise HackerOneAPIError(
+                f"Network error fetching {handle}: {exc}"
+            ) from exc
         if response.status_code != 200:
             raise HackerOneAPIError(
                 f"HackerOne API returned {response.status_code} for {handle}: "
@@ -56,3 +61,9 @@ class Client:
 
     def close(self) -> None:
         self._client.close()
+
+    def __enter__(self) -> Client:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
