@@ -12,10 +12,16 @@ from earn_money.recon import chaos
 from earn_money.runners import passive_recon
 
 
-def _seed(paths: config.Paths, *, policy_value: scope.Policy, in_scope: list[str]) -> None:
+def _seed(
+    paths: config.Paths,
+    *,
+    policy_value: scope.Policy,
+    in_scope: list[str],
+    out_of_scope: list[str] | None = None,
+) -> None:
     s = scope.Scope(
         platform="hackerone", slug="example", policy=policy_value,
-        in_scope=in_scope, out_of_scope=[], notes="",
+        in_scope=in_scope, out_of_scope=out_of_scope or [], notes="",
         scope_hash="seed", last_synced="2026-05-12T07:00:00Z",
     )
     scope.write_scope(paths.scope_file("hackerone", "example"), s)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -71,3 +72,29 @@ def write_scope(path: Path, s: Scope) -> None:
 def compute_hash(s: Scope) -> str:
     joined = "\n".join(sorted(s.in_scope)) + "\n--\n" + "\n".join(sorted(s.out_of_scope))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def _matches_any(fqdn: str, patterns: Sequence[str]) -> bool:
+    """True if ``fqdn`` matches any pattern. Patterns are either literal
+    hostnames or ``*.suffix`` wildcards that match the suffix itself plus
+    every descendant."""
+    fqdn = fqdn.lower()
+    for entry in patterns:
+        entry_l = entry.lower()
+        if entry_l == fqdn:
+            return True
+        if entry_l.startswith("*."):
+            suffix = entry_l[2:]
+            if fqdn.endswith("." + suffix) or fqdn == suffix:
+                return True
+    return False
+
+
+def is_in_scope(
+    fqdn: str, in_scope: Sequence[str], out_of_scope: Sequence[str] = ()
+) -> bool:
+    # Negative scope is gospel — a host on the deny-list is never in scope,
+    # even when a broad wildcard would otherwise admit it.
+    if _matches_any(fqdn, out_of_scope):
+        return False
+    return _matches_any(fqdn, in_scope)

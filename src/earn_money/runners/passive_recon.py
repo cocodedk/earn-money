@@ -23,17 +23,25 @@ SubfinderRun = Callable[[str], list[str]]
 class PassiveReconResult:
     subdomains_discovered: int
     assets_upserted: int
+    source_failures: int = 0
 
 
 def _apexes_from_in_scope(in_scope: list[str]) -> set[str]:
     """Return the set of apex domains (registrable domain + TLD) to feed
     subfinder/chaos. Uses tldextract to handle multi-label TLDs like ``.co.uk``
     correctly: ``api.staging.example.co.uk`` -> ``example.co.uk``.
+
+    PSL private suffixes (e.g. ``s3.us-west-2.amazonaws.com``, ``github.io``)
+    are honoured so a scoped S3 bucket FQDN is not collapsed to
+    ``amazonaws.com`` — that would hand the provider's whole public surface
+    to subfinder.
     """
     apexes: set[str] = set()
     # suffix_list_urls=() forces offline mode — uses only the bundled suffix list,
     # no network fetches during tests or cron runs.
-    extract = tldextract.TLDExtract(suffix_list_urls=())
+    extract = tldextract.TLDExtract(
+        suffix_list_urls=(), include_psl_private_domains=True
+    )
     for entry in in_scope:
         bare = entry.removeprefix("*.").lower()
         parts = extract(bare)
@@ -43,19 +51,6 @@ def _apexes_from_in_scope(in_scope: list[str]) -> set[str]:
             # Fallback: tldextract couldn't parse it (e.g., bare hostname).
             apexes.add(bare)
     return apexes
-
-
-def _is_in_scope(fqdn: str, in_scope: list[str]) -> bool:
-    fqdn = fqdn.lower()
-    for entry in in_scope:
-        entry_l = entry.lower()
-        if entry_l == fqdn:
-            return True
-        if entry_l.startswith("*."):
-            suffix = entry_l[2:]
-            if fqdn.endswith("." + suffix) or fqdn == suffix:
-                return True
-    return False
 
 
 def run_program(
@@ -79,14 +74,40 @@ def run_program(
 
     apexes = _apexes_from_in_scope(s.in_scope)
 
-    candidates: set[str] = set()
+    # Explicit literals are themselves candidates — subfinder/chaos enumerate
+    # *subdomains of* an apex and never return the apex itself, so a scope
+    # entry like ``hackerone.com`` or a private-suffix S3 bucket FQDN would
+    # otherwise be silently dropped.
+    candidates: set[str] = {
+        entry.lower() for entry in s.in_scope if not entry.startswith("*.")
+    }
+    # Per-source resilience: a single subfinder/chaos failure for one apex
+    # must not abort the whole run. Cron pipelines need best-effort merging —
+    # we log to stderr, count the failure, and keep going.
+    source_failures = 0
     for apex in sorted(apexes):
-        for sub in subfinder_run(apex):
-            candidates.add(sub.lower())
-        for sub in chaos_client.fetch_subdomains(apex):
-            candidates.add(sub.lower())
+        try:
+            for sub in subfinder_run(apex):
+                candidates.add(sub.lower())
+        except subfinder.SubfinderError as exc:
+            source_failures += 1
+            print(
+                f"passive-recon: subfinder failed for {apex}: {exc}",
+                file=sys.stderr,
+            )
+        try:
+            for sub in chaos_client.fetch_subdomains(apex):
+                candidates.add(sub.lower())
+        except chaos.ChaosAPIError as exc:
+            source_failures += 1
+            print(
+                f"passive-recon: chaos failed for {apex}: {exc}",
+                file=sys.stderr,
+            )
 
-    in_scope_candidates = sorted(c for c in candidates if _is_in_scope(c, s.in_scope))
+    in_scope_candidates = sorted(
+        c for c in candidates if scope.is_in_scope(c, s.in_scope, s.out_of_scope)
+    )
 
     observed_at = datetime.now(UTC).isoformat(timespec="seconds")
     observations: list[assets.AssetObservation] = []
@@ -106,6 +127,7 @@ def run_program(
     return PassiveReconResult(
         subdomains_discovered=len(in_scope_candidates),
         assets_upserted=summary.inserted + summary.updated,
+        source_failures=source_failures,
     )
 
 
@@ -160,7 +182,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"passive-recon: discovered={result.subdomains_discovered} "
-        f"upserted={result.assets_upserted}"
+        f"upserted={result.assets_upserted} "
+        f"source_failures={result.source_failures}"
     )
     return 0
 
