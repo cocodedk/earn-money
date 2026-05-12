@@ -1,0 +1,22 @@
+id: synthetic-200-title-match
+
+info:
+  name: Synthetic — title match on mock target
+  author: earn-money-tests
+  severity: low
+  tags: [test, synthetic]
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "In-Scope A"
