@@ -31,7 +31,9 @@ def test_parse_jsonl_captures_redirect_target(fixtures_dir: Path) -> None:
 
 def test_command_includes_safety_flags() -> None:
     cmd = httpx_tool.build_command(["api.example.com", "www.example.com"])
-    assert "-no-follow-redirects" in cmd
+    # PD httpx does not follow redirects by default; no explicit flag needed.
+    assert "-fr" not in cmd
+    assert "-follow-redirects" not in cmd
     assert "-json" in cmd
     assert "-silent" in cmd
     # Targets are passed via -u with comma separation.

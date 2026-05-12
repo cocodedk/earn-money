@@ -27,7 +27,6 @@ def build_command(targets: Sequence[str]) -> list[str]:
         "-u", ",".join(targets),
         "-silent",
         "-json",
-        "-no-follow-redirects",
         "-status-code",
         "-title",
         "-tech-detect",
