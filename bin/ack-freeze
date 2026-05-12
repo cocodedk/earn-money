@@ -1,0 +1,42 @@
+#!/bin/sh
+# Audited freeze-flag removal — the operator's explicit action to resume
+# recon for a program after a destructive scope diff was caught.
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ $# -ne 1 ]; then
+    echo "usage: bin/ack-freeze <platform>/<slug>" >&2
+    exit 1
+fi
+
+PROGRAM="$1"
+PLATFORM="${PROGRAM%%/*}"
+SLUG="${PROGRAM##*/}"
+FROZEN="$ROOT/programs/$PLATFORM/$SLUG/FROZEN"
+LOG="$ROOT/programs/$PLATFORM/$SLUG/freeze-acks.log"
+
+if [ ! -f "$FROZEN" ]; then
+    echo "ack-freeze: no FROZEN flag at $FROZEN" >&2
+    exit 1
+fi
+
+echo "--- FROZEN contents ---"
+cat "$FROZEN"
+echo "---"
+printf "Reason for resuming recon: "
+read -r REASON
+[ -z "$REASON" ] && { echo "ack-freeze: empty reason refused" >&2; exit 1; }
+
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+{
+    echo "## $NOW"
+    echo "operator: $(whoami)"
+    echo "reason: $REASON"
+    echo "frozen-content-was:"
+    sed 's/^/  /' "$FROZEN"
+    echo
+} >> "$LOG"
+
+rm "$FROZEN"
+echo "ack-freeze: $PROGRAM resumed at $NOW (audit appended to $LOG)"
