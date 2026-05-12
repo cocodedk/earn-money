@@ -1,36 +1,35 @@
-"""CLI entry-point and watchdog wiring for the httpx-probe runner.
+"""CLI entry-point and real-tool wiring for nuclei-scan.
 
-Separated from httpx_probe.py (the testable core) so each file stays
-under the 200-line cap.
+Kept in a sibling module so `nuclei_scan.py` itself stays under the
+200-line cap.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+import threading
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from earn_money import config, flags, policy
-from earn_money.runners import active, httpx_probe
+from earn_money.recon import nuclei_tool
+from earn_money.runners import active, nuclei_scan
 
 
 def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str
-) -> httpx_probe.ToolRun:
-    """Wire the kill-switch watchdog + batch runner + httpx tool parser."""
-    import threading
-
-    from earn_money.recon import httpx_tool
+) -> Callable[[list[str]], active.ToolRunResult]:
+    """Wire the kill-switch watchdog + batch runner + nuclei tool parser."""
     from earn_money.runners import batch, watchdog
 
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         abort = threading.Event()
         # P1.1: capture the watchdog reason so the runner can record
-        # "kill_switch" vs "freeze" in terminated_reason instead of a
-        # generic sentinel. One-element list because nonlocal assignment
-        # inside a nested def requires Python cell binding.
+        # "kill_switch" vs "freeze" in terminated_reason.  One-element list
+        # because nonlocal assignment inside a nested def requires cell binding.
         abort_reason: list[str | None] = [None]
 
         def on_state_change(reason: str) -> None:
@@ -46,32 +45,44 @@ def _build_real_tool(
         try:
             batches_result = batch.run_batches(
                 targets,
-                command_factory=lambda chunk: httpx_tool.build_command(chunk),
+                command_factory=lambda chunk: nuclei_tool.build_command(
+                    chunk, template_dirs=("cves", "misconfiguration"),
+                ),
                 max_batch_size=50, max_batch_duration_s=300.0,
                 abort=abort,
             )
         finally:
             wd.stop()
-        raw = "\n".join(line for b in batches_result.batches for line in b.lines)
+
+        raw_stdout = "\n".join(
+            line for b in batches_result.batches for line in b.lines
+        )
+        # BatchResult.stderr is a single string per batch (not stderr_lines).
+        raw_stderr = "\n".join(
+            b.stderr for b in batches_result.batches if b.stderr
+        )
         now = datetime.now(UTC).isoformat(timespec="seconds")
         source_failures = sum(
             1 for b in batches_result.batches
-            if b.timed_out or b.return_code != 0
+            if b.timed_out or b.return_code not in (0, None)
         )
         timed_out = any(b.timed_out for b in batches_result.batches)
+        parsed = nuclei_tool.parse_jsonl(raw_stdout, run_id=run_id, observed_at=now)
         return active.ToolRunResult(
-            services=tuple(httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at=now)),
+            services=tuple(parsed),
             aborted=batches_result.aborted,
             terminated_reason=abort_reason[0],
             source_failures=source_failures,
             timed_out=timed_out,
+            raw_stdout=raw_stdout,
+            raw_stderr=raw_stderr,
         )
 
     return real_tool
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="httpx-probe")
+    parser = argparse.ArgumentParser(prog="nuclei-scan")
     parser.add_argument("--platform", default="hackerone")
     parser.add_argument("--program", required=True)
     parser.add_argument("--root", default=Path.cwd(), type=Path)
@@ -84,25 +95,32 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     try:
-        result = httpx_probe.run_program(
-            paths, args.platform, args.program, tool_run=real_tool, run_id=run_id,
+        result = nuclei_scan.run_program(
+            paths, args.platform, args.program,
+            tool_run=real_tool, run_id=run_id,
         )
     except flags.ReconDisabled as e:
-        print(f"httpx-probe: {e}", file=sys.stderr)
+        print(f"nuclei-scan: {e}", file=sys.stderr)
         return 2
     except flags.ProgramFrozen as e:
-        print(f"httpx-probe: {e}", file=sys.stderr)
+        print(f"nuclei-scan: {e}", file=sys.stderr)
         return 3
     except policy.PolicyViolation as e:
-        print(f"httpx-probe: {e}", file=sys.stderr)
+        print(f"nuclei-scan: {e}", file=sys.stderr)
         return 4
+    except nuclei_tool.UnsafeTemplateProfile as e:
+        print(f"nuclei-scan: {e}", file=sys.stderr)
+        return 5
     except Exception as e:
-        print(f"httpx-probe: unexpected error: {type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            f"nuclei-scan: unexpected error: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
         return 1
 
     print(
-        f"httpx-probe: scanned={result.targets_scanned} "
-        f"services={result.targets_scanned - result.oos_drops} "
+        f"nuclei-scan: scanned={result.targets_scanned} "
+        f"signals={result.signals_emitted} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )

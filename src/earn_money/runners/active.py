@@ -30,10 +30,13 @@ class ToolRunResult:
     """Return type for the injected tool_run callable. Lets the runner
     record terminated_reason and status='partial' instead of always
     reporting 'success'."""
-    services: tuple[Any, ...] = ()  # tuple[HttpService, ...] — Any avoids circular import
+    services: tuple[Any, ...] = ()  # tuple[HttpService|Signal, ...] — Any avoids circular import
     aborted: bool = False
     source_failures: int = 0
     timed_out: bool = False
+    terminated_reason: str | None = None  # P1.1: "kill_switch" | "freeze" | None
+    raw_stdout: str = ""  # P1.2: captured stdout for artifact writing
+    raw_stderr: str = ""  # P1.2: captured stderr for artifact writing
 
 
 def check_gates(
