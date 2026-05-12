@@ -114,5 +114,8 @@ def seed_nuclei_run_with_signal(paths: config.Paths) -> None:
                     '"severity":"high","name":"Acme SQLi"}',
             observed_at="2026-05-12T02:16:00Z",
         )])
+        # Explicit commit: each DAO commits on its own, but committing here
+        # documents the invariant and defends against future DAO refactors.
+        conn.commit()
     finally:
         conn.close()

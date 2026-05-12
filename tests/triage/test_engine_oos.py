@@ -33,8 +33,10 @@ def test_drops_signal_that_drifted_out_of_scope_between_scan_and_triage(
     assert result.signals_skipped == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    count = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
-    conn.close()
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0]
+    finally:
+        conn.close()
     assert count == 0
 
 

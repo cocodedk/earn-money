@@ -23,14 +23,16 @@ def test_triages_one_nuclei_run_and_writes_queue_file(tmp_repo: Path) -> None:
 
     # The DB has one finding row.
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    rows = conn.execute(
-        "SELECT vuln_class, title, severity_hint, source_tool, current_state "
-        "FROM findings"
-    ).fetchall()
-    triaged_at = conn.execute(
-        "SELECT triaged_at FROM recon_runs WHERE run_id = 'nuclei-r1'"
-    ).fetchone()
-    conn.close()
+    try:
+        rows = conn.execute(
+            "SELECT vuln_class, title, severity_hint, source_tool, current_state "
+            "FROM findings"
+        ).fetchall()
+        triaged_at = conn.execute(
+            "SELECT triaged_at FROM recon_runs WHERE run_id = 'nuclei-r1'"
+        ).fetchone()
+    finally:
+        conn.close()
 
     assert len(rows) == 1
     vuln_class, title, severity_hint, source_tool, state = rows[0]
@@ -94,10 +96,12 @@ def test_re_triage_refreshes_finding_but_does_not_overwrite_queue_file(
     assert result.findings_refreshed == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    row = conn.execute(
-        "SELECT occurrence_count, last_seen FROM findings"
-    ).fetchone()
-    conn.close()
+    try:
+        row = conn.execute(
+            "SELECT occurrence_count, last_seen FROM findings"
+        ).fetchone()
+    finally:
+        conn.close()
     assert row[0] == 2
     assert row[1] == "2026-05-13T02:16:00Z"
     # Operator edit survives.
@@ -140,8 +144,10 @@ def test_triages_all_untriaged_runs_and_marks_them(tmp_repo: Path) -> None:
     assert result.findings_created == 2
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    triaged = conn.execute(
-        "SELECT run_id, triaged_at FROM recon_runs ORDER BY run_id"
-    ).fetchall()
-    conn.close()
+    try:
+        triaged = conn.execute(
+            "SELECT run_id, triaged_at FROM recon_runs ORDER BY run_id"
+        ).fetchall()
+    finally:
+        conn.close()
     assert all(row[1] == "2026-05-12T05:00:00Z" for row in triaged)
