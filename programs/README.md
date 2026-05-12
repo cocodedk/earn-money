@@ -2,6 +2,14 @@
 
 One subdirectory per onboarded program: `programs/<platform>/<slug>/`.
 
+## Prerequisites
+
+Before running the onboarding flow below, install the Python dev environment once:
+
+    make install-dev
+
+This creates the `.venv` that `bin/scope-sync` invokes. If you run `bin/scope-sync` without this step, it exits 1 with a hint message.
+
 ## Onboarding a new HackerOne program — operator workflow
 
 1. **Pick the program.** Criteria from the design spec: low researcher density, asset class you know well, ToS permits the desired scanning tier.

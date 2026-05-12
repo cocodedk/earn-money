@@ -155,6 +155,8 @@ def test_no_change_only_updates_last_synced(tmp_repo: Path, fixtures_dir: Path) 
     second = scope.read_scope(paths.scope_file("hackerone", "example"))
     assert first.scope_hash == second.scope_hash
     assert first.in_scope == second.in_scope
+    assert second.last_synced  # populated
+    assert second.last_synced >= first.last_synced
 
 
 def test_empty_api_response_freezes_when_prior_scope_existed(tmp_repo: Path) -> None:

@@ -28,6 +28,15 @@ def sync_program(
     slug: str,
     client: hackerone.Client,
 ) -> SyncResult:
+    """Sync a program's scope.md against the platform API.
+
+    Note: this runner is intentionally NOT gated by ``scope.policy``. Scope
+    sync only hits the platform's API (e.g. HackerOne), never the target
+    assets, so it is safe for all three policy tiers — including
+    ``manual-only``, where the spec explicitly allows scope.md maintenance.
+    Active recon runners that generate target traffic (Phase 2+) MUST
+    enforce ``policy != "manual-only"`` themselves.
+    """
     flags.require_recon_enabled(paths)
     flags.require_program_not_frozen(paths, platform, slug)
 

@@ -82,7 +82,7 @@ Layer rules: runners never read from `findings/`; report drafter never writes to
 
 ### File size
 
-**200-line maximum per file.** Extract a class, function, or module when approaching the limit. The spec file itself is exempt.
+**200-line maximum per file.** Extract a class, function, or module when approaching the limit. Spec and plan files under `docs/superpowers/` are exempt — they are reference documents, not source.
 
 ### DRY · SOLID · KISS · YAGNI
 
