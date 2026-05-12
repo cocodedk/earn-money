@@ -43,9 +43,15 @@ first_seen: {{first_seen}}
 
 ---
 
-<!-- Scanner evidence (do not include in the submitted report; operator deletes this section before filing):
-- source_tool: {{source_tool}}
-- source_run_id: {{source_run_id}}
-- evidence_path: {{evidence_path}}
-- nuclei signature: {{signature}}
--->
+> **SCANNER EVIDENCE — DELETE BEFORE FILING.**
+> The lines below are scanner internals (template ID, raw artifact path, etc.).
+> They do not belong in the submitted report. Delete this entire section
+> (from the line above through to the end of this file) before pasting
+> into HackerOne.
+
+```
+source_tool: {{source_tool}}
+source_run_id: {{source_run_id}}
+evidence_path: {{evidence_path}}
+signature: {{signature}}
+```

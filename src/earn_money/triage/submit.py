@@ -28,6 +28,13 @@ def submit(
     now: str,
 ) -> None:
     """Run transition_state(verified → submitted) and store the report ID."""
+    scope_file = paths.scope_file(platform, slug)
+    if not scope_file.exists():
+        raise ValueError(
+            f"program {platform}/{slug!r} is not registered "
+            f"(no scope.md at {scope_file})"
+        )
+
     conn = db.open_db(paths.program_db(platform, slug))
     try:
         history.transition_state(
@@ -81,6 +88,9 @@ def main(argv: list[str] | None = None) -> int:
             note=args.note,
             now=now,
         )
+    except ValueError as e:
+        print(f"submit: {e}", file=sys.stderr)
+        return 1
     except history.FindingNotFound as e:
         print(f"submit: finding not found: {e}", file=sys.stderr)
         return 1

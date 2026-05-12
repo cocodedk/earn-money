@@ -11,10 +11,24 @@ if [ $# -ne 1 ]; then
 fi
 
 PROGRAM="$1"
+
+# Validate platform/slug shape
+case "$PROGRAM" in
+    */*) ;;
+    *) echo "ack-freeze: argument must be <platform>/<slug>, got: $PROGRAM" >&2; exit 1 ;;
+esac
+
 PLATFORM="${PROGRAM%%/*}"
 SLUG="${PROGRAM##*/}"
 FROZEN="$ROOT/programs/$PLATFORM/$SLUG/FROZEN"
 LOG="$ROOT/programs/$PLATFORM/$SLUG/freeze-acks.log"
+
+# Check program is registered
+SCOPE="$ROOT/programs/$PLATFORM/$SLUG/scope.md"
+if [ ! -f "$SCOPE" ]; then
+    echo "ack-freeze: program $PROGRAM is not registered (no $SCOPE)" >&2
+    exit 1
+fi
 
 if [ ! -f "$FROZEN" ]; then
     echo "ack-freeze: no FROZEN flag at $FROZEN" >&2
@@ -24,8 +38,17 @@ fi
 echo "--- FROZEN contents ---"
 cat "$FROZEN"
 echo "---"
-printf "Reason for resuming recon: "
-read -r REASON
+
+# Allow multi-line reason via $EDITOR (mirror git's commit-message UX)
+REASON_FILE=$(mktemp -t ack-freeze-reason.XXXXXX)
+trap 'rm -f "$REASON_FILE"' EXIT
+cat > "$REASON_FILE" <<EOF
+# Reason for resuming recon (lines starting with # are ignored).
+# This message will be appended to programs/$PROGRAM/freeze-acks.log.
+# Save and quit to ack; quit without saving to abort.
+EOF
+"${EDITOR:-${VISUAL:-vi}}" "$REASON_FILE"
+REASON=$(grep -vE "^[[:space:]]*#" "$REASON_FILE" | sed -e 's/^[[:space:]]*//' | grep -v "^$" || true)
 [ -z "$REASON" ] && { echo "ack-freeze: empty reason refused" >&2; exit 1; }
 
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

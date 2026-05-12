@@ -40,8 +40,14 @@ __pycache__/
 # Node (in case we add tooling later)
 node_modules/
 
-# Logs
+# Logs — but freeze-acks.log is an audit trail and must be committable
 *.log
+!programs/**/freeze-acks.log
+
+# Drafts contain real evidence pointers (target URLs, asset names, paths
+# into recon/outputs/). Never commit. Operator's edited drafts stay
+# local; submitted reports live on the platform, not in this repo.
+reports/drafts/
 
 # Local scratch
 scratch/

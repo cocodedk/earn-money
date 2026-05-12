@@ -25,7 +25,7 @@ class TemplateNotFound(Exception):
     """Raised when templates/report-draft.md is missing from the repo."""
 
 
-def render(template_body: str, finding: findings.Finding) -> str:
+def substitute_template(template_body: str, finding: findings.Finding) -> str:
     """Substitute {{placeholder}} tokens with finding field values."""
     fields: dict[str, str] = {
         "finding_hash": finding.finding_hash,
@@ -56,6 +56,7 @@ def draft_for(
     platform: str,
     slug: str,
     finding_hash: str,
+    force: bool = False,
 ) -> Path:
     """Generate (or refuse to overwrite) reports/drafts/<hash>.md.
 
@@ -63,7 +64,15 @@ def draft_for(
     - TemplateNotFound if the template is missing.
     - DraftAlreadyExists if the draft file already exists.
     - ValueError if the finding hash is not in the DB.
+    - ValueError if the program is not registered (no scope.md).
     """
+    scope_file = paths.scope_file(platform, slug)
+    if not scope_file.exists():
+        raise ValueError(
+            f"program {platform}/{slug!r} is not registered "
+            f"(no scope.md at {scope_file})"
+        )
+
     template_path = paths.root / "templates" / "report-draft.md"
     if not template_path.exists():
         raise TemplateNotFound(str(template_path))
@@ -71,8 +80,6 @@ def draft_for(
     drafts_dir = paths.root / "reports" / "drafts"
     drafts_dir.mkdir(parents=True, exist_ok=True)
     draft_path = drafts_dir / f"{finding_hash}.md"
-    if draft_path.exists():
-        raise DraftAlreadyExists(str(draft_path))
 
     conn = db.open_db(paths.program_db(platform, slug))
     try:
@@ -81,11 +88,21 @@ def draft_for(
             raise ValueError(
                 f"finding {finding_hash!r} not in {platform}/{slug} DB"
             )
+        if not force and finding.current_state != "verified":
+            raise ValueError(
+                f"finding {finding_hash!r} is in state "
+                f"{finding.current_state!r}, not 'verified'. "
+                f"Pass --force to draft anyway."
+            )
     finally:
         conn.close()
 
-    body = render(template_path.read_text(encoding="utf-8"), finding)
-    draft_path.write_text(body, encoding="utf-8")
+    body = substitute_template(template_path.read_text(encoding="utf-8"), finding)
+    try:
+        with draft_path.open("x", encoding="utf-8") as fh:
+            fh.write(body)
+    except FileExistsError as exc:
+        raise DraftAlreadyExists(str(draft_path)) from exc
     return draft_path
 
 
@@ -95,6 +112,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--program", required=True)
     parser.add_argument("--hash", required=True, dest="finding_hash")
     parser.add_argument("--root", default=Path.cwd(), type=Path)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Draft even if finding is not yet in 'verified' state.",
+    )
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
@@ -104,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             platform=args.platform,
             slug=args.program,
             finding_hash=args.finding_hash,
+            force=args.force,
         )
     except (TemplateNotFound, DraftAlreadyExists, ValueError) as e:
         print(f"draft: {type(e).__name__}: {e}", file=sys.stderr)
