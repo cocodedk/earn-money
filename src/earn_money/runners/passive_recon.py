@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import dns.resolver
+import tldextract  # bundled suffix list; no network fetch needed at import time
 
 from earn_money import config, db, flags, policy, scope
 from earn_money.recon import assets, chaos, resolver, subfinder
@@ -25,18 +26,22 @@ class PassiveReconResult:
 
 
 def _apexes_from_in_scope(in_scope: list[str]) -> set[str]:
-    """Return the set of apex domains to feed subfinder/chaos."""
+    """Return the set of apex domains (registrable domain + TLD) to feed
+    subfinder/chaos. Uses tldextract to handle multi-label TLDs like ``.co.uk``
+    correctly: ``api.staging.example.co.uk`` -> ``example.co.uk``.
+    """
     apexes: set[str] = set()
+    # suffix_list_urls=() forces offline mode — uses only the bundled suffix list,
+    # no network fetches during tests or cron runs.
+    extract = tldextract.TLDExtract(suffix_list_urls=())
     for entry in in_scope:
         bare = entry.removeprefix("*.").lower()
-        if entry.startswith("*."):
-            apexes.add(bare)
+        parts = extract(bare)
+        if parts.domain and parts.suffix:
+            apexes.add(f"{parts.domain}.{parts.suffix}")
         else:
-            parts = bare.split(".")
-            if len(parts) >= 2:
-                apexes.add(".".join(parts[-2:]))
-            else:
-                apexes.add(bare)
+            # Fallback: tldextract couldn't parse it (e.g., bare hostname).
+            apexes.add(bare)
     return apexes
 
 

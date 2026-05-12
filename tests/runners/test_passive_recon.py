@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -89,7 +90,6 @@ def test_discovers_and_resolves_and_writes(tmp_repo: Path) -> None:
 
     assert result.subdomains_discovered == 3  # api, www, mail (api deduped)
     assert result.assets_upserted >= 3
-    import sqlite3
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT subdomain, ip FROM assets ORDER BY subdomain").fetchall()
     conn.close()
@@ -118,7 +118,6 @@ def test_drops_out_of_scope_subdomains(tmp_repo: Path) -> None:
     )
 
     assert result.subdomains_discovered == 1
-    import sqlite3
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT subdomain FROM assets").fetchall()
     conn.close()
@@ -145,3 +144,32 @@ def test_wildcard_match_includes_descendants(tmp_repo: Path) -> None:
 
     # evil.com is out of scope.
     assert result.subdomains_discovered == 2
+
+
+def test_rejects_non_hackerone_platform(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    # The platform check fires before scope.read_scope, so no scope file is needed.
+    with pytest.raises(ValueError, match="not supported"):
+        passive_recon.run_program(
+            paths, "intigriti", "example",
+            chaos_client=_chaos_client({"domain": "example.com", "subdomains": []}),
+            dns_resolver=MagicMock(),
+            subfinder_run=lambda d: [],
+        )
+
+
+def test_empty_in_scope_does_nothing(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, policy_value="rate-limited-OK", in_scope=[])
+
+    result = passive_recon.run_program(
+        paths, "hackerone", "example",
+        chaos_client=_chaos_client({"domain": "example.com", "subdomains": []}),
+        dns_resolver=MagicMock(),
+        subfinder_run=lambda d: ["api.example.com"],  # discovered but in_scope is empty
+    )
+
+    assert result.subdomains_discovered == 0
+    assert result.assets_upserted == 0
