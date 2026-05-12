@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -16,7 +15,6 @@ import pytest
 from earn_money import config, db, scope
 from earn_money.recon import assets, services
 from earn_money.runners import httpx_probe
-from tests.fixtures.mock_target.server import start_mock_target, stop_mock_target
 
 _PD_HTTPX = Path.home() / "go" / "bin" / "httpx"
 
@@ -24,15 +22,6 @@ pytestmark = pytest.mark.skipif(
     not _PD_HTTPX.exists(),
     reason="ProjectDiscovery httpx binary not found at ~/go/bin/httpx",
 )
-
-
-@pytest.fixture
-def mock_target() -> Iterator[None]:
-    servers = start_mock_target()
-    try:
-        yield
-    finally:
-        stop_mock_target(servers)
 
 
 def _seed(tmp_repo: Path) -> config.Paths:

@@ -85,7 +85,7 @@ The shared result shape includes `run_id`, `targets_considered`, `targets_scanne
 
 A pre-flight in-scope filter on the *initial* target list is not sufficient. Active tools follow redirects, crawl links, and discover paths during a run. Every runner must also enforce scope on every URL or host it touches after startup:
 
-- **httpx**: invoke with `-no-follow-redirects`. If a target returns 3xx, record the redirect target and decide downstream whether to add it as a new candidate; never let the tool follow it automatically.
+- **httpx**: ProjectDiscovery httpx does not follow redirects by default; the opt-in `-fr` / `-follow-redirects` / `-follow-host-redirects` flags must never appear in the runner's argv. If a target returns 3xx, the parser records the redirect target in `redirect_to` and the triage engine decides downstream whether to add it as a new candidate. The e2e test in Task 12 empirically proves the no-follow guarantee.
 - **nuclei**: pass `-disable-redirects`. Templates that require redirect-following are explicitly disallowed in the approved profile.
 - **katana**: invoke with `-scope-all-hosts=false` plus an explicit `-fs` (field scope) and `-cs` (crawl scope) regex derived from `s.in_scope` and `s.out_of_scope` at run start. After katana exits, the wrapper filters every emitted URL through `scope.is_in_scope` again before any signal is written; OOS URLs are silently dropped and counted in `oos_drops`.
 - **ffuf**: invoke with `-fr` (filter regex) and `-fc` (filter codes) plus a `-r` (follow-redirects) flag set to **false**. Every match the wrapper consumes is re-checked against `scope.is_in_scope`. Wordlists must not contain absolute URLs.
