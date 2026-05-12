@@ -46,3 +46,9 @@ node_modules/
 # Local scratch
 scratch/
 tmp/
+
+# Build artefacts
+build/
+dist/
+*.egg-info/
+.venv/

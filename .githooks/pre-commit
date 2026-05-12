@@ -1,11 +1,6 @@
 #!/bin/sh
 set -eu
 
-# Stub. Will be wired to `make smoke` (lint + tests) when the first runner lands.
-# Until then, this hook only blocks commits that would leak sensitive paths.
-
-# Refuse to commit anything matching gitignored sensitive patterns,
-# even if someone has force-added it.
 LEAK_PATTERNS='^(identity/platforms\.md|RECON_ENABLED|.*\.sqlite|.*\.db|recon/outputs/|\.env)$'
 
 if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; then
@@ -17,4 +12,5 @@ if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; the
   exit 1
 fi
 
-exit 0
+# Run the smoke check.
+make smoke
