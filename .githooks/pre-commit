@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+# Stub. Will be wired to `make smoke` (lint + tests) when the first runner lands.
+# Until then, this hook only blocks commits that would leak sensitive paths.
+
+# Refuse to commit anything matching gitignored sensitive patterns,
+# even if someone has force-added it.
+LEAK_PATTERNS='^(identity/platforms\.md|RECON_ENABLED|.*\.sqlite|.*\.db|recon/outputs/|\.env)$'
+
+if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; then
+  echo "pre-commit: refusing — staged files include sensitive operational paths." >&2
+  git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >&2
+  echo "" >&2
+  echo "These paths are gitignored for a reason. If you really need to commit one," >&2
+  echo "you must change .gitignore first and justify it in the commit message." >&2
+  exit 1
+fi
+
+exit 0

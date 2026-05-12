@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+# Owner-locked pre-push hook.
+# git invokes pre-push as: pre-push <remote-name> <remote-url>
+# This repo must only ever be pushed to github.com/cocodedk/*.
+
+remote_url="${2:-}"
+
+case "$remote_url" in
+  https://github.com/cocodedk/*|git@github.com:cocodedk/*|ssh://git@github.com/cocodedk/*) ;;
+  *)
+    echo "pre-push: refusing — push URL is not under github.com/cocodedk" >&2
+    echo "  remote: ${1:-?}" >&2
+    echo "  url:    $remote_url" >&2
+    exit 1
+    ;;
+esac

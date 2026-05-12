@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+MSG=$(cat "$1")
+
+# Conventional Commits: <type>(<optional scope>): <description>
+PATTERN='^(feat|fix|chore|docs|style|refactor|test|ci|build|perf|revert)(\(.+\))?: .+'
+
+if ! printf '%s' "$MSG" | head -1 | grep -qE "$PATTERN"; then
+  echo "commit-msg: ERROR — commit message must follow Conventional Commits." >&2
+  echo "  Example: feat: add scope-sync runner" >&2
+  echo "  Types:   feat|fix|chore|docs|style|refactor|test|ci|build|perf|revert" >&2
+  exit 1
+fi

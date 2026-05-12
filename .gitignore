@@ -1,0 +1,48 @@
+# --- Operational secrets and state — NEVER commit ---
+# Identity, payouts, KYC, VPS details
+identity/platforms.md
+
+# Local kill-switch — must be set per-clone, never tracked
+RECON_ENABLED
+
+# Per-program state databases
+programs/**/db.sqlite
+programs/**/db.sqlite-*
+*.sqlite
+*.db
+
+# Raw recon artifacts — may contain target PII, tokens, response bodies
+recon/outputs/
+
+# Local environment overrides
+.env
+.env.*
+.envrc
+
+# --- OS, editor, language artifacts ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node (in case we add tooling later)
+node_modules/
+
+# Logs
+*.log
+
+# Local scratch
+scratch/
+tmp/
