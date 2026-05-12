@@ -16,7 +16,7 @@ A five-step-algorithm pass on 2026-05-12 (both reviewers agreed 100%) cut a lot 
 | Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | ✅ Shipped |
 | Phase 3c | `katana` crawler + `ffuf` content fuzzer | 🅿️ Parked — only unpark on specific signals (see decision record) |
 | Phase 3d | 08:00 daily digest + phone ping + `bin/ack-freeze` | 🅿️ Mostly parked; **only** `bin/ack-freeze` shell helper kept |
-| Phase 4 | First submission loop — `bin/draft` + `bin/submit` + `bin/ack-freeze` + report template | ✅ Shipped (226 tests; live-verified on VPS against `hackerone/security`) |
+| Phase 4 | First submission loop — `bin/draft` + `bin/submit` + `bin/ack-freeze` + report template | ✅ Shipped — full state-machine proof: [`docs/proofs/phase-4-state-machine.md`](docs/proofs/phase-4-state-machine.md) |
 | Phase 5 | Operate one program, measure earnings, month-3 kill/pivot gate | 🟡 Measure-not-build |
 | Phase 6 | FITS Express mini-audit product | ❌ Dropped from active roadmap |
 
