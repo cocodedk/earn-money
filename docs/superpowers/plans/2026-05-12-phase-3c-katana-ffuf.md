@@ -1317,7 +1317,8 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
         paths, "hackerone", "example",
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
-    assert result.outputs_recorded == 1  # the prereq_missing signal
+    assert result.outputs_recorded == 0  # tool produced no outputs
+    assert result.prereq_skipped is True  # audit signal lives in DB, not in this count
 
     katana_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "katana"
     for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
@@ -1994,7 +1995,8 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.targets_scanned == 0
-    assert result.outputs_recorded == 1
+    assert result.outputs_recorded == 0  # tool produced no outputs
+    assert result.prereq_skipped is True  # audit signal lives in DB, not in this count
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute(
@@ -2608,7 +2610,8 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
         paths, "hackerone", "example",
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
-    assert result.outputs_recorded == 1
+    assert result.outputs_recorded == 0  # tool produced no outputs
+    assert result.prereq_skipped is True  # audit signal lives in DB, not in this count
 
     ffuf_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "ffuf"
     for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
