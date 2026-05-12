@@ -1832,16 +1832,32 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = config.Paths.from_root(args.root)
 
-    # Wire the real tool wrapper as a default tool_run.
+    # Wire the real tool wrapper as a default tool_run. The kill-switch
+    # watchdog runs alongside the subprocess and sets the abort event
+    # immediately if RECON_ENABLED is removed or FROZEN appears — so
+    # active traffic stops within ~10s of operator intervention, not at
+    # the next batch boundary.
+    import threading
     from earn_money.recon import httpx_tool
-    from earn_money.runners import batch
+    from earn_money.runners import batch, watchdog
 
     def real_tool(targets: list[str]) -> list[HttpService]:
-        result = batch.run_batches(
-            targets,
-            command_factory=lambda chunk: httpx_tool.build_command(chunk),
-            max_batch_size=50, max_batch_duration_s=300.0,
+        abort = threading.Event()
+        wd = watchdog.KillSwitchWatchdog(
+            paths, platform=args.platform, slug=args.program,
+            on_state_change=lambda _reason: abort.set(),
+            poll_interval_s=5.0,
         )
+        wd.start()
+        try:
+            result = batch.run_batches(
+                targets,
+                command_factory=lambda chunk: httpx_tool.build_command(chunk),
+                max_batch_size=50, max_batch_duration_s=300.0,
+                abort=abort,
+            )
+        finally:
+            wd.stop()
         raw = "\n".join(line for b in result.batches for line in b.lines)
         now = datetime.now(UTC).isoformat(timespec="seconds")
         return httpx_tool.parse_jsonl(raw, run_id="pending", observed_at=now)
@@ -2171,50 +2187,54 @@ def test_e2e_probes_in_scope_target(tmp_repo: Path, mock_target: None) -> None:
     assert runs_rows == [("success",)]
 ```
 
-- [ ] **Step 3: Write the OOS-drop test**
+- [ ] **Step 3: Write the redirect-without-following test**
+
+The OOS-drop behaviour is already proven in Task 9's `test_drops_out_of_scope_targets_from_tool_output` (synthetic `tool_run` returning a real OOS observation, verifying the wrapper filters it). Trying to re-prove it end-to-end against the real httpx binary requires injecting an OOS-named observation post-parse, which produces a false-positive test that passes whether the wrapper filters or not.
+
+The e2e test should instead cover what only an end-to-end run can prove: the **real httpx subprocess does not follow redirects** (because the wrapper passes `-no-follow-redirects`), and the redirect target is captured in `redirect_to` without any traffic to the OOS host.
 
 ```python
 # tests/runners/test_httpx_probe_e2e.py — append
 
-def test_e2e_drops_oos_host_from_tool_output(
+def test_e2e_captures_redirect_without_following(
     tmp_repo: Path, mock_target: None
 ) -> None:
-    """Even though the OOS host (port 18083) is reachable, the wrapper
-    drops it via post-tool scope re-check. We assert no DB row mentions it."""
+    """Port 18082 serves a 301 to port 18083 (the OOS host). The real
+    httpx must record the 301 + redirect_to without following — proving
+    the -no-follow-redirects flag is wired correctly. We then assert
+    that no row exists for the OOS host (no traffic was sent to it)."""
     paths = _seed(tmp_repo)
     from earn_money.recon import httpx_tool
 
     def tool_run(_targets: list[str]) -> list[services.HttpService]:
         from earn_money.runners import batch
-        # Feed BOTH ports to httpx — the in-scope one stays, the OOS one
-        # is what we expect the wrapper to drop. The scope file lists
-        # only 127.0.0.1 as a hostname; we simulate the OOS condition by
-        # giving the synthetic service a fake hostname.
         result = batch.run_batches(
-            ["http://127.0.0.1:18081/", "http://127.0.0.1:18083/"],
+            ["http://127.0.0.1:18082/"],
             command_factory=lambda chunk: httpx_tool.build_command(chunk),
-            max_batch_size=2, max_batch_duration_s=10.0,
+            max_batch_size=1, max_batch_duration_s=10.0,
         )
         raw = "\n".join(line for b in result.batches for line in b.lines)
-        parsed = httpx_tool.parse_jsonl(raw, run_id="e2e", observed_at="t")
-        # Re-label one observation as OOS to force the wrapper's drop path.
-        if parsed:
-            parsed[-1] = services.HttpService(
-                **{**parsed[-1].__dict__, "subdomain": "oos.example.com"},
-            )
-        return parsed
+        return httpx_tool.parse_jsonl(raw, run_id="e2e-redirect", observed_at="t")
 
-    result = httpx_probe.run_program(
+    httpx_probe.run_program(
         paths, "hackerone", "example", tool_run=tool_run,
     )
-    assert result.oos_drops >= 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    oos_rows = conn.execute(
-        "SELECT subdomain FROM http_services WHERE subdomain = 'oos.example.com'"
+    redirect_rows = conn.execute(
+        "SELECT status_code, redirect_to FROM http_services "
+        "WHERE port = 18082"
+    ).fetchall()
+    oos_port_rows = conn.execute(
+        "SELECT port FROM http_services WHERE port = 18083"
     ).fetchall()
     conn.close()
-    assert oos_rows == []
+
+    assert redirect_rows == [(301, "http://127.0.0.1:18083/")]
+    # If httpx had followed the redirect, port 18083 would also have a row.
+    # The mock target's port-18083 handler returns 200, so any row there
+    # proves the wrapper failed to disable redirect-following.
+    assert oos_port_rows == []
 ```
 
 - [ ] **Step 4: Verify GREEN + lint**
