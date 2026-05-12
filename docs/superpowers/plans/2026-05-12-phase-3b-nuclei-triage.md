@@ -288,6 +288,8 @@ The spec calls for `idna.encode(..., uts46=True)`. The stdlib's `encodings.idna`
 
 Document the decision at the top of `hashing.py` so the trade-off is visible. The unit tests therefore pass on stdlib idna; if a future commit adopts PyPI idna, the tests must be re-verified.
 
+**Risk note (Decision 4):** If a program ever adds an IDN scope (e.g. `xn--e1afmapc.xn--p1ai`), stdlib IDNA 2003 and PyPI `idna` (UTS-46) may produce different normalizations for edge-case codepoints. That would cause hash churn — existing findings would collide under a new hash — requiring a one-time migration. Track this in the 3c plan if any IDN program is onboarded.
+
 - [ ] **Step 2: Write the failing test for `normalize_target`**
 
 ```python
@@ -539,24 +541,59 @@ def test_compute_hash_differs_when_signature_differs() -> None:
 
 Run + verify GREEN.
 
-- [ ] **Step 7: Add a small collision-resistance property test**
+- [ ] **Step 7: Add strengthened collision-resistance tests**
 
-The spec calls for property-based tests. We use parameterized inputs instead of pulling in hypothesis (no new dep) — 1k distinct synthetic findings is sufficient to surface a normalization bug.
+Two tests replace the self-fulfilling 1k loop: one proves each field independently contributes to the hash, and one proves normalization-equivalent inputs produce the *same* hash.
 
 ```python
 # tests/triage/test_hashing.py — append
-def test_compute_hash_no_collisions_across_1k_distinct_inputs() -> None:
-    hashes: set[str] = set()
-    for i in range(1000):
-        h = hashing.compute_hash(
-            platform="hackerone", slug="example",
-            vuln_class=f"cve-{i:04d}",
-            asset=f"host{i}.example.com",
-            target=f"https://host{i}.example.com/path-{i}",
-            signature=f"sig-{i}",
+def test_compute_hash_changes_on_each_field_independently() -> None:
+    """Changing exactly one field must change the hash."""
+    base = dict(
+        platform="hackerone", slug="example", vuln_class="cve-2023-1234",
+        asset="api.example.com", target="https://api.example.com/",
+        signature="cve-2023-1234|primary|",
+    )
+    base_hash = hashing.compute_hash(**base)  # type: ignore[arg-type]
+    for field in ["platform", "slug", "vuln_class", "asset", "target", "signature"]:
+        variant = {**base, field: base[field] + "_x"}  # type: ignore[operator]
+        assert hashing.compute_hash(**variant) != base_hash, (  # type: ignore[arg-type]
+            f"hash did not change when {field!r} was mutated"
         )
-        hashes.add(h)
-    assert len(hashes) == 1000
+
+
+def test_compute_hash_stable_across_normalization_variants() -> None:
+    """Inputs that are semantically equivalent must hash to the same value."""
+    canonical = hashing.compute_hash(
+        platform="hackerone", slug="example", vuln_class="cve-x",
+        asset="api.example.com", target="https://api.example.com/",
+        signature="sig",
+    )
+    # Host case normalization.
+    assert hashing.compute_hash(
+        platform="hackerone", slug="example", vuln_class="cve-x",
+        asset="API.Example.COM", target="https://API.Example.com:443/",
+        signature="sig",
+    ) == canonical
+    # Default port stripping + trailing-slash semantics.
+    assert hashing.compute_hash(
+        platform="hackerone", slug="example", vuln_class="cve-x",
+        asset="api.example.com", target="https://api.example.com:443/",
+        signature="sig",
+    ) == canonical
+    # Query param sort order.
+    h_sorted = hashing.compute_hash(
+        platform="hackerone", slug="example", vuln_class="cve-x",
+        asset="api.example.com",
+        target="https://api.example.com/?a=1&b=2",
+        signature="sig",
+    )
+    assert hashing.compute_hash(
+        platform="hackerone", slug="example", vuln_class="cve-x",
+        asset="api.example.com",
+        target="https://api.example.com/?b=2&a=1",
+        signature="sig",
+    ) == h_sorted
 ```
 
 Run + verify GREEN.
@@ -787,11 +824,31 @@ _SELECT_COLUMNS = (
 def upsert_finding(conn: sqlite3.Connection, f: Finding) -> None:
     """Insert a new finding, or refresh `last_seen`, increment
     `occurrence_count`, and update evidence/title/severity_hint/confidence
-    on an existing non-terminal row. Never mutates `current_state`."""
+    on an existing non-terminal row. Never mutates `current_state`.
+
+    Runtime guards (enforcing the human gate in code, not just convention):
+    - New rows may only be created with `current_state='queued'`.
+    - Existing rows refuse a state change — use `transition_state()` instead.
+    """
     existing = find_by_hash(conn, f.finding_hash)
     if existing is None:
+        # New row — triage may only create `queued` rows.
+        if f.current_state != "queued":
+            raise ValueError(
+                f"upsert_finding refuses to create finding "
+                f"{f.finding_hash!r} with state={f.current_state!r}; "
+                f"only 'queued' is allowed for new rows."
+            )
         _insert(conn, f)
         return
+    # Existing row — must not silently change current_state.
+    if f.current_state != existing.current_state:
+        raise ValueError(
+            f"upsert_finding refuses to change current_state on "
+            f"existing finding {f.finding_hash!r}: "
+            f"{existing.current_state!r} -> {f.current_state!r}. "
+            f"Use transition_state() to advance state."
+        )
     if existing.current_state in _TERMINAL_STATES:
         # Terminal findings are immutable from triage's perspective.
         return
@@ -914,6 +971,29 @@ def test_findings_in_state_filters_by_program_and_state(tmp_path: Path) -> None:
         conn, platform="hackerone", slug="example", state="queued"
     )
     assert [f.finding_hash for f in queued] == ["h1"]
+```
+
+Run + verify GREEN.
+
+- [ ] **Step 6b: Add the B4 state-guard tests**
+
+```python
+# tests/triage/test_findings.py — append
+def test_upsert_refuses_new_finding_with_non_queued_state(tmp_path: Path) -> None:
+    conn = _conn(tmp_path)
+    import pytest
+    with pytest.raises(ValueError, match="only 'queued' is allowed for new rows"):
+        findings.upsert_finding(conn, _seed_finding(current_state="verified"))
+
+
+def test_upsert_refuses_state_change_on_existing_finding(tmp_path: Path) -> None:
+    conn = _conn(tmp_path)
+    # Insert in queued state.
+    findings.upsert_finding(conn, _seed_finding(current_state="queued"))
+    # Re-upsert with a different state — must raise.
+    import pytest
+    with pytest.raises(ValueError, match="Use transition_state()"):
+        findings.upsert_finding(conn, _seed_finding(current_state="verified"))
 ```
 
 Run + verify GREEN.
@@ -1225,19 +1305,21 @@ Thin subprocess wrapper around the `nuclei` CLI. Two surfaces:
 Approved template directories (per CLAUDE.md hard rule: "CVE + standard misconfiguration only"):
 
 - `cves/` — CVE proof checks
-- `vulnerabilities/` — general vulnerability templates (curated subset)
-- `exposures/` — exposed config / secret patterns
 - `misconfiguration/` — server misconfiguration checks
-- `default-logins/` — default-credential probes (read-only check; no exploitation)
-- `technologies/` — technology fingerprinting (informational)
 
-Explicitly **not** approved:
+All other directories are explicitly **not** approved for Phase 3b. Rationale:
 
+- `default-logins/` — auth probing risk on programs that haven't authorised brute-force
+- `technologies/` — fingerprinting noise that doesn't carry vuln signal
+- `vulnerabilities/` — catch-all dir mixes vetted with experimental templates
+- `exposures/` — data-leak templates include some that fetch and exfiltrate content
 - `dast/` — would actively fuzz; out of scope for Phase 3b
 - `fuzzing/` — same
 - `dos/` — never
 - `cnvd/` — Chinese vuln DB; rarely curated, occasionally noisy
 - Custom paid templates (nuclei-templates-pro and similar)
+
+If a future operator wants more directories, they must explicitly extend `APPROVED_TEMPLATE_DIRS` in `nuclei_tool.py` after a manual policy review; that edit then becomes a code-review event.
 
 The runner passes each approved dir via `-t <dir>` rather than `-tags` because tag filtering is opaque and depends on template metadata; directory inclusion is a hard, auditable bound.
 
@@ -1283,10 +1365,14 @@ from earn_money.recon import nuclei_tool
 def test_approved_template_dirs_constant_locked() -> None:
     """The approved set is the safety boundary — any change must be a
     conscious code-review event, not an accidental one. We freeze it
-    here so a stray edit breaks the test."""
+    here so a stray edit breaks the test.
+
+    Only CVE and misconfiguration directories are approved for Phase 3b.
+    See nuclei_tool.py for the full rationale on why other dirs are excluded.
+    """
     assert nuclei_tool.APPROVED_TEMPLATE_DIRS == frozenset({
-        "cves", "vulnerabilities", "exposures",
-        "misconfiguration", "default-logins", "technologies",
+        "cves",
+        "misconfiguration",
     })
 
 
@@ -1305,6 +1391,22 @@ def test_build_command_includes_safety_flags() -> None:
     t_indices = [i for i, a in enumerate(cmd) if a == "-t"]
     t_values = [cmd[i + 1] for i in t_indices]
     assert set(t_values) == {"cves", "misconfiguration"}
+
+
+def test_build_command_includes_rate_and_concurrency_caps() -> None:
+    """B3: nuclei must never run without per-request rate and concurrency limits."""
+    cmd = nuclei_tool.build_command(
+        ["https://api.example.com/"],
+        template_dirs=("cves",),
+    )
+    assert "-rl" in cmd
+    assert cmd[cmd.index("-rl") + 1] == "10"
+    assert "-c" in cmd
+    assert cmd[cmd.index("-c") + 1] == "10"
+    assert "-bs" in cmd
+    assert cmd[cmd.index("-bs") + 1] == "10"
+    assert "-stats-interval" in cmd
+    assert cmd[cmd.index("-stats-interval") + 1] == "60"
 
 
 def test_build_command_passes_targets_via_u() -> None:
@@ -1395,11 +1497,7 @@ from earn_money.triage import hashing
 
 APPROVED_TEMPLATE_DIRS: frozenset[str] = frozenset({
     "cves",
-    "vulnerabilities",
-    "exposures",
     "misconfiguration",
-    "default-logins",
-    "technologies",
 })
 
 
@@ -1428,6 +1526,11 @@ def build_command(
         "-disable-redirects",
         "-no-interactsh",
         "-disable-update-check",
+        # Rate / concurrency caps (B3 — prevent nuclei from saturating the target).
+        "-rl", "10",           # max requests per second
+        "-c", "10",            # max concurrent templates
+        "-bs", "10",           # max concurrent hosts per template run
+        "-stats-interval", "60",  # log progress at 60-second intervals
     ]
     for d in template_dirs:
         argv.extend(["-t", d])
@@ -1649,6 +1752,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from urllib.parse import urlparse
+
 from earn_money import config, db, flags, policy, scope
 from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
@@ -1658,9 +1763,20 @@ ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 _PREREQ_FRESHNESS_HOURS = 24
 _APPROVED_TEMPLATE_DIRS: tuple[str, ...] = (
-    "cves", "vulnerabilities", "exposures",
-    "misconfiguration", "default-logins", "technologies",
+    "cves",
+    "misconfiguration",
 )
+
+
+def _target_host(target: str, fallback: str) -> str:
+    """Extract the hostname from a URL for OOS checking (B1).
+
+    If `target` has no scheme or cannot be parsed, fall back to `fallback`
+    (typically `sig.asset`) so callers get a consistent non-empty string.
+    """
+    if "://" in target:
+        return urlparse(target).hostname or fallback
+    return fallback
 
 
 def _load_in_scope_service_urls(
@@ -1708,6 +1824,28 @@ def _write_signals_jsonl(artifact_dir: Path, sigs: list[Signal]) -> None:
             }) + "\n")
 
 
+def _write_required_artifacts(
+    artifact_dir: Path,
+    *,
+    targets: list[str],
+    raw_stdout: str,
+    raw_stderr: str,
+) -> None:
+    """P1.2: write the three required Shared Artifact Contract files.
+
+    Every nuclei run dir must contain:
+    - input.txt  — newline-separated target URLs fed to nuclei
+    - raw.jsonl  — captured stdout (nuclei JSONL output before parsing)
+    - stderr.txt — captured stderr
+    """
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    (artifact_dir / "input.txt").write_text(
+        "\n".join(targets) + ("\n" if targets else ""), encoding="utf-8"
+    )
+    (artifact_dir / "raw.jsonl").write_text(raw_stdout, encoding="utf-8")
+    (artifact_dir / "stderr.txt").write_text(raw_stderr, encoding="utf-8")
+
+
 def run_program(
     paths: config.Paths,
     platform: str,
@@ -1753,15 +1891,29 @@ def run_program(
             raise
 
         raw_signals: list[Signal] = tool_result.services
+        # B1: check BOTH sig.asset (the host nuclei probed) AND sig.target
+        # (the actual matched URL, which may redirect to an OOS host).
         in_scope_signals = [
             sig for sig in raw_signals
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
+            and scope.is_in_scope(
+                _target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope
+            )
         ]
         oos_drops = len(raw_signals) - len(in_scope_signals)
 
         if in_scope_signals:
             signals.insert_signals(conn, in_scope_signals)
         _write_signals_jsonl(artifact_dir, in_scope_signals)
+        # P1.2: write the three required Shared Artifact Contract files.
+        # raw_stdout / raw_stderr are threaded from the tool_run result;
+        # ToolRunResult carries them as optional str fields (default "").
+        _write_required_artifacts(
+            artifact_dir,
+            targets=targets,
+            raw_stdout=getattr(tool_result, "raw_stdout", ""),
+            raw_stderr=getattr(tool_result, "raw_stderr", ""),
+        )
         _write_manifest(artifact_dir, {
             "run_id": run_id, "tool": "nuclei",
             "platform": platform, "slug": slug,
@@ -1841,6 +1993,8 @@ def _record_prereq_missing(
 
 This file is approaching the 200-line cap. The `main()` + tool-wiring helpers go into a sibling module `runners/nuclei_scan_cli.py` to keep both files under cap.
 
+**P1.1 note:** `httpx_probe._build_real_tool` has the same watchdog-reason bug (passes `lambda _r: abort.set()` and loses the reason string). Apply the identical `abort_reason: list[str | None]` + `on_state_change` pattern to `httpx_probe._build_real_tool` in the same commit that ships the nuclei CLI module — so both runners record the correct `terminated_reason` ("kill_switch" vs "freeze").
+
 ```python
 # src/earn_money/runners/nuclei_scan_cli.py
 """CLI entry + real-tool wiring for nuclei-scan. Kept in a sibling
@@ -1867,9 +2021,19 @@ def _build_real_tool(
 ) -> Callable[[list[str]], active.ToolRunResult]:
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         abort = threading.Event()
+        # P1.1: capture the watchdog reason so the runner can record
+        # "kill_switch" vs "freeze" in terminated_reason instead of a
+        # generic sentinel. Using a one-element list because nonlocal
+        # assignment inside a nested def requires Python 3.x cell binding.
+        abort_reason: list[str | None] = [None]
+
+        def on_state_change(reason: str) -> None:
+            abort_reason[0] = reason
+            abort.set()
+
         wd = watchdog.KillSwitchWatchdog(
             paths, platform=platform, slug=slug,
-            on_state_change=lambda _r: abort.set(),
+            on_state_change=on_state_change,
             poll_interval_s=5.0,
         )
         wd.start()
@@ -1877,16 +2041,17 @@ def _build_real_tool(
             batches_result = batch.run_batches(
                 targets,
                 command_factory=lambda chunk: nuclei_tool.build_command(
-                    chunk, template_dirs=("cves", "vulnerabilities",
-                                          "exposures", "misconfiguration",
-                                          "default-logins", "technologies"),
+                    chunk, template_dirs=("cves", "misconfiguration"),
                 ),
                 max_batch_size=50, max_batch_duration_s=300.0,
                 abort=abort,
             )
         finally:
             wd.stop()
-        raw = "\n".join(line for b in batches_result.batches for line in b.lines)
+        raw_stdout = "\n".join(line for b in batches_result.batches for line in b.lines)
+        raw_stderr = "\n".join(
+            line for b in batches_result.batches for line in getattr(b, "stderr_lines", [])
+        )
         now = datetime.now(UTC).isoformat(timespec="seconds")
         source_failures = sum(
             1 for b in batches_result.batches
@@ -1894,8 +2059,11 @@ def _build_real_tool(
         )
         timed_out = any(b.timed_out for b in batches_result.batches)
         return active.ToolRunResult(
-            services=nuclei_tool.parse_jsonl(raw, run_id=run_id, observed_at=now),
+            services=nuclei_tool.parse_jsonl(raw_stdout, run_id=run_id, observed_at=now),
             aborted=batches_result.aborted,
+            terminated_reason=abort_reason[0],
+            raw_stdout=raw_stdout,
+            raw_stderr=raw_stderr,
             source_failures=source_failures,
             timed_out=timed_out,
         )
@@ -2042,15 +2210,19 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
     assert sigs == [("template_match", "api.example.com", "CVE-2023-1234|primary|")]
     assert runs_rows == [("success",)]
 
-    # Artifact files exist.
-    manifest_files = list(
-        (paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei").rglob("manifest.json")
-    )
+    # Artifact files exist — all four required by the Shared Artifact Contract.
+    nuclei_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei"
+    manifest_files = list(nuclei_out.rglob("manifest.json"))
     assert len(manifest_files) == 1
-    signals_files = list(
-        (paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei").rglob("signals.jsonl")
-    )
+    signals_files = list(nuclei_out.rglob("signals.jsonl"))
     assert len(signals_files) == 1
+    # P1.2: required artifact files
+    input_files = list(nuclei_out.rglob("input.txt"))
+    assert len(input_files) == 1
+    raw_files = list(nuclei_out.rglob("raw.jsonl"))
+    assert len(raw_files) == 1
+    stderr_files = list(nuclei_out.rglob("stderr.txt"))
+    assert len(stderr_files) == 1
 ```
 
 Run + verify GREEN.
@@ -2098,6 +2270,50 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     ).fetchall()
     conn.close()
     assert rows == [("api.example.com",)]
+```
+
+Run + verify GREEN.
+
+- [ ] **Step 7b: Write the B5 OOS-target test (in-scope asset, OOS target URL)**
+
+```python
+# tests/runners/test_nuclei_scan.py — append
+def test_drops_signals_with_oos_target_even_if_asset_in_scope(tmp_repo: Path) -> None:
+    """B1/B5: a signal whose sig.asset is in-scope but sig.target resolves
+    to an OOS hostname must be dropped and counted as oos_drops."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_httpx_run_and_services(paths, services_to_insert=[
+        services.HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200, title=None,
+            server=None, technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="t", last_run_id="httpx-r1", in_scope_at_observation=True,
+        ),
+    ])
+
+    def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(services=[
+            signals.Signal(
+                run_id="r", tool="nuclei", signal_type="template_match",
+                asset="api.example.com",        # in-scope asset
+                target="https://evil.example.com/leaked",  # OOS target URL!
+                signature="cve-2020-1234|matcher|",
+                payload="{}", observed_at="t",
+            ),
+        ])
+
+    result = nuclei_scan.run_program(
+        paths, "hackerone", "example", tool_run=leaky_tool,
+    )
+    assert result.oos_drops == 1
+    assert result.signals_emitted == 0
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute("SELECT COUNT(*) FROM signals").fetchone()
+    conn.close()
+    assert rows == (0,)
 ```
 
 Run + verify GREEN.
@@ -3345,6 +3561,62 @@ def test_triage_e2e_creates_finding_and_queue_markdown(tmp_repo: Path) -> None:
     assert "Acme SQLi" in body
     assert "## What we need to confirm before this is a finding" in body
     assert "Latest observation: 2026-05-12T01:05:00Z" in body
+
+
+def test_triage_correlates_signals_across_runs(tmp_repo: Path) -> None:
+    """P1.4: Two recon_runs with the same signature+asset must produce one
+    finding with occurrence_count=2, not two separate finding rows."""
+    paths = _seed_repo(tmp_repo)
+
+    # Second nuclei run — same signature, same asset.
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        runs.start_run(
+            conn, run_id="nuclei-r2", platform="hackerone", slug="example",
+            tool="nuclei", started_at="2026-05-13T02:15:00Z",
+            artifact_dir="recon/outputs/hackerone/example/nuclei/2026-05-13/nuclei-r2",
+            input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="nuclei-r2", finished_at="2026-05-13T02:20:00Z",
+            status="success", output_count=1, signal_count=1,
+            source_failures=0, oos_drops=0,
+        )
+        signals.insert_signals(conn, [Signal(
+            run_id="nuclei-r2", tool="nuclei", signal_type="template_match",
+            asset="api.example.com",
+            target="https://api.example.com/search?q=foo",
+            signature="CVE-2023-1234|primary|",  # identical to nuclei-r1
+            payload=(
+                '{"template_id":"CVE-2023-1234","matcher_name":"primary",'
+                '"matched_at":"https://api.example.com/search?q=foo",'
+                '"severity":"high","name":"Acme SQLi"}'
+            ),
+            observed_at="2026-05-13T02:16:00Z",
+        )])
+    finally:
+        conn.close()
+
+    # Triage both runs in sequence.
+    rc1 = triage.main([
+        "--platform", "hackerone", "--program", "example",
+        "--root", str(tmp_repo),
+    ])
+    assert rc1 == 0
+    rc2 = triage.main([
+        "--platform", "hackerone", "--program", "example",
+        "--root", str(tmp_repo),
+    ])
+    assert rc2 == 0
+
+    # Exactly one finding row — second run refreshed it rather than creating a new one.
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT finding_hash, occurrence_count FROM findings"
+    ).fetchall()
+    conn.close()
+    assert len(rows) == 1, f"expected 1 finding, got {len(rows)}"
+    assert rows[0][1] == 2, f"expected occurrence_count=2, got {rows[0][1]}"
 ```
 
 - [ ] **Step 3: Verify the triage e2e test GREEN**
@@ -3375,6 +3647,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import uuid
 from pathlib import Path
 
 import pytest
@@ -3451,6 +3724,9 @@ def _make_tool_run(monkeypatch: pytest.MonkeyPatch):  # type: ignore[type-arg]
             "-disable-update-check",
         ]
 
+    # B6: use a single run_id generated once so parser and runner agree.
+    e2e_run_id = uuid.uuid4().hex
+
     def tool_run(targets: list[str]) -> active.ToolRunResult:
         result = batch.run_batches(
             targets,
@@ -3459,21 +3735,21 @@ def _make_tool_run(monkeypatch: pytest.MonkeyPatch):  # type: ignore[type-arg]
         )
         raw = "\n".join(line for b in result.batches for line in b.lines)
         return active.ToolRunResult(
-            services=nuclei_tool.parse_jsonl(raw, run_id="e2e", observed_at="t"),
+            services=nuclei_tool.parse_jsonl(raw, run_id=e2e_run_id, observed_at="t"),
             aborted=result.aborted,
         )
 
-    return tool_run
+    return tool_run, e2e_run_id
 
 
 def test_e2e_nuclei_scan_writes_signal_against_mock_target(
     tmp_repo: Path, mock_target: None, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     paths = _seed(tmp_repo)
-    tool_run = _make_tool_run(monkeypatch)
+    tool_run, e2e_run_id = _make_tool_run(monkeypatch)
 
     result = nuclei_scan.run_program(
-        paths, "hackerone", "example", tool_run=tool_run, run_id="nuclei-e2e",
+        paths, "hackerone", "example", tool_run=tool_run, run_id=e2e_run_id,
     )
     assert result.signals_emitted >= 1
 
@@ -3518,7 +3794,7 @@ Expected (in dev without nuclei installed): 1 skipped. On the VPS with nuclei in
 make smoke
 ```
 
-Expected: ruff + mypy clean, every prior test still passing, all new tests passing. Roughly: ~107 from 3a + 3 (v3 migration) + 14 (hashing) + 5 (findings) + 5 (history) + 8 (nuclei tool) + 4 (nuclei runner) + 5 (queue) + 4 (engine) + 3 (triage runner) + 1 (triage e2e) + 1 nuclei e2e (skipped without binary) ≈ **160 passing / 1 skipped**.
+Expected: ruff + mypy clean, every prior test still passing, all new tests passing. Roughly: ~107 from 3a + 3 (v3 migration) + 16 (hashing — strengthened) + 7 (findings — +2 B4 guards) + 5 (history) + 9 (nuclei tool — +1 B3 rate caps) + 6 (nuclei runner — +1 B5 OOS-target) + 5 (queue) + 4 (engine) + 3 (triage runner) + 2 (triage e2e — +1 P1.4 correlation) + 1 nuclei e2e (skipped without binary) ≈ **168 passing / 1 skipped**.
 
 - [ ] **Step 7: Commit**
 
@@ -3557,6 +3833,22 @@ git commit -m "test: end-to-end triage + nuclei smoke with synthetic template"
 - **Triage v2 cross-tool correlation.** Phase 3b's engine processes signals one-by-one; correlating an httpx fingerprint drift with a same-host nuclei hit to raise confidence is explicitly 3c's territory.
 - **Daily digest / phone ping consumption of new findings.** Phase 3d.
 - **`bin/submit` and the `verified → submitted` transition.** Phase 4.
+
+### Post-cursor-review fixes (2026-05-12)
+
+| Issue | Fix location |
+| --- | --- |
+| B1: post-tool OOS filter only checked `sig.asset`, not `sig.target` | Task 6 — `_target_host` helper + dual-check in `run_program` |
+| B2: approved template dirs too broad | Task 5 — `APPROVED_TEMPLATE_DIRS` restricted to `cves` + `misconfiguration`; Task 6 CLI updated |
+| B3: nuclei command lacked rate/concurrency caps | Task 5 — `-rl 10 -c 10 -bs 10 -stats-interval 60` added to `build_command`; test locked |
+| B4: `upsert_finding` didn't enforce queued-only for new rows or refuse state changes | Task 3 — runtime guards added; two new tests |
+| B5: OOS-drop test didn't cover in-scope-asset/OOS-target case | Task 6 — new `test_drops_signals_with_oos_target_even_if_asset_in_scope` |
+| B6: nuclei e2e used mismatched `run_id` between parser and runner | Task 12 — `uuid.uuid4().hex` generated once, threaded through both |
+| P1.1: watchdog `on_state_change` swallowed reason string | Task 6 (`nuclei_scan_cli.py`) — `abort_reason` list + named `on_state_change`; same fix noted for `httpx_probe` |
+| P1.2: required artifact files (`input.txt`, `raw.jsonl`, `stderr.txt`) not written | Task 6 — `_write_required_artifacts` helper; happy-path test asserts all four files |
+| P1.3: hash collision test was self-fulfilling | Task 2 — replaced with per-field independence test + normalization-stability test |
+| P1.4: triage e2e didn't prove cross-run correlation | Task 12 — `test_triage_correlates_signals_across_runs` added |
+| Decision 4 risk note | Task 2 Step 1 — IDN hash-churn risk documented inline |
 
 ### Placeholder scan
 
