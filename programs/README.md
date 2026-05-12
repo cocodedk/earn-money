@@ -72,3 +72,51 @@ This creates the `.venv` that `bin/scope-sync` invokes. If you run `bin/scope-sy
 2. Update `programs/hackerone/<slug>/scope.md` to match the new scope (or leave as-is if the removed asset wasn't being scanned).
 3. Delete the `FROZEN` file: `rm programs/hackerone/<slug>/FROZEN`.
 4. Re-run `bin/scope-sync --program <slug>` to confirm a clean sync.
+
+## Passive recon (Phase 2)
+
+After `bin/scope-sync` has populated the program's in-scope list, you can run passive recon to discover subdomains and persist them in the program's SQLite store.
+
+### Prerequisites (one-time per VPS)
+
+- Install `subfinder`:
+  ```bash
+  go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+  ```
+  Verify with `subfinder -version`.
+- Add a Chaos API token to `.env`:
+  ```
+  CHAOS_API_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ```
+
+### Run
+
+```bash
+bin/passive-recon --program <slug>
+```
+
+Optional flags:
+
+- `--resolver 1.1.1.1` (repeatable) — pick the recursive DNS resolvers. Defaults to `1.1.1.1` and `9.9.9.9`. On a production VPS, prefer a dedicated or self-hosted resolver to avoid leaking enumeration patterns to your hosting provider's DNS.
+
+### Output
+
+Stdout: `passive-recon: discovered=<n> upserted=<n>`.
+
+The per-program SQLite database at `programs/hackerone/<slug>/db.sqlite` now contains rows in the `assets` table — one per discovered, in-scope subdomain, with `first_seen`, `last_seen`, comma-joined `ip`, and `in_scope_at_observation`. This file is gitignored; do not commit it.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Unexpected error (network, Chaos credentials missing, etc.) |
+| 2 | `RECON_ENABLED` absent |
+| 3 | Program is frozen — review `programs/hackerone/<slug>/FROZEN`, fix, and remove |
+| 4 | Policy violation — the program is `manual-only` and refuses automated recon |
+
+### What does NOT happen in Phase 2
+
+- No HTTP probing. `httpx` against the discovered subdomains is Phase 3.
+- No daily digest. `ops/daily-digest.md` is Phase 3.
+- No active recon (nuclei, katana, ffuf). Phase 3+.
