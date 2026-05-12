@@ -18,6 +18,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 from earn_money import config, db, flags, scope
 from earn_money.recon import services
@@ -98,6 +99,17 @@ def run_program(
         conn.close()
 
 
+def _target_host(target: str, fallback: str) -> str:
+    """Extract the hostname from a URL for OOS checking.
+
+    Mirrors the helper in nuclei_scan.py.  If `target` has no scheme or
+    cannot be parsed, fall back to `fallback` (typically ``sig.asset``).
+    """
+    if "://" in target:
+        return urlparse(target).hostname or fallback
+    return fallback
+
+
 def _signals_for_run(conn: sqlite3.Connection, run_id: str) -> list[Signal]:
     cursor = conn.execute(
         "SELECT run_id, tool, signal_type, asset, target, signature, "
@@ -123,6 +135,12 @@ def _process_signal(
         sig.asset, scope_.in_scope, scope_.out_of_scope
     ):
         return "skipped"
+    if sig.target:
+        target_host = _target_host(sig.target, sig.asset)
+        if target_host and not scope.is_in_scope(
+            target_host, scope_.in_scope, scope_.out_of_scope
+        ):
+            return "skipped"
 
     vuln_class, title, severity_hint, confidence = classify(sig)
     finding_hash = hashing.compute_hash(

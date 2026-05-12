@@ -11,7 +11,7 @@ This repository is **private** and operational. It is not a published product. T
 | Phase 1 | Foundation — repo skeleton, scope-sync runner, kill-switch + freeze flags | Shipped |
 | Phase 2 | Passive recon — `subfinder` + Chaos + DNS resolution → SQLite | Shipped (1 program: `hackerone/security`) |
 | Phase 3a | Active recon foundation + `httpx` runner, migration framework, watchdog | Shipped (110+ tests) |
-| Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | Plan written, not yet implemented |
+| Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | Shipped (177+ tests) |
 | Phase 3c | `katana` crawler + `ffuf` content fuzzer | Designed |
 | Phase 3d | 08:00 daily digest + phone ping + `bin/ack-freeze` | Designed |
 | Phase 4 | First submission loop | Not yet started |

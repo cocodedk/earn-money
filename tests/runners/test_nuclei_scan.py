@@ -254,3 +254,22 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     rows = conn.execute("SELECT COUNT(*) FROM signals").fetchone()
     conn.close()
     assert rows == (0,)
+
+
+def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
+    """_record_prereq_missing must write all 5 required artifacts so the
+    artifact contract holds even for skipped runs."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+
+    result = nuclei_scan.run_program(
+        paths, "hackerone", "example",
+        tool_run=lambda _targets: active.ToolRunResult(services=()),
+    )
+    assert result.signals_emitted == 1  # the prereq_missing signal
+
+    nuclei_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei"
+    for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
+        files = list(nuclei_out.rglob(name))
+        assert len(files) == 1, f"missing required artifact: {name}"

@@ -181,6 +181,43 @@ def test_drops_signal_that_drifted_out_of_scope_between_scan_and_triage(
     assert count == 0
 
 
+def test_drops_signal_with_oos_target_host_at_triage(tmp_repo: Path) -> None:
+    """Defensive scope re-check covers both sig.asset AND sig.target's host.
+    A signal whose asset stays in-scope but whose target URL drifted to an
+    OOS host between scan and triage must be skipped."""
+    paths = _paths(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        runs.start_run(
+            conn, run_id="r1", platform="hackerone", slug="example",
+            tool="nuclei", started_at="t", artifact_dir="x", input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="r1", finished_at="t", status="success",
+            output_count=1, signal_count=1, source_failures=0, oos_drops=0,
+        )
+        signals.insert_signals(conn, [Signal(
+            run_id="r1", tool="nuclei", signal_type="template_match",
+            asset="api.example.com",
+            target="https://evil.example.com/leaked",
+            signature="sig", payload="{}", observed_at="t",
+        )])
+    finally:
+        conn.close()
+
+    # Tighten scope: api.example.com stays in-scope but evil.example.com is OOS.
+    s = scope.Scope(
+        platform="hackerone", slug="example", policy="rate-limited-OK",
+        in_scope=["api.example.com"], out_of_scope=["evil.example.com"],
+        notes="", scope_hash="seed", last_synced="t",
+    )
+    scope.write_scope(paths.scope_file("hackerone", "example"), s)
+
+    result = engine.run_program(paths, "hackerone", "example", now="t")
+    assert result.findings_created == 0
+    assert result.signals_skipped == 1
+
+
 def test_triages_all_untriaged_runs_and_marks_them(tmp_repo: Path) -> None:
     paths = _paths(tmp_repo)
     _seed_nuclei_run_with_signal(paths)

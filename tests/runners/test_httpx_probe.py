@@ -126,6 +126,33 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
     assert [r[0] for r in rows] == ["api.example.com"]
 
 
+def test_freeze_mid_run_records_freeze_terminated_reason(tmp_repo: Path) -> None:
+    """If tool_run returns aborted=True with terminated_reason='freeze',
+    the runner records 'freeze' in recon_runs.terminated_reason — not
+    the generic 'kill_switch'."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, in_scope=["*.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    def freezing_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(
+            services=(), aborted=True, terminated_reason="freeze",
+        )
+
+    result = httpx_probe.run_program(
+        paths, "hackerone", "example", tool_run=freezing_tool,
+    )
+    assert result.terminated_reason == "freeze"
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT status, terminated_reason FROM recon_runs"
+    ).fetchone()
+    conn.close()
+    assert row == ("partial", "freeze")
+
+
 def test_records_failed_run_when_tool_raises(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()

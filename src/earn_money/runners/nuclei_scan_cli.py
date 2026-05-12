@@ -46,7 +46,7 @@ def _build_real_tool(
             batches_result = batch.run_batches(
                 targets,
                 command_factory=lambda chunk: nuclei_tool.build_command(
-                    chunk, template_dirs=("cves", "misconfiguration"),
+                    chunk, template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
                 ),
                 max_batch_size=50, max_batch_duration_s=300.0,
                 abort=abort,

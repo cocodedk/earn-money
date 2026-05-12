@@ -27,13 +27,13 @@ from urllib.parse import urlparse
 
 from earn_money import config, db, scope
 from earn_money.recon import runs, signals
+from earn_money.recon.nuclei_tool import APPROVED_TEMPLATE_DIRS
 from earn_money.recon.signals import Signal
 from earn_money.runners import active
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 _PREREQ_FRESHNESS_HOURS = 24
-_APPROVED_TEMPLATE_DIRS: tuple[str, ...] = ("cves", "misconfiguration")
 
 
 def _target_host(target: str, fallback: str) -> str:
@@ -187,12 +187,14 @@ def run_program(
             "platform": platform, "slug": slug,
             "started_at": now, "input_count": len(targets),
             "signal_count": len(in_scope_sigs), "oos_drops": oos_drops,
-            "approved_templates": list(_APPROVED_TEMPLATE_DIRS),
+            "approved_templates": sorted(APPROVED_TEMPLATE_DIRS),
         })
 
-        terminated_reason: str | None = tool_result.terminated_reason
-        if terminated_reason is None and tool_result.aborted:
-            terminated_reason = "kill_switch"
+        terminated_reason: str | None = (
+            tool_result.terminated_reason
+            or ("kill_switch" if tool_result.aborted else None)
+            or ("timeout" if tool_result.timed_out else None)
+        )
         run_status = "partial" if terminated_reason else "success"
 
         finished = datetime.now(UTC).isoformat(timespec="seconds")
@@ -240,6 +242,7 @@ def _record_prereq_missing(
     )
     signals.insert_signals(conn, [prereq_sig])
     _write_signals_jsonl(artifact_dir, [prereq_sig])
+    _write_required_artifacts(artifact_dir, targets=[], raw_stdout="", raw_stderr="")
     _write_manifest(artifact_dir, {
         "run_id": run_id, "tool": "nuclei",
         "platform": platform, "slug": slug, "started_at": now,

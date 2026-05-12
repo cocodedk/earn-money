@@ -96,11 +96,13 @@ def run_program(
             "output_count": len(in_scope), "oos_drops": oos_drops,
         })
 
-        raw_reason: str | None = None
-        if tool_result.aborted:
-            raw_reason = "kill_switch"
-        elif tool_result.timed_out:
-            raw_reason = "timeout"
+        # Prefer the watchdog-captured reason; fall back to a generic
+        # "kill_switch" only when aborted=True without a more specific reason.
+        raw_reason: str | None = (
+            tool_result.terminated_reason
+            or ("kill_switch" if tool_result.aborted else None)
+            or ("timeout" if tool_result.timed_out else None)
+        )
         terminated_reason = cast(
             Literal["kill_switch", "freeze", "timeout"] | None, raw_reason
         )
