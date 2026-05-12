@@ -57,3 +57,35 @@ def test_client_supports_context_manager() -> None:
 
     with chaos.Client(token="tkn", transport=httpx.MockTransport(handler)) as client:
         assert client.fetch_subdomains("example.com") == []
+
+
+def test_network_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connect refused")
+
+    client = chaos.Client(token="tkn", transport=httpx.MockTransport(handler))
+    with pytest.raises(chaos.ChaosAPIError) as excinfo:
+        client.fetch_subdomains("example.com")
+    assert "Network error" in str(excinfo.value)
+
+
+def test_non_json_body_wrapped() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>gateway error</html>")
+
+    client = chaos.Client(token="tkn", transport=httpx.MockTransport(handler))
+    with pytest.raises(chaos.ChaosAPIError) as excinfo:
+        client.fetch_subdomains("example.com")
+    assert "non-JSON" in str(excinfo.value)
+
+
+def test_full_fqdn_in_response_is_handled() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"domain": "example.com", "subdomains": ["api.example.com", "auth"]},
+        )
+
+    client = chaos.Client(token="tkn", transport=httpx.MockTransport(handler))
+    result = client.fetch_subdomains("example.com")
+    assert sorted(result) == ["api.example.com", "auth.example.com"]

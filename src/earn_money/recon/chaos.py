@@ -43,11 +43,21 @@ class Client:
                 f"Chaos API returned {response.status_code} for {domain}: "
                 f"{response.text}"
             )
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ChaosAPIError(
+                f"Chaos API returned non-JSON body for {domain}: {response.text[:200]}"
+            ) from exc
         seen: set[str] = set()
         out: list[str] = []
         for sub in data.get("subdomains", []):
-            fqdn = f"{sub}.{domain}".lower()
+            label = sub.lower()
+            domain_lower = domain.lower()
+            if label == domain_lower or label.endswith(f".{domain_lower}"):
+                fqdn = label
+            else:
+                fqdn = f"{label}.{domain_lower}"
             if fqdn not in seen:
                 seen.add(fqdn)
                 out.append(fqdn)
