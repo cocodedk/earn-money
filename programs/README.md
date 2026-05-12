@@ -9,7 +9,7 @@ One subdirectory per onboarded program: `programs/<platform>/<slug>/`.
 2. **Decide the policy tier.** Read the program's ToS carefully:
    - `rate-limited-OK` — automated scanning permitted within rate limits. Full pipeline.
    - `manual-only` — automated scanning prohibited. Operator scans by hand; recon runners refuse to start.
-   - `ambiguous` — ToS unclear. Send a written clarification request; record the reply in `notes.md`. Use `ambiguous` until the program replies; passive recon only.
+   - `ambiguous` — ToS unclear. Send a written clarification request; record the reply in `programs/hackerone/<slug>/notes.md`. Use `ambiguous` until the program replies; passive recon only.
 
 3. **Create the program directory and seed `scope.md`** (replace `<slug>` with the program handle):
 
@@ -32,7 +32,7 @@ One subdirectory per onboarded program: `programs/<platform>/<slug>/`.
    EOF
    ```
 
-4. **Set credentials** in the untracked `.env` file at the repo root:
+4. **Set credentials** in the untracked `.env` file at the repo root (gitignored — never commit):
 
    ```
    HACKERONE_API_USERNAME="<your handle>"
@@ -56,6 +56,7 @@ One subdirectory per onboarded program: `programs/<platform>/<slug>/`.
 - No change → `unchanged` action, only `last_synced` is updated.
 - New assets added by the program → `updated` action, `scope.md` rewritten.
 - Assets removed from in-scope → `frozen` action. A `FROZEN` file is written in the program directory with the reason. Recon for that program halts until the operator reviews the diff and removes `FROZEN`.
+- `RECON_ENABLED` absent → `scope-sync` exits 2 with a message on stderr and does not touch any program state. Re-create the flag (`touch RECON_ENABLED`) to resume.
 
 ## Resuming after a freeze
 

@@ -10,4 +10,9 @@ if [ -f "$ROOT/.env" ]; then
   export HACKERONE_API_USERNAME HACKERONE_API_TOKEN
 fi
 
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "scope-sync: .venv not found at $ROOT/.venv — run 'make install-dev' first" >&2
+  exit 1
+fi
+
 exec "$ROOT/.venv/bin/python" -m earn_money.runners.scope_sync --root "$ROOT" "$@"
