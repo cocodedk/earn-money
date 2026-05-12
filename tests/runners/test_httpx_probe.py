@@ -86,11 +86,45 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     )
     assert result.targets_scanned == 2
     assert result.artifacts_written == 1  # one manifest written
+    # outputs_recorded reflects what was actually persisted, not inputs.
+    # Real httpx silently drops unreachable hosts; the CLI needs the real
+    # count to be honest with the operator.
+    assert result.outputs_recorded == 2
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT subdomain FROM http_services ORDER BY subdomain").fetchall()
     conn.close()
     assert [r[0] for r in rows] == ["api.example.com", "www.example.com"]
+
+
+def test_outputs_recorded_smaller_than_targets_when_tool_silently_drops(
+    tmp_repo: Path,
+) -> None:
+    """Real httpx silently drops unreachable hosts; outputs_recorded
+    reflects that drop, even though targets_scanned does not."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, in_scope=["*.example.com"])
+    _seed_assets(paths, ["a.example.com", "b.example.com", "c.example.com"])
+
+    def half_alive_tool(targets: list[str]) -> active.ToolRunResult:
+        # Only 1/3 of targets respond — simulating unreachable hosts.
+        return active.ToolRunResult(outputs=(
+            services.HttpService(
+                subdomain="a.example.com", scheme="https", port=443,
+                url="https://a.example.com/", status_code=200, title="ok",
+                server="nginx", technologies=("nginx",),
+                redirect_to=None, tls_summary=None,
+                observed_at="t", last_run_id="r", in_scope_at_observation=True,
+            ),
+        ))
+
+    result = httpx_probe.run_program(
+        paths, "hackerone", "example",
+        tool_run=half_alive_tool,
+    )
+    assert result.targets_scanned == 3
+    assert result.outputs_recorded == 1  # the real, honest count
 
 
 def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:

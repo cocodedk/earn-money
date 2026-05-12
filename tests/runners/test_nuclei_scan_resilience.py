@@ -93,7 +93,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
         paths, "hackerone", "example",
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
-    assert result.signals_emitted == 1  # the prereq_missing signal
+    assert result.outputs_recorded == 1  # the prereq_missing signal
 
     nuclei_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei"
     for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):

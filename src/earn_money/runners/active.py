@@ -19,7 +19,7 @@ class ActiveRunResult:
     targets_considered: int = 0
     targets_scanned: int = 0
     artifacts_written: int = 0
-    signals_emitted: int = 0
+    outputs_recorded: int = 0
     source_failures: int = 0
     oos_drops: int = 0
     terminated_reason: Literal["kill_switch", "freeze", "timeout"] | None = None

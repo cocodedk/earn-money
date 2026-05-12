@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"httpx-probe: scanned={result.targets_scanned} "
-        f"services={result.targets_scanned - result.oos_drops} "
+        f"services={result.outputs_recorded} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )

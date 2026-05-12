@@ -116,7 +116,7 @@ def test_e2e_nuclei_scan_writes_signal_against_mock_target(
     result = nuclei_scan.run_program(
         paths, "hackerone", "example", tool_run=tool_run, run_id=e2e_run_id,
     )
-    assert result.signals_emitted >= 1
+    assert result.outputs_recorded >= 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     sigs = conn.execute(

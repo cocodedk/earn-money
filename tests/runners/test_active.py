@@ -51,7 +51,7 @@ def test_run_result_defaults_are_zero() -> None:
     assert r.targets_considered == 0
     assert r.targets_scanned == 0
     assert r.artifacts_written == 0
-    assert r.signals_emitted == 0
+    assert r.outputs_recorded == 0
     assert r.source_failures == 0
     assert r.oos_drops == 0
     assert r.terminated_reason is None

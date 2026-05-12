@@ -89,7 +89,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
         paths, "hackerone", "example", tool_run=fake_tool,
         run_id="nuclei-r1",
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 0
     assert captured_targets == [["https://api.example.com/"]]
 
@@ -149,7 +149,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     result = nuclei_scan.run_program(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
@@ -192,7 +192,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
     assert result.oos_drops == 1
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT COUNT(*) FROM signals").fetchone()

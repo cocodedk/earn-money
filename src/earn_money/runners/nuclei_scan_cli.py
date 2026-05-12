@@ -126,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"nuclei-scan: scanned={result.targets_scanned} "
-        f"signals={result.signals_emitted} "
+        f"signals={result.outputs_recorded} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )
