@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class AssetObservation:
     subdomain: str
-    ips: list[str]
+    ips: tuple[str, ...]
 
 
 @dataclass(frozen=True)

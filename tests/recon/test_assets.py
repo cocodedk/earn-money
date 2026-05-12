@@ -16,8 +16,8 @@ def test_upsert_inserts_new_assets(tmp_path: Path) -> None:
     summary = assets.upsert_assets(
         conn,
         [
-            assets.AssetObservation(subdomain="api.example.com", ips=["1.2.3.4"]),
-            assets.AssetObservation(subdomain="www.example.com", ips=["5.6.7.8"]),
+            assets.AssetObservation(subdomain="api.example.com", ips=("1.2.3.4",)),
+            assets.AssetObservation(subdomain="www.example.com", ips=("5.6.7.8",)),
         ],
         observed_at="2026-05-12T08:00:00Z",
         in_scope=True,
@@ -39,13 +39,13 @@ def test_upsert_updates_last_seen_for_known_assets(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="api.example.com", ips=["1.2.3.4"])],
+        [assets.AssetObservation(subdomain="api.example.com", ips=("1.2.3.4",))],
         observed_at="2026-05-12T08:00:00Z",
         in_scope=True,
     )
     summary = assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="api.example.com", ips=["1.2.3.4"])],
+        [assets.AssetObservation(subdomain="api.example.com", ips=("1.2.3.4",))],
         observed_at="2026-05-13T08:00:00Z",
         in_scope=True,
     )
@@ -63,13 +63,13 @@ def test_upsert_updates_ip_when_changed(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="api.example.com", ips=["1.2.3.4"])],
+        [assets.AssetObservation(subdomain="api.example.com", ips=("1.2.3.4",))],
         observed_at="2026-05-12T08:00:00Z",
         in_scope=True,
     )
     assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="api.example.com", ips=["9.9.9.9"])],
+        [assets.AssetObservation(subdomain="api.example.com", ips=("9.9.9.9",))],
         observed_at="2026-05-13T08:00:00Z",
         in_scope=True,
     )
@@ -84,7 +84,7 @@ def test_upsert_records_in_scope_flag(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="oos.example.com", ips=["1.1.1.1"])],
+        [assets.AssetObservation(subdomain="oos.example.com", ips=("1.1.1.1",))],
         observed_at="2026-05-12T08:00:00Z",
         in_scope=False,
     )
@@ -107,7 +107,7 @@ def test_upsert_joins_multiple_ips_with_comma(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     assets.upsert_assets(
         conn,
-        [assets.AssetObservation(subdomain="api.example.com", ips=["1.1.1.1", "2.2.2.2"])],
+        [assets.AssetObservation(subdomain="api.example.com", ips=("1.1.1.1", "2.2.2.2"))],
         observed_at="2026-05-12T08:00:00Z",
         in_scope=True,
     )
