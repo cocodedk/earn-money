@@ -51,7 +51,7 @@ def submit(
                 "WHERE finding_hash = ?",
                 (external_report_id, finding_hash),
             )
-            conn.commit()
+        conn.commit()
     finally:
         conn.close()
 

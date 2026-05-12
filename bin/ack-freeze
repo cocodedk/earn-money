@@ -3,7 +3,7 @@
 # recon for a program after a destructive scope diff was caught.
 set -eu
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="${ACK_FREEZE_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 if [ $# -ne 1 ]; then
     echo "usage: bin/ack-freeze <platform>/<slug>" >&2
@@ -12,8 +12,10 @@ fi
 
 PROGRAM="$1"
 
-# Validate platform/slug shape
+# Validate platform/slug shape and reject path-traversal
 case "$PROGRAM" in
+    *..*|/*|*//*|*\\*)
+        echo "ack-freeze: invalid program path: $PROGRAM" >&2; exit 1 ;;
     */*) ;;
     *) echo "ack-freeze: argument must be <platform>/<slug>, got: $PROGRAM" >&2; exit 1 ;;
 esac
@@ -35,8 +37,12 @@ if [ ! -f "$FROZEN" ]; then
     exit 1
 fi
 
+# Snapshot FROZEN once — defends against the file changing between display
+# and audit-log append.
+FROZEN_CONTENT="$(cat "$FROZEN")"
+
 echo "--- FROZEN contents ---"
-cat "$FROZEN"
+printf '%s\n' "$FROZEN_CONTENT"
 echo "---"
 
 # Allow multi-line reason via $EDITOR (mirror git's commit-message UX)
@@ -57,7 +63,7 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     echo "operator: $(whoami)"
     echo "reason: $REASON"
     echo "frozen-content-was:"
-    sed 's/^/  /' "$FROZEN"
+    printf '%s\n' "$FROZEN_CONTENT" | sed 's/^/  /'
     echo
 } >> "$LOG"
 

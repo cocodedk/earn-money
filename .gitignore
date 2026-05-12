@@ -19,6 +19,11 @@ recon/outputs/
 .env.*
 .envrc
 
+# Claude Code / MCP — per-session config containing absolute paths and
+# operator-specific hook scripts; never commit.
+.claude/
+.mcp.json
+
 # --- OS, editor, language artifacts ---
 .DS_Store
 Thumbs.db
@@ -58,3 +63,4 @@ build/
 dist/
 *.egg-info/
 .venv/
+demo_coderabbit.py

@@ -66,6 +66,9 @@ def draft_for(
     - ValueError if the finding hash is not in the DB.
     - ValueError if the program is not registered (no scope.md).
     """
+    if "/" in finding_hash or ".." in finding_hash or finding_hash == "":
+        raise ValueError(f"invalid finding_hash: {finding_hash!r}")
+
     scope_file = paths.scope_file(platform, slug)
     if not scope_file.exists():
         raise ValueError(
