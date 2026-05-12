@@ -38,12 +38,16 @@ for tool in subfinder httpx nuclei; do
         log "  $tool: already present, skipping"
         continue
     fi
-    ver=$(curl -sL "https://api.github.com/repos/projectdiscovery/${tool}/releases/latest" \
+    ver=$(curl -fsSL "https://api.github.com/repos/projectdiscovery/${tool}/releases/latest" \
         | jq -r .tag_name)
+    if [ -z "$ver" ] || [ "$ver" = "null" ]; then
+        warn "  $tool: failed to resolve latest version from GitHub API"; exit 1
+    fi
     ver_num="${ver#v}"
     url="https://github.com/projectdiscovery/${tool}/releases/download/${ver}/${tool}_${ver_num}_linux_amd64.zip"
     log "  $tool: fetching $ver"
-    curl -sL "$url" -o "${tool}.zip"
+    # -f makes curl fail on HTTP 4xx/5xx instead of silently saving the error body
+    curl -fsSL "$url" -o "${tool}.zip"
     unzip -qo "${tool}.zip"
     install -m 0755 "$tool" "/usr/local/bin/$tool"
     rm -f "${tool}.zip" "$tool"

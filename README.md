@@ -12,7 +12,7 @@ A five-step-algorithm pass on 2026-05-12 (both reviewers agreed 100%) cut a lot 
 |---|---|---|
 | Phase 1 | Foundation — repo skeleton, scope-sync runner, kill-switch + freeze flags | ✅ Shipped |
 | Phase 2 | Passive recon — `subfinder` + Chaos + DNS resolution → SQLite | ✅ Shipped (1 program: `hackerone/security`) |
-| Phase 3a | Active recon foundation + `httpx` runner, migration framework, watchdog | ✅ Shipped (195 tests after 6 hygiene cycles) |
+| Phase 3a | Active recon foundation + `httpx` runner, migration framework, watchdog | ✅ Shipped (195 tests at ship; 226 after Phase 4) |
 | Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | ✅ Shipped |
 | Phase 3c | `katana` crawler + `ffuf` content fuzzer | 🅿️ Parked — only unpark on specific signals (see decision record) |
 | Phase 3d | 08:00 daily digest + phone ping + `bin/ack-freeze` | 🅿️ Mostly parked; **only** `bin/ack-freeze` shell helper kept |
