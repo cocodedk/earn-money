@@ -727,6 +727,8 @@ Dependency: **3a and 3b**. The triage adapters require the triage contract that 
 
 ### 3d - Daily Digest, Phone Ping, Freeze-Ack, and Timer Hardening
 
+> **🅿️ Mostly parked on 2026-05-12 after a five-step pass.** Only `bin/ack-freeze` (as a ~10-line shell helper, not the Python module described below) survives. The 08:00 cron digest, phone ping, systemd timer chain, and `ops_runs` audit machinery are all parked with explicit unpark conditions in [`../decisions/2026-05-12-five-step-cut.md`](../decisions/2026-05-12-five-step-cut.md). The original 3d scope is preserved below for future reference.
+
 Ships the operator-facing daily loop:
 
 - `ops/daily-digest.md` generator

@@ -1,5 +1,11 @@
 # Phase 3c — katana + ffuf Implementation Plan
 
+> ## 🅿️ PARKED on 2026-05-12 after a five-step-algorithm pass
+>
+> Both reviewers (Claude opus + cursor gpt-5.5-extra-high) agreed 100% that katana and scheduled ffuf should not be built before the first earning loop ships. Reasoning + unpark conditions: [`../decisions/2026-05-12-five-step-cut.md`](../decisions/2026-05-12-five-step-cut.md). Do not execute the tasks below unless an unpark signal has fired.
+>
+> Unpark **katana** when a target with heavy SPA / client-side routing requires it. Unpark **scheduled ffuf** when manual ffuf has surfaced ≥2 real findings worth automating. The plan body below is left intact as a future reference.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship the broader active-recon surface — a `katana` crawl runner (depth + duration + URL caps), a `ffuf` content-discovery runner (approved-wordlist allowlist + request caps), tool-wrapper parsers that emit normalized `Signal` rows (`endpoint_discovered` for katana, `content_match` for ffuf), and triage classify branches that turn those signals into queue candidates.

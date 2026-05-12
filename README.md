@@ -6,15 +6,19 @@ This repository is **private** and operational. It is not a published product. T
 
 ## Status
 
+A five-step-algorithm pass on 2026-05-12 (both reviewers agreed 100%) cut a lot of pre-emptive automation in favour of shipping the smallest earning loop first. Decision record: [`docs/superpowers/decisions/2026-05-12-five-step-cut.md`](docs/superpowers/decisions/2026-05-12-five-step-cut.md).
+
 | Phase | What it ships | State |
 |---|---|---|
-| Phase 1 | Foundation — repo skeleton, scope-sync runner, kill-switch + freeze flags | Shipped |
-| Phase 2 | Passive recon — `subfinder` + Chaos + DNS resolution → SQLite | Shipped (1 program: `hackerone/security`) |
-| Phase 3a | Active recon foundation + `httpx` runner, migration framework, watchdog | Shipped (110+ tests) |
-| Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | Shipped (177+ tests) |
-| Phase 3c | `katana` crawler + `ffuf` content fuzzer | Designed |
-| Phase 3d | 08:00 daily digest + phone ping + `bin/ack-freeze` | Designed |
-| Phase 4 | First submission loop | Not yet started |
+| Phase 1 | Foundation — repo skeleton, scope-sync runner, kill-switch + freeze flags | ✅ Shipped |
+| Phase 2 | Passive recon — `subfinder` + Chaos + DNS resolution → SQLite | ✅ Shipped (1 program: `hackerone/security`) |
+| Phase 3a | Active recon foundation + `httpx` runner, migration framework, watchdog | ✅ Shipped (195 tests after 6 hygiene cycles) |
+| Phase 3b | `nuclei` runner + triage engine v1 + expanded `findings` schema | ✅ Shipped |
+| Phase 3c | `katana` crawler + `ffuf` content fuzzer | 🅿️ Parked — only unpark on specific signals (see decision record) |
+| Phase 3d | 08:00 daily digest + phone ping + `bin/ack-freeze` | 🅿️ Mostly parked; **only** `bin/ack-freeze` shell helper kept |
+| Phase 4 | First submission loop — `bin/submit` + report template + small `bin/draft` | 🟢 **Next** — minimal scope, prove the earning loop |
+| Phase 5 | Operate one program, measure earnings, month-3 kill/pivot gate | 🟡 Measure-not-build |
+| Phase 6 | FITS Express mini-audit product | ❌ Dropped from active roadmap |
 
 ## Design
 

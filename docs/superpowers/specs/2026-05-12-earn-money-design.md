@@ -193,6 +193,14 @@ Rate is not the discriminator. Agent is. Slowing automated traffic does not conv
 
 ## 9. Phasing
 
+> **🪓 Five-step cut on 2026-05-12.** A first-principles pass (both reviewers agreed 100%) shrank the remaining roadmap. The original phasing below is preserved for context, but the *actual* go-forward plan is in [`../decisions/2026-05-12-five-step-cut.md`](../decisions/2026-05-12-five-step-cut.md). Summary:
+> - **Phase 3a/3b**: shipped as planned.
+> - **Phase 3c (katana + ffuf scheduled)**: 🅿️ parked. Manual ffuf only, on demand.
+> - **Phase 3d (digest, phone-ping, timer chain, full ack-freeze)**: 🅿️ mostly parked. Only a tiny `bin/ack-freeze` shell helper survives.
+> - **Phase 4**: 🟢 next. Shrunk to `bin/submit` + `bin/draft` + a report template — prove one earning loop.
+> - **Phase 5**: 🟡 measure-not-build. Month-3 €500/mo gate stays.
+> - **Phase 6**: ❌ dropped from active scope. Conditional future, not next-up.
+
 **Phase 0 — Accounts.** Babak, half a day total. KYC, VPS, payout wiring, accountant ping.
 
 **Phase 1 — Foundation.** Claude, 3–5 days. Repo skeleton, `CLAUDE.md`, SQLite schema, HackerOne scope-sync runner, one program fully onboarded with `scope.md` and `policy:` set, `RECON_ENABLED` and freeze flags wired into every runner.
