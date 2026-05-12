@@ -40,3 +40,7 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 strict = true
 python_version = "3.12"
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "frontmatter"
+ignore_missing_imports = true
