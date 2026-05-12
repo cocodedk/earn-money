@@ -190,6 +190,7 @@ def run_program(
             signals_emitted=len(in_scope_sigs),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
+            terminated_reason=terminated_reason,
         )
     finally:
         conn.close()

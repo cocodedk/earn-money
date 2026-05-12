@@ -804,6 +804,7 @@ from earn_money.recon import katana_tool, runs, signals
 from earn_money.recon.signals import Signal
 from earn_money.recon.urls import target_host
 from earn_money.runners import active
+from earn_money.runners._prereq import record_prereq_missing
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
@@ -949,12 +950,7 @@ def run_program(
             },
         })
 
-        terminated_reason: str | None = (
-            tool_result.terminated_reason
-            or ("kill_switch" if tool_result.aborted else None)
-            or ("timeout" if tool_result.timed_out else None)
-        )
-        run_status = "partial" if terminated_reason else "success"
+        run_status, terminated_reason = active.resolve_run_status(tool_result)
 
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(
@@ -972,51 +968,26 @@ def run_program(
             signals_emitted=len(in_scope_sigs),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
+            terminated_reason=terminated_reason,
         )
     finally:
         conn.close()
+```
 
+The prereq-missing path delegates to `runners._prereq.record_prereq_missing` (extracted in cycle 1), matching the call shape in `nuclei_scan.py`:
 
-def _record_prereq_missing(
-    conn: sqlite3.Connection,
-    platform: str,
-    slug: str,
-    run_id: str,
-    now: str,
-    artifact_dir: Path,
-) -> active.ActiveRunResult:
-    runs.start_run(
-        conn, run_id=run_id, platform=platform, slug=slug, tool="katana",
-        started_at=now, artifact_dir=str(artifact_dir), input_count=0,
-    )
-    prereq_sig = Signal(
-        run_id=run_id, tool="katana", signal_type="prereq_missing",
-        asset="", target="",
-        signature=f"prereq|httpx|<{_PREREQ_FRESHNESS_HOURS}h",
-        payload=json.dumps({
-            "required_tool": "httpx",
-            "max_age_hours": _PREREQ_FRESHNESS_HOURS,
-        }),
-        observed_at=now,
-    )
-    signals.insert_signals(conn, [prereq_sig])
-    _write_signals_jsonl(artifact_dir, [prereq_sig])
-    _write_required_artifacts(artifact_dir, targets=[], raw_stdout="", raw_stderr="")
-    _write_manifest(artifact_dir, {
-        "run_id": run_id, "tool": "katana",
-        "platform": platform, "slug": slug, "started_at": now,
-        "status": "skipped", "reason": "no recent httpx run",
-    })
-    finished = datetime.now(UTC).isoformat(timespec="seconds")
-    runs.finish_run(
-        conn, run_id=run_id, finished_at=finished, status="skipped",
-        output_count=0, signal_count=1, source_failures=0, oos_drops=0,
-        error_summary="no recent httpx run within prereq freshness window",
-    )
-    return active.ActiveRunResult(
-        run_id=run_id, targets_considered=0, targets_scanned=0,
-        artifacts_written=1, signals_emitted=1, source_failures=0, oos_drops=0,
-    )
+```python
+    conn = db.open_db(paths.program_db(platform, slug))
+    try:
+        if not _recent_httpx_success(conn, platform=platform, slug=slug, now=now_dt):
+            return record_prereq_missing(
+                conn, paths=paths, platform=platform, slug=slug,
+                run_id=run_id, now=now, artifact_dir=artifact_dir, tool="katana",
+                write_required_artifacts=_write_required_artifacts,
+                write_signals_jsonl=_write_signals_jsonl,
+                write_manifest=_write_manifest,
+                prereq_freshness_hours=_PREREQ_FRESHNESS_HOURS,
+            )
 ```
 
 The file is at ~190 lines, just under the 200-line cap. The CLI module sits in `katana_scan_cli.py`.
@@ -2071,6 +2042,7 @@ from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
 from earn_money.recon.urls import target_host
 from earn_money.runners import active
+from earn_money.runners._prereq import record_prereq_missing
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
@@ -2214,12 +2186,7 @@ def run_program(
             "signal_count": len(in_scope_sigs), "oos_drops": oos_drops,
         })
 
-        terminated_reason: str | None = (
-            tool_result.terminated_reason
-            or ("kill_switch" if tool_result.aborted else None)
-            or ("timeout" if tool_result.timed_out else None)
-        )
-        run_status = "partial" if terminated_reason else "success"
+        run_status, terminated_reason = active.resolve_run_status(tool_result)
 
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(
@@ -2237,51 +2204,26 @@ def run_program(
             signals_emitted=len(in_scope_sigs),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
+            terminated_reason=terminated_reason,
         )
     finally:
         conn.close()
+```
 
+The prereq-missing path delegates to `runners._prereq.record_prereq_missing` (extracted in cycle 1), matching the call shape in `nuclei_scan.py`:
 
-def _record_prereq_missing(
-    conn: sqlite3.Connection,
-    platform: str,
-    slug: str,
-    run_id: str,
-    now: str,
-    artifact_dir: Path,
-) -> active.ActiveRunResult:
-    runs.start_run(
-        conn, run_id=run_id, platform=platform, slug=slug, tool="ffuf",
-        started_at=now, artifact_dir=str(artifact_dir), input_count=0,
-    )
-    prereq_sig = Signal(
-        run_id=run_id, tool="ffuf", signal_type="prereq_missing",
-        asset="", target="",
-        signature=f"prereq|httpx|<{_PREREQ_FRESHNESS_HOURS}h",
-        payload=json.dumps({
-            "required_tool": "httpx",
-            "max_age_hours": _PREREQ_FRESHNESS_HOURS,
-        }),
-        observed_at=now,
-    )
-    signals.insert_signals(conn, [prereq_sig])
-    _write_signals_jsonl(artifact_dir, [prereq_sig])
-    _write_required_artifacts(artifact_dir, targets=[], raw_stdout="", raw_stderr="")
-    _write_manifest(artifact_dir, {
-        "run_id": run_id, "tool": "ffuf",
-        "platform": platform, "slug": slug, "started_at": now,
-        "status": "skipped", "reason": "no recent httpx run",
-    })
-    finished = datetime.now(UTC).isoformat(timespec="seconds")
-    runs.finish_run(
-        conn, run_id=run_id, finished_at=finished, status="skipped",
-        output_count=0, signal_count=1, source_failures=0, oos_drops=0,
-        error_summary="no recent httpx run within prereq freshness window",
-    )
-    return active.ActiveRunResult(
-        run_id=run_id, targets_considered=0, targets_scanned=0,
-        artifacts_written=1, signals_emitted=1, source_failures=0, oos_drops=0,
-    )
+```python
+    conn = db.open_db(paths.program_db(platform, slug))
+    try:
+        if not _recent_httpx_success(conn, platform=platform, slug=slug, now=now_dt):
+            return record_prereq_missing(
+                conn, paths=paths, platform=platform, slug=slug,
+                run_id=run_id, now=now, artifact_dir=artifact_dir, tool="ffuf",
+                write_required_artifacts=_write_required_artifacts,
+                write_signals_jsonl=_write_signals_jsonl,
+                write_manifest=_write_manifest,
+                prereq_freshness_hours=_PREREQ_FRESHNESS_HOURS,
+            )
 ```
 
 The file lands at ~195 lines, under the cap.
@@ -2718,7 +2660,7 @@ git commit -m "feat: ffuf-scan runner with approved wordlists + per-host loop"
 
 ## Task 7: Triage classify dispatch for katana + ffuf
 
-`src/earn_money/triage/classify.py` already dispatches `(nuclei, template_match)`, `(nuclei, prereq_missing)`, and `(httpx, fingerprint_drift)`. Phase 3c adds two new branches.
+`src/earn_money/triage/classify.py` already dispatches `(nuclei, template_match)`, `(httpx, fingerprint_drift)`, and `prereq_missing` (matched by `signal_type` alone — not tool-specific, so katana/ffuf prereq signals classify cleanly without per-tool branches). Phase 3c adds two new tool-specific branches.
 
 **Branch: `(katana, endpoint_discovered)`**
 
@@ -2928,15 +2870,17 @@ _FFUF_AUTH_CODES: frozenset[int] = frozenset({401, 403})
 
 def classify(sig: Signal) -> Classification:
     """Derive (vuln_class, title, severity_hint, confidence) from a signal."""
-    if sig.tool == "nuclei" and sig.signal_type == "template_match":
-        return _classify_nuclei_match(sig)
-    if sig.tool == "nuclei" and sig.signal_type == "prereq_missing":
+    # prereq_missing matches by signal_type alone so katana/ffuf prereq signals
+    # also classify cleanly without a per-tool branch.
+    if sig.signal_type == "prereq_missing":
         return (
             "recon-prereq-missing",
-            "nuclei skipped: no recent httpx run",
+            f"{sig.tool} skipped: no recent httpx run",
             "info",
             100,
         )
+    if sig.tool == "nuclei" and sig.signal_type == "template_match":
+        return _classify_nuclei_match(sig)
     if sig.tool == "httpx" and sig.signal_type == "fingerprint_drift":
         return (
             "recon-fingerprint-drift",

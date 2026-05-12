@@ -1,13 +1,11 @@
-"""Tests for the nuclei-scan active-recon runner."""
+"""Happy-path, scope-filter, and OOS-drop tests for the nuclei-scan runner."""
 
 from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
 
-import pytest
-
-from earn_money import config, db, flags, policy, scope
+from earn_money import config, db, scope
 from earn_money.recon import services, signals
 from earn_money.runners import active, nuclei_scan
 
@@ -50,101 +48,6 @@ def _seed_httpx_run_and_services(
             services.upsert_service(conn, svc)
     finally:
         conn.close()
-
-
-# ---------------------------------------------------------------------------
-# Gate refusal tests
-# ---------------------------------------------------------------------------
-
-def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
-    paths = config.Paths.from_root(tmp_repo)
-    _seed_scope(paths)
-    with pytest.raises(flags.ReconDisabled):
-        nuclei_scan.run_program(
-            paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
-        )
-
-
-def test_refuses_manual_only(tmp_repo: Path) -> None:
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths, policy_value="manual-only")
-    with pytest.raises(policy.PolicyViolation):
-        nuclei_scan.run_program(
-            paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
-        )
-
-
-# ---------------------------------------------------------------------------
-# Prereq freshness test
-# ---------------------------------------------------------------------------
-
-def test_writes_prereq_missing_signal_when_no_recent_httpx(tmp_repo: Path) -> None:
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths)
-
-    # No httpx run seeded.
-    result = nuclei_scan.run_program(
-        paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
-    )
-    assert result.targets_scanned == 0
-    assert result.signals_emitted == 1
-
-    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
-    rows = conn.execute("SELECT signal_type FROM signals").fetchall()
-    run_status = conn.execute(
-        "SELECT status, error_summary FROM recon_runs WHERE tool = 'nuclei'"
-    ).fetchone()
-    conn.close()
-    assert rows == [("prereq_missing",)]
-    assert run_status[0] == "skipped"
-    assert "no recent httpx run" in run_status[1]
-
-
-def test_partial_httpx_run_with_no_outputs_does_not_satisfy_prereq(
-    tmp_repo: Path,
-) -> None:
-    """A partial httpx run with output_count=0 must NOT unlock nuclei."""
-    from earn_money.recon import runs
-
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths)
-
-    conn = db.open_db(paths.program_db("hackerone", "example"))
-    try:
-        runs.start_run(
-            conn, run_id="httpx-partial", platform="hackerone", slug="example",
-            tool="httpx", started_at="2026-05-12T01:00:00Z",
-            artifact_dir="x", input_count=3,
-        )
-        runs.finish_run(
-            conn, run_id="httpx-partial", finished_at="2026-05-12T01:05:00Z",
-            status="partial", output_count=0,
-            signal_count=0, source_failures=1, oos_drops=0,
-        )
-    finally:
-        conn.close()
-
-    result = nuclei_scan.run_program(
-        paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
-    )
-    assert result.targets_scanned == 0
-    assert result.signals_emitted == 1
-
-    conn2 = sqlite3.connect(paths.program_db("hackerone", "example"))
-    rows = conn2.execute("SELECT signal_type FROM signals").fetchall()
-    run_status = conn2.execute(
-        "SELECT status FROM recon_runs WHERE tool = 'nuclei'"
-    ).fetchone()
-    conn2.close()
-    assert rows == [("prereq_missing",)]
-    assert run_status[0] == "skipped"
 
 
 # ---------------------------------------------------------------------------
@@ -208,15 +111,14 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
     )
     assert len(list(nuclei_out.rglob("manifest.json"))) == 1
     assert len(list(nuclei_out.rglob("signals.jsonl"))) == 1
-    assert len(list(nuclei_out.rglob("input.txt"))) == 1   # P1.2
-    assert len(list(nuclei_out.rglob("raw.jsonl"))) == 1   # P1.2
-    assert len(list(nuclei_out.rglob("stderr.txt"))) == 1  # P1.2
+    assert len(list(nuclei_out.rglob("input.txt"))) == 1
+    assert len(list(nuclei_out.rglob("raw.jsonl"))) == 1
+    assert len(list(nuclei_out.rglob("stderr.txt"))) == 1
 
 
 # ---------------------------------------------------------------------------
 # OOS drop tests
 # ---------------------------------------------------------------------------
-
 def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
@@ -296,54 +198,3 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     rows = conn.execute("SELECT COUNT(*) FROM signals").fetchone()
     conn.close()
     assert rows == (0,)
-
-
-def test_source_failures_promotes_run_to_partial(tmp_repo: Path) -> None:
-    """A scan that completes without abort but has nonzero source_failures
-    (e.g. some batches returned non-zero exit) must record status='partial'
-    so the digest surfaces the partial result instead of reporting clean."""
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths, in_scope=["api.example.com"])
-    _seed_httpx_run_and_services(paths, services_to_insert=[
-        services.HttpService(
-            subdomain="api.example.com", scheme="https", port=443,
-            url="https://api.example.com/", status_code=200, title=None,
-            server=None, technologies=(), redirect_to=None, tls_summary=None,
-            observed_at="t", last_run_id="httpx-r1", in_scope_at_observation=True,
-        ),
-    ])
-
-    def flaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(outputs=(), source_failures=2)
-
-    nuclei_scan.run_program(
-        paths, "hackerone", "example", tool_run=flaky_tool,
-    )
-
-    import sqlite3 as _sqlite3
-    conn = _sqlite3.connect(paths.program_db("hackerone", "example"))
-    rows = conn.execute(
-        "SELECT status, source_failures FROM recon_runs WHERE tool = 'nuclei'"
-    ).fetchall()
-    conn.close()
-    assert rows == [("partial", 2)]
-
-
-def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
-    """_record_prereq_missing must write all 5 required artifacts so the
-    artifact contract holds even for skipped runs."""
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths)
-
-    result = nuclei_scan.run_program(
-        paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
-    )
-    assert result.signals_emitted == 1  # the prereq_missing signal
-
-    nuclei_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "nuclei"
-    for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
-        files = list(nuclei_out.rglob(name))
-        assert len(files) == 1, f"missing required artifact: {name}"

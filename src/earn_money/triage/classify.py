@@ -26,15 +26,15 @@ _SEVERITY_CONFIDENCE: dict[str, int] = {
 
 def classify(sig: Signal) -> Classification:
     """Derive (vuln_class, title, severity_hint, confidence) from a signal."""
-    if sig.tool == "nuclei" and sig.signal_type == "template_match":
-        return _classify_nuclei_match(sig)
-    if sig.tool == "nuclei" and sig.signal_type == "prereq_missing":
+    if sig.signal_type == "prereq_missing":
         return (
             "recon-prereq-missing",
-            "nuclei skipped: no recent httpx run",
+            f"{sig.tool} skipped: no recent httpx run",
             "info",
             100,
         )
+    if sig.tool == "nuclei" and sig.signal_type == "template_match":
+        return _classify_nuclei_match(sig)
     if sig.tool == "httpx" and sig.signal_type == "fingerprint_drift":
         return (
             "recon-fingerprint-drift",
