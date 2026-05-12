@@ -21,7 +21,6 @@ def test_require_recon_enabled_passes_when_flag_present(tmp_repo: Path) -> None:
 
 def test_program_freeze_flag_roundtrip(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
-    paths.program_dir("hackerone", "example").mkdir(parents=True)
     assert not flags.is_program_frozen(paths, "hackerone", "example")
     flags.freeze_program(paths, "hackerone", "example", reason="scope drift: 2 assets removed")
     assert flags.is_program_frozen(paths, "hackerone", "example")
@@ -30,7 +29,6 @@ def test_program_freeze_flag_roundtrip(tmp_repo: Path) -> None:
 
 def test_unfreeze_program_removes_flag(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
-    paths.program_dir("hackerone", "example").mkdir(parents=True)
     flags.freeze_program(paths, "hackerone", "example", reason="test")
     flags.unfreeze_program(paths, "hackerone", "example")
     assert not flags.is_program_frozen(paths, "hackerone", "example")
@@ -38,7 +36,7 @@ def test_unfreeze_program_removes_flag(tmp_repo: Path) -> None:
 
 def test_require_program_not_frozen_raises(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
-    paths.program_dir("hackerone", "example").mkdir(parents=True)
-    flags.freeze_program(paths, "hackerone", "example", reason="test")
-    with pytest.raises(flags.ProgramFrozen):
+    flags.freeze_program(paths, "hackerone", "example", reason="dest-diff: a, b removed")
+    with pytest.raises(flags.ProgramFrozen) as excinfo:
         flags.require_program_not_frozen(paths, "hackerone", "example")
+    assert "dest-diff: a, b removed" in str(excinfo.value)

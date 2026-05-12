@@ -46,9 +46,9 @@ def freeze_reason(paths: Paths, platform: str, slug: str) -> str:
 
 
 def require_program_not_frozen(paths: Paths, platform: str, slug: str) -> None:
-    if is_program_frozen(paths, platform, slug):
-        reason = freeze_reason(paths, platform, slug).strip()
+    reason = freeze_reason(paths, platform, slug)
+    if reason:
         raise ProgramFrozen(
-            f"Program {platform}/{slug} is frozen.\n{reason}\n"
+            f"Program {platform}/{slug} is frozen.\n{reason.strip()}\n"
             "Resolve the underlying issue and remove the FROZEN file to resume."
         )
