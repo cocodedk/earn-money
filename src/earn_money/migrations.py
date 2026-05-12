@@ -102,9 +102,70 @@ def _apply_v2(conn: sqlite3.Connection) -> None:
     _execute_script(conn, _V2_SCHEMA)
 
 
+_V3_SCHEMA_FINDINGS_COLUMNS: tuple[tuple[str, str], ...] = (
+    # (column_name, full ALTER TABLE column-def fragment)
+    ("platform",            "TEXT NOT NULL DEFAULT '__legacy__'"),
+    ("slug",                "TEXT NOT NULL DEFAULT '__legacy__'"),
+    ("asset",               "TEXT NOT NULL DEFAULT ''"),
+    ("signature",           "TEXT NOT NULL DEFAULT ''"),
+    ("title",               "TEXT NOT NULL DEFAULT ''"),
+    ("severity_hint",       "TEXT NOT NULL DEFAULT 'unknown'"),
+    ("confidence",          "INTEGER NOT NULL DEFAULT 0"),
+    ("source_tool",         "TEXT NOT NULL DEFAULT 'legacy'"),
+    ("source_run_id",       "TEXT NOT NULL DEFAULT ''"),
+    ("evidence_path",       "TEXT NOT NULL DEFAULT ''"),
+    ("last_seen",           "TEXT NOT NULL DEFAULT ''"),
+    ("occurrence_count",    "INTEGER NOT NULL DEFAULT 1"),
+    ("state_changed_at",    "TEXT NOT NULL DEFAULT ''"),
+    ("external_report_id",  "TEXT"),
+    ("payout_amount",       "TEXT"),
+    ("payout_currency",     "TEXT"),
+)
+
+_V3_SCHEMA_HISTORY = """
+CREATE TABLE IF NOT EXISTS findings_state_history (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    finding_hash    TEXT NOT NULL,
+    from_state      TEXT,
+    to_state        TEXT NOT NULL,
+    actor           TEXT NOT NULL,
+    note            TEXT,
+    changed_at      TEXT NOT NULL,
+    FOREIGN KEY(finding_hash) REFERENCES findings(finding_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_findings_state_history_hash
+    ON findings_state_history(finding_hash);
+"""
+
+
+def _apply_v3(conn: sqlite3.Connection) -> None:
+    """Widen `findings` and create `findings_state_history`."""
+    # Read current columns once so we can be idempotent in the rare case
+    # a partial v3 was applied earlier (e.g. crash between ALTERs).
+    existing = {
+        row[1] for row in conn.execute("PRAGMA table_info(findings)")
+    }
+    for name, definition in _V3_SCHEMA_FINDINGS_COLUMNS:
+        if name in existing:
+            continue
+        conn.execute(f"ALTER TABLE findings ADD COLUMN {name} {definition}")
+    # Backfill `last_seen` and `state_changed_at` from `first_seen` on
+    # legacy rows so the state machine has a real timestamp to work with.
+    conn.execute(
+        "UPDATE findings SET last_seen = first_seen "
+        "WHERE last_seen = '' AND first_seen != ''"
+    )
+    conn.execute(
+        "UPDATE findings SET state_changed_at = first_seen "
+        "WHERE state_changed_at = '' AND first_seen != ''"
+    )
+    _execute_script(conn, _V3_SCHEMA_HISTORY)
+
+
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
+    3: _apply_v3,
 }
 
 

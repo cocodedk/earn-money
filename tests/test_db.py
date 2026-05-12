@@ -36,12 +36,15 @@ def test_findings_table_columns(tmp_path: Path) -> None:
     conn = db.open_db(tmp_path / "test.sqlite")
     cols = {row[1] for row in conn.execute("PRAGMA table_info(findings)").fetchall()}
     assert cols == {
-        "finding_hash",
-        "vuln_class",
-        "target",
-        "first_seen",
-        "current_state",
-        "notes_path",
+        # original v1/v2 columns
+        "finding_hash", "vuln_class", "target", "first_seen",
+        "current_state", "notes_path",
+        # v3 additions
+        "platform", "slug", "asset", "signature", "title",
+        "severity_hint", "confidence", "source_tool", "source_run_id",
+        "evidence_path", "last_seen", "occurrence_count",
+        "state_changed_at", "external_report_id", "payout_amount",
+        "payout_currency",
     }
     conn.close()
 

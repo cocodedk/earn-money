@@ -92,3 +92,60 @@ def test_failed_step_rolls_back_user_version(
         "AND name NOT LIKE 'sqlite_%'"
     )}
     assert "recon_runs" not in tables
+
+
+def test_fresh_db_migrates_to_v3(tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_path / "fresh_v3.sqlite")
+    migrations.migrate(conn, target_version=3)
+    assert _user_version(conn) == 3
+    # New tables exist.
+    assert _tables(conn) >= {
+        "assets", "findings", "recon_runs", "http_services", "signals",
+        "findings_state_history",
+    }
+    # Expanded findings columns present.
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(findings)")
+    }
+    assert columns >= {
+        "finding_hash", "platform", "slug", "vuln_class", "asset", "target",
+        "signature", "title", "severity_hint", "confidence",
+        "source_tool", "source_run_id", "evidence_path", "notes_path",
+        "first_seen", "last_seen", "occurrence_count",
+        "current_state", "state_changed_at",
+        "external_report_id", "payout_amount", "payout_currency",
+    }
+
+
+def test_v3_migration_is_idempotent(tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_path / "idem_v3.sqlite")
+    migrations.migrate(conn, target_version=3)
+    migrations.migrate(conn, target_version=3)
+    assert _user_version(conn) == 3
+
+
+def test_v2_to_v3_backfills_legacy_findings(tmp_path: Path) -> None:
+    """An existing v2 row in findings (created via the legacy 6-column shape)
+    must survive v3 with sensible default values for the new columns."""
+    conn = sqlite3.connect(tmp_path / "legacy.sqlite")
+    migrations.migrate(conn, target_version=2)
+    conn.execute(
+        "INSERT INTO findings "
+        "(finding_hash, vuln_class, target, first_seen, current_state, notes_path) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        ("h1", "xss-reflected", "https://api.example.com/?q=",
+         "2026-05-10T10:00:00Z", "queued", "findings/_queue/h1.md"),
+    )
+    conn.commit()
+
+    migrations.migrate(conn, target_version=3)
+
+    row = conn.execute(
+        "SELECT platform, slug, severity_hint, confidence, source_tool, "
+        "source_run_id, evidence_path, last_seen, occurrence_count, "
+        "state_changed_at FROM findings WHERE finding_hash = 'h1'"
+    ).fetchone()
+    assert row == (
+        "__legacy__", "__legacy__", "unknown", 0, "legacy", "", "",
+        "2026-05-10T10:00:00Z", 1, "2026-05-10T10:00:00Z",
+    )
