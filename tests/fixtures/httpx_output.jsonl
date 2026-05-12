@@ -1,0 +1,2 @@
+{"url":"https://api.example.com","host":"api.example.com","port":"443","scheme":"https","status_code":200,"title":"Example API","webserver":"nginx","tech":["nginx","openresty"],"location":"","tls":{"issuer_org":["Let's Encrypt"]}}
+{"url":"http://www.example.com","host":"www.example.com","port":"80","scheme":"http","status_code":301,"title":"","webserver":"nginx","tech":["nginx"],"location":"https://www.example.com/","tls":{}}
