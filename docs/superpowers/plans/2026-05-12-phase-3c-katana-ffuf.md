@@ -895,8 +895,13 @@ def run_program(
     conn = db.open_db(paths.program_db(platform, slug))
     try:
         if not _recent_httpx_success(conn, platform=platform, slug=slug, now=now_dt):
-            return _record_prereq_missing(
-                conn, platform, slug, run_id, now, artifact_dir,
+            return record_prereq_missing(
+                conn, paths=paths, platform=platform, slug=slug,
+                run_id=run_id, now=now, artifact_dir=artifact_dir, tool="katana",
+                write_required_artifacts=_write_required_artifacts,
+                write_signals_jsonl=_write_signals_jsonl,
+                write_manifest=_write_manifest,
+                prereq_freshness_hours=_PREREQ_FRESHNESS_HOURS,
             )
 
         targets = _load_in_scope_service_urls(conn, s)
@@ -1295,7 +1300,7 @@ Run + verify GREEN.
 # tests/runners/test_katana_scan.py — append
 
 def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
-    """_record_prereq_missing must write all 5 required artifacts so the
+    """record_prereq_missing must write all 5 required artifacts so the
     artifact contract holds even for skipped runs."""
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
@@ -2136,8 +2141,13 @@ def run_program(
     conn = db.open_db(paths.program_db(platform, slug))
     try:
         if not _recent_httpx_success(conn, platform=platform, slug=slug, now=now_dt):
-            return _record_prereq_missing(
-                conn, platform, slug, run_id, now, artifact_dir,
+            return record_prereq_missing(
+                conn, paths=paths, platform=platform, slug=slug,
+                run_id=run_id, now=now, artifact_dir=artifact_dir, tool="ffuf",
+                write_required_artifacts=_write_required_artifacts,
+                write_signals_jsonl=_write_signals_jsonl,
+                write_manifest=_write_manifest,
+                prereq_freshness_hours=_PREREQ_FRESHNESS_HOURS,
             )
 
         targets = _load_in_scope_service_urls(conn, s)

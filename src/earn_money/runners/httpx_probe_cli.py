@@ -14,6 +14,7 @@ from pathlib import Path
 
 from earn_money import config, flags, policy
 from earn_money.runners import active, httpx_probe
+from earn_money.runners.watchdog import Reason
 
 
 def _build_real_tool(
@@ -31,9 +32,9 @@ def _build_real_tool(
         # "kill_switch" vs "freeze" in terminated_reason instead of a
         # generic sentinel. One-element list because nonlocal assignment
         # inside a nested def requires Python cell binding.
-        abort_reason: list[str | None] = [None]
+        abort_reason: list[Reason | None] = [None]
 
-        def on_state_change(reason: str) -> None:
+        def on_state_change(reason: Reason) -> None:
             abort_reason[0] = reason
             abort.set()
 

@@ -8,7 +8,7 @@ and the result shape stays consistent for the digest.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from earn_money import config, flags, policy, scope
 
@@ -37,9 +37,9 @@ class ToolRunResult:
     aborted: bool = False
     source_failures: int = 0
     timed_out: bool = False
-    terminated_reason: str | None = None  # P1.1: "kill_switch" | "freeze" | None
-    raw_stdout: str = ""  # P1.2: captured stdout for artifact writing
-    raw_stderr: str = ""  # P1.2: captured stderr for artifact writing
+    terminated_reason: Literal["kill_switch", "freeze", "timeout"] | None = None
+    raw_stdout: str = ""
+    raw_stderr: str = ""
 
 
 _TerminatedReason = Literal["kill_switch", "freeze", "timeout"]
@@ -53,13 +53,15 @@ def resolve_run_status(
     Reason precedence: caller-provided > kill_switch > timeout > None.
     Status is 'partial' if a terminated_reason was resolved OR any
     source_failures occurred; 'success' otherwise.
+
+    terminated_reason is narrowed at ToolRunResult construction time so
+    no cast is required here.
     """
-    raw_reason: str | None = (
+    reason: _TerminatedReason | None = (
         tool_result.terminated_reason
         or ("kill_switch" if tool_result.aborted else None)
         or ("timeout" if tool_result.timed_out else None)
     )
-    reason = cast(_TerminatedReason | None, raw_reason)
     status: Literal["success", "partial"] = (
         "partial" if (reason or tool_result.source_failures > 0)
         else "success"

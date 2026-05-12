@@ -17,6 +17,7 @@ from pathlib import Path
 from earn_money import config, flags, policy
 from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
+from earn_money.runners.watchdog import Reason
 
 # A full http/cves scan against one live host can run 10-20 minutes at
 # the spec's -rl 10 throughput cap. 1500s = 25 min gives margin without
@@ -35,9 +36,9 @@ def _build_real_tool(
         # P1.1: capture the watchdog reason so the runner can record
         # "kill_switch" vs "freeze" in terminated_reason.  One-element list
         # because nonlocal assignment inside a nested def requires cell binding.
-        abort_reason: list[str | None] = [None]
+        abort_reason: list[Reason | None] = [None]
 
-        def on_state_change(reason: str) -> None:
+        def on_state_change(reason: Reason) -> None:
             abort_reason[0] = reason
             abort.set()
 

@@ -1,5 +1,7 @@
 # Phase 3b — nuclei + Triage v1 Implementation Plan
 
+> **Post-ship note (hygiene cycle 3):** `tests/runners/test_nuclei_scan.py` was split into three theme files during cycle 3: `test_nuclei_scan_gates.py`, `test_nuclei_scan_pipeline.py`, and `test_nuclei_scan_resilience.py`. References to `test_nuclei_scan.py` below are historical.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship the first vulnerability-signal loop — the `nuclei` active runner (limited to approved CVE + standard-misconfig templates), the expanded `findings` schema with a state machine, the finding-hash helper with deterministic normalization, and a triage engine v1 that joins recon signals against the asset DB, deduplicates by hash, and writes operator-review candidates into `findings/_queue/`.

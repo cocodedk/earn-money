@@ -64,3 +64,15 @@ def test_check_gates_refuses_frozen_program(tmp_repo: Path) -> None:
     _seed_scope(paths)
     with pytest.raises(flags.ProgramFrozen):
         active.check_gates(paths, "hackerone", "example", mode="active")
+
+
+def test_tool_run_result_terminated_reason_is_typed() -> None:
+    """The terminated_reason field accepts only kill_switch/freeze/timeout/None."""
+    r1 = active.ToolRunResult(terminated_reason=None)
+    r2 = active.ToolRunResult(terminated_reason="kill_switch")
+    r3 = active.ToolRunResult(terminated_reason="freeze")
+    r4 = active.ToolRunResult(terminated_reason="timeout")
+    assert r1.terminated_reason is None
+    assert r2.terminated_reason == "kill_switch"
+    assert r3.terminated_reason == "freeze"
+    assert r4.terminated_reason == "timeout"
