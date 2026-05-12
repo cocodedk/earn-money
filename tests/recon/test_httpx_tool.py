@@ -34,7 +34,15 @@ def test_command_includes_safety_flags() -> None:
     assert "-no-follow-redirects" in cmd
     assert "-json" in cmd
     assert "-silent" in cmd
-    assert cmd[-1] == "-"  # read targets from stdin
+    # Targets are passed via -u with comma separation.
+    u_index = cmd.index("-u")
+    assert cmd[u_index + 1] == "api.example.com,www.example.com"
+
+
+def test_command_requires_at_least_one_target() -> None:
+    import pytest
+    with pytest.raises(ValueError, match="at least one target"):
+        httpx_tool.build_command([])
 
 
 def test_parse_skips_malformed_lines(fixtures_dir: Path) -> None:

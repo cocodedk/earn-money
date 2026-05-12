@@ -14,10 +14,17 @@ from earn_money.recon.services import HttpService
 
 
 def build_command(targets: Sequence[str]) -> list[str]:
-    """Return argv for an httpx invocation. Targets are fed via stdin so
-    the command line stays bounded regardless of input size."""
+    """Return argv for an httpx invocation with the given targets.
+
+    Targets are passed via comma-separated -u rather than stdin so the
+    batch wrapper (which doesn't pipe stdin) can invoke us directly.
+    For ~50 targets per batch, argv stays well bounded.
+    """
+    if not targets:
+        raise ValueError("build_command requires at least one target")
     return [
         "httpx",
+        "-u", ",".join(targets),
         "-silent",
         "-json",
         "-no-follow-redirects",
@@ -26,7 +33,6 @@ def build_command(targets: Sequence[str]) -> list[str]:
         "-tech-detect",
         "-tls-grab",
         "-web-server",
-        "-",
     ]
 
 
