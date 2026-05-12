@@ -10,15 +10,15 @@ from earn_money.recon import nuclei_tool
 
 def test_approved_template_dirs_constant_locked() -> None:
     assert frozenset({
-        "cves",
-        "misconfiguration",
+        "http/cves",
+        "http/misconfiguration",
     }) == nuclei_tool.APPROVED_TEMPLATE_DIRS
 
 
 def test_build_command_includes_safety_flags() -> None:
     cmd = nuclei_tool.build_command(
         ["https://api.example.com/"],
-        template_dirs=("cves", "misconfiguration"),
+        template_dirs=("http/cves", "http/misconfiguration"),
     )
     assert "-disable-redirects" in cmd
     assert "-jsonl" in cmd
@@ -28,13 +28,13 @@ def test_build_command_includes_safety_flags() -> None:
     assert "-t" in cmd
     t_indices = [i for i, a in enumerate(cmd) if a == "-t"]
     t_values = [cmd[i + 1] for i in t_indices]
-    assert set(t_values) == {"cves", "misconfiguration"}
+    assert set(t_values) == {"http/cves", "http/misconfiguration"}
 
 
 def test_build_command_includes_rate_and_concurrency_caps() -> None:
     cmd = nuclei_tool.build_command(
         ["https://api.example.com/"],
-        template_dirs=("cves",),
+        template_dirs=("http/cves",),
     )
     assert "-rl" in cmd
     assert cmd[cmd.index("-rl") + 1] == "10"
@@ -49,7 +49,7 @@ def test_build_command_includes_rate_and_concurrency_caps() -> None:
 def test_build_command_passes_targets_via_u() -> None:
     cmd = nuclei_tool.build_command(
         ["https://api.example.com/", "https://www.example.com/"],
-        template_dirs=("cves",),
+        template_dirs=("http/cves",),
     )
     assert "-u" in cmd
     u_index = cmd.index("-u")
@@ -66,7 +66,7 @@ def test_build_command_rejects_unapproved_template_dir() -> None:
 
 def test_build_command_empty_targets_raises() -> None:
     with pytest.raises(ValueError):
-        nuclei_tool.build_command([], template_dirs=("cves",))
+        nuclei_tool.build_command([], template_dirs=("http/cves",))
 
 
 def test_parse_jsonl_returns_signals(fixtures_dir: Path) -> None:

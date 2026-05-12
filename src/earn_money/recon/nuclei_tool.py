@@ -19,9 +19,14 @@ from typing import Any
 from earn_money.recon.signals import Signal
 from earn_money.triage import hashing
 
+# Template paths are relative to the local templates root
+# (~/nuclei-templates on the VPS). nuclei v3+ groups templates under
+# protocol directories (http/, network/, code/, …) — we only allow the
+# HTTP protocol subset of cves + misconfiguration. Adding more requires
+# a deliberate code-review event.
 APPROVED_TEMPLATE_DIRS: frozenset[str] = frozenset({
-    "cves",
-    "misconfiguration",
+    "http/cves",
+    "http/misconfiguration",
 })
 
 
