@@ -12,8 +12,8 @@ def test_open_creates_schema(tmp_path: Path) -> None:
     cur = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     )
-    tables = [row[0] for row in cur.fetchall()]
-    assert tables == ["assets", "findings"]
+    tables = {row[0] for row in cur.fetchall()}
+    assert tables >= {"assets", "findings", "recon_runs", "http_services", "signals"}
     conn.close()
 
 
