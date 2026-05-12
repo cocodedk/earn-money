@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 
 from earn_money import config, db, scope
-from earn_money.recon import assets, services
-from earn_money.runners import httpx_probe
+from earn_money.recon import assets
+from earn_money.runners import active, httpx_probe
 
 _PD_HTTPX = Path.home() / "go" / "bin" / "httpx"
 
@@ -57,14 +57,17 @@ def _make_tool_run(url: str, run_id: str, monkeypatch: pytest.MonkeyPatch):  # t
     current_path = os.environ.get("PATH", "")
     monkeypatch.setenv("PATH", f"{pd_bin_dir}:{current_path}")
 
-    def tool_run(_targets: list[str]) -> list[services.HttpService]:
+    def tool_run(_targets: list[str]) -> active.ToolRunResult:
         result = batch.run_batches(
             [url],
             command_factory=lambda chunk: httpx_tool.build_command(chunk),
             max_batch_size=1, max_batch_duration_s=10.0,
         )
         raw = "\n".join(line for b in result.batches for line in b.lines)
-        return httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at="t")
+        return active.ToolRunResult(
+            services=httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at="t"),
+            aborted=result.aborted,
+        )
 
     return tool_run
 
@@ -93,6 +96,64 @@ def test_e2e_probes_in_scope_target(
 
     assert any(r[0] == "127.0.0.1" and r[1] == 200 for r in rows)
     assert runs_rows == [("success",)]
+
+
+def test_e2e_kill_switch_halts_run(
+    tmp_repo: Path, mock_target: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Removing RECON_ENABLED mid-probe must cause the watchdog to
+    abort the subprocess. The recon_runs row records the partial run
+    and terminated_reason=kill_switch."""
+    import threading
+    import time
+
+    paths = _seed(tmp_repo)
+    # Build the tool_run via the real builder so the watchdog gets wired in.
+    from earn_money.recon import httpx_tool
+    from earn_money.runners import batch, watchdog
+
+    pd_bin_dir = str(_PD_HTTPX.parent)
+    current_path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", f"{pd_bin_dir}:{current_path}")
+
+    def tool_run(_targets: list[str]) -> active.ToolRunResult:
+        abort = threading.Event()
+        wd = watchdog.KillSwitchWatchdog(
+            paths, platform="hackerone", slug="example",
+            on_state_change=lambda _r: abort.set(),
+            poll_interval_s=0.1,
+        )
+        wd.start()
+        try:
+            result = batch.run_batches(
+                ["http://127.0.0.1:18084/"],  # slow handler
+                command_factory=lambda chunk: httpx_tool.build_command(chunk),
+                max_batch_size=1, max_batch_duration_s=10.0,
+                abort=abort,
+            )
+        finally:
+            wd.stop()
+        raw = "\n".join(line for b in result.batches for line in b.lines)
+        return active.ToolRunResult(
+            services=httpx_tool.parse_jsonl(raw, run_id="e2e-kill", observed_at="t"),
+            aborted=result.aborted,
+        )
+
+    def remove_flag_soon() -> None:
+        time.sleep(0.3)
+        paths.recon_enabled_flag.unlink()
+
+    threading.Thread(target=remove_flag_soon, daemon=True).start()
+    httpx_probe.run_program(
+        paths, "hackerone", "example", tool_run=tool_run,
+    )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT status, terminated_reason FROM recon_runs"
+    ).fetchall()
+    conn.close()
+    assert rows == [("partial", "kill_switch")]
 
 
 def test_e2e_captures_redirect_without_following(
