@@ -18,6 +18,11 @@ from earn_money import config, flags, policy
 from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
 
+# A full http/cves scan against one live host can run 10-20 minutes at
+# the spec's -rl 10 throughput cap. 1500s = 25 min gives margin without
+# burning the systemd timer's 90-min ceiling.
+_BATCH_DURATION_S = 1500.0
+
 
 def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str
@@ -48,7 +53,7 @@ def _build_real_tool(
                 command_factory=lambda chunk: nuclei_tool.build_command(
                     chunk, template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
                 ),
-                max_batch_size=50, max_batch_duration_s=300.0,
+                max_batch_size=50, max_batch_duration_s=_BATCH_DURATION_S,
                 abort=abort,
             )
         finally:
@@ -69,7 +74,7 @@ def _build_real_tool(
         timed_out = any(b.timed_out for b in batches_result.batches)
         parsed = nuclei_tool.parse_jsonl(raw_stdout, run_id=run_id, observed_at=now)
         return active.ToolRunResult(
-            services=tuple(parsed),
+            outputs=tuple(parsed),
             aborted=batches_result.aborted,
             terminated_reason=abort_reason[0],
             source_failures=source_failures,

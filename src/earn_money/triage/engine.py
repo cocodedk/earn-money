@@ -18,12 +18,12 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from urllib.parse import urlparse
 
 from earn_money import config, db, flags, scope
 from earn_money.recon import services
-from earn_money.recon.services import HttpService
+from earn_money.recon.services import pick_canonical_service
 from earn_money.recon.signals import Signal
+from earn_money.recon.urls import target_host
 from earn_money.triage import findings, hashing, queue
 from earn_money.triage.classify import classify
 from earn_money.triage.findings import Finding
@@ -99,17 +99,6 @@ def run_program(
         conn.close()
 
 
-def _target_host(target: str, fallback: str) -> str:
-    """Extract the hostname from a URL for OOS checking.
-
-    Mirrors the helper in nuclei_scan.py.  If `target` has no scheme or
-    cannot be parsed, fall back to `fallback` (typically ``sig.asset``).
-    """
-    if "://" in target:
-        return urlparse(target).hostname or fallback
-    return fallback
-
-
 def _signals_for_run(conn: sqlite3.Connection, run_id: str) -> list[Signal]:
     cursor = conn.execute(
         "SELECT run_id, tool, signal_type, asset, target, signature, "
@@ -136,9 +125,9 @@ def _process_signal(
     ):
         return "skipped"
     if sig.target:
-        target_host = _target_host(sig.target, sig.asset)
-        if target_host and not scope.is_in_scope(
-            target_host, scope_.in_scope, scope_.out_of_scope
+        t_host = target_host(sig.target, sig.asset)
+        if t_host and not scope.is_in_scope(
+            t_host, scope_.in_scope, scope_.out_of_scope
         ):
             return "skipped"
 
@@ -171,7 +160,7 @@ def _process_signal(
     findings.upsert_finding(conn, finding)
 
     if existing is None:
-        svc = _latest_service_for_asset(conn, sig.asset)
+        svc = pick_canonical_service(services.services_for_subdomains(conn, [sig.asset]))
         queue_path = paths.root / notes_path
         queue_path.parent.mkdir(parents=True, exist_ok=True)
         queue_path.write_text(queue.render(finding, service=svc), encoding="utf-8")
@@ -188,17 +177,3 @@ def _evidence_path(conn: sqlite3.Connection, run_id: str) -> str:
     return f"{row[0]}/raw.jsonl"
 
 
-def _latest_service_for_asset(
-    conn: sqlite3.Connection, asset: str
-) -> HttpService | None:
-    rows = services.services_for_subdomains(conn, [asset])
-    if not rows:
-        return None
-    rows.sort(
-        key=lambda r: (
-            0 if (r.scheme == "https" and r.port == 443) else 1,
-            -(r.status_code or 0),
-            r.observed_at,
-        )
-    )
-    return rows[0]

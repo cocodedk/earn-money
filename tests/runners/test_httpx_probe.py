@@ -42,7 +42,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -58,7 +58,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -69,7 +69,7 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     _seed_assets(paths, ["api.example.com", "www.example.com"])
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=tuple(
+        return active.ToolRunResult(outputs=tuple(
             services.HttpService(
                 subdomain=t, scheme="https", port=443,
                 url=f"https://{t}/", status_code=200, title="ok",
@@ -100,7 +100,7 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
     _seed_assets(paths, ["api.example.com"])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             services.HttpService(
                 subdomain="api.example.com", scheme="https", port=443,
                 url="https://api.example.com/", status_code=200, title="",
@@ -137,7 +137,7 @@ def test_freeze_mid_run_records_freeze_terminated_reason(tmp_repo: Path) -> None
 
     def freezing_tool(_targets: list[str]) -> active.ToolRunResult:
         return active.ToolRunResult(
-            services=(), aborted=True, terminated_reason="freeze",
+            outputs=(), aborted=True, terminated_reason="freeze",
         )
 
     result = httpx_probe.run_program(

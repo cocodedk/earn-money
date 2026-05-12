@@ -60,7 +60,7 @@ def _build_real_tool(
         )
         timed_out = any(b.timed_out for b in batches_result.batches)
         return active.ToolRunResult(
-            services=tuple(httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at=now)),
+            outputs=tuple(httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at=now)),
             aborted=batches_result.aborted,
             terminated_reason=abort_reason[0],
             source_failures=source_failures,

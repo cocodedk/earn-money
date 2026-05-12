@@ -718,7 +718,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         katana_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -729,7 +729,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         katana_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -742,7 +742,7 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(
 
     result = katana_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=()),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.targets_scanned == 0
     assert result.signals_emitted == 1
@@ -912,7 +912,7 @@ def run_program(
         try:
             tool_result = (
                 tool_run(targets) if targets
-                else active.ToolRunResult(services=())
+                else active.ToolRunResult(outputs=())
             )
         except Exception as exc:
             finished = datetime.now(UTC).isoformat(timespec="seconds")
@@ -923,7 +923,7 @@ def run_program(
             )
             raise
 
-        raw_signals: list[Signal] = list(tool_result.services)
+        raw_signals: list[Signal] = list(tool_result.outputs)
         in_scope_sigs = [
             sig for sig in raw_signals
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
@@ -1100,7 +1100,7 @@ def _build_real_tool(
         timed_out = any(b.timed_out for b in batches_result.batches)
         parsed = katana_tool.parse_jsonl(raw_stdout, run_id=run_id, observed_at=now)
         return active.ToolRunResult(
-            services=tuple(parsed),
+            outputs=tuple(parsed),
             aborted=batches_result.aborted,
             terminated_reason=abort_reason[0],
             source_failures=source_failures,
@@ -1195,7 +1195,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
         captured_targets.append(list(targets))
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="katana", signal_type="endpoint_discovered",
                 asset="api.example.com",
@@ -1259,7 +1259,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="katana", signal_type="endpoint_discovered",
                 asset="api.example.com", target="https://api.example.com/ok",
@@ -1305,7 +1305,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="katana", signal_type="endpoint_discovered",
                 asset="api.example.com",  # in-scope asset
@@ -1337,7 +1337,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
 
     result = katana_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=()),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.signals_emitted == 1  # the prereq_missing signal
 
@@ -1371,7 +1371,7 @@ def test_records_terminated_reason_from_tool_result(tmp_repo: Path) -> None:
 
     def aborted_tool(_targets: list[str]) -> active.ToolRunResult:
         return active.ToolRunResult(
-            services=(),
+            outputs=(),
             aborted=True,
             terminated_reason="kill_switch",
         )
@@ -1989,7 +1989,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         ffuf_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -2000,7 +2000,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         ffuf_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=()),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=()),
         )
 
 
@@ -2013,7 +2013,7 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(
 
     result = ffuf_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=()),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.targets_scanned == 0
     assert result.signals_emitted == 1
@@ -2186,7 +2186,7 @@ def run_program(
         try:
             tool_result = (
                 tool_run(targets) if targets
-                else active.ToolRunResult(services=())
+                else active.ToolRunResult(outputs=())
             )
         except Exception as exc:
             finished = datetime.now(UTC).isoformat(timespec="seconds")
@@ -2197,7 +2197,7 @@ def run_program(
             )
             raise
 
-        raw_signals: list[Signal] = list(tool_result.services)
+        raw_signals: list[Signal] = list(tool_result.outputs)
         in_scope_sigs = [
             sig for sig in raw_signals
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
@@ -2421,7 +2421,7 @@ def _build_real_tool(
         raw_stdout = "\n".join(stdout_chunks)
         raw_stderr = "\n".join(stderr_chunks)
         return active.ToolRunResult(
-            services=tuple(collected_signals),
+            outputs=tuple(collected_signals),
             aborted=abort.is_set(),
             terminated_reason=abort_reason[0],
             source_failures=source_failures,
@@ -2518,7 +2518,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
         captured_targets.append(list(targets))
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="ffuf", signal_type="content_match",
                 asset="api.example.com",
@@ -2581,7 +2581,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="ffuf", signal_type="content_match",
                 asset="api.example.com", target="https://api.example.com/admin",
@@ -2625,7 +2625,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=(
+        return active.ToolRunResult(outputs=(
             signals.Signal(
                 run_id="r", tool="ffuf", signal_type="content_match",
                 asset="api.example.com",  # in-scope asset
@@ -2656,7 +2656,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
 
     result = ffuf_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=()),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.signals_emitted == 1
 
@@ -2688,7 +2688,7 @@ def test_records_terminated_reason_from_tool_result(tmp_repo: Path) -> None:
 
     def aborted_tool(_targets: list[str]) -> active.ToolRunResult:
         return active.ToolRunResult(
-            services=(),
+            outputs=(),
             aborted=True,
             terminated_reason="freeze",
         )
@@ -3210,7 +3210,7 @@ def _make_tool_run(monkeypatch: pytest.MonkeyPatch, run_id: str):  # type: ignor
         raw = "\n".join(line for b in result.batches for line in b.lines)
         parsed = katana_tool.parse_jsonl(raw, run_id=run_id, observed_at="t")
         return active.ToolRunResult(
-            services=tuple(parsed),
+            outputs=tuple(parsed),
             aborted=result.aborted,
         )
 
@@ -3395,7 +3395,7 @@ def _make_tool_run(monkeypatch: pytest.MonkeyPatch, run_id: str):  # type: ignor
                         )
                     )
         return active.ToolRunResult(
-            services=tuple(collected),
+            outputs=tuple(collected),
             source_failures=source_failures,
             raw_stdout="\n".join(stdout_chunks),
             raw_stderr="\n".join(stderr_chunks),

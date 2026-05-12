@@ -100,7 +100,7 @@ def _make_tool_run(monkeypatch: pytest.MonkeyPatch):  # type: ignore[type-arg]
         )
         raw = "\n".join(line for b in result.batches for line in b.lines)
         return active.ToolRunResult(
-            services=tuple(nuclei_tool.parse_jsonl(raw, run_id=e2e_run_id, observed_at="t")),
+            outputs=tuple(nuclei_tool.parse_jsonl(raw, run_id=e2e_run_id, observed_at="t")),
             aborted=result.aborted,
         )
 

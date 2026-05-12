@@ -27,10 +27,13 @@ class ActiveRunResult:
 
 @dataclass(frozen=True)
 class ToolRunResult:
-    """Return type for the injected tool_run callable. Lets the runner
-    record terminated_reason and status='partial' instead of always
-    reporting 'success'."""
-    services: tuple[Any, ...] = ()  # tuple[HttpService|Signal, ...] — Any avoids circular import
+    """Return type for the injected tool_run callable.
+
+    `outputs` is a tuple of parsed observations from the underlying tool:
+    `HttpService` for httpx, `Signal` for nuclei / katana / ffuf. The
+    runner pulls them out and handles type-specific persistence.
+    """
+    outputs: tuple[Any, ...] = ()
     aborted: bool = False
     source_failures: int = 0
     timed_out: bool = False

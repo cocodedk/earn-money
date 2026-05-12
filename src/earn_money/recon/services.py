@@ -69,6 +69,25 @@ def services_for_subdomains(
     return [_row_to_service(row) for row in cursor]
 
 
+def pick_canonical_service(rows: list[HttpService]) -> HttpService | None:
+    """Return the best service from a list: HTTPS:443 > highest status > most recent.
+
+    Used by triage to pick a representative service row for a finding's evidence
+    context. Returns None for an empty list.
+    """
+    if not rows:
+        return None
+    rows = sorted(
+        rows,
+        key=lambda r: (
+            0 if (r.scheme == "https" and r.port == 443) else 1,
+            -(r.status_code or 0),
+            r.observed_at,
+        ),
+    )
+    return rows[0]
+
+
 def _row_to_service(row: tuple) -> HttpService:  # type: ignore[type-arg]
     return HttpService(
         subdomain=row[0], scheme=row[1], port=row[2], url=row[3],

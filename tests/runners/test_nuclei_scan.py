@@ -62,7 +62,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         nuclei_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=[]),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
         )
 
 
@@ -73,7 +73,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         nuclei_scan.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=[]),
+            tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
         )
 
 
@@ -89,7 +89,7 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(tmp_repo: Path) -> No
     # No httpx run seeded.
     result = nuclei_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=[]),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
     )
     assert result.targets_scanned == 0
     assert result.signals_emitted == 1
@@ -129,7 +129,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
         captured_targets.append(list(targets))
-        return active.ToolRunResult(services=[
+        return active.ToolRunResult(outputs=[
             signals.Signal(
                 run_id="r", tool="nuclei", signal_type="template_match",
                 asset="api.example.com",
@@ -189,7 +189,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=[
+        return active.ToolRunResult(outputs=[
             signals.Signal(
                 run_id="r", tool="nuclei", signal_type="template_match",
                 asset="api.example.com", target="https://api.example.com/",
@@ -234,7 +234,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     ])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=[
+        return active.ToolRunResult(outputs=[
             signals.Signal(
                 run_id="r", tool="nuclei", signal_type="template_match",
                 asset="api.example.com",          # in-scope asset
@@ -256,6 +256,38 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
     assert rows == (0,)
 
 
+def test_source_failures_promotes_run_to_partial(tmp_repo: Path) -> None:
+    """A scan that completes without abort but has nonzero source_failures
+    (e.g. some batches returned non-zero exit) must record status='partial'
+    so the digest surfaces the partial result instead of reporting clean."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_httpx_run_and_services(paths, services_to_insert=[
+        services.HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200, title=None,
+            server=None, technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="t", last_run_id="httpx-r1", in_scope_at_observation=True,
+        ),
+    ])
+
+    def flaky_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(outputs=(), source_failures=2)
+
+    nuclei_scan.run_program(
+        paths, "hackerone", "example", tool_run=flaky_tool,
+    )
+
+    import sqlite3 as _sqlite3
+    conn = _sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT status, source_failures FROM recon_runs WHERE tool = 'nuclei'"
+    ).fetchall()
+    conn.close()
+    assert rows == [("partial", 2)]
+
+
 def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
     """_record_prereq_missing must write all 5 required artifacts so the
     artifact contract holds even for skipped runs."""
@@ -265,7 +297,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
 
     result = nuclei_scan.run_program(
         paths, "hackerone", "example",
-        tool_run=lambda _targets: active.ToolRunResult(services=()),
+        tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.signals_emitted == 1  # the prereq_missing signal
 

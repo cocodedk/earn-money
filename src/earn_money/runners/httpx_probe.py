@@ -68,7 +68,7 @@ def run_program(
         try:
             tool_result = (
                 tool_run(targets) if targets
-                else active.ToolRunResult(services=())
+                else active.ToolRunResult(outputs=())
             )
         except Exception as exc:
             finished = datetime.now(UTC).isoformat(timespec="seconds")
@@ -79,7 +79,7 @@ def run_program(
             )
             raise
 
-        raw_services: tuple[services.HttpService, ...] = tuple(tool_result.services)
+        raw_services: tuple[services.HttpService, ...] = tuple(tool_result.outputs)
         in_scope = [
             svc for svc in raw_services
             if scope.is_in_scope(svc.subdomain, s.in_scope, s.out_of_scope)
@@ -107,7 +107,10 @@ def run_program(
             Literal["kill_switch", "freeze", "timeout"] | None, raw_reason
         )
 
-        run_status = "partial" if terminated_reason else "success"
+        run_status = (
+            "partial" if (terminated_reason or tool_result.source_failures > 0)
+            else "success"
+        )
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(
             conn, run_id=run_id, finished_at=finished, status=run_status,

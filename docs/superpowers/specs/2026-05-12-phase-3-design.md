@@ -97,7 +97,7 @@ The wrapper rejects any tool output line that resolves to an OOS host, even if t
 A **batch** is one subprocess invocation. The wrapper splits the input target list into batches with explicit bounds:
 
 - **Max batch size:** 50 targets per subprocess (configurable per runner, never more than 200).
-- **Max batch duration:** 5 minutes wall-clock for httpx/nuclei, 10 minutes for katana/ffuf. Beyond the cap, the wrapper sends SIGTERM, waits 5s, then SIGKILL.
+- **Max batch duration:** 5 minutes wall-clock for httpx; 25 minutes for nuclei (the full template profile takes longer at -rl 10); 10 minutes for katana/ffuf. Beyond the cap, the wrapper sends SIGTERM, waits 5s, then SIGKILL.
 
 A **kill-switch watchdog** runs as a background thread inside the wrapper for the duration of every subprocess. It polls `RECON_ENABLED` and the per-program `FROZEN` flag every 5 seconds. If either state changes mid-batch — flag removed, FROZEN appears, or the file is replaced — the watchdog:
 
