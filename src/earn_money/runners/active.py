@@ -8,7 +8,7 @@ and the result shape stays consistent for the digest.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from earn_money import config, flags, policy, scope
 
@@ -40,6 +40,31 @@ class ToolRunResult:
     terminated_reason: str | None = None  # P1.1: "kill_switch" | "freeze" | None
     raw_stdout: str = ""  # P1.2: captured stdout for artifact writing
     raw_stderr: str = ""  # P1.2: captured stderr for artifact writing
+
+
+_TerminatedReason = Literal["kill_switch", "freeze", "timeout"]
+
+
+def resolve_run_status(
+    tool_result: ToolRunResult,
+) -> tuple[Literal["success", "partial"], _TerminatedReason | None]:
+    """Map a ToolRunResult to (run_status, terminated_reason).
+
+    Reason precedence: caller-provided > kill_switch > timeout > None.
+    Status is 'partial' if a terminated_reason was resolved OR any
+    source_failures occurred; 'success' otherwise.
+    """
+    raw_reason: str | None = (
+        tool_result.terminated_reason
+        or ("kill_switch" if tool_result.aborted else None)
+        or ("timeout" if tool_result.timed_out else None)
+    )
+    reason = cast(_TerminatedReason | None, raw_reason)
+    status: Literal["success", "partial"] = (
+        "partial" if (reason or tool_result.source_failures > 0)
+        else "success"
+    )
+    return status, reason
 
 
 def check_gates(

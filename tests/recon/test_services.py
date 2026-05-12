@@ -54,6 +54,104 @@ def test_upsert_replaces_existing_row_for_same_key(tmp_path: Path) -> None:
     assert rows == [(503, "r2")]
 
 
+def test_pick_canonical_service_prefers_https_443(tmp_path: Path) -> None:
+    rows = [
+        services.HttpService(
+            subdomain="x", scheme="http", port=80,
+            url="http://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+    ]
+    picked = services.pick_canonical_service(rows)
+    assert picked is not None
+    assert (picked.scheme, picked.port) == ("https", 443)
+
+
+def test_pick_canonical_service_prefers_higher_status_on_same_scheme_port(tmp_path: Path) -> None:
+    rows = [
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=503, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+    ]
+    picked = services.pick_canonical_service(rows)
+    assert picked is not None
+    # The -(status_code or 0) key means LOWER (more negative) sorts FIRST.
+    # 503 has -503 which is less than -200, so 503 wins.
+    assert picked.status_code == 503
+
+
+def test_pick_canonical_service_prefers_newest_on_other_ties(tmp_path: Path) -> None:
+    """The bug-fix this test pins: when scheme/port/status all tie,
+    the most recent observation wins. Was inverted in cycle 1."""
+    rows = [
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r1",
+            in_scope_at_observation=True,
+        ),
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-02-01T00:00:00Z", last_run_id="r2",
+            in_scope_at_observation=True,
+        ),
+    ]
+    picked = services.pick_canonical_service(rows)
+    assert picked is not None
+    assert picked.observed_at == "2026-02-01T00:00:00Z"
+    assert picked.last_run_id == "r2"
+
+
+def test_pick_canonical_service_empty_returns_none(tmp_path: Path) -> None:
+    assert services.pick_canonical_service([]) is None
+
+
+def test_pick_canonical_service_handles_none_status(tmp_path: Path) -> None:
+    rows = [
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=None, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+        services.HttpService(
+            subdomain="x", scheme="https", port=443,
+            url="https://x/", status_code=200, title=None, server=None,
+            technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="2026-01-01T00:00:00Z", last_run_id="r",
+            in_scope_at_observation=True,
+        ),
+    ]
+    picked = services.pick_canonical_service(rows)
+    assert picked is not None
+    # status 200 beats None (which coerces to 0)
+    assert picked.status_code == 200
+
+
 def test_services_for_program_filters_by_subdomain(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     # Insert two subdomains; the test asks for one.

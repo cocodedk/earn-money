@@ -4,7 +4,7 @@
 
 **Goal:** Ship the broader active-recon surface — a `katana` crawl runner (depth + duration + URL caps), a `ffuf` content-discovery runner (approved-wordlist allowlist + request caps), tool-wrapper parsers that emit normalized `Signal` rows (`endpoint_discovered` for katana, `content_match` for ffuf), and triage classify branches that turn those signals into queue candidates.
 
-**Architecture:** Two new active runners layered on the Phase 3a primitives (`active.check_gates`, `ToolRunResult`, `KillSwitchWatchdog`, `batch.run_batches`) and the Phase 3b finding/hash/queue plumbing. Both runners mirror `nuclei_scan.run_program`: gate-check → prereq freshness against httpx (24h window) → load scoped service URLs from `http_services` → batched subprocess under the kill-switch watchdog → parse output → dual-key OOS re-filter (`sig.asset` AND `_target_host(sig.target)`) → write the 5 required artifact files → upsert `recon_runs`. katana is target-batchable (one subprocess per chunk, mirrors nuclei). ffuf is per-host (one subprocess per service URL because `-u <target>FUZZ` is single-target) — the runner iterates services and accumulates batch results. The triage `classify` dispatch table grows two new branches that pin the new signal types to sensible `vuln_class` / `severity_hint` / `confidence` defaults so the digest can rank them.
+**Architecture:** Two new active runners layered on the Phase 3a primitives (`active.check_gates`, `ToolRunResult`, `KillSwitchWatchdog`, `batch.run_batches`) and the Phase 3b finding/hash/queue plumbing. Both runners mirror `nuclei_scan.run_program`: gate-check → prereq freshness against httpx (24h window) → load scoped service URLs from `http_services` → batched subprocess under the kill-switch watchdog → parse output → dual-key OOS re-filter (`sig.asset` AND `target_host(sig.target, sig.asset)` from `earn_money.recon.urls`) → write the 5 required artifact files → upsert `recon_runs`. katana is target-batchable (one subprocess per chunk, mirrors nuclei). ffuf is per-host (one subprocess per service URL because `-u <target>FUZZ` is single-target) — the runner iterates services and accumulates batch results. The triage `classify` dispatch table grows two new branches that pin the new signal types to sensible `vuln_class` / `severity_hint` / `confidence` defaults so the digest can rank them.
 
 **Tech Stack:** Python 3.12+, sqlite3, subprocess (katana + ffuf), pytest, mypy strict, ruff. ProjectDiscovery `katana` and the Go-based `ffuf` are shelled out. No new runtime dependencies — both parsers use stdlib `json`.
 
@@ -777,7 +777,8 @@ Expected: `ModuleNotFoundError: No module named 'earn_money.runners.katana_scan'
 Mirrors nuclei_scan but emits `endpoint_discovered` signals from katana's
 JSONL output. Per spec section 3, every emitted URL is re-checked
 against the program's scope (`oos_drops` counts the rejects) on both
-``sig.asset`` AND ``_target_host(sig.target)``.
+``sig.asset`` AND ``target_host(sig.target, sig.asset)`` (imported from
+``earn_money.recon.urls``).
 
 Per spec section 7, the runner refuses to scan if there is no recent
 successful httpx run (prereq freshness check, 24h window).  The refusal
@@ -797,23 +798,16 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from earn_money import config, db, scope
 from earn_money.recon import katana_tool, runs, signals
 from earn_money.recon.signals import Signal
+from earn_money.recon.urls import target_host
 from earn_money.runners import active
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 _PREREQ_FRESHNESS_HOURS = 24
-
-
-def _target_host(target: str, fallback: str) -> str:
-    """Extract the hostname from a URL for OOS checking (dual-key filter)."""
-    if "://" in target:
-        return urlparse(target).hostname or fallback
-    return fallback
 
 
 def _load_in_scope_service_urls(
@@ -838,6 +832,7 @@ def _recent_httpx_success(
     row = conn.execute(
         "SELECT 1 FROM recon_runs WHERE platform = ? AND slug = ? "
         "AND tool = 'httpx' AND status IN ('success', 'partial') "
+        "AND output_count > 0 "
         "AND finished_at IS NOT NULL AND finished_at >= ? LIMIT 1",
         (platform, slug, cutoff),
     ).fetchone()
@@ -928,7 +923,7 @@ def run_program(
             sig for sig in raw_signals
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
             and scope.is_in_scope(
-                _target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope,
+                target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope,
             )
         ]
         oos_drops = len(raw_signals) - len(in_scope_sigs)
@@ -2052,7 +2047,8 @@ fires on `RECON_ENABLED` / `FROZEN` state changes between hosts and on
 the in-flight subprocess via SIGTERM.
 
 Per spec section 3, every emitted match is re-checked against scope on
-both ``sig.asset`` AND ``_target_host(sig.target)``.  Per spec section 7,
+both ``sig.asset`` AND ``target_host(sig.target, sig.asset)`` (imported from
+``earn_money.recon.urls``).  Per spec section 7,
 the runner refuses to scan if there is no recent successful httpx run
 (prereq freshness check, 24h window).
 
@@ -2069,22 +2065,16 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from earn_money import config, db, scope
 from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
+from earn_money.recon.urls import target_host
 from earn_money.runners import active
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 _PREREQ_FRESHNESS_HOURS = 24
-
-
-def _target_host(target: str, fallback: str) -> str:
-    if "://" in target:
-        return urlparse(target).hostname or fallback
-    return fallback
 
 
 def _load_in_scope_service_urls(
@@ -2109,6 +2099,7 @@ def _recent_httpx_success(
     row = conn.execute(
         "SELECT 1 FROM recon_runs WHERE platform = ? AND slug = ? "
         "AND tool = 'httpx' AND status IN ('success', 'partial') "
+        "AND output_count > 0 "
         "AND finished_at IS NOT NULL AND finished_at >= ? LIMIT 1",
         (platform, slug, cutoff),
     ).fetchone()
@@ -2202,7 +2193,7 @@ def run_program(
             sig for sig in raw_signals
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
             and scope.is_in_scope(
-                _target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope,
+                target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope,
             )
         ]
         oos_drops = len(raw_signals) - len(in_scope_sigs)
@@ -3509,7 +3500,7 @@ Grep the plan for `TBD`, `TODO`, `pseudocode`, `[fill in]`, `[example]`, `XXX`, 
 - `Signal` (Phase 3a) — re-used in Tasks 2, 3, 5, 6, 7, 9. Schema is the existing `signals` table; no changes.
 - `HttpService` (Phase 3a) — re-used in Task 3 + 6 tests via `_seed_httpx_run_and_services`. No changes.
 - `ActiveRunResult` (Phase 3a) — returned unchanged by `katana_scan.run_program` and `ffuf_scan.run_program`. Same 8 fields.
-- `ToolRunResult` (Phase 3a, frozen dataclass) — re-used by both runners. `services` field accepts `tuple[Signal, ...]`; `raw_stdout` / `raw_stderr` / `terminated_reason` / `aborted` / `source_failures` / `timed_out` all used by the new CLI wiring.
+- `ToolRunResult` (Phase 3a, frozen dataclass) — re-used by both runners. `outputs` field accepts `tuple[Signal, ...]`; `raw_stdout` / `raw_stderr` / `terminated_reason` / `aborted` / `source_failures` / `timed_out` all used by the new CLI wiring.
 - `UnsafeCrawlProfile` (Task 2) — new exception, never crosses module boundaries except in `katana_scan_cli.main()`.
 - `UnsafeWordlistProfile` (Task 5) — new exception, raised inside `ffuf_tool.build_command` and inside `ffuf_scan_cli._resolve_wordlist_path`; caught only by `ffuf_scan_cli.main()`.
 - `Classification` (Phase 3b, `classify.py`) — extended via two new dispatch branches, no signature change. Existing callers (`engine._process_signal`) are unaffected.

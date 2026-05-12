@@ -77,15 +77,14 @@ def pick_canonical_service(rows: list[HttpService]) -> HttpService | None:
     """
     if not rows:
         return None
-    rows = sorted(
-        rows,
-        key=lambda r: (
-            0 if (r.scheme == "https" and r.port == 443) else 1,
-            -(r.status_code or 0),
-            r.observed_at,
-        ),
-    )
-    return rows[0]
+    # First sort by recency (newest first) — string sort on ISO-8601 is chronological.
+    by_recency = sorted(rows, key=lambda r: r.observed_at, reverse=True)
+    # Then stable-sort by the primary keys; equal keys preserve recency order.
+    by_priority = sorted(by_recency, key=lambda r: (
+        0 if (r.scheme == "https" and r.port == 443) else 1,
+        -(r.status_code or 0),
+    ))
+    return by_priority[0]
 
 
 def _row_to_service(row: tuple) -> HttpService:  # type: ignore[type-arg]

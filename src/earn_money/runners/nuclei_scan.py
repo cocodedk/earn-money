@@ -55,6 +55,7 @@ def _recent_httpx_success(
     row = conn.execute(
         "SELECT 1 FROM recon_runs WHERE platform = ? AND slug = ? "
         "AND tool = 'httpx' AND status IN ('success', 'partial') "
+        "AND output_count > 0 "
         "AND finished_at IS NOT NULL AND finished_at >= ? LIMIT 1",
         (platform, slug, cutoff),
     ).fetchone()
@@ -171,13 +172,7 @@ def run_program(
             "approved_templates": sorted(APPROVED_TEMPLATE_DIRS),
         })
 
-        terminated_reason: str | None = (
-            tool_result.terminated_reason
-            or ("kill_switch" if tool_result.aborted else None)
-            or ("timeout" if tool_result.timed_out else None)
-        )
-        has_failures = terminated_reason or tool_result.source_failures > 0
-        run_status = "partial" if has_failures else "success"
+        run_status, terminated_reason = active.resolve_run_status(tool_result)
 
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(

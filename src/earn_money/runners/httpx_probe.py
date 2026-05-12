@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any
 
 from earn_money import config, db, scope
 from earn_money.recon import runs, services
@@ -96,21 +96,7 @@ def run_program(
             "output_count": len(in_scope), "oos_drops": oos_drops,
         })
 
-        # Prefer the watchdog-captured reason; fall back to a generic
-        # "kill_switch" only when aborted=True without a more specific reason.
-        raw_reason: str | None = (
-            tool_result.terminated_reason
-            or ("kill_switch" if tool_result.aborted else None)
-            or ("timeout" if tool_result.timed_out else None)
-        )
-        terminated_reason = cast(
-            Literal["kill_switch", "freeze", "timeout"] | None, raw_reason
-        )
-
-        run_status = (
-            "partial" if (terminated_reason or tool_result.source_failures > 0)
-            else "success"
-        )
+        run_status, terminated_reason = active.resolve_run_status(tool_result)
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(
             conn, run_id=run_id, finished_at=finished, status=run_status,
