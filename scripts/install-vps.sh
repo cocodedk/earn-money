@@ -1,0 +1,94 @@
+#!/bin/sh
+# Configure a fresh Ubuntu 24.04+ VPS for the earn-money pipeline.
+# Run as root on the VPS. Idempotent — safe to re-run after partial failure.
+#
+# Assumes:
+#   - Ubuntu 24.04 LTS (Python 3.12 already on PATH)
+#   - Outbound HTTPS to api.github.com and github.com is open
+#   - You have already SSHed in as root
+#
+# This script does NOT:
+#   - Push the repo to the VPS (use rsync from the laptop, see end-of-run notes)
+#   - Transfer .env (use scp from the laptop)
+#   - Touch RECON_ENABLED (that's an operator-explicit step, the consent gate)
+
+set -eu
+
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+log() { printf "${GREEN}[install-vps]${NC} %s\n" "$*"; }
+warn() { printf "${YELLOW}[install-vps]${NC} %s\n" "$*" >&2; }
+
+if [ "$(id -u)" -ne 0 ]; then
+    warn "must be run as root"; exit 1
+fi
+
+log "apt prereqs"
+apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    python3-venv python3-pip jq curl unzip ca-certificates
+
+log "ProjectDiscovery tools (subfinder, httpx, nuclei) via prebuilt releases"
+mkdir -p /opt/recon-tools
+cd /opt/recon-tools
+for tool in subfinder httpx nuclei; do
+    if [ -x "/usr/local/bin/$tool" ]; then
+        log "  $tool: already present, skipping"
+        continue
+    fi
+    ver=$(curl -sL "https://api.github.com/repos/projectdiscovery/${tool}/releases/latest" \
+        | jq -r .tag_name)
+    ver_num="${ver#v}"
+    url="https://github.com/projectdiscovery/${tool}/releases/download/${ver}/${tool}_${ver_num}_linux_amd64.zip"
+    log "  $tool: fetching $ver"
+    curl -sL "$url" -o "${tool}.zip"
+    unzip -qo "${tool}.zip"
+    install -m 0755 "$tool" "/usr/local/bin/$tool"
+    rm -f "${tool}.zip" "$tool"
+done
+
+log "nuclei templates"
+if [ ! -d /root/nuclei-templates ]; then
+    nuclei -update-templates >/dev/null 2>&1 || warn "template install failed; re-run manually"
+else
+    log "  templates already present at /root/nuclei-templates"
+fi
+
+log "installed versions:"
+subfinder -version 2>&1 | grep -i "current version" | head -1
+httpx -version 2>&1 | grep -i "current version" | head -1
+nuclei -version 2>&1 | grep -i "version" | head -1
+
+cat <<EOF
+
+${GREEN}VPS base install complete.${NC} Tools at /usr/local/bin.
+
+Remaining steps (run from your laptop):
+
+  1. Rsync the repo (excluding gitignored + .git):
+       rsync -a --delete \\
+         --exclude='.venv/' --exclude='__pycache__' --exclude='.git/' \\
+         --exclude='.env' --exclude='*.sqlite' --exclude='recon/outputs/' \\
+         --exclude='RECON_ENABLED' --exclude='.claude/' --exclude='.mcp.json' \\
+         /path/to/earn-money/ root@<VPS>:/opt/earn-money/
+
+  2. Copy .env (CHAOS_API_TOKEN + HACKERONE_API_*):
+       scp -p .env root@<VPS>:/opt/earn-money/.env
+       ssh root@<VPS> chmod 600 /opt/earn-money/.env
+
+  3. Set up the Python venv (on the VPS):
+       cd /opt/earn-money
+       python3 -m venv .venv
+       .venv/bin/pip install -e ".[dev]" --quiet
+
+  4. Arm the kill-switch when ready (explicit operator consent gate):
+       touch /opt/earn-money/RECON_ENABLED
+
+  5. Smoke test:
+       cd /opt/earn-money && set -o allexport && . ./.env && set +o allexport
+       .venv/bin/python -m earn_money.runners.passive_recon \\
+         --program security --root /opt/earn-money
+
+EOF
