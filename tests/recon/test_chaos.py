@@ -79,6 +79,15 @@ def test_non_json_body_wrapped() -> None:
     assert "non-JSON" in str(excinfo.value)
 
 
+def test_fetch_handles_null_subdomains_field() -> None:
+    """Chaos returns {"subdomains": null} for programs with no known subs."""
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"domain": "example.com", "subdomains": None})
+
+    client = chaos.Client(token="tkn", transport=httpx.MockTransport(handler))
+    assert client.fetch_subdomains("example.com") == []
+
+
 def test_full_fqdn_in_response_is_handled() -> None:
     def handler(_: httpx.Request) -> httpx.Response:
         return httpx.Response(

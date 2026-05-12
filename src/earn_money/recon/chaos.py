@@ -51,7 +51,9 @@ class Client:
             ) from exc
         seen: set[str] = set()
         out: list[str] = []
-        for sub in data.get("subdomains", []):
+        # Chaos returns {"subdomains": null} (not []) for programs with no
+        # known subs, so .get("subdomains", []) returns None — defend explicitly.
+        for sub in (data.get("subdomains") or []):
             label = sub.lower()
             domain_lower = domain.lower()
             if label == domain_lower or label.endswith(f".{domain_lower}"):
