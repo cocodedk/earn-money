@@ -1,0 +1,13 @@
+#!/bin/sh
+# Thin wrapper around the scope-sync runner.
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ -f "$ROOT/.env" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+  export HACKERONE_API_USERNAME HACKERONE_API_TOKEN
+fi
+
+exec "$ROOT/.venv/bin/python" -m earn_money.runners.scope_sync --root "$ROOT" "$@"
