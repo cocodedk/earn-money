@@ -61,8 +61,11 @@ def write_scope(path: Path, s: Scope) -> None:
         in_scope=list(s.in_scope),
         out_of_scope=list(s.out_of_scope),
     )
+    serialized = frontmatter.dumps(post)
+    if not serialized.endswith("\n"):
+        serialized += "\n"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(frontmatter.dumps(post).encode("utf-8") + b"\n")
+    path.write_text(serialized, encoding="utf-8")
 
 
 def compute_hash(s: Scope) -> str:
