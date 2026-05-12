@@ -81,12 +81,25 @@ CREATE TABLE IF NOT EXISTS signals (
 """
 
 
+def _execute_script(conn: sqlite3.Connection, script: str) -> None:
+    """Execute each statement in *script* individually via ``conn.execute()``.
+
+    Unlike ``executescript()``, this does NOT issue an implicit COMMIT first,
+    so statements run inside whatever transaction the caller has already opened
+    and will roll back together with it on failure.
+    """
+    for stmt in script.split(";"):
+        stmt = stmt.strip()
+        if stmt:
+            conn.execute(stmt)
+
+
 def _apply_v1(conn: sqlite3.Connection) -> None:
-    conn.executescript(_V1_SCHEMA)
+    _execute_script(conn, _V1_SCHEMA)
 
 
 def _apply_v2(conn: sqlite3.Connection) -> None:
-    conn.executescript(_V2_SCHEMA)
+    _execute_script(conn, _V2_SCHEMA)
 
 
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
@@ -99,13 +112,24 @@ def migrate(conn: sqlite3.Connection, *, target_version: int) -> None:
     """Bring ``conn`` up to ``target_version`` by running each pending step
     inside its own transaction. Idempotent: a DB already at or above the
     target is unchanged. A failing step leaves user_version at the prior
-    successful step."""
+    successful step.
+
+    Implementation note: ``with conn:`` does NOT open a transaction for DDL
+    statements in Python's sqlite3 (it only auto-begins for DML). We therefore
+    use explicit BEGIN / COMMIT / ROLLBACK so that DDL and the PRAGMA
+    user_version bump are atomic together.
+    """
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     for version in sorted(_STEPS):
         if version <= current:
             continue
         if version > target_version:
             break
-        with conn:  # auto-commit / rollback on exception
+        conn.execute("BEGIN")
+        try:
             _STEPS[version](conn)
             conn.execute(f"PRAGMA user_version = {version}")
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
