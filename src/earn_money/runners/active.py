@@ -8,7 +8,7 @@ and the result shape stays consistent for the digest.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from earn_money import config, flags, policy, scope
 
@@ -23,6 +23,17 @@ class ActiveRunResult:
     source_failures: int = 0
     oos_drops: int = 0
     terminated_reason: Literal["kill_switch", "freeze", "timeout"] | None = None
+
+
+@dataclass(frozen=True)
+class ToolRunResult:
+    """Return type for the injected tool_run callable. Lets the runner
+    record terminated_reason and status='partial' instead of always
+    reporting 'success'."""
+    services: list[Any]  # list[HttpService] — Any avoids circular import
+    aborted: bool = False
+    source_failures: int = 0
+    timed_out: bool = False
 
 
 def check_gates(

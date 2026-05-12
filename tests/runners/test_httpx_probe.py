@@ -9,7 +9,7 @@ import pytest
 
 from earn_money import config, flags, policy, scope
 from earn_money.recon import services
-from earn_money.runners import httpx_probe
+from earn_money.runners import active, httpx_probe
 
 
 def _seed(
@@ -42,7 +42,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: [],
+            tool_run=lambda _targets: active.ToolRunResult(services=[]),
         )
 
 
@@ -58,7 +58,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: [],
+            tool_run=lambda _targets: active.ToolRunResult(services=[]),
         )
 
 
@@ -68,8 +68,8 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     _seed(paths, in_scope=["*.example.com"])
     _seed_assets(paths, ["api.example.com", "www.example.com"])
 
-    def fake_tool(targets: list[str]) -> list[services.HttpService]:
-        return [
+    def fake_tool(targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(services=[
             services.HttpService(
                 subdomain=t, scheme="https", port=443,
                 url=f"https://{t}/", status_code=200, title="ok",
@@ -78,7 +78,7 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
                 observed_at="t", last_run_id="r", in_scope_at_observation=True,
             )
             for t in targets
-        ]
+        ])
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",
@@ -99,8 +99,8 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
     _seed(paths, in_scope=["api.example.com"])
     _seed_assets(paths, ["api.example.com"])
 
-    def leaky_tool(_targets: list[str]) -> list[services.HttpService]:
-        return [
+    def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(services=[
             services.HttpService(
                 subdomain="api.example.com", scheme="https", port=443,
                 url="https://api.example.com/", status_code=200, title="",
@@ -113,7 +113,7 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
                 server="nginx", technologies=(), redirect_to=None, tls_summary=None,
                 observed_at="t", last_run_id="r", in_scope_at_observation=True,
             ),
-        ]
+        ])
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",
@@ -124,3 +124,25 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
     rows = conn.execute("SELECT subdomain FROM http_services").fetchall()
     conn.close()
     assert [r[0] for r in rows] == ["api.example.com"]
+
+
+def test_records_failed_run_when_tool_raises(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, in_scope=["*.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    def broken_tool(_targets: list[str]) -> active.ToolRunResult:
+        raise RuntimeError("simulated tool crash")
+
+    with pytest.raises(RuntimeError, match="simulated"):
+        httpx_probe.run_program(
+            paths, "hackerone", "example", tool_run=broken_tool,
+        )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT status, error_summary FROM recon_runs"
+    ).fetchall()
+    conn.close()
+    assert rows == [("failed", "RuntimeError: simulated tool crash")]

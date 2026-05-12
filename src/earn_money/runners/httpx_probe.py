@@ -9,17 +9,15 @@ import sqlite3
 import sys
 import uuid
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from earn_money import config, db, flags, policy, scope
 from earn_money.recon import runs, services
-from earn_money.recon.services import HttpService
 from earn_money.runners import active
 
-ToolRun = Callable[[list[str]], list[HttpService]]
+ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 
 def _load_in_scope_assets(conn: sqlite3.Connection, s: scope.Scope) -> list[str]:
@@ -46,12 +44,13 @@ def run_program(
     slug: str,
     *,
     tool_run: ToolRun,
+    run_id: str | None = None,
 ) -> active.ActiveRunResult:
     """Gate-check → load assets → scope filter → call tool → upsert services
     → write manifest → record run.  Returns a typed result for the digest."""
     s = active.check_gates(paths, platform, slug, mode="active")
 
-    run_id = uuid.uuid4().hex
+    run_id = run_id or uuid.uuid4().hex
     now = datetime.now(UTC).isoformat(timespec="seconds")
     artifact_dir = paths.root / (
         f"recon/outputs/{platform}/{slug}/httpx/{now[:10]}/{run_id}"
@@ -64,8 +63,22 @@ def run_program(
             conn, run_id=run_id, platform=platform, slug=slug, tool="httpx",
             started_at=now, artifact_dir=str(artifact_dir), input_count=len(targets),
         )
-        raw_services = tool_run(targets) if targets else []
 
+        try:
+            tool_result = (
+                tool_run(targets) if targets
+                else active.ToolRunResult(services=[])
+            )
+        except Exception as exc:
+            finished = datetime.now(UTC).isoformat(timespec="seconds")
+            runs.finish_run(
+                conn, run_id=run_id, finished_at=finished, status="failed",
+                output_count=0, signal_count=0, source_failures=1, oos_drops=0,
+                error_summary=f"{type(exc).__name__}: {exc}",
+            )
+            raise
+
+        raw_services: list[services.HttpService] = tool_result.services
         in_scope = [
             svc for svc in raw_services
             if scope.is_in_scope(svc.subdomain, s.in_scope, s.out_of_scope)
@@ -73,9 +86,7 @@ def run_program(
         oos_drops = len(raw_services) - len(in_scope)
 
         for svc in in_scope:
-            services.upsert_service(
-                conn, replace(svc, last_run_id=run_id, observed_at=now)
-            )
+            services.upsert_service(conn, svc)
 
         _write_manifest(artifact_dir, {
             "run_id": run_id, "tool": "httpx",
@@ -84,11 +95,19 @@ def run_program(
             "output_count": len(in_scope), "oos_drops": oos_drops,
         })
 
+        terminated_reason: str | None = None
+        if tool_result.aborted:
+            terminated_reason = "kill_switch"
+        elif tool_result.timed_out:
+            terminated_reason = "timeout"
+
+        run_status = "partial" if terminated_reason else "success"
         finished = datetime.now(UTC).isoformat(timespec="seconds")
         runs.finish_run(
-            conn, run_id=run_id, finished_at=finished, status="success",
+            conn, run_id=run_id, finished_at=finished, status=run_status,
             output_count=len(in_scope), signal_count=0,
-            source_failures=0, oos_drops=oos_drops,
+            source_failures=tool_result.source_failures, oos_drops=oos_drops,
+            terminated_reason=terminated_reason,
         )
         return active.ActiveRunResult(
             run_id=run_id,
@@ -96,21 +115,24 @@ def run_program(
             targets_scanned=len(targets),
             artifacts_written=1,
             signals_emitted=0,
-            source_failures=0,
+            source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
+            terminated_reason=terminated_reason,  # type: ignore[arg-type]
         )
     finally:
         conn.close()
 
 
-def _build_real_tool(paths: config.Paths, platform: str, slug: str) -> ToolRun:
+def _build_real_tool(
+    paths: config.Paths, platform: str, slug: str, run_id: str
+) -> ToolRun:
     """Wire the kill-switch watchdog + batch runner + httpx tool parser."""
     import threading
 
     from earn_money.recon import httpx_tool
     from earn_money.runners import batch, watchdog
 
-    def real_tool(targets: list[str]) -> list[HttpService]:
+    def real_tool(targets: list[str]) -> active.ToolRunResult:
         abort = threading.Event()
         wd = watchdog.KillSwitchWatchdog(
             paths, platform=platform, slug=slug,
@@ -119,7 +141,7 @@ def _build_real_tool(paths: config.Paths, platform: str, slug: str) -> ToolRun:
         )
         wd.start()
         try:
-            result = batch.run_batches(
+            batches_result = batch.run_batches(
                 targets,
                 command_factory=lambda chunk: httpx_tool.build_command(chunk),
                 max_batch_size=50, max_batch_duration_s=300.0,
@@ -127,9 +149,19 @@ def _build_real_tool(paths: config.Paths, platform: str, slug: str) -> ToolRun:
             )
         finally:
             wd.stop()
-        raw = "\n".join(line for b in result.batches for line in b.lines)
+        raw = "\n".join(line for b in batches_result.batches for line in b.lines)
         now = datetime.now(UTC).isoformat(timespec="seconds")
-        return httpx_tool.parse_jsonl(raw, run_id="pending", observed_at=now)
+        source_failures = sum(
+            1 for b in batches_result.batches
+            if b.timed_out or b.return_code != 0
+        )
+        timed_out = any(b.timed_out for b in batches_result.batches)
+        return active.ToolRunResult(
+            services=httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at=now),
+            aborted=batches_result.aborted,
+            source_failures=source_failures,
+            timed_out=timed_out,
+        )
 
     return real_tool
 
@@ -142,11 +174,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
-    real_tool = _build_real_tool(paths, platform=args.platform, slug=args.program)
+    run_id = uuid.uuid4().hex
+    real_tool = _build_real_tool(paths, platform=args.platform, slug=args.program, run_id=run_id)
 
     try:
         result = run_program(
-            paths, args.platform, args.program, tool_run=real_tool,
+            paths, args.platform, args.program, tool_run=real_tool, run_id=run_id,
         )
     except flags.ReconDisabled as e:
         print(f"httpx-probe: {e}", file=sys.stderr)
