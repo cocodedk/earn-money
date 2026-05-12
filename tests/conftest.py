@@ -17,4 +17,4 @@ def tmp_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A clean throwaway repo root for tests that touch the filesystem."""
     (tmp_path / "programs").mkdir()
     monkeypatch.chdir(tmp_path)
-    return tmp_path
+    return tmp_path.resolve()
