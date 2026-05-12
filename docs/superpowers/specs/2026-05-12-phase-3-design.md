@@ -137,6 +137,8 @@ Each run directory contains:
 - `stderr.txt`: captured stderr.
 - `signals.jsonl`: normalized weak signals for triage; empty is valid.
 
+Phase 3a writes only `manifest.json`. The remaining files (`input.txt`, `raw.jsonl`, `stderr.txt`, `signals.jsonl`) are required from Phase 3b onward when triage starts consuming artifacts; they may be empty but must exist.
+
 The triage engine discovers new work from `recon_runs` rows where `triaged_at IS NULL`, not by guessing from filenames. The manifest exists so artifacts remain understandable if the DB is unavailable.
 
 ### 3.1 `httpx` Active HTTP Probing Runner
@@ -513,11 +515,14 @@ Concrete columns:
 - `output_count INTEGER NOT NULL DEFAULT 0`
 - `signal_count INTEGER NOT NULL DEFAULT 0`
 - `source_failures INTEGER NOT NULL DEFAULT 0`
+- `oos_drops INTEGER NOT NULL DEFAULT 0` (count of tool outputs the wrapper dropped via post-tool scope re-check)
+- `terminated_reason TEXT` (null on success; one of `kill_switch`, `freeze`, `timeout` when the run was aborted)
 - `triaged_at TEXT`
 - `error_summary TEXT`
 
 Allowed `status` values:
 
+- `in_progress`: the runner has called `start_run` but not yet `finish_run`; rows in this state are excluded from triage's untriaged query and surface as Runner Health rows in the digest.
 - `success`: all planned batches completed.
 - `partial`: at least one batch succeeded and at least one failed.
 - `failed`: no useful output was produced.
