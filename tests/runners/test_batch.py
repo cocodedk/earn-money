@@ -42,7 +42,7 @@ def test_batch_timeout_terminates_subprocess() -> None:
         max_batch_size=1, max_batch_duration_s=0.2,
     )
     assert result.batches[0].timed_out is True
-    assert result.batches[0].lines == []
+    assert result.batches[0].lines == ()
 
 
 def test_watchdog_signal_terminates_in_flight() -> None:
@@ -62,4 +62,4 @@ def test_watchdog_signal_terminates_in_flight() -> None:
         abort=abort,
     )
     assert result.aborted is True
-    assert result.batches[0].lines == []
+    assert result.batches[0].lines == ()

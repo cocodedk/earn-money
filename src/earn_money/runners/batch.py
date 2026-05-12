@@ -20,7 +20,7 @@ CommandFactory = Callable[[list[str]], Sequence[str]]
 @dataclass(frozen=True)
 class BatchResult:
     chunk_size: int
-    lines: list[str]
+    lines: tuple[str, ...]
     timed_out: bool
     return_code: int | None
     stderr: str
@@ -77,21 +77,30 @@ def _run_one(
         list(command),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
-    # A local done event lets the abort-watcher thread exit without
-    # polluting the caller-supplied abort event.
-    done = threading.Event()
+    # ``wakeup`` is set by either path that should end the watcher's wait:
+    #   - the batch finishes normally  → set in the ``finally`` block below
+    #   - the caller signals abort     → set by the bridge thread below
+    # This prevents the watcher from sleeping the full timeout_s after a
+    # fast-completing batch.
+    wakeup = threading.Event()
+
+    def _abort_bridge() -> None:
+        """Wake the watcher as soon as the caller sets abort."""
+        abort.wait()
+        wakeup.set()
 
     def kill_if_aborted() -> None:
-        # Wait until either abort fires or the batch finishes normally.
-        abort.wait(timeout_s)
-        if not done.is_set() and proc.poll() is None:
+        wakeup.wait(timeout_s)
+        if abort.is_set() and proc.poll() is None:
             proc.terminate()
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
 
+    bridge_thread = threading.Thread(target=_abort_bridge, daemon=True)
     abort_thread = threading.Thread(target=kill_if_aborted, daemon=True)
+    bridge_thread.start()
     abort_thread.start()
 
     try:
@@ -106,12 +115,12 @@ def _run_one(
             stdout, stderr = proc.communicate()
         timed_out = True
     finally:
-        done.set()  # signal the abort thread that we're done
+        wakeup.set()  # unblock watcher immediately on normal or timed-out completion
         abort_thread.join(timeout=1)
 
     return BatchResult(
         chunk_size=chunk_size,
-        lines=[line for line in stdout.splitlines() if line],
+        lines=tuple(line for line in stdout.splitlines() if line),
         timed_out=timed_out,
         return_code=proc.returncode,
         stderr=stderr,
