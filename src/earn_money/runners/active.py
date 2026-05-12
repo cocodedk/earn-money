@@ -30,7 +30,7 @@ class ToolRunResult:
     """Return type for the injected tool_run callable. Lets the runner
     record terminated_reason and status='partial' instead of always
     reporting 'success'."""
-    services: list[Any]  # list[HttpService] — Any avoids circular import
+    services: tuple[Any, ...] = ()  # tuple[HttpService, ...] — Any avoids circular import
     aborted: bool = False
     source_failures: int = 0
     timed_out: bool = False

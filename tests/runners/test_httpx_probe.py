@@ -42,7 +42,7 @@ def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     with pytest.raises(flags.ReconDisabled):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=[]),
+            tool_run=lambda _targets: active.ToolRunResult(services=()),
         )
 
 
@@ -58,7 +58,7 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
     with pytest.raises(policy.PolicyViolation):
         httpx_probe.run_program(
             paths, "hackerone", "example",
-            tool_run=lambda _targets: active.ToolRunResult(services=[]),
+            tool_run=lambda _targets: active.ToolRunResult(services=()),
         )
 
 
@@ -69,7 +69,7 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     _seed_assets(paths, ["api.example.com", "www.example.com"])
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=[
+        return active.ToolRunResult(services=tuple(
             services.HttpService(
                 subdomain=t, scheme="https", port=443,
                 url=f"https://{t}/", status_code=200, title="ok",
@@ -78,7 +78,7 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
                 observed_at="t", last_run_id="r", in_scope_at_observation=True,
             )
             for t in targets
-        ])
+        ))
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",
@@ -100,7 +100,7 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
     _seed_assets(paths, ["api.example.com"])
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(services=[
+        return active.ToolRunResult(services=(
             services.HttpService(
                 subdomain="api.example.com", scheme="https", port=443,
                 url="https://api.example.com/", status_code=200, title="",
@@ -113,7 +113,7 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
                 server="nginx", technologies=(), redirect_to=None, tls_summary=None,
                 observed_at="t", last_run_id="r", in_scope_at_observation=True,
             ),
-        ])
+        ))
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",

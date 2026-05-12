@@ -65,7 +65,7 @@ def _make_tool_run(url: str, run_id: str, monkeypatch: pytest.MonkeyPatch):  # t
         )
         raw = "\n".join(line for b in result.batches for line in b.lines)
         return active.ToolRunResult(
-            services=httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at="t"),
+            services=tuple(httpx_tool.parse_jsonl(raw, run_id=run_id, observed_at="t")),
             aborted=result.aborted,
         )
 
@@ -135,7 +135,7 @@ def test_e2e_kill_switch_halts_run(
             wd.stop()
         raw = "\n".join(line for b in result.batches for line in b.lines)
         return active.ToolRunResult(
-            services=httpx_tool.parse_jsonl(raw, run_id="e2e-kill", observed_at="t"),
+            services=tuple(httpx_tool.parse_jsonl(raw, run_id="e2e-kill", observed_at="t")),
             aborted=result.aborted,
         )
 

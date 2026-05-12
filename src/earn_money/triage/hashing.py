@@ -28,7 +28,6 @@ from urllib.parse import (
 )
 
 _DEFAULT_PORTS: dict[str, int] = {"http": 80, "https": 443}
-_QUERY_ALLOWLIST: frozenset[str] = frozenset({"debug", "trace"})
 _HASH_VERSION = "v1"
 
 
@@ -70,8 +69,6 @@ def _build_netloc(scheme: str, host: str, port: int | None) -> str:
 def _normalize_path(path: str) -> str:
     if not path:
         return "/"
-    while "//" in path:
-        path = path.replace("//", "/")
     parts: list[str] = []
     for segment in path.split("/"):
         if segment in ("", "."):
