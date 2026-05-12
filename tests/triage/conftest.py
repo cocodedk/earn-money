@@ -1,11 +1,8 @@
 """Shared helpers for triage tests."""
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from earn_money import config
+from earn_money import scope as scope_mod
 from earn_money.triage import findings, history
 
 
@@ -58,8 +55,6 @@ def register_program(
     slug: str = "example",
 ) -> None:
     """Write a minimal scope.md so the program is considered registered."""
-    from earn_money import scope as scope_mod
-
     scope = scope_mod.Scope(
         platform=platform,
         slug=slug,
@@ -71,12 +66,3 @@ def register_program(
         last_synced="2026-05-12T00:00:00Z",
     )
     scope_mod.write_scope(paths.scope_file(platform, slug), scope)
-
-
-@pytest.fixture
-def program_paths(tmp_repo: Path) -> config.Paths:
-    """A configured Paths with a registered hackerone/example program
-    (scope.md present, ready for draft_for/submit calls)."""
-    paths = config.Paths.from_root(tmp_repo)
-    register_program(paths)
-    return paths

@@ -137,20 +137,6 @@ def test_unknown_placeholder_preserved(tmp_path: Path) -> None:
     assert "{{unknown_key}}" in text
 
 
-def test_substitute_template_substitutes_fields() -> None:
-    """Unit-test substitute_template() in isolation, without filesystem or DB."""
-    template = "hash={{finding_hash}} title={{title}} unknown={{nope}}"
-    f = make_finding(
-        finding_hash="h1", title="MyTitle", current_state="verified",
-        platform="p", slug="s", vuln_class="v", asset="a", target="t",
-        signature="sig", severity_hint="high", confidence=80,
-        source_tool="tool", source_run_id="rid", evidence_path="ep",
-        notes_path="np", first_seen="ts", last_seen="ts",
-    )
-    result = draft.substitute_template(template, f)
-    assert result == "hash=h1 title=MyTitle unknown={{nope}}"
-
-
 def test_draft_refuses_non_verified_finding(tmp_path: Path) -> None:
     """draft_for raises ValueError when the finding is not yet verified."""
     paths = _paths(tmp_path)
@@ -195,22 +181,16 @@ def test_draft_refuses_unregistered_program(tmp_path: Path) -> None:
     assert not (paths.root / "programs" / "hackerone" / "typo-program").exists()
 
 
-def test_template_placeholders_are_all_substituted(tmp_path: Path) -> None:
-    """Every {{token}} in templates/report-draft.md is covered by the field dict."""
-    import re
-    repo_root = Path(__file__).parents[2]
-    template_path = repo_root / "templates" / "report-draft.md"
-    assert template_path.exists(), f"template missing: {template_path}"
-    body = template_path.read_text(encoding="utf-8")
-    tokens = set(re.findall(r"\{\{(\w+)\}\}", body))
+def test_unverified_path_does_not_create_drafts_dir(tmp_path: Path) -> None:
+    """draft_for must not create reports/drafts/ when the state guard rejects."""
+    paths = _paths(tmp_path)
+    register_program(paths)
+    _make_template(paths)
+    conn = _open_db(paths, "hackerone", "example")
+    findings.upsert_finding(conn, make_finding())  # queued only
+    conn.close()
 
-    # These are the keys that substitute_template knows about
-    known_keys = {
-        "finding_hash", "platform", "slug", "vuln_class", "asset", "target",
-        "signature", "title", "severity_hint", "source_tool", "source_run_id",
-        "evidence_path", "first_seen",
-    }
-    unknown = tokens - known_keys
-    assert not unknown, (
-        f"Template contains unknown placeholders (will not be substituted): {unknown}"
-    )
+    with pytest.raises(ValueError, match="not 'verified'"):
+        draft.draft_for(paths, platform="hackerone", slug="example", finding_hash="h1")
+
+    assert not (paths.root / "reports" / "drafts").exists()

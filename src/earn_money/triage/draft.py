@@ -77,10 +77,6 @@ def draft_for(
     if not template_path.exists():
         raise TemplateNotFound(str(template_path))
 
-    drafts_dir = paths.root / "reports" / "drafts"
-    drafts_dir.mkdir(parents=True, exist_ok=True)
-    draft_path = drafts_dir / f"{finding_hash}.md"
-
     conn = db.open_db(paths.program_db(platform, slug))
     try:
         finding = findings.find_by_hash(conn, finding_hash)
@@ -97,6 +93,9 @@ def draft_for(
     finally:
         conn.close()
 
+    drafts_dir = paths.root / "reports" / "drafts"
+    drafts_dir.mkdir(parents=True, exist_ok=True)
+    draft_path = drafts_dir / f"{finding_hash}.md"
     body = substitute_template(template_path.read_text(encoding="utf-8"), finding)
     try:
         with draft_path.open("x", encoding="utf-8") as fh:
