@@ -751,7 +751,8 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.targets_scanned == 0
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 0  # tool produced no outputs
+    assert result.prereq_skipped is True  # audit signal lives in DB, not in this count
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute(
@@ -976,7 +977,7 @@ def run_program(
             targets_considered=len(targets),
             targets_scanned=len(targets),
             artifacts_written=1,
-            signals_emitted=len(in_scope_sigs),
+            outputs_recorded=len(in_scope_sigs),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
             terminated_reason=terminated_reason,
@@ -1128,7 +1129,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"katana-crawl: scanned={result.targets_scanned} "
-        f"signals={result.signals_emitted} "
+        f"signals={result.outputs_recorded} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )
@@ -1187,7 +1188,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
         paths, "hackerone", "example", tool_run=fake_tool,
         run_id="katana-r1",
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 0
     assert captured_targets == [["https://api.example.com/"]]
 
@@ -1252,7 +1253,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     result = katana_scan.run_program(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
@@ -1295,7 +1296,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
     assert result.oos_drops == 1
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 ```
 
 Run + verify GREEN.
@@ -1316,7 +1317,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
         paths, "hackerone", "example",
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
-    assert result.signals_emitted == 1  # the prereq_missing signal
+    assert result.outputs_recorded == 1  # the prereq_missing signal
 
     katana_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "katana"
     for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
@@ -1356,7 +1357,7 @@ def test_records_terminated_reason_from_tool_result(tmp_repo: Path) -> None:
     result = katana_scan.run_program(
         paths, "hackerone", "example", tool_run=aborted_tool,
     )
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     row = conn.execute(
@@ -1993,7 +1994,7 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     assert result.targets_scanned == 0
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute(
@@ -2217,7 +2218,7 @@ def run_program(
             targets_considered=len(targets),
             targets_scanned=len(targets),
             artifacts_written=1,
-            signals_emitted=len(in_scope_sigs),
+            outputs_recorded=len(in_scope_sigs),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
             terminated_reason=terminated_reason,
@@ -2421,7 +2422,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"ffuf-scan: scanned={result.targets_scanned} "
-        f"signals={result.signals_emitted} "
+        f"signals={result.outputs_recorded} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )
@@ -2482,7 +2483,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
         paths, "hackerone", "example", tool_run=fake_tool,
         run_id="ffuf-r1",
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 0
     assert captured_targets == [["https://api.example.com/"]]
 
@@ -2546,7 +2547,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     result = ffuf_scan.run_program(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
@@ -2588,7 +2589,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
     assert result.oos_drops == 1
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 ```
 
 Run + verify GREEN.
@@ -2607,7 +2608,7 @@ def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
         paths, "hackerone", "example",
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
 
     ffuf_out = paths.root / "recon" / "outputs" / "hackerone" / "example" / "ffuf"
     for name in ("manifest.json", "signals.jsonl", "input.txt", "raw.jsonl", "stderr.txt"):
@@ -2645,7 +2646,7 @@ def test_records_terminated_reason_from_tool_result(tmp_repo: Path) -> None:
     result = ffuf_scan.run_program(
         paths, "hackerone", "example", tool_run=aborted_tool,
     )
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     row = conn.execute(
@@ -3180,7 +3181,7 @@ def test_e2e_katana_writes_signal_against_mock_target(
     )
     # The mock target serves a single static page; katana should at minimum
     # report the root URL it was given.
-    assert result.signals_emitted >= 1
+    assert result.outputs_recorded >= 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     sigs = conn.execute(
@@ -3367,7 +3368,7 @@ def test_e2e_ffuf_writes_signal_against_mock_target(
     )
     # The mock target returns 200 for every path; ffuf should produce ≥1
     # content_match.
-    assert result.signals_emitted >= 1
+    assert result.outputs_recorded >= 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     sigs = conn.execute(

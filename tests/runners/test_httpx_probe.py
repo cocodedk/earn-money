@@ -35,6 +35,22 @@ def _seed_assets(paths: config.Paths, subdomains: list[str]) -> None:
     conn.close()
 
 
+def _make_service(
+    subdomain: str,
+    *,
+    title: str = "ok",
+    technologies: tuple[str, ...] = ("nginx",),
+) -> services.HttpService:
+    """Build an HttpService with the boilerplate fields filled in."""
+    return services.HttpService(
+        subdomain=subdomain, scheme="https", port=443,
+        url=f"https://{subdomain}/", status_code=200, title=title,
+        server="nginx", technologies=technologies,
+        redirect_to=None, tls_summary=None,
+        observed_at="t", last_run_id="r", in_scope_at_observation=True,
+    )
+
+
 def test_refuses_without_recon_enabled(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     _seed(paths, in_scope=["*.example.com"])
@@ -69,16 +85,9 @@ def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     _seed_assets(paths, ["api.example.com", "www.example.com"])
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
-        return active.ToolRunResult(outputs=tuple(
-            services.HttpService(
-                subdomain=t, scheme="https", port=443,
-                url=f"https://{t}/", status_code=200, title="ok",
-                server="nginx", technologies=("nginx",),
-                redirect_to=None, tls_summary=None,
-                observed_at="t", last_run_id="r", in_scope_at_observation=True,
-            )
-            for t in targets
-        ))
+        return active.ToolRunResult(
+            outputs=tuple(_make_service(t) for t in targets),
+        )
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",
@@ -107,17 +116,9 @@ def test_outputs_recorded_smaller_than_targets_when_tool_silently_drops(
     _seed(paths, in_scope=["*.example.com"])
     _seed_assets(paths, ["a.example.com", "b.example.com", "c.example.com"])
 
-    def half_alive_tool(targets: list[str]) -> active.ToolRunResult:
+    def half_alive_tool(_targets: list[str]) -> active.ToolRunResult:
         # Only 1/3 of targets respond — simulating unreachable hosts.
-        return active.ToolRunResult(outputs=(
-            services.HttpService(
-                subdomain="a.example.com", scheme="https", port=443,
-                url="https://a.example.com/", status_code=200, title="ok",
-                server="nginx", technologies=("nginx",),
-                redirect_to=None, tls_summary=None,
-                observed_at="t", last_run_id="r", in_scope_at_observation=True,
-            ),
-        ))
+        return active.ToolRunResult(outputs=(_make_service("a.example.com"),))
 
     result = httpx_probe.run_program(
         paths, "hackerone", "example",
@@ -135,18 +136,8 @@ def test_drops_out_of_scope_targets_from_tool_output(tmp_repo: Path) -> None:
 
     def leaky_tool(_targets: list[str]) -> active.ToolRunResult:
         return active.ToolRunResult(outputs=(
-            services.HttpService(
-                subdomain="api.example.com", scheme="https", port=443,
-                url="https://api.example.com/", status_code=200, title="",
-                server="nginx", technologies=(), redirect_to=None, tls_summary=None,
-                observed_at="t", last_run_id="r", in_scope_at_observation=True,
-            ),
-            services.HttpService(
-                subdomain="evil.example.com", scheme="https", port=443,
-                url="https://evil.example.com/", status_code=200, title="",
-                server="nginx", technologies=(), redirect_to=None, tls_summary=None,
-                observed_at="t", last_run_id="r", in_scope_at_observation=True,
-            ),
+            _make_service("api.example.com", title="", technologies=()),
+            _make_service("evil.example.com", title="", technologies=()),
         ))
 
     result = httpx_probe.run_program(

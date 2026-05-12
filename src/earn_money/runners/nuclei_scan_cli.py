@@ -124,12 +124,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    print(
-        f"nuclei-scan: scanned={result.targets_scanned} "
-        f"signals={result.outputs_recorded} "
-        f"oos_drops={result.oos_drops} "
-        f"source_failures={result.source_failures}"
-    )
+    if result.prereq_skipped:
+        print(
+            "nuclei-scan: skipped — no recent httpx run; "
+            "run bin/httpx-probe first"
+        )
+    else:
+        print(
+            f"nuclei-scan: scanned={result.targets_scanned} "
+            f"signals={result.outputs_recorded} "
+            f"oos_drops={result.oos_drops} "
+            f"source_failures={result.source_failures}"
+        )
     return 0
 
 

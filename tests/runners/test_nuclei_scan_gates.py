@@ -67,7 +67,8 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(tmp_repo: Path) -> No
         tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
     )
     assert result.targets_scanned == 0
-    assert result.outputs_recorded == 1
+    assert result.outputs_recorded == 0
+    assert result.prereq_skipped is True
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT signal_type FROM signals").fetchall()
@@ -110,7 +111,8 @@ def test_partial_httpx_run_with_no_outputs_does_not_satisfy_prereq(
         tool_run=lambda _targets: active.ToolRunResult(outputs=[]),
     )
     assert result.targets_scanned == 0
-    assert result.outputs_recorded == 1
+    assert result.outputs_recorded == 0
+    assert result.prereq_skipped is True
 
     conn2 = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn2.execute("SELECT signal_type FROM signals").fetchall()
@@ -154,7 +156,8 @@ def test_success_httpx_run_with_no_outputs_does_not_satisfy_prereq(
         tool_run=lambda _targets: active.ToolRunResult(outputs=()),
     )
     # The prereq is unsatisfied — nuclei writes a prereq_missing signal.
-    assert result.outputs_recorded == 1
+    assert result.outputs_recorded == 0
+    assert result.prereq_skipped is True
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute(

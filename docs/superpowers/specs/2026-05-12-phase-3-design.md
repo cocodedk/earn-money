@@ -79,7 +79,7 @@ Every `run_program` follows this call order before any target traffic:
 4. `policy.require_policy_allows(s, mode="active")`
 5. Load candidate assets or URLs, then filter every target with `scope.is_in_scope(..., s.in_scope, s.out_of_scope)`
 
-The shared result shape includes `run_id`, `targets_considered`, `targets_scanned`, `artifacts_written`, `signals_emitted`, `source_failures`, and `terminated_reason` (one of `null`, `kill_switch`, `freeze`, `timeout`).
+The shared result shape includes `run_id`, `targets_considered`, `targets_scanned`, `artifacts_written`, `outputs_recorded`, `source_failures`, and `terminated_reason` (one of `null`, `kill_switch`, `freeze`, `timeout`).
 
 #### Per-request scope enforcement
 

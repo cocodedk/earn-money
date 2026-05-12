@@ -1944,7 +1944,7 @@ def run_program(
             targets_considered=len(targets),
             targets_scanned=len(targets),
             artifacts_written=1,
-            signals_emitted=len(in_scope_signals),
+            outputs_recorded=len(in_scope_signals),
             source_failures=tool_result.source_failures,
             oos_drops=oos_drops,
             terminated_reason=terminated_reason,  # type: ignore[arg-type]
@@ -1989,7 +1989,7 @@ def _record_prereq_missing(
     )
     return active.ActiveRunResult(
         run_id=run_id, targets_considered=0, targets_scanned=0,
-        artifacts_written=1, signals_emitted=1, source_failures=0, oos_drops=0,
+        artifacts_written=1, outputs_recorded=1, source_failures=0, oos_drops=0,
     )
 ```
 
@@ -2106,7 +2106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print(
         f"nuclei-scan: scanned={result.targets_scanned} "
-        f"signals={result.signals_emitted} "
+        f"signals={result.outputs_recorded} "
         f"oos_drops={result.oos_drops} "
         f"source_failures={result.source_failures}"
     )
@@ -2140,7 +2140,8 @@ def test_writes_prereq_missing_signal_when_no_recent_httpx(tmp_repo: Path) -> No
         tool_run=lambda _targets: active.ToolRunResult(services=[]),
     )
     assert result.targets_scanned == 0
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 0  # tool produced no outputs
+    assert result.prereq_skipped is True  # audit signal lives in DB, not in this count
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute(
@@ -2196,7 +2197,7 @@ def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
         paths, "hackerone", "example", tool_run=fake_tool,
         run_id="nuclei-r1",
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 0
     assert captured_targets == [["https://api.example.com/"]]
 
@@ -2263,7 +2264,7 @@ def test_drops_oos_signals_from_tool_output(tmp_repo: Path) -> None:
     result = nuclei_scan.run_program(
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
-    assert result.signals_emitted == 1
+    assert result.outputs_recorded == 1
     assert result.oos_drops == 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
@@ -2310,7 +2311,7 @@ def test_drops_signals_with_oos_target_even_if_asset_in_scope(tmp_repo: Path) ->
         paths, "hackerone", "example", tool_run=leaky_tool,
     )
     assert result.oos_drops == 1
-    assert result.signals_emitted == 0
+    assert result.outputs_recorded == 0
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     rows = conn.execute("SELECT COUNT(*) FROM signals").fetchone()
@@ -3753,7 +3754,7 @@ def test_e2e_nuclei_scan_writes_signal_against_mock_target(
     result = nuclei_scan.run_program(
         paths, "hackerone", "example", tool_run=tool_run, run_id=e2e_run_id,
     )
-    assert result.signals_emitted >= 1
+    assert result.outputs_recorded >= 1
 
     conn = sqlite3.connect(paths.program_db("hackerone", "example"))
     sigs = conn.execute(

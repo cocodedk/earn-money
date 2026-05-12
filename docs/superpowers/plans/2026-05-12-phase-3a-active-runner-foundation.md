@@ -904,7 +904,7 @@ def test_run_result_defaults_are_zero() -> None:
     assert r.targets_considered == 0
     assert r.targets_scanned == 0
     assert r.artifacts_written == 0
-    assert r.signals_emitted == 0
+    assert r.outputs_recorded == 0
     assert r.source_failures == 0
     assert r.oos_drops == 0
     assert r.terminated_reason is None
@@ -943,7 +943,7 @@ class ActiveRunResult:
     targets_considered: int = 0
     targets_scanned: int = 0
     artifacts_written: int = 0
-    signals_emitted: int = 0
+    outputs_recorded: int = 0
     source_failures: int = 0
     oos_drops: int = 0
     terminated_reason: Literal["kill_switch", "freeze", "timeout"] | None = None
@@ -1815,7 +1815,7 @@ def run_program(
             targets_considered=len(targets),
             targets_scanned=len(targets),
             artifacts_written=1,
-            signals_emitted=0,
+            outputs_recorded=0,
             source_failures=0,
             oos_drops=oos_drops,
         )

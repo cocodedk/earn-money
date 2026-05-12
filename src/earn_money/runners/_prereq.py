@@ -72,5 +72,6 @@ def record_prereq_missing(
     )
     return active.ActiveRunResult(
         run_id=run_id, targets_considered=0, targets_scanned=0,
-        artifacts_written=1, outputs_recorded=1, source_failures=0, oos_drops=0,
+        artifacts_written=1, outputs_recorded=0, source_failures=0, oos_drops=0,
+        prereq_skipped=True,
     )
