@@ -25,11 +25,11 @@ echo "ok: merge strategy = squash + rebase only, auto-delete head branches"
 # Solo private operations repo: no required reviews, no required status checks
 # (no CI workflow yet — add status check requirement when CI lands).
 # Strong guardrails on history and force-push; admins included.
-gh api \
-  --method PUT \
-  "/repos/$REPO/branches/$DEFAULT_BRANCH/protection" \
-  --input - <<'PROTECTION_EOF'
-{
+#
+# Note: classic branch protection on private repos requires GitHub Pro.
+# On free private repos this call returns 403 — we warn and continue so
+# the rest of the script (merge strategy, CODEOWNERS) still applies.
+PROTECTION_BODY='{
   "required_status_checks": null,
   "enforce_admins": true,
   "required_pull_request_reviews": null,
@@ -38,10 +38,18 @@ gh api \
   "allow_deletions": false,
   "required_linear_history": true,
   "required_conversation_resolution": false
-}
-PROTECTION_EOF
+}'
 
-echo "ok: branch protection on $DEFAULT_BRANCH"
+PROTECTION_APPLIED=0
+if printf '%s' "$PROTECTION_BODY" | gh api --method PUT \
+     "/repos/$REPO/branches/$DEFAULT_BRANCH/protection" \
+     --input - >/dev/null 2>&1; then
+  echo "ok: branch protection on $DEFAULT_BRANCH"
+  PROTECTION_APPLIED=1
+else
+  echo "warn: branch protection skipped — likely a free private repo (needs GitHub Pro)."
+  echo "      The pre-push hook still enforces the owner-lock client-side."
+fi
 
 # ── CODEOWNERS ────────────────────────────────────────────────────────────────
 mkdir -p .github
@@ -50,15 +58,19 @@ printf '# All files — repo owner review on every PR.\n* @%s\n' "$OWNER" \
 
 echo "ok: .github/CODEOWNERS written"
 echo ""
-echo "Active on $DEFAULT_BRANCH:"
-echo "  - No force pushes"
-echo "  - No branch deletion"
-echo "  - Linear history (squash + rebase merges only)"
-echo "  - Applies to admins"
+if [ "$PROTECTION_APPLIED" = "1" ]; then
+  echo "Active on $DEFAULT_BRANCH (server-enforced):"
+  echo "  - No force pushes"
+  echo "  - No branch deletion"
+  echo "  - Linear history"
+  echo "  - Applies to admins"
+else
+  echo "Server-side branch protection is NOT active on $DEFAULT_BRANCH."
+  echo "Client-side safety net active via pre-push hook (owner-lock only)."
+  echo "To enable server-side protection: upgrade to GitHub Pro or make the repo public,"
+  echo "then rerun this script."
+fi
 echo ""
 echo "When CI lands: edit this script to set"
 echo "  required_status_checks = { strict: true, contexts: [\"<job-name>\"] }"
 echo "and rerun it."
-echo ""
-echo "Next:"
-echo "  git add .github/CODEOWNERS && git commit -m 'chore: add CODEOWNERS'"
