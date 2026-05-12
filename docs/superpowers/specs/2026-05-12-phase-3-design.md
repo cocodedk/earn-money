@@ -99,13 +99,13 @@ A **batch** is one subprocess invocation. The wrapper splits the input target li
 - **Max batch size:** 50 targets per subprocess (configurable per runner, never more than 200).
 - **Max batch duration:** 5 minutes wall-clock for httpx/nuclei, 10 minutes for katana/ffuf. Beyond the cap, the wrapper sends SIGTERM, waits 5s, then SIGKILL.
 
-Between batches, the wrapper re-checks `RECON_ENABLED` and the per-program `FROZEN` flag. If either changed since startup, the wrapper:
+A **kill-switch watchdog** runs as a background thread inside the wrapper for the duration of every subprocess. It polls `RECON_ENABLED` and the per-program `FROZEN` flag every 5 seconds. If either state changes mid-batch — flag removed, FROZEN appears, or the file is replaced — the watchdog:
 
-1. Terminates any in-flight subprocess immediately (SIGTERM → SIGKILL).
-2. Marks the current `recon_runs` row `status=partial` with `terminated_reason` set.
+1. SIGTERMs the in-flight subprocess immediately, waits 5s, then SIGKILLs.
+2. Marks the current `recon_runs` row `status=partial` with `terminated_reason` set (`kill_switch` or `freeze`).
 3. Writes a final manifest and exits with the corresponding non-zero exit code.
 
-This bounds the worst-case window between operator pulling the kill-switch and active traffic stopping to one batch duration plus shutdown grace.
+The watchdog also fires between batches (same checks, same handling). This bounds the worst-case window between operator pulling the kill-switch and active traffic stopping to **~10 seconds** (one poll interval plus SIGTERM grace), not to one full batch duration.
 
 #### Failure taxonomy
 
@@ -599,7 +599,7 @@ The hash does not include run ID, timestamps, evidence path, title, or severity.
 
 `normalized_asset` and `normalized_target` are derived from raw input with these deterministic transformations:
 
-1. Lowercase the entire string (hostnames are case-insensitive; paths are conventionally case-sensitive but we treat them case-insensitively for dedup robustness against tool inconsistency).
+1. Lowercase the scheme and host components only (e.g. `HTTP://Example.com/Path` → `http://example.com/Path`). Preserve case in path, query, and fragment — many web servers route case-sensitively, and merging `/Path` with `/path` would cause false dedup of distinct findings.
 2. Strip default ports: `:80` for `http://`, `:443` for `https://`.
 3. Punycode IDN labels via `idna.encode(..., uts46=True)`.
 4. Normalize path: remove duplicate slashes (`//` → `/`), resolve `.` and `..` segments, strip trailing slash except on root path `/`.
@@ -665,11 +665,11 @@ A normal Debian crontab cannot mix time zones per entry, doesn't survive missed 
 | `nuclei-scan.timer` | `*-*-* 02:15:00` | UTC | 90 min | `httpx-probe.service` |
 | `katana-crawl.timer` | `*-*-2/2 03:15:00` (every 2 days) | UTC | 90 min | `httpx-probe.service` |
 | `ffuf-scan.timer` | `Sun *-*-* 04:20:00` (weekly) | UTC | 90 min | `httpx-probe.service` |
-| `triage.timer` | `*-*-* 06:30:00` | UTC | 30 min | `nuclei-scan.service` |
+| `triage.timer` | `*-*-* 05:00:00` | UTC | 30 min | `nuclei-scan.service` |
 | `daily-digest.timer` | `*-*-* 08:00:00` | Europe/Copenhagen | 5 min | `triage.service` |
 | `phone-ping.timer` | `*-*-* 08:05:00` | Europe/Copenhagen | 2 min | `daily-digest.service` |
 
-The triage slot moved to 06:30 UTC (was 05:30) to add buffer against long-running active jobs during CEST. The digest then fires at 08:00 Copenhagen (06:00 UTC during CEST, 07:00 UTC during CET) — comfortably after triage in both cases.
+Triage fires at 05:00 UTC to leave a clean buffer before the digest in both CET and CEST. During CEST, `08:00 Europe/Copenhagen = 06:00 UTC`, giving triage one full hour to complete. During CET, the gap is two hours. The 30-minute hard timeout on triage further guarantees it finishes before the digest under either timezone.
 
 ### Concurrency, locks, and missed-run semantics
 
@@ -757,6 +757,11 @@ Each sub-phase follows TDD: failing tests first, green implementation, then refa
 - Confirm the exact claude-chat bus command or local API available on the VPS.
 - Confirm installed tool versions for `httpx`, `nuclei`, `katana`, and `ffuf` before writing parser assumptions.
 - Confirm the approved free wordlist subset for ffuf in the 3c plan.
+- **Migration atomic boundary.** Does `migrate(conn, target_version)` run each v_n→v_n+1 step in its own committed transaction, or wrap the whole sequence in one transaction? Affects partial-failure recovery (e.g. v2 succeeds, v3 fails). The 3a plan must pick one and write tests for both happy path and crash-after-vN-commit.
+- **Signals atomic boundary.** The runner writes both `signals.jsonl` (artifact) and `signals` (table) per batch. One must be authoritative. The 3a plan should pick the DB row as the commit point and treat the JSONL as a write-then-reconcile artifact, with startup logic that rebuilds the JSONL from rows if it's missing or short.
+- **Prerequisite freshness, not just ordering.** systemd `After=` orders unit starts, it doesn't gate on prior success. Each downstream runner (nuclei reads httpx, triage reads everything, digest reads triage) must independently query SQLite for a recent successful prerequisite `recon_runs` row before doing work. If the prereq is stale or missing, the runner records a `prereq_missing` anomaly signal and exits cleanly.
+- **Mock-target fixture for 3d smoke.** The fixture is a small in-repo HTTP server (e.g. `tests/fixtures/mock_target/`) that serves a deterministic surface: two in-scope hosts, one OOS host, a 302 redirect to OOS (to exercise the wrapper drop), a path with a synthetic nuclei-template hit, a katana-discoverable JS endpoint, an ffuf-discoverable hidden file. The smoke test runs the full timer chain against this fixture and asserts each runner's `recon_runs` row, manifest, and `signals` rows match a recorded snapshot. Detailed in the 3d plan.
+- **`bin/ack-freeze` crash-idempotency.** The audit sequence (ops_runs row → freeze-acks.log append → FROZEN unlink) is three writes. The 3d plan should specify an `ack_id` (UUID4) per ack, written first to ops_runs with `status=in_progress`, then status=`success` after the log append, then the FROZEN unlink. A re-run with the same ack_id is a no-op; a re-run after partial completion picks up where the prior run left off based on which writes the `ack_id` has completed.
 
 ### Explicit non-goals
 
