@@ -94,6 +94,9 @@ def main(argv: list[str] | None = None) -> int:
     except flags.ProgramFrozen as e:
         print(f"scope-sync: {e}", file=sys.stderr)
         return 3
+    except Exception as e:
+        print(f"scope-sync: unexpected error: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
     finally:
         client.close()
     print(f"scope-sync: {result.action} — {result.detail}")

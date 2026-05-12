@@ -155,3 +155,31 @@ def test_no_change_only_updates_last_synced(tmp_repo: Path, fixtures_dir: Path) 
     second = scope.read_scope(paths.scope_file("hackerone", "example"))
     assert first.scope_hash == second.scope_hash
     assert first.in_scope == second.in_scope
+
+
+def test_empty_api_response_freezes_when_prior_scope_existed(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(
+        paths, "example",
+        in_scope=["*.example.com", "api.example.org"],
+        out_of_scope=["blog.example.com"],
+        scope_hash="prior_hash_nonempty",
+    )
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": []})
+
+    empty_client = hackerone.Client(
+        username="u", token="t", transport=httpx.MockTransport(handler)
+    )
+
+    result = scope_sync.sync_program(paths, "hackerone", "example", empty_client)
+
+    assert result.action == "frozen"
+    assert flags.is_program_frozen(paths, "hackerone", "example")
+    reason = flags.freeze_reason(paths, "hackerone", "example")
+    assert "*.example.com" in reason
+    # scope.md must NOT be rewritten on freeze.
+    s = scope.read_scope(paths.scope_file("hackerone", "example"))
+    assert "*.example.com" in s.in_scope
