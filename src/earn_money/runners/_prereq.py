@@ -11,11 +11,11 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from earn_money import config
+from earn_money._time import now_iso
 from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
 from earn_money.runners import active
@@ -64,7 +64,7 @@ def record_prereq_missing(
         "platform": platform, "slug": slug, "started_at": now,
         "status": "skipped", "reason": "no recent httpx run",
     })
-    finished = datetime.now(UTC).isoformat(timespec="seconds")
+    finished = now_iso()
     runs.finish_run(
         conn, run_id=run_id, finished_at=finished, status="skipped",
         output_count=0, signal_count=1, source_failures=0, oos_drops=0,

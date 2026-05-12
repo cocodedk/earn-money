@@ -6,11 +6,11 @@ import argparse
 import os
 import sys
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 from earn_money import config, flags, scope
+from earn_money._time import now_iso
 from earn_money.platforms import hackerone
 
 Action = Literal["unchanged", "updated", "frozen"]
@@ -52,7 +52,7 @@ def sync_program(
         scope_hash="",  # recomputed below
     )
     new_hash = scope.compute_hash(fetched)
-    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    timestamp = now_iso()
 
     if new_hash == current.scope_hash:
         scope.write_scope(

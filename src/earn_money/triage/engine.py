@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
 
 from earn_money import config, db, flags, scope
+from earn_money._time import now_iso
 from earn_money.recon import services
 from earn_money.recon.services import pick_canonical_service
 from earn_money.recon.signals import Signal
@@ -50,7 +50,7 @@ def run_program(
     sends no target traffic. We still respect kill-switch + freeze so the
     operator can halt all per-program work in one place.
     """
-    now = now or datetime.now(UTC).isoformat(timespec="seconds")
+    now = now or now_iso()
 
     flags.require_recon_enabled(paths)
     flags.require_program_not_frozen(paths, platform, slug)

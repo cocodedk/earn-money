@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from earn_money import config, db, scope
+from earn_money._time import now_iso, to_iso
 from earn_money.recon import runs, signals
 from earn_money.recon.nuclei_tool import APPROVED_TEMPLATE_DIRS
 from earn_money.recon.signals import Signal
@@ -49,9 +50,7 @@ def _load_in_scope_service_urls(
 def _recent_httpx_success(
     conn: sqlite3.Connection, *, platform: str, slug: str, now: datetime,
 ) -> bool:
-    cutoff = (now - timedelta(hours=_PREREQ_FRESHNESS_HOURS)).isoformat(
-        timespec="seconds"
-    )
+    cutoff = to_iso(now - timedelta(hours=_PREREQ_FRESHNESS_HOURS))
     row = conn.execute(
         "SELECT 1 FROM recon_runs WHERE platform = ? AND slug = ? "
         "AND tool = 'httpx' AND status IN ('success', 'partial') "
@@ -112,7 +111,7 @@ def run_program(
 
     run_id = run_id or uuid.uuid4().hex
     now_dt = datetime.now(UTC)
-    now = now_dt.isoformat(timespec="seconds")
+    now = to_iso(now_dt)
     artifact_dir = paths.root / f"recon/outputs/{platform}/{slug}/nuclei/{now[:10]}/{run_id}"
 
     conn = db.open_db(paths.program_db(platform, slug))
@@ -136,7 +135,7 @@ def run_program(
         try:
             tool_result = tool_run(targets) if targets else active.ToolRunResult(outputs=())
         except Exception as exc:
-            finished = datetime.now(UTC).isoformat(timespec="seconds")
+            finished = now_iso()
             runs.finish_run(
                 conn, run_id=run_id, finished_at=finished, status="failed",
                 output_count=0, signal_count=0, source_failures=1, oos_drops=0,
@@ -174,7 +173,7 @@ def run_program(
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)
 
-        finished = datetime.now(UTC).isoformat(timespec="seconds")
+        finished = now_iso()
         runs.finish_run(
             conn, run_id=run_id, finished_at=finished, status=run_status,
             output_count=len(in_scope_sigs),

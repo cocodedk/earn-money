@@ -7,13 +7,13 @@ import os
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 
 import dns.resolver
 import tldextract  # bundled suffix list; no network fetch needed at import time
 
 from earn_money import config, db, flags, policy, scope
+from earn_money._time import now_iso
 from earn_money.recon import assets, chaos, resolver, subfinder
 
 SubfinderRun = Callable[[str], list[str]]
@@ -109,7 +109,7 @@ def run_program(
         c for c in candidates if scope.is_in_scope(c, s.in_scope, s.out_of_scope)
     )
 
-    observed_at = datetime.now(UTC).isoformat(timespec="seconds")
+    observed_at = now_iso()
     observations: list[assets.AssetObservation] = []
     for sub in in_scope_candidates:
         ips = resolver.resolve_a(sub, dns_resolver=dns_resolver)

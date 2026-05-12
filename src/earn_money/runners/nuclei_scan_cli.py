@@ -11,10 +11,10 @@ import sys
 import threading
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 
 from earn_money import config, flags, policy
+from earn_money._time import now_iso
 from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
 from earn_money.runners.watchdog import Reason
@@ -67,7 +67,7 @@ def _build_real_tool(
         raw_stderr = "\n".join(
             b.stderr for b in batches_result.batches if b.stderr
         )
-        now = datetime.now(UTC).isoformat(timespec="seconds")
+        now = now_iso()
         source_failures = sum(
             1 for b in batches_result.batches
             if b.timed_out or b.return_code not in (0, None)

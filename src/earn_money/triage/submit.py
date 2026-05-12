@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 from earn_money import config, db
+from earn_money._time import now_iso
 from earn_money.triage import history
 
 
@@ -76,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
-    now = datetime.now(UTC).isoformat(timespec="seconds")
+    now = now_iso()
 
     try:
         submit(

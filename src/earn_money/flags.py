@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
+from earn_money._time import now_iso
 from earn_money.config import Paths
 
 
@@ -30,7 +29,7 @@ def is_program_frozen(paths: Paths, platform: str, slug: str) -> bool:
 def freeze_program(paths: Paths, platform: str, slug: str, *, reason: str) -> None:
     flag = paths.freeze_flag(platform, slug)
     flag.parent.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).isoformat(timespec="seconds")
+    timestamp = now_iso()
     flag.write_text(f"{timestamp}\n{reason}\n", encoding="utf-8")
 
 

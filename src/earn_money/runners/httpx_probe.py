@@ -10,11 +10,11 @@ import json
 import sqlite3
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from earn_money import config, db, scope
+from earn_money._time import now_iso
 from earn_money.recon import runs, services
 from earn_money.runners import active
 
@@ -52,7 +52,7 @@ def run_program(
     s = active.check_gates(paths, platform, slug, mode="active")
 
     run_id = run_id or uuid.uuid4().hex
-    now = datetime.now(UTC).isoformat(timespec="seconds")
+    now = now_iso()
     artifact_dir = paths.root / (
         f"recon/outputs/{platform}/{slug}/httpx/{now[:10]}/{run_id}"
     )
@@ -71,7 +71,7 @@ def run_program(
                 else active.ToolRunResult(outputs=())
             )
         except Exception as exc:
-            finished = datetime.now(UTC).isoformat(timespec="seconds")
+            finished = now_iso()
             runs.finish_run(
                 conn, run_id=run_id, finished_at=finished, status="failed",
                 output_count=0, signal_count=0, source_failures=1, oos_drops=0,
@@ -97,7 +97,7 @@ def run_program(
         })
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)
-        finished = datetime.now(UTC).isoformat(timespec="seconds")
+        finished = now_iso()
         runs.finish_run(
             conn, run_id=run_id, finished_at=finished, status=run_status,
             output_count=len(in_scope), signal_count=0,
