@@ -55,3 +55,12 @@ def test_run_result_defaults_are_zero() -> None:
     assert r.source_failures == 0
     assert r.oos_drops == 0
     assert r.terminated_reason is None
+
+
+def test_check_gates_refuses_frozen_program(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    flags.freeze_program(paths, "hackerone", "example", reason="scope destructive diff")
+    _seed_scope(paths)
+    with pytest.raises(flags.ProgramFrozen):
+        active.check_gates(paths, "hackerone", "example", mode="active")
