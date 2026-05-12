@@ -31,6 +31,7 @@ def test_runs_subfinder_with_expected_args(
     assert kwargs["check"] is True
     assert kwargs["capture_output"] is True
     assert kwargs["text"] is True
+    assert kwargs["timeout"] == 300.0
 
 
 def test_returns_empty_list_on_no_output(mocker: pytest.MonkeyPatch) -> None:
@@ -59,3 +60,13 @@ def test_missing_binary_raises(mocker: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(subfinder.SubfinderError):
         subfinder.enumerate_subdomains("example.com")
+
+
+def test_timeout_raises(mocker: pytest.MonkeyPatch) -> None:
+    mocker.patch(
+        "earn_money.recon.subfinder.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="subfinder", timeout=10),
+    )
+    with pytest.raises(subfinder.SubfinderError) as excinfo:
+        subfinder.enumerate_subdomains("example.com", timeout=10)
+    assert "timed out" in str(excinfo.value)
