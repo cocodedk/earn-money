@@ -1,8 +1,13 @@
 """Shared helpers for triage tests."""
 from __future__ import annotations
 
-from earn_money import config
+from pathlib import Path
+
+from earn_money import config, db
 from earn_money import scope as scope_mod
+from earn_money.recon import runs, services, signals
+from earn_money.recon.services import HttpService
+from earn_money.recon.signals import Signal
 from earn_money.triage import findings, history
 
 
@@ -66,3 +71,48 @@ def register_program(
         last_synced="2026-05-12T00:00:00Z",
     )
     scope_mod.write_scope(paths.scope_file(platform, slug), scope)
+
+
+def engine_paths(tmp_repo: Path) -> config.Paths:
+    """A Paths with RECON_ENABLED touched and the example program registered."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    register_program(paths)
+    return paths
+
+
+def seed_nuclei_run_with_signal(paths: config.Paths) -> None:
+    """Seed one untriaged nuclei run with a single template_match signal."""
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        services.upsert_service(conn, HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200,
+            title="Acme API", server="nginx",
+            technologies=("nginx",),
+            redirect_to=None, tls_summary=None,
+            observed_at="2026-05-12T01:05:00Z", last_run_id="httpx-r1",
+            in_scope_at_observation=True,
+        ))
+        runs.start_run(
+            conn, run_id="nuclei-r1", platform="hackerone", slug="example",
+            tool="nuclei", started_at="2026-05-12T02:15:00Z",
+            artifact_dir="x", input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="nuclei-r1", finished_at="2026-05-12T02:20:00Z",
+            status="success", output_count=1, signal_count=1,
+            source_failures=0, oos_drops=0,
+        )
+        signals.insert_signals(conn, [Signal(
+            run_id="nuclei-r1", tool="nuclei", signal_type="template_match",
+            asset="api.example.com",
+            target="https://api.example.com/search?q=foo",
+            signature="CVE-2023-1234|primary|",
+            payload='{"template_id":"CVE-2023-1234","matcher_name":"primary",'
+                    '"matched_at":"https://api.example.com/search?q=foo",'
+                    '"severity":"high","name":"Acme SQLi"}',
+            observed_at="2026-05-12T02:16:00Z",
+        )])
+    finally:
+        conn.close()
