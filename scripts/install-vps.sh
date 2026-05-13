@@ -63,6 +63,29 @@ fi
 log "apt packages (nmap, sqlmap, ffuf)"
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nmap sqlmap ffuf
 
+log "rustscan (.deb release; cargo skipped to avoid pulling the Rust toolchain)"
+if command -v rustscan >/dev/null 2>&1; then
+    log "  rustscan: already present, skipping"
+else
+    rs_ver=$(curl -fsSL "https://api.github.com/repos/bee-san/RustScan/releases/latest" \
+        | jq -r .tag_name)
+    if [ -z "$rs_ver" ] || [ "$rs_ver" = "null" ]; then
+        warn "  rustscan: failed to resolve latest version from GitHub API"
+    else
+        rs_num="${rs_ver#v}"
+        rs_url="https://github.com/bee-san/RustScan/releases/download/${rs_ver}/rustscan_${rs_num}_amd64.deb"
+        log "  rustscan: fetching $rs_ver"
+        cd /tmp
+        if curl -fsSL "$rs_url" -o rustscan.deb; then
+            dpkg -i rustscan.deb >/dev/null 2>&1 || \
+                apt-get install -y -qq --fix-broken
+            rm -f rustscan.deb
+        else
+            warn "  rustscan: download failed; re-run manually"
+        fi
+    fi
+fi
+
 log "non-PD Go tools (amass, gau, dalfox, gitleaks, trufflehog)"
 # Ensure `go` is available before any go-install path. Apt's golang-go
 # is acceptable for tool builds; the runtime version of these tools
