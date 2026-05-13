@@ -4,9 +4,11 @@ artifact contract, and terminated_reason propagation."""
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from earn_money import config, db, scope
+from earn_money._time import to_iso
 from earn_money.recon import services
 from earn_money.runners import active, nuclei_scan
 
@@ -31,17 +33,21 @@ def _seed_httpx_run_and_services(
     paths: config.Paths, *, services_to_insert: list[services.HttpService]
 ) -> None:
     """Seed a fresh successful httpx run + matching http_services rows so
-    nuclei can see a recent prereq."""
+    nuclei can see a recent prereq. Timestamps are wall-clock-relative so
+    the runner's 24h prereq freshness window always holds."""
     from earn_money.recon import runs
+    now = datetime.now(UTC)
+    started_at = to_iso(now - timedelta(minutes=5))
+    finished_at = to_iso(now - timedelta(minutes=1))
     conn = db.open_db(paths.program_db("hackerone", "example"))
     try:
         runs.start_run(
             conn, run_id="httpx-r1", platform="hackerone", slug="example",
-            tool="httpx", started_at="2026-05-12T01:00:00Z",
+            tool="httpx", started_at=started_at,
             artifact_dir="x", input_count=1,
         )
         runs.finish_run(
-            conn, run_id="httpx-r1", finished_at="2026-05-12T01:05:00Z",
+            conn, run_id="httpx-r1", finished_at=finished_at,
             status="success", output_count=len(services_to_insert),
             signal_count=0, source_failures=0, oos_drops=0,
         )

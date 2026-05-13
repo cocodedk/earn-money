@@ -16,11 +16,13 @@ import os
 import shutil
 import sqlite3
 import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from earn_money import config, db, scope
+from earn_money._time import to_iso
 from earn_money.recon import nuclei_tool, runs, services
 from earn_money.recon.services import HttpService
 from earn_money.runners import active, nuclei_scan
@@ -47,6 +49,9 @@ def _seed(tmp_repo: Path) -> config.Paths:
     )
     scope.write_scope(paths.scope_file("hackerone", "example"), s)
 
+    now = datetime.now(UTC)
+    started_at = to_iso(now - timedelta(minutes=5))
+    finished_at = to_iso(now - timedelta(minutes=1))
     conn = db.open_db(paths.program_db("hackerone", "example"))
     try:
         services.upsert_service(conn, HttpService(
@@ -54,16 +59,16 @@ def _seed(tmp_repo: Path) -> config.Paths:
             url="http://127.0.0.1:18081/", status_code=200,
             title="In-Scope A", server="mock-target/1.0",
             technologies=(), redirect_to=None, tls_summary=None,
-            observed_at="2026-05-12T01:05:00Z", last_run_id="httpx-r1",
+            observed_at=finished_at, last_run_id="httpx-r1",
             in_scope_at_observation=True,
         ))
         runs.start_run(
             conn, run_id="httpx-r1", platform="hackerone", slug="example",
-            tool="httpx", started_at="2026-05-12T01:00:00Z",
+            tool="httpx", started_at=started_at,
             artifact_dir="x", input_count=1,
         )
         runs.finish_run(
-            conn, run_id="httpx-r1", finished_at="2026-05-12T01:05:00Z",
+            conn, run_id="httpx-r1", finished_at=finished_at,
             status="success", output_count=1, signal_count=0,
             source_failures=0, oos_drops=0,
         )
