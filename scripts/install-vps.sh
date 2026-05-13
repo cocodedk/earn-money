@@ -60,6 +60,31 @@ else
     log "  templates already present at /root/nuclei-templates"
 fi
 
+log "non-PD Go tools (amass, gau, dalfox, gitleaks, trufflehog)"
+# Ensure `go` is available before any go-install path. Apt's golang-go
+# is acceptable for tool builds; the runtime version of these tools
+# does not constrain the rest of the pipeline.
+if ! command -v go >/dev/null 2>&1; then
+    log "  installing golang-go for go-install fallbacks"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq golang-go
+fi
+# Each entry: bin_name|go-install-path. Skip when already on PATH.
+for entry in \
+    "amass|github.com/owasp-amass/amass/v4/...@master" \
+    "gau|github.com/lc/gau/v2/cmd/gau@latest" \
+    "dalfox|github.com/hahwul/dalfox/v2@latest" \
+    "gitleaks|github.com/gitleaks/gitleaks/v8@latest" \
+    "trufflehog|github.com/trufflesecurity/trufflehog/v3@latest"; do
+    bin="${entry%%|*}"
+    path="${entry##*|}"
+    if command -v "$bin" >/dev/null 2>&1; then
+        log "  $bin: already present, skipping"
+        continue
+    fi
+    log "  $bin: go install $path"
+    GOBIN=/usr/local/bin go install "$path" || warn "  $bin: go install failed; re-run manually"
+done
+
 log "installed versions:"
 subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1
