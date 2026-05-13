@@ -12,7 +12,7 @@ on this program is essentially 100% for common findings. That cost is
 accepted for this engagement because the goal is pipeline integrity, not
 earnings — see [`00-goal.md`](00-goal.md).
 
-## Pivot trigger (cursor critique #2)
+## Pivot trigger
 
 This engagement is **timeboxed to three active-recon cycles** on
 `hackerone/security`. After the third cycle, evaluate against the success
