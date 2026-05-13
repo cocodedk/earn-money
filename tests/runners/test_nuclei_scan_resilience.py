@@ -88,6 +88,76 @@ def test_source_failures_promotes_run_to_partial(tmp_repo: Path) -> None:
     assert rows == [("partial", 2)]
 
 
+def test_source_failures_record_stderr_tail_in_error_summary(tmp_repo: Path) -> None:
+    """When a batch fails with non-zero return code, surface its stderr tail
+    in recon_runs.error_summary so the operator can diagnose without
+    re-running the tool by hand."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_httpx_run_and_services(paths, services_to_insert=[
+        services.HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200, title=None,
+            server=None, technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="t", last_run_id="httpx-r1", in_scope_at_observation=True,
+        ),
+    ])
+
+    def flaky_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(
+            outputs=(),
+            source_failures=1,
+            raw_stderr="ERR: nuclei panicked at templates/foo.yaml\n",
+        )
+
+    nuclei_scan.run_program(
+        paths, "hackerone", "example", tool_run=flaky_tool,
+    )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    err_summary, = conn.execute(
+        "SELECT error_summary FROM recon_runs WHERE tool = 'nuclei'"
+    ).fetchone()
+    conn.close()
+    assert err_summary is not None
+    assert "1 batch" in err_summary
+    assert "nuclei panicked at templates/foo.yaml" in err_summary
+
+
+def test_source_failures_empty_stderr_still_records_error_summary(
+    tmp_repo: Path,
+) -> None:
+    """The cycle-1 case: batch exits non-zero with no stderr output. The
+    empty-stderr fact itself is diagnostic — must not be silent."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_httpx_run_and_services(paths, services_to_insert=[
+        services.HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200, title=None,
+            server=None, technologies=(), redirect_to=None, tls_summary=None,
+            observed_at="t", last_run_id="httpx-r1", in_scope_at_observation=True,
+        ),
+    ])
+
+    def silent_failing_tool(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(outputs=(), source_failures=1, raw_stderr="")
+
+    nuclei_scan.run_program(
+        paths, "hackerone", "example", tool_run=silent_failing_tool,
+    )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    err_summary, = conn.execute(
+        "SELECT error_summary FROM recon_runs WHERE tool = 'nuclei'"
+    ).fetchone()
+    conn.close()
+    assert err_summary is not None
+    assert "(empty stderr)" in err_summary
+
+
 def test_prereq_missing_still_writes_required_artifacts(tmp_repo: Path) -> None:
     """record_prereq_missing must write all 5 required artifacts so the
     artifact contract holds even for skipped runs."""

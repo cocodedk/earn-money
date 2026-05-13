@@ -58,7 +58,17 @@ session. One bullet per gap, loosely tagged `signal`, `tooling`,
   but the operator now has a queue full of "noise that would have
   been suppressed if run today." Should add a small CLI to
   apply-rules-retroactively against the existing queue, or just have
-  operator clear them by hand once.
+  operator clear them by hand once. **Resolved 2026-05-13:** shipped
+  `bin/apply-rules` (see plan task A) with dry-run mode and the same
+  audit-note format as the live engine.
+- [tooling] Cycle-1 source failure was **silent** — `stderr.txt` was
+  0 bytes despite source_failures=1 in the run row. nuclei exited
+  non-zero without writing anything observable. Cause inconclusive
+  (transient most likely, but no evidence). **Resolved 2026-05-13:**
+  the nuclei runner now writes a structured `error_summary` to
+  `recon_runs` when a batch fails — `N batch(es) failed: <stderr tail
+  or '(empty stderr)'>`. Next time this happens we'll at least have
+  the cause recorded in the DB. (See plan task B.)
 
 ## What I'd do next session, in order
 
