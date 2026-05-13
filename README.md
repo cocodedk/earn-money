@@ -47,12 +47,26 @@ Set up the Python virtualenv and install dev deps:
 make install-dev
 ```
 
-External tools (must be on `PATH`):
+External tools (`scripts/install-vps.sh` puts these on the VPS in one
+idempotent run):
 
+Pipeline (currently wired into runners):
 - `subfinder` v2+ (passive subdomain enumeration, Phase 2)
 - `httpx` v1.9+ from ProjectDiscovery (active HTTP probing, Phase 3a). Note: the PyPI `httpx` is a different tool (Python HTTP client library); install the Go one from `github.com/projectdiscovery/httpx/cmd/httpx`.
 - `nuclei` v3+ (template-based vuln scan, Phase 3b)
-- `katana`, `ffuf` (Phase 3c — currently parked)
+
+On PATH, available on demand (no pipeline runners yet):
+- `katana`, `naabu`, `ffuf` — recon/crawl/fuzz. Phase 3c parked; usable manually.
+- `amass`, `gau` — extra subdomain + URL discovery.
+- `nmap`, `rustscan` — port scanners. Operator-triggered; not yet
+  policy-gated for automation.
+- `sqlmap`, `dalfox`, `gitleaks`, `trufflehog` — operator-side verify
+  and secret-leak scanners.
+
+Wordlists:
+- `/opt/seclists` — SecLists shallow clone (~1 GB).
+- `/opt/assetnote/` — best-dns-wordlist.txt + httparchive parameters
+  top 10k.
 
 ## VPS setup (first-run)
 
