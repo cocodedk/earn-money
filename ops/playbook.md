@@ -62,6 +62,44 @@ This file documents the *human-gated* parts of the pipeline. The automated parts
    ```
    This records the external_report_id and transitions verified → submitted.
 
+## Reading the queue
+
+### Top of the queue: `bin/queue`
+
+```bash
+bin/queue --program security
+```
+
+Default shows the top 5 by severity DESC, then ascending `first_seen`
+(older entries surface before newer). Pass `--all` to see the full
+backlog. Reads from the DB; the engine writes `_queue/<hash>.md`
+atomically when it inserts the queued row.
+
+### One finding in detail: `bin/show`
+
+```bash
+bin/show --program security <short-hash>
+```
+
+Prints the queue (or `_resolved/info/`) markdown body, then the full
+audit history. Short hash is the 8-char prefix shown by `bin/queue`.
+Errors clearly on ambiguous or missing prefixes.
+
+## Pre-active-recon preflight
+
+Run this every time before pulling the active-recon trigger
+(`bin/httpx-probe`, `bin/nuclei-scan`):
+
+- [ ] Policy for the program is still `rate-limited-OK` in `scope.md`.
+- [ ] `last_synced` in `scope.md` is within the last 24 h.
+- [ ] No `FROZEN` file in `programs/<platform>/<slug>/`.
+- [ ] `RECON_ENABLED` exists at the repo root.
+- [ ] Egress IP on the VPS matches the value recorded in the
+      [VPS hygiene](#vps-hygiene) section below.
+
+A failed check halts the engagement. No script wraps this — it's five
+seconds of attention before sending traffic.
+
 ## When the freeze flag fires
 
 A scope-sync run detected a destructive scope diff (asset moved out of scope, scope shrunk). All recon halts for that program until you acknowledge.
@@ -86,6 +124,13 @@ rm /opt/earn-money/RECON_ENABLED
 The kill-switch is checked every 5 seconds by every running scan. Removing the file halts the pipeline within ~10 seconds. Re-arm later with `touch RECON_ENABLED`.
 
 ## Triage rules of thumb
+
+The suppression rules below are now enforced by the triage engine and
+live in `triage_rules.yaml` at the repo root. Findings matching a rule
+never reach `_queue/`; they land directly in `_resolved/info/` with an
+audit row tagging the rule. To revisit a suppression, search
+`findings_state_history.note` for `rule=<rule-name>`. Adding or
+removing a rule is a YAML edit, not a code change.
 
 - **Info severity from nuclei** — `cookies-without-httponly`, `csp-script-src-wildcard`, `missing-cookie-samesite-strict` etc. — almost always `resolved_na`. Modern apps deliberately use these patterns:
   - `XSRF-TOKEN` lacks HttpOnly because it has to be JS-readable for the double-submit-cookie CSRF pattern.
