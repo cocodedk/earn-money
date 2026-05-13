@@ -1,0 +1,45 @@
+"""Triage suppression rules: data-driven routing for known-noise nuclei
+templates. Findings matching a rule are routed to _resolved/info/ with a
+structured audit trail instead of reaching _queue/.
+
+The matcher is a pure function — no DB, no IO. The loader reads a YAML
+file from disk; callers pass the path explicitly so tests can use a
+temp-dir fixture without touching the repo-root file.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
+
+
+@dataclass(frozen=True)
+class Rule:
+    name: str
+    vuln_class: str
+    severity: str
+    reason: str
+
+
+def load_rules(path: Path) -> list[Rule]:
+    """Parse a YAML rules file into a list of Rule objects.
+
+    Tolerates a missing file by returning an empty list — fresh checkouts
+    without triage_rules.yaml run with zero suppression rules, which is
+    the engine's default-permissive behaviour.
+    """
+    if not path.exists():
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    items = raw.get("rules", []) or []
+    return [
+        Rule(
+            name=str(item["name"]),
+            vuln_class=str(item["vuln_class"]),
+            severity=str(item["severity"]),
+            reason=str(item["reason"]),
+        )
+        for item in items
+    ]

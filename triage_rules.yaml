@@ -1,0 +1,26 @@
+# Triage suppression rules.
+#
+# Findings matching a rule are routed directly to findings/_resolved/info/
+# instead of findings/_queue/, with an audit row in findings_state_history
+# recording rule, template, version, and reason.
+#
+# Source: ops/playbook.md "Triage rules of thumb" — info-severity nuclei
+# templates that are almost always resolved_na on modern apps.
+
+rules:
+  - name: noise.cookies-without-httponly
+    vuln_class: cookies-without-httponly
+    severity: info
+    reason: playbook-noise
+  - name: noise.csp-script-src-wildcard
+    vuln_class: csp-script-src-wildcard
+    severity: info
+    reason: playbook-noise
+  - name: noise.missing-cookie-samesite-strict
+    vuln_class: missing-cookie-samesite-strict
+    severity: info
+    reason: playbook-noise
+  - name: noise.tls-version
+    vuln_class: tls-version
+    severity: info
+    reason: info-no-impact
