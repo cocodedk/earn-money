@@ -12,6 +12,9 @@ def test_approved_template_dirs_constant_locked() -> None:
     assert frozenset({
         "http/cves",
         "http/misconfiguration",
+        "http/takeovers",
+        "http/exposures",
+        "http/exposed-panels",
     }) == nuclei_tool.APPROVED_TEMPLATE_DIRS
 
 

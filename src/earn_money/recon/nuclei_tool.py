@@ -21,12 +21,25 @@ from earn_money.triage import hashing
 
 # Template paths are relative to the local templates root
 # (~/nuclei-templates on the VPS). nuclei v3+ groups templates under
-# protocol directories (http/, network/, code/, …) — we only allow the
-# HTTP protocol subset of cves + misconfiguration. Adding more requires
-# a deliberate code-review event.
+# protocol directories (http/, network/, code/, …) — we only allow a
+# curated HTTP subset. Adding more requires a deliberate code-review
+# event (this constant is asserted-locked by tests).
+#
+# Scope notes per directory:
+# - http/cves: known-CVE template hits. Most hits are version-sniff
+#   and need operator verification against actual patched build.
+# - http/misconfiguration: open dirs, default creds, weak configs.
+# - http/takeovers: subdomain takeover detection. P1-class when valid;
+#   detection itself is non-intrusive (CNAME + provider fingerprint).
+# - http/exposures: exposed .git/, .env, backups, swagger/API keys.
+#   Sends GET requests for sensitive paths; rate-limited like the rest.
+# - http/exposed-panels: admin/login UI fingerprinting. Read-only.
 APPROVED_TEMPLATE_DIRS: frozenset[str] = frozenset({
     "http/cves",
     "http/misconfiguration",
+    "http/takeovers",
+    "http/exposures",
+    "http/exposed-panels",
 })
 
 
