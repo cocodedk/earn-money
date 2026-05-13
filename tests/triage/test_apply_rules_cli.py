@@ -51,6 +51,8 @@ def test_apply_rules_transitions_matching_queued_finding(
     rc, out, _ = _run(paths.root, ["--program", "example"], capsys)
     assert rc == 0
     assert "applied=1" in out
+    assert "transitioned" in out  # non-dry-run says transitioned, not "would"
+    assert "would transition" not in out
 
     conn = db.open_db(paths.program_db("hackerone", "example"))
     try:

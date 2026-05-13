@@ -60,11 +60,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             if rule is None:
                 continue
-            print(
-                f"would transition {f.finding_hash[:8]} ({f.vuln_class}) "
-                f"→ resolved_info via {rule.name}"
-            )
-            if not args.dry_run:
+            if args.dry_run:
+                print(
+                    f"would transition {f.finding_hash[:8]} ({f.vuln_class}) "
+                    f"→ resolved_info via {rule.name}"
+                )
+            else:
                 note = (
                     f"rule={rule.name} template={f.vuln_class} "
                     f"version=unknown reason={rule.reason}"
@@ -76,6 +77,10 @@ def main(argv: list[str] | None = None) -> int:
                     actor="triage-engine",
                     note=note,
                     now=now,
+                )
+                print(
+                    f"transitioned {f.finding_hash[:8]} ({f.vuln_class}) "
+                    f"→ resolved_info via {rule.name}"
                 )
             applied += 1
     finally:
