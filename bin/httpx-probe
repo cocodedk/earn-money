@@ -14,4 +14,4 @@ if [ ! -x "$ROOT/.venv/bin/python" ]; then
   exit 1
 fi
 
-exec "$ROOT/.venv/bin/python" -m earn_money.runners.httpx_probe --root "$ROOT" "$@"
+exec "$ROOT/.venv/bin/python" -m earn_money.runners.httpx_probe_cli --root "$ROOT" "$@"
