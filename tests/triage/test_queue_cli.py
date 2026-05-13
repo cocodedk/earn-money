@@ -72,6 +72,18 @@ def test_queue_default_top_5_sorted(
     assert hashes[2] == "a" * 8
 
 
+def test_queue_unknown_program_prints_error_returns_1(
+    tmp_repo: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    paths = engine_paths(tmp_repo)  # only registers 'example'
+    rc = queue_cli.main([
+        "--root", str(paths.root), "--program", "does-not-exist",
+    ])
+    captured = capsys.readouterr()
+    assert rc == 1
+    assert "queue:" in captured.err.lower()
+
+
 def test_queue_all_shows_full_backlog(
     tmp_repo: Path, capsys: pytest.CaptureFixture[str],
 ) -> None:

@@ -9,6 +9,8 @@ from the DB only — no `_queue/` directory scan, no consistency check.
 from __future__ import annotations
 
 import argparse
+import sqlite3
+import sys
 from pathlib import Path
 
 from earn_money import config, db
@@ -63,9 +65,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     paths = config.Paths.from_root(args.root)
 
-    rows = list_queued(
-        paths, platform=args.platform, slug=args.program, show_all=args.all,
-    )
+    scope_file = paths.scope_file(args.platform, args.program)
+    if not scope_file.exists():
+        print(
+            f"queue: program {args.platform}/{args.program!r} is not "
+            f"registered (no scope.md at {scope_file})",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        rows = list_queued(
+            paths, platform=args.platform, slug=args.program, show_all=args.all,
+        )
+    except sqlite3.OperationalError as exc:
+        print(f"queue: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
     if not rows:
         print(f"no queued findings for {args.platform}/{args.program}")
         return 0
