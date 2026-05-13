@@ -17,10 +17,14 @@ from earn_money.triage import history
 def _resolve_prefix(
     conn: sqlite3.Connection, prefix: str,
 ) -> list[tuple[str, str]]:
+    # Treat % and _ in operator-typed prefixes as literal characters, not
+    # SQL LIKE wildcards. Valid finding-hash prefixes are hex so this only
+    # affects typos, but the escape keeps "no match" honest.
+    escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     cursor = conn.execute(
         "SELECT finding_hash, notes_path FROM findings "
-        "WHERE finding_hash LIKE ? ORDER BY finding_hash",
-        (prefix + "%",),
+        "WHERE finding_hash LIKE ? ESCAPE '\\' ORDER BY finding_hash",
+        (escaped + "%",),
     )
     return [(row[0], row[1]) for row in cursor]
 

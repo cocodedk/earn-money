@@ -65,6 +65,17 @@ def test_show_missing_prefix_returns_1(
     assert "no finding" in err.lower()
 
 
+def test_show_wildcard_prefix_does_not_match_literally(
+    tmp_repo: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`%` and `_` must NOT act as SQL LIKE wildcards on operator input."""
+    paths = engine_paths(tmp_repo)
+    _insert(paths, "a" * 8 + "1" + "0" * 55)
+    rc, _, err = _run(paths.root, ["--program", "example", "%"], capsys)
+    assert rc == 1
+    assert "no finding" in err.lower()
+
+
 def test_show_unregistered_program_returns_1(
     tmp_repo: Path, capsys: pytest.CaptureFixture[str],
 ) -> None:
