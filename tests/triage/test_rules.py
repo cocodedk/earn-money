@@ -52,3 +52,30 @@ def test_load_rules_raises_on_missing_field(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match=r"missing required field.*reason"):
         rules.load_rules(src)
+
+
+def test_match_returns_rule_on_exact_vuln_class_and_severity() -> None:
+    rs = [
+        rules.Rule(name="noise.csp", vuln_class="csp-script-src-wildcard",
+                   severity="info", reason="playbook-noise"),
+    ]
+    hit = rules.match(rs, vuln_class="csp-script-src-wildcard", severity="info")
+    assert hit is not None and hit.name == "noise.csp"
+
+
+def test_match_returns_none_when_severity_differs() -> None:
+    rs = [
+        rules.Rule(name="noise.csp", vuln_class="csp-script-src-wildcard",
+                   severity="info", reason="playbook-noise"),
+    ]
+    assert rules.match(
+        rs, vuln_class="csp-script-src-wildcard", severity="high"
+    ) is None
+
+
+def test_match_returns_none_when_no_rule_matches() -> None:
+    rs = [
+        rules.Rule(name="noise.csp", vuln_class="csp-script-src-wildcard",
+                   severity="info", reason="playbook-noise"),
+    ]
+    assert rules.match(rs, vuln_class="open-redirect", severity="info") is None

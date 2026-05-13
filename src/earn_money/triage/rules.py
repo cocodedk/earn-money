@@ -69,3 +69,16 @@ def load_rules(path: Path) -> list[Rule]:
             )
         )
     return result
+
+
+def match(rs: list[Rule], *, vuln_class: str, severity: str) -> Rule | None:
+    """Return the first rule matching both vuln_class and severity, else None.
+
+    Matching is case-sensitive on both fields. Callers normalize the inputs;
+    ``classify()`` already lowercases vuln_class and severity for nuclei
+    template matches.
+    """
+    for r in rs:
+        if r.vuln_class == vuln_class and r.severity == severity:
+            return r
+    return None
