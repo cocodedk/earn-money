@@ -24,9 +24,8 @@ from earn_money.recon import services
 from earn_money.recon.services import pick_canonical_service
 from earn_money.recon.signals import Signal
 from earn_money.recon.urls import target_host
-from earn_money.triage import findings, hashing, queue
+from earn_money.triage import engine_helpers, findings, hashing, queue, rules, suppress
 from earn_money.triage.classify import classify
-from earn_money.triage.findings import Finding
 
 
 @dataclass(frozen=True)
@@ -55,6 +54,7 @@ def run_program(
     flags.require_recon_enabled(paths)
     flags.require_program_not_frozen(paths, platform, slug)
     s = scope.read_scope(paths.scope_file(platform, slug))
+    rs = rules.load_rules(paths.root / "triage_rules.yaml")
 
     conn = db.open_db(paths.program_db(platform, slug))
     try:
@@ -75,7 +75,7 @@ def run_program(
             for sig in sigs:
                 outcome = _process_signal(
                     conn, paths, sig, scope_=s,
-                    platform=platform, slug=slug, now=now,
+                    platform=platform, slug=slug, now=now, rules_=rs,
                 )
                 if outcome == "created":
                     created += 1
@@ -117,6 +117,7 @@ def _process_signal(
     platform: str,
     slug: str,
     now: str,
+    rules_: list[rules.Rule],
 ) -> str:
     """Triage one signal. Returns one of: 'created', 'refreshed', 'skipped'."""
     # Defensive scope re-check: scope can tighten between scan and triage time.
@@ -138,25 +139,23 @@ def _process_signal(
     )
 
     existing = findings.find_by_hash(conn, finding_hash)
+    rule = rules.match(rules_, vuln_class=vuln_class, severity=severity_hint)
+    ev_path = engine_helpers.evidence_path(conn, sig.run_id)
     notes_path = f"findings/_queue/{finding_hash}.md"
-    finding = Finding(
-        finding_hash=finding_hash,
-        platform=platform, slug=slug,
-        vuln_class=vuln_class,
-        asset=sig.asset, target=sig.target, signature=sig.signature,
-        title=title, severity_hint=severity_hint, confidence=confidence,
-        source_tool=sig.tool, source_run_id=sig.run_id,
-        evidence_path=_evidence_path(conn, sig.run_id),
-        notes_path=notes_path,
-        first_seen=existing.first_seen if existing else sig.observed_at,
-        last_seen=sig.observed_at,
-        occurrence_count=(existing.occurrence_count if existing else 1),
-        current_state=(existing.current_state if existing else "queued"),
-        state_changed_at=(existing.state_changed_at if existing else now),
-        external_report_id=existing.external_report_id if existing else None,
-        payout_amount=existing.payout_amount if existing else None,
-        payout_currency=existing.payout_currency if existing else None,
+    finding = engine_helpers.build_finding(
+        sig, finding_hash=finding_hash, platform=platform, slug=slug,
+        vuln_class=vuln_class, title=title, severity_hint=severity_hint,
+        confidence=confidence, evidence_path=ev_path,
+        notes_path=notes_path, existing=existing, now=now,
     )
+
+    if existing is None and rule is not None:
+        suppress.apply(
+            conn, paths, finding, rule,
+            version=engine_helpers.template_version(sig.payload), now=now,
+        )
+        return "created"
+
     findings.upsert_finding(conn, finding)
 
     if existing is None:
@@ -168,12 +167,5 @@ def _process_signal(
     return "refreshed"
 
 
-def _evidence_path(conn: sqlite3.Connection, run_id: str) -> str:
-    row = conn.execute(
-        "SELECT artifact_dir FROM recon_runs WHERE run_id = ?", (run_id,),
-    ).fetchone()
-    if not row:
-        return ""
-    return f"{row[0]}/raw.jsonl"
 
 
