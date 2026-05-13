@@ -60,6 +60,9 @@ else
     log "  templates already present at /root/nuclei-templates"
 fi
 
+log "apt packages (nmap, sqlmap, ffuf)"
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nmap sqlmap ffuf
+
 log "non-PD Go tools (amass, gau, dalfox, gitleaks, trufflehog)"
 # Ensure `go` is available before any go-install path. Apt's golang-go
 # is acceptable for tool builds; the runtime version of these tools
