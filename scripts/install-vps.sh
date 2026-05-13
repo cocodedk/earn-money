@@ -30,10 +30,10 @@ apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
     python3-venv python3-pip jq curl unzip ca-certificates
 
-log "ProjectDiscovery tools (subfinder, httpx, nuclei) via prebuilt releases"
+log "ProjectDiscovery tools (subfinder, httpx, nuclei, katana, naabu) via prebuilt releases"
 mkdir -p /opt/recon-tools
 cd /opt/recon-tools
-for tool in subfinder httpx nuclei; do
+for tool in subfinder httpx nuclei katana naabu; do
     if [ -x "/usr/local/bin/$tool" ]; then
         log "  $tool: already present, skipping"
         continue
@@ -64,6 +64,8 @@ log "installed versions:"
 subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1
 nuclei -version 2>&1 | grep -i "version" | head -1
+katana -version 2>&1 | grep -i "current version" | head -1
+naabu -version 2>&1 | grep -i "current version" | head -1
 
 cat <<EOF
 
