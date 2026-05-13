@@ -111,12 +111,45 @@ for entry in \
     GOBIN=/usr/local/bin go install "$path" || warn "  $bin: go install failed; re-run manually"
 done
 
+log "wordlists (SecLists shallow + assetnote subdomains + parameters)"
+if [ ! -d /opt/seclists ]; then
+    log "  SecLists: shallow clone to /opt/seclists (~1 GB)"
+    git clone --depth=1 --quiet \
+        https://github.com/danielmiessler/SecLists.git /opt/seclists \
+        || warn "  SecLists clone failed"
+else
+    log "  SecLists: already present at /opt/seclists"
+fi
+mkdir -p /opt/assetnote
+for an_file in \
+    "best-dns-wordlist.txt|https://wordlists-cdn.assetnote.io/data/manual/best-dns-wordlist.txt" \
+    "httparchive_parameters_top_10000.txt|https://wordlists-cdn.assetnote.io/data/manual/httparchive_parameters_top_10000.txt"; do
+    fname="${an_file%%|*}"
+    url="${an_file##*|}"
+    if [ -s "/opt/assetnote/$fname" ]; then
+        log "  $fname: already present, skipping"
+        continue
+    fi
+    log "  $fname: fetching"
+    curl -fsSL "$url" -o "/opt/assetnote/$fname" \
+        || warn "  $fname: download failed"
+done
+
 log "installed versions:"
 subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1
 nuclei -version 2>&1 | grep -i "version" | head -1
 katana -version 2>&1 | grep -i "current version" | head -1
 naabu -version 2>&1 | grep -i "current version" | head -1
+nmap --version 2>&1 | head -1
+sqlmap --version 2>&1 | head -1
+ffuf -V 2>&1 | head -1
+rustscan --version 2>&1 | head -1
+amass -version 2>&1 | head -1
+gau --version 2>&1 | head -1
+dalfox version 2>&1 | head -1
+gitleaks version 2>&1 | head -1
+trufflehog --version 2>&1 | head -1
 
 cat <<EOF
 
