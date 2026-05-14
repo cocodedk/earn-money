@@ -11,7 +11,7 @@ from __future__ import annotations
 import dataclasses
 import sqlite3
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 FindingState = Literal[
     "queued", "verified", "submitted",
@@ -142,3 +142,24 @@ def findings_in_state(
         (platform, slug, state),
     )
     return [Finding(*row) for row in cursor]
+
+
+def count_findings_by_state(
+    conn: sqlite3.Connection, *, platform: str, slug: str
+) -> dict[FindingState, int]:
+    """Return a zero-filled count of findings per state for (platform, slug).
+
+    Every value in ``typing.get_args(FindingState)`` is present in the result,
+    even when the underlying DB has no row in that state. Callers can rely on
+    `result["queued"]` etc. without a `KeyError`.
+    """
+    counts: dict[FindingState, int] = {s: 0 for s in get_args(FindingState)}
+    cursor = conn.execute(
+        "SELECT current_state, COUNT(*) FROM findings "
+        "WHERE platform = ? AND slug = ? GROUP BY current_state",
+        (platform, slug),
+    )
+    for state, count in cursor:
+        if state in counts:
+            counts[state] = count
+    return counts

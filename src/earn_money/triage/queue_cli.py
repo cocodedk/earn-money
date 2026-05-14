@@ -16,10 +16,7 @@ from pathlib import Path
 from earn_money import config, db
 from earn_money.triage import findings
 from earn_money.triage.findings import Finding
-
-_SEVERITY_RANK: dict[str, int] = {
-    "critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unknown": 5,
-}
+from earn_money.triage.severity import sort_key as _sort_key
 
 _DEFAULT_LIMIT = 5
 
@@ -27,10 +24,6 @@ _HEADER = (
     f"{'hash':<8}  {'severity':<8}  {'vuln_class':<32}  {'asset':<32}  first_seen"
 )
 _DIVIDER = "-" * len(_HEADER)
-
-
-def _sort_key(f: Finding) -> tuple[int, str]:
-    return (_SEVERITY_RANK.get(f.severity_hint, _SEVERITY_RANK["unknown"]), f.first_seen)
 
 
 def _format_row(f: Finding) -> str:
