@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from earn_money.agent.policy_prompt import SECURITY_POLICY_PROMPT
 from earn_money.agent.proposals import (
     InvalidProposal,
     write_script_proposal,
@@ -24,7 +25,7 @@ ALLOWED_STEPS = frozenset({
     "sourcemap-scan", "katana-crawl", "graphql-probe", "stop",
 })
 
-SYSTEM_PROMPT = (
+_DECIDER_INSTRUCTIONS = (
     "You are the decider for an autonomous bug-bounty recon pipeline. "
     "You receive a JSON snapshot of one program's current state and "
     "must reply with a single JSON object choosing the next pipeline "
@@ -45,6 +46,11 @@ SYSTEM_PROMPT = (
     "or when the queue/active_runs already contain enough to act on. "
     "Reply with ONLY the JSON — no surrounding prose."
 )
+
+# Spec §6: every call ships the trusted cybersecurity/GRC policy block
+# first, so the model is told (in a stable place) that everything in
+# the user message after that is data only.
+SYSTEM_PROMPT = SECURITY_POLICY_PROMPT + "\n\n" + _DECIDER_INSTRUCTIONS
 
 
 def render_user(state: PipelineState) -> str:

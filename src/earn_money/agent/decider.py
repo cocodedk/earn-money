@@ -17,6 +17,11 @@ from pathlib import Path
 from typing import Protocol
 
 from earn_money import config
+from earn_money.agent.action_allowlist import (
+    ValidatedAction,
+    any_requires_human_review,
+    validate_actions,
+)
 from earn_money.agent.decider_helpers import (
     ALLOWED_STEPS,
     SYSTEM_PROMPT,
@@ -48,6 +53,9 @@ class Decision:
     max_targets: int | None = None
     proposals: tuple[Proposal, ...] = field(default_factory=tuple)
     provider_error: str | None = None
+    # Spec §12 + §11: per-action policy results + the human-review flag.
+    proposed_actions: tuple[ValidatedAction, ...] = field(default_factory=tuple)
+    requires_human_review: bool = False
 
 
 class AgentDecider(Protocol):
@@ -100,11 +108,20 @@ def decide_next_step(
         proposals_root=proposals_root or (paths.root / "scratch/agent-proposals"),
     )
     proposals = tuple(Proposal(**p) for p in persisted)
+    raw_actions = parsed.get("proposed_actions")
+    validated_actions = (
+        validate_actions(raw_actions) if isinstance(raw_actions, list) else []
+    )
     return Decision(
         next_step=next_step,
         reason=str(parsed.get("reason") or "")[:500],
         max_targets=coerce_int(parsed.get("max_targets")),
         proposals=proposals,
+        proposed_actions=tuple(validated_actions),
+        requires_human_review=(
+            bool(parsed.get("requires_human_review"))
+            or any_requires_human_review(validated_actions)
+        ),
     )
 
 
