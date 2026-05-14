@@ -104,6 +104,11 @@ def test_aggregator_does_not_create_missing_db_file(tmp_repo: Path) -> None:
     register_program(paths, platform="hackerone", slug="example2")
     assert not paths.program_db("hackerone", "example2").exists()
 
-    aggregator.build_status(paths, now=_NOW)
+    status = aggregator.build_status(paths, now=_NOW)
     # Aggregator must remain pure-read: no DB file created for example2.
     assert not paths.program_db("hackerone", "example2").exists()
+    # Drift guard: the missing-DB zero block must enumerate every FindingState
+    # value — adding a new state to the Literal should automatically appear
+    # here without a manual edit in _zero_db_block.
+    by_slug = {p["slug"]: p for p in status["programs"]}
+    assert set(by_slug["example2"]["finding_states"].keys()) == set(get_args(FindingState))

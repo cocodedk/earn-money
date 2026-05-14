@@ -8,15 +8,14 @@ an `error` field) and the rest of the response is unaffected.
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
+from typing import Any, get_args
 
 from earn_money import flags, scope
 from earn_money._time import now_iso
 from earn_money.config import Paths
 from earn_money.registry import iter_registered_programs
 from earn_money.triage import findings
-from earn_money.triage.findings import Finding
-from earn_money.triage.severity import sort_key
+from earn_money.triage.findings import Finding, FindingState
 
 _TOP_QUEUE_LIMIT = 5
 _RECENT_RUNS_LIMIT = 20
@@ -48,15 +47,29 @@ def _build_program(
     returned with zero counts and an `error` key. Programming bugs
     (TypeError, AttributeError, KeyError) intentionally propagate so they
     surface in tests and logs rather than being silently swallowed.
+
+    Two try blocks make the failure domains explicit: scope-read failure
+    means we have no scope fields to merge, so we fall back to a
+    platform+slug-only skeleton; DB failure means scope-read succeeded so
+    we can keep those fields and only zero the DB block.
     """
     try:
         base = _scope_block(paths, platform, slug)
+    except (scope.InvalidScope, OSError, ValueError) as exc:
+        return _error_program(platform, slug, exc), False
+    try:
         db_block, has_op_note = _db_block(paths, platform, slug)
-    except (sqlite3.Error, OSError, scope.InvalidScope, ValueError) as exc:
-        base_skeleton = base if "base" in locals() else {"platform": platform, "slug": slug}
-        return {**base_skeleton, **_zero_db_block(),
+    except (sqlite3.Error, OSError) as exc:
+        return {**base, **_zero_db_block(),
                 "error": f"{type(exc).__name__}: {exc}"}, False
     return {**base, **db_block}, has_op_note
+
+
+def _error_program(
+    platform: str, slug: str, exc: BaseException
+) -> dict[str, Any]:
+    return {"platform": platform, "slug": slug, **_zero_db_block(),
+            "error": f"{type(exc).__name__}: {exc}"}
 
 
 def _scope_block(paths: Paths, platform: str, slug: str) -> dict[str, Any]:
@@ -85,14 +98,14 @@ def _db_block(
     conn = sqlite3.connect(uri, uri=True)
     try:
         counts = findings.count_findings_by_state(conn, platform=platform, slug=slug)
-        queued = findings.findings_in_state(
-            conn, platform=platform, slug=slug, state="queued",
+        top = findings.top_queued_findings(
+            conn, platform=platform, slug=slug, limit=_TOP_QUEUE_LIMIT,
         )
         return {
             "asset_count": _scalar(conn, "SELECT COUNT(*) FROM assets"),
             "http_service_count": _scalar(conn, "SELECT COUNT(*) FROM http_services"),
             "finding_states": dict(counts),
-            "top_queue": _top_queue(queued),
+            "top_queue": _top_queue(top),
             "recent_runs": _recent_runs(conn, platform, slug),
         }, _has_operator_verified_note(conn)
     finally:
@@ -100,14 +113,13 @@ def _db_block(
 
 
 def _zero_db_block() -> dict[str, Any]:
+    # Derive the zero-fill keys from FindingState so adding a new state
+    # automatically propagates here — count_findings_by_state already does
+    # the same via get_args(FindingState); keep the two surfaces in lockstep.
     return {
         "asset_count": 0,
         "http_service_count": 0,
-        "finding_states": {
-            "queued": 0, "verified": 0, "submitted": 0,
-            "resolved_paid": 0, "resolved_dupe": 0, "resolved_na": 0,
-            "resolved_info": 0, "archived": 0,
-        },
+        "finding_states": {state: 0 for state in get_args(FindingState)},
         "top_queue": [],
         "recent_runs": [],
     }
@@ -119,9 +131,8 @@ def _scalar(conn: sqlite3.Connection, sql: str) -> int:
 
 
 def _top_queue(queued: list[Finding]) -> list[dict[str, Any]]:
-    # findings_in_state orders by first_seen; we want severity-first for the
-    # top-N display, so re-sort with severity.sort_key.
-    queued = sorted(queued, key=sort_key)[:_TOP_QUEUE_LIMIT]
+    # `queued` is already SQL-sorted (severity rank ASC, first_seen ASC)
+    # and limited; just project the row shape for the dashboard payload.
     return [
         {
             "hash": f.finding_hash[:8],

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from earn_money import db
-from earn_money.triage import findings
+from earn_money.triage import findings, severity
 
 
 def _conn(tmp_path: Path) -> sqlite3.Connection:
@@ -125,3 +125,35 @@ def test_upsert_refuses_state_change_on_existing_finding(tmp_path: Path) -> None
 def test_find_by_hash_returns_none_when_missing(tmp_path: Path) -> None:
     conn = _conn(tmp_path)
     assert findings.find_by_hash(conn, "nonexistent") is None
+
+
+def test_top_queued_findings_matches_severity_sort_key(tmp_path: Path) -> None:
+    """SQL CASE order in top_queued_findings must agree with severity.sort_key.
+
+    Both surfaces (dashboard top-N and any Python-side sorting) must rank
+    queued findings identically, or callers see drift between views.
+    """
+    conn = _conn(tmp_path)
+    # Mix of severities; first_seen is the tie-breaker for equal ranks.
+    seeds = [
+        ("h1", "low", "2026-05-12T01:00:00Z"),
+        ("h2", "critical", "2026-05-12T02:00:00Z"),
+        ("h3", "medium", "2026-05-12T03:00:00Z"),
+        ("h4", "high", "2026-05-12T04:00:00Z"),
+        ("h5", "info", "2026-05-12T05:00:00Z"),
+        ("h6", "high", "2026-05-12T00:30:00Z"),  # earlier than h4 — wins tie
+    ]
+    for h, sev, seen in seeds:
+        findings.upsert_finding(conn, _seed_finding(
+            finding_hash=h, severity_hint=sev,
+            first_seen=seen, last_seen=seen, state_changed_at=seen,
+        ))
+
+    top = findings.top_queued_findings(
+        conn, platform="hackerone", slug="example", limit=3,
+    )
+    expected = sorted(
+        [findings.find_by_hash(conn, h) for h, _, _ in seeds],
+        key=severity.sort_key,
+    )[:3]
+    assert [f.finding_hash for f in top] == [f.finding_hash for f in expected]

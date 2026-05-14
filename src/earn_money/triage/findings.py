@@ -144,6 +144,27 @@ def findings_in_state(
     return [Finding(*row) for row in cursor]
 
 
+def top_queued_findings(
+    conn: sqlite3.Connection,
+    *, platform: str, slug: str, limit: int,
+) -> list[Finding]:
+    """Top-N queued findings sorted by severity DESC (critical-first) then
+    first_seen ASC. Pushed into SQL so the dashboard doesn't materialise
+    every queued row per 10-second poll. The CASE order must agree with
+    severity.SEVERITY_RANK; tests assert both produce the same ranking."""
+    cursor = conn.execute(
+        f"SELECT {_SELECT_COLUMNS} FROM findings "
+        "WHERE platform = ? AND slug = ? AND current_state = 'queued' "
+        "ORDER BY CASE severity_hint "
+        "  WHEN 'critical' THEN 0 WHEN 'high' THEN 1 "
+        "  WHEN 'medium' THEN 2 WHEN 'low' THEN 3 "
+        "  WHEN 'info' THEN 4 ELSE 5 END, "
+        "first_seen ASC LIMIT ?",
+        (platform, slug, limit),
+    )
+    return [Finding(*row) for row in cursor]
+
+
 def count_findings_by_state(
     conn: sqlite3.Connection, *, platform: str, slug: str
 ) -> dict[FindingState, int]:
