@@ -99,6 +99,76 @@ def test_first_verified_with_operator_note_flag(tmp_repo: Path) -> None:
     assert status["across"]["first_verified_with_operator_note"] is True
 
 
+def test_active_runs_surface_runs_without_finished_at(tmp_repo: Path) -> None:
+    """Runs with finished_at IS NULL show up under program.active_runs
+    AND in across.active_runs (with platform+slug stamped on)."""
+    from earn_money.recon import runs as runs_dao
+    paths = engine_paths(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        runs_dao.start_run(
+            conn, run_id="in-flight", platform="hackerone", slug="example",
+            tool="nuclei", started_at="2026-05-14T08:00:00Z",
+            artifact_dir="x", input_count=1,
+        )
+        # Add a finished run too — should NOT appear in active_runs.
+        runs_dao.start_run(
+            conn, run_id="finished", platform="hackerone", slug="example",
+            tool="httpx", started_at="2026-05-14T07:30:00Z",
+            artifact_dir="x", input_count=1,
+        )
+        runs_dao.finish_run(
+            conn, run_id="finished", finished_at="2026-05-14T07:35:00Z",
+            status="success", output_count=1, signal_count=0,
+            source_failures=0, oos_drops=0,
+        )
+    finally:
+        conn.close()
+
+    status = aggregator.build_status(paths, now=_NOW)
+    prog = status["programs"][0]
+    assert len(prog["active_runs"]) == 1
+    assert prog["active_runs"][0]["run_id"] == "in-flight"
+    assert prog["active_runs"][0]["tool"] == "nuclei"
+    assert status["across"]["active_runs"][0]["platform"] == "hackerone"
+    assert status["across"]["active_runs"][0]["slug"] == "example"
+
+
+def test_recent_signals_newest_first_across_programs(tmp_repo: Path) -> None:
+    """across.recent_signals merges per-program signals newest-first,
+    stamped with platform+slug so the UI can link back."""
+    from earn_money.recon.signals import Signal, insert_signals
+    paths = engine_paths(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        insert_signals(conn, [
+            Signal(
+                run_id="r1", tool="nuclei", signal_type="template_match",
+                asset="api.example.com", target="https://api.example.com/",
+                signature="weak-csp-detect|x|", payload="{}",
+                observed_at="2026-05-14T08:00:00Z",
+            ),
+            Signal(
+                run_id="r1", tool="subzy", signal_type="takeover_vulnerable",
+                asset="mta.example.com", target="https://mta.example.com/",
+                signature="subzy|heroku|mta.example.com", payload="{}",
+                observed_at="2026-05-14T09:30:00Z",
+            ),
+        ])
+    finally:
+        conn.close()
+
+    status = aggregator.build_status(paths, now=_NOW)
+    sigs = status["across"]["recent_signals"]
+    # Newest first.
+    assert sigs[0]["observed_at"] == "2026-05-14T09:30:00Z"
+    assert sigs[0]["tool"] == "subzy"
+    assert sigs[1]["tool"] == "nuclei"
+    # Platform/slug stamps so the UI can link.
+    assert sigs[0]["platform"] == "hackerone"
+    assert sigs[0]["slug"] == "example"
+
+
 def test_aggregator_does_not_create_missing_db_file(tmp_repo: Path) -> None:
     paths = engine_paths(tmp_repo)
     register_program(paths, platform="hackerone", slug="example2")
