@@ -24,3 +24,27 @@ rules:
     vuln_class: tls-version
     severity: info
     reason: info-no-impact
+  # Added 2026-05-14 from engagement-1 cycle 4 (H1/security) — 96+
+  # findings of these landed in the queue. None are exploitable on
+  # modern hardened apps; XSRF/anti-CSRF + framework defaults handle
+  # all the "missing" cases the templates flag.
+  - name: noise.http-missing-security-headers
+    vuln_class: http-missing-security-headers
+    severity: info
+    reason: playbook-noise
+  - name: noise.missing-sri
+    vuln_class: missing-sri
+    severity: info
+    reason: playbook-noise
+  - name: noise.fastly-debug-headers
+    vuln_class: fastly-debug-headers
+    severity: info
+    reason: info-no-impact
+  - name: noise.weak-csp-detect
+    vuln_class: weak-csp-detect
+    severity: info
+    reason: playbook-noise
+  - name: noise.xss-deprecated-header
+    vuln_class: xss-deprecated-header
+    severity: info
+    reason: info-no-impact
