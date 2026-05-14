@@ -59,6 +59,24 @@ def test_build_command_passes_targets_via_u() -> None:
     assert cmd[u_index + 1] == "https://api.example.com/,https://www.example.com/"
 
 
+def test_build_command_uses_custom_rate_limit() -> None:
+    cmd = nuclei_tool.build_command(
+        ["https://api.example.com/"],
+        template_dirs=("http/cves",),
+        rate_limit=50,
+    )
+    assert cmd[cmd.index("-rl") + 1] == "50"
+
+
+def test_build_command_rejects_non_positive_rate_limit() -> None:
+    with pytest.raises(ValueError):
+        nuclei_tool.build_command(
+            ["https://api.example.com/"],
+            template_dirs=("http/cves",),
+            rate_limit=0,
+        )
+
+
 def test_build_command_rejects_unapproved_template_dir() -> None:
     with pytest.raises(nuclei_tool.UnsafeTemplateProfile):
         nuclei_tool.build_command(

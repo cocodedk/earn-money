@@ -47,11 +47,19 @@ class UnsafeTemplateProfile(Exception):
     """Raised when build_command is asked to use an unapproved template dir."""
 
 
+_DEFAULT_RATE_LIMIT = 10
+
+
 def build_command(
-    targets: Sequence[str], *, template_dirs: Sequence[str],
+    targets: Sequence[str],
+    *,
+    template_dirs: Sequence[str],
+    rate_limit: int = _DEFAULT_RATE_LIMIT,
 ) -> list[str]:
     if not targets:
         raise ValueError("build_command requires at least one target")
+    if rate_limit <= 0:
+        raise ValueError(f"rate_limit must be positive, got {rate_limit}")
     unapproved = set(template_dirs) - APPROVED_TEMPLATE_DIRS
     if unapproved:
         raise UnsafeTemplateProfile(
@@ -68,7 +76,7 @@ def build_command(
         "-disable-redirects",
         "-no-interactsh",
         "-disable-update-check",
-        "-rl", "10",
+        "-rl", str(rate_limit),
         "-c", "10",
         "-bs", "10",
         "-stats-interval", "60",

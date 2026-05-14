@@ -13,7 +13,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from earn_money import config, flags, policy
+from earn_money import config, flags, policy, roe
 from earn_money._time import now_iso
 from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
@@ -36,11 +36,26 @@ _BATCH_DURATION_S = 1500.0
 _BATCH_SIZE = 1
 
 
+def resolve_rate_limit(paths: config.Paths, platform: str, slug: str) -> int:
+    """Read the program's `roe.md` and return its `max_requests_per_second`.
+
+    Missing roe.md falls back to the conservative floor in `roe.default_roe()`.
+    Public so tests can exercise it without driving the real subprocess.
+    """
+    return roe.read_roe(paths.roe_file(platform, slug)).max_requests_per_second
+
+
 def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str
 ) -> Callable[[list[str]], active.ToolRunResult]:
-    """Wire the kill-switch watchdog + batch runner + nuclei tool parser."""
+    """Wire the kill-switch watchdog + batch runner + nuclei tool parser.
+
+    The program's roe.md decides `-rl` (rate limit). When the file is
+    absent or omits the field, the floor in `roe.default_roe()` applies.
+    """
     from earn_money.runners import batch, watchdog
+
+    rate_limit = resolve_rate_limit(paths, platform, slug)
 
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         abort = threading.Event()
@@ -63,7 +78,9 @@ def _build_real_tool(
             batches_result = batch.run_batches(
                 targets,
                 command_factory=lambda chunk: nuclei_tool.build_command(
-                    chunk, template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
+                    chunk,
+                    template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
+                    rate_limit=rate_limit,
                 ),
                 max_batch_size=_BATCH_SIZE, max_batch_duration_s=_BATCH_DURATION_S,
                 abort=abort,
