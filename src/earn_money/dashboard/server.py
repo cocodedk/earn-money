@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -30,20 +31,30 @@ def build(paths: config.Paths, port: int) -> ThreadingHTTPServer:
 
     `port=0` picks an ephemeral port (used by tests). The server is not
     started — the caller runs `serve_forever()` on a thread.
+
+    The HTML template is read once here so per-request handlers don't
+    hit the filesystem. A missing template is a fail-fast install bug:
+    `FileNotFoundError` propagates and the server refuses to start.
     """
-    handler_cls = _make_handler(paths)
+    index_html = _TEMPLATE_PATH.read_bytes()
+    handler_cls = _make_handler(paths, index_html)
     return ThreadingHTTPServer((_HOST, port), handler_cls)
 
 
-def _make_handler(paths: config.Paths) -> type[BaseHTTPRequestHandler]:
+def _make_handler(
+    paths: config.Paths, index_html: bytes
+) -> type[BaseHTTPRequestHandler]:
     """Build a `BaseHTTPRequestHandler` subclass that closes over `paths`.
 
-    The handler must be a class, not an instance, so we bake `paths` into
-    a fresh subclass per server. This is the standard pattern for
-    injecting state into `BaseHTTPRequestHandler`.
+    The handler must be a class, not an instance, so we bake `paths` and
+    the cached template into a fresh subclass per server. This is the
+    standard pattern for injecting state into `BaseHTTPRequestHandler`.
     """
 
     class DashboardHandler(BaseHTTPRequestHandler):
+        # Prevent stuck client connections from pinning threads forever.
+        timeout = 5.0
+
         # Suppress the default stderr access log; the dashboard runs in
         # the operator's foreground terminal and noise drowns out real
         # signal. Errors still surface via `log_error`.
@@ -51,12 +62,18 @@ def _make_handler(paths: config.Paths) -> type[BaseHTTPRequestHandler]:
             return
 
         def do_GET(self) -> None:
-            if self.path == "/api/status":
-                self._serve_status()
-            elif self.path == "/":
-                self._serve_index()
-            else:
-                self.send_error(404, "Not Found")
+            try:
+                if self.path == "/api/status":
+                    self._serve_status()
+                elif self.path == "/":
+                    self._serve_index()
+                else:
+                    self.send_error(404, "Not Found")
+            except Exception:
+                # `log_message` is silenced above but `log_error` is not,
+                # so unexpected failures still surface to stderr.
+                self.log_error("%s", traceback.format_exc())
+                self.send_error(500, "Internal Server Error")
 
         def _serve_status(self) -> None:
             payload = json.dumps(aggregator.build_status(paths)).encode("utf-8")
@@ -67,12 +84,11 @@ def _make_handler(paths: config.Paths) -> type[BaseHTTPRequestHandler]:
             self.wfile.write(payload)
 
         def _serve_index(self) -> None:
-            body = _TEMPLATE_PATH.read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Length", str(len(index_html)))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(index_html)
 
     return DashboardHandler
 
