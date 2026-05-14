@@ -29,6 +29,9 @@ class Paths:
     def scope_file(self, platform: str, slug: str) -> Path:
         return self.program_dir(platform, slug) / "scope.md"
 
+    def roe_file(self, platform: str, slug: str) -> Path:
+        return self.program_dir(platform, slug) / "roe.md"
+
     def freeze_flag(self, platform: str, slug: str) -> Path:
         return self.program_dir(platform, slug) / "FROZEN"
 

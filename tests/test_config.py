@@ -18,5 +18,6 @@ def test_program_dir_layout(tmp_repo: Path) -> None:
     program_dir = paths.program_dir("hackerone", "example")
     assert program_dir == tmp_repo / "programs" / "hackerone" / "example"
     assert paths.scope_file("hackerone", "example") == program_dir / "scope.md"
+    assert paths.roe_file("hackerone", "example") == program_dir / "roe.md"
     assert paths.freeze_flag("hackerone", "example") == program_dir / "FROZEN"
     assert paths.program_db("hackerone", "example") == program_dir / "db.sqlite"
