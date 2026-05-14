@@ -50,12 +50,23 @@ Every `scope.md` declares one `policy:` value. Recon runners refuse to run when 
 - The `RECON_ENABLED` flag file in the repo root is the master switch. Every runner checks for its presence on every cron invocation, not just at boot. Removing the file halts the entire pipeline immediately.
 - Per-program freeze flags (written by the scope-sync runner on destructive scope diffs) gate per-program recon independently of the master switch.
 
+### Per-program Rules of Engagement
+
+Every `programs/<platform>/<slug>/` carries a `roe.md` alongside `scope.md`. `roe.md` declares *technique-level* authority for that program: DoS, destructive payloads, social engineering, PII handling, max request rate, named test environments, named test accounts. Loaded at runtime by active-probing runners; never written to the DB.
+
+The operational rules below are the **floor for any field a `roe.md` does not override**. Where a program explicitly authorizes more on environments it has designated for testing, the per-program RoE overrides the floor and the runners use the broader authority.
+
+Two invariants remain repo-wide regardless of any program's RoE — they aren't bounded by H1's ToS:
+
+- **GDPR on real third-party PII.** Even where a program authorizes broader testing, Babak-as-processor has Art. 28 obligations. `roe.md` must specify `pii_handling: synthetic_data_only`, or the program must supply synthetic test data, before any test that could touch real user records.
+- **Scope is gospel.** `scope.md` governs *which assets* may be touched; `roe.md` governs *what techniques* are authorized on assets already in scope. RoE never expands scope.
+
 ### Operational rules
 
 - Never commit `recon/outputs/`, `identity/platforms.md`, `RECON_ENABLED`, or any `*.sqlite` file. These are gitignored; verify before every commit.
 - One handle per platform. No sock-puppets. No multi-account.
-- No social engineering, no DoS, no destructive payloads — even where a program technically permits them.
-- No PII exfiltration. One redacted screenshot as proof-of-concept, then stop.
+- **Default floor (unless the program's `roe.md` declares otherwise):** no social engineering, no DoS, no destructive payloads. Programs that authorize these techniques on designated environments unlock them via `roe.md` — runners read the file before sending traffic.
+- No PII exfiltration past one redacted screenshot — and where `roe.md` declares `pii_handling: synthetic_data_only` or `authorized_per_roe`, follow that. GDPR Art. 28 obligations apply regardless of program ToS.
 - Coordinated disclosure. No public writeup until the program permits (default 90-day silence + program approval).
 - The dedicated VPS egress IP is used for nothing else. No SSH-from-laptop traffic, no personal services. Triage teams cross-reference IPs.
 
