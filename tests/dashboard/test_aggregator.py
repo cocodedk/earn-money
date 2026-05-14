@@ -61,19 +61,12 @@ def test_one_program_with_queued_finding(tmp_repo: Path) -> None:
 
 def test_frozen_program_reports_freeze_reason(tmp_repo: Path) -> None:
     paths = engine_paths(tmp_repo)
-    flags.freeze_program(
-        paths, "hackerone", "example",
-        reason="scope diff: api.example.com moved OOS",
-    )
+    reason = "scope diff: api.example.com moved OOS"
+    flags.freeze_program(paths, "hackerone", "example", reason=reason)
     status = aggregator.build_status(paths, now=_NOW)
     prog = status["programs"][0]
     assert prog["frozen"] is True
-    # Spec: take the first non-empty line as `frozen_reason` (the FROZEN file
-    # format is `<timestamp>\n<reason>\n`, so the first non-empty line is the
-    # write timestamp — a one-line non-empty string, never blank or None).
-    assert isinstance(prog["frozen_reason"], str)
-    assert prog["frozen_reason"].strip() != ""
-    assert "\n" not in prog["frozen_reason"]
+    assert prog["frozen_reason"] == reason
 
 
 def test_first_verified_with_operator_note_flag(tmp_repo: Path) -> None:

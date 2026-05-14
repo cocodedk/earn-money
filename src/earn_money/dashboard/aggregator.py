@@ -62,7 +62,7 @@ def _scope_block(paths: Paths, platform: str, slug: str) -> dict[str, Any]:
     frozen_reason: str | None = None
     if frozen:
         raw = flags.freeze_reason(paths, platform, slug)
-        frozen_reason = _first_nonempty_line(raw)
+        frozen_reason = _parse_freeze_reason(raw)
     return {
         "platform": platform,
         "slug": slug,
@@ -162,12 +162,17 @@ def _has_operator_verified_note(conn: sqlite3.Connection) -> bool:
     return row is not None
 
 
-def _first_nonempty_line(text: str) -> str | None:
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped:
-            return stripped
-    return None
+def _parse_freeze_reason(text: str) -> str | None:
+    """Return the operator-supplied reason from a FROZEN flag file.
+
+    Format written by ``flags.freeze_program`` is ``<timestamp>\\n<reason>\\n``,
+    so the reason is everything after the first line. A single-line legacy
+    file falls back to that line.
+    """
+    lines = text.splitlines()
+    if len(lines) >= 2:
+        return "\n".join(lines[1:]).strip() or None
+    return lines[0].strip() if lines else None
 
 
 def _build_across(

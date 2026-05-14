@@ -44,7 +44,8 @@ Modified:
         {"tool": "nuclei", "status": "success",
          "started_at": "2026-05-14T02:14:31Z",
          "signal_count": 16, "source_failures": 0}
-      ]
+      ],
+      "error": "OperationalError: ..."            // optional; present only when reading the program's DB raised
     }
   ],
   "across": {
