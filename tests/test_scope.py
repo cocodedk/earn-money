@@ -66,3 +66,28 @@ def test_invalid_policy_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(scope.InvalidScope):
         scope.read_scope(path)
+
+
+def test_malformed_yaml_translated_to_invalid_scope(tmp_path: Path) -> None:
+    """A YAMLError from the parser must surface as InvalidScope so callers
+    can catch a single, narrow exception type."""
+    path = tmp_path / "scope.md"
+    path.write_text(
+        "---\nplatform: x\nslug: y\npolicy: [unclosed\n---\nbody",
+        encoding="utf-8",
+    )
+    with pytest.raises(scope.InvalidScope, match="malformed YAML"):
+        scope.read_scope(path)
+
+
+def test_missing_required_key_translated_to_invalid_scope(tmp_path: Path) -> None:
+    """A KeyError from accessing a missing `platform:` (or `slug:`) must
+    surface as InvalidScope so callers can keep their except clauses narrow."""
+    path = tmp_path / "scope.md"
+    path.write_text(
+        "---\nslug: y\npolicy: rate-limited-OK\nscope_hash: ''\nlast_synced: ''\n"
+        "in_scope: []\nout_of_scope: []\n---\nbody",
+        encoding="utf-8",
+    )
+    with pytest.raises(scope.InvalidScope, match="missing required key"):
+        scope.read_scope(path)

@@ -120,6 +120,19 @@ rm RECON_ENABLED         # halt the pipeline within ~10 seconds
 
 Full operator routine: see [`ops/playbook.md`](ops/playbook.md).
 
+## Live dashboard
+
+`bin/dashboard` starts a read-only HTTP server on `127.0.0.1:8080` showing
+queue, recon-runs, and FROZEN status across every registered program.
+Polls `/api/status` every 10 s.
+
+```bash
+bin/dashboard --port 8080           # local
+# On laptop, tunnel to the VPS to read its DBs:
+ssh -L 8080:localhost:8080 recon-vps
+bin/dashboard --port 8080            # then open http://localhost:8080
+```
+
 ## Glossary
 
 Acronyms from four overlapping disciplines (engineering, security, tools, infrastructure) live in [`docs/glossary.md`](docs/glossary.md). Start there if a term is unfamiliar.

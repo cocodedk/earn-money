@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import frontmatter
+import yaml
 
 Policy = Literal["rate-limited-OK", "manual-only", "ambiguous"]
 _ALLOWED_POLICIES: frozenset[str] = frozenset({"rate-limited-OK", "manual-only", "ambiguous"})
@@ -31,7 +32,15 @@ class Scope:
 
 
 def read_scope(path: Path) -> Scope:
-    post = frontmatter.load(path)
+    # Translate the three failure modes — broken YAML, unknown policy,
+    # missing required key — into InvalidScope at the source. Callers
+    # (notably the dashboard aggregator) can then catch a single, narrow
+    # exception type and contain per-program failures without swallowing
+    # unrelated programming bugs.
+    try:
+        post = frontmatter.load(path)
+    except yaml.YAMLError as exc:
+        raise InvalidScope(f"{path}: malformed YAML: {exc}") from exc
     meta = post.metadata
     policy = meta.get("policy", "")
     if policy not in _ALLOWED_POLICIES:
@@ -39,16 +48,19 @@ def read_scope(path: Path) -> Scope:
             f"{path}: unknown policy {policy!r}. "
             f"Allowed: {sorted(_ALLOWED_POLICIES)}"
         )
-    return Scope(
-        platform=str(meta["platform"]),
-        slug=str(meta["slug"]),
-        policy=policy,
-        in_scope=list(meta.get("in_scope") or []),
-        out_of_scope=list(meta.get("out_of_scope") or []),
-        notes=post.content,
-        scope_hash=str(meta.get("scope_hash") or ""),
-        last_synced=str(meta.get("last_synced") or ""),
-    )
+    try:
+        return Scope(
+            platform=str(meta["platform"]),
+            slug=str(meta["slug"]),
+            policy=policy,
+            in_scope=list(meta.get("in_scope") or []),
+            out_of_scope=list(meta.get("out_of_scope") or []),
+            notes=post.content,
+            scope_hash=str(meta.get("scope_hash") or ""),
+            last_synced=str(meta.get("last_synced") or ""),
+        )
+    except KeyError as exc:
+        raise InvalidScope(f"{path}: missing required key {exc}") from exc
 
 
 def write_scope(path: Path, s: Scope) -> None:

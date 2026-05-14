@@ -90,6 +90,73 @@ def test_malformed_scope_is_contained(tmp_repo: Path) -> None:
     assert bad["finding_states"]["queued"] == 0
 
 
+def test_malformed_yaml_scope_is_contained(tmp_repo: Path) -> None:
+    """A scope.md with syntactically broken YAML must not blow up the
+    whole response — scope.read_scope translates yaml.YAMLError to
+    InvalidScope, which the aggregator already contains."""
+    paths = engine_paths(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        seed_queued(conn)
+    finally:
+        conn.close()
+
+    scope_path = paths.scope_file("hackerone", "example2")
+    scope_path.parent.mkdir(parents=True, exist_ok=True)
+    # Unclosed list — YAML parser raises YAMLError.
+    scope_path.write_text(
+        "---\n"
+        "platform: hackerone\n"
+        "slug: example2\n"
+        "policy: [unclosed\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+    status = aggregator.build_status(paths, now=_NOW)
+    assert len(status["programs"]) == 2
+    by_slug = {p["slug"]: p for p in status["programs"]}
+    assert by_slug["example"]["finding_states"]["queued"] == 1
+    bad = by_slug["example2"]
+    assert "error" in bad and "InvalidScope" in bad["error"]
+    assert bad["finding_states"]["queued"] == 0
+
+
+def test_missing_required_scope_key_is_contained(tmp_repo: Path) -> None:
+    """A scope.md whose YAML parses but omits a required key (here
+    `platform:`) must not blow up the whole response — scope.read_scope
+    translates the KeyError to InvalidScope."""
+    paths = engine_paths(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        seed_queued(conn)
+    finally:
+        conn.close()
+
+    scope_path = paths.scope_file("hackerone", "example2")
+    scope_path.parent.mkdir(parents=True, exist_ok=True)
+    # YAML parses fine, but `platform:` is missing.
+    scope_path.write_text(
+        "---\n"
+        "slug: example2\n"
+        "policy: rate-limited-OK\n"
+        "in_scope: []\n"
+        "out_of_scope: []\n"
+        "scope_hash: seed\n"
+        "last_synced: '2026-05-12T00:00:00Z'\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+    status = aggregator.build_status(paths, now=_NOW)
+    assert len(status["programs"]) == 2
+    by_slug = {p["slug"]: p for p in status["programs"]}
+    assert by_slug["example"]["finding_states"]["queued"] == 1
+    bad = by_slug["example2"]
+    assert "error" in bad and "InvalidScope" in bad["error"]
+    assert bad["finding_states"]["queued"] == 0
+
+
 def test_unreadable_db_is_contained(tmp_repo: Path) -> None:
     """A non-sqlite file at db.sqlite must not blow up the whole response."""
     paths = engine_paths(tmp_repo)
