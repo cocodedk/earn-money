@@ -1,0 +1,49 @@
+#!/bin/sh
+# vps-service — Control earn-money systemd units on the VPS.
+#
+# Usage:
+#   bin/vps-service status              # show status of all units
+#   bin/vps-service start   [unit]      # start one or all units
+#   bin/vps-service stop    [unit]      # stop one or all units
+#   bin/vps-service restart [unit]      # restart one or all units
+#
+# Units (default: all):
+#   dashboard    earn-money-dashboard.service
+#   timer        earn-money-passive-tick.timer
+#
+# Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+
+_all_units="earn-money-dashboard.service earn-money-passive-tick.timer"
+
+_resolve_unit() {
+    case "$1" in
+        dashboard) echo "earn-money-dashboard.service" ;;
+        timer)     echo "earn-money-passive-tick.timer" ;;
+        *)
+            echo "vps-service: unknown unit '$1' (use: dashboard, timer)" >&2
+            exit 1
+            ;;
+    esac
+}
+
+CMD="${1:-status}"
+UNIT="${2:-}"
+TARGET="$( [ -n "$UNIT" ] && _resolve_unit "$UNIT" || echo "$_all_units" )"
+
+case "$CMD" in
+    status)
+        # shellcheck disable=SC2086
+        ssh "$VPS_HOST" "systemctl status $TARGET --no-pager -l"
+        ;;
+    start|stop|restart)
+        # shellcheck disable=SC2086
+        ssh "$VPS_HOST" "systemctl $CMD $TARGET && systemctl is-active $TARGET"
+        ;;
+    *)
+        echo "Usage: bin/vps-service {status|start|stop|restart} [dashboard|timer]" >&2
+        exit 1
+        ;;
+esac
