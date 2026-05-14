@@ -100,13 +100,15 @@ def is_in_scope(
     return _matches_any(fqdn, in_scope)
 
 
-def is_explicit(fqdn: str, in_scope: Sequence[str]) -> bool:
-    """True if ``fqdn`` is listed literally (non-wildcard) in ``in_scope``.
+def explicit_literals(in_scope: Sequence[str]) -> frozenset[str]:
+    """Lowercased frozenset of the literal (non-wildcard) entries in
+    ``in_scope``.
 
-    Used by sampling code to prioritize program-authored entries
-    (`www.algolia.com`) before wildcard-resolved fan-out
-    (`c3-eu-1.algolia.net` matched against `*.algolia.net`). The
-    explicit ones are usually the operator-facing assets — a far better
-    sample for `--max-targets` than the alphabetical-first wildcard fan."""
-    fqdn_l = fqdn.lower()
-    return any(entry.lower() == fqdn_l for entry in in_scope)
+    Precomputed once per scope so sampling code can decide
+    "is this fqdn program-authored vs wildcard-resolved?" with an O(1)
+    set lookup rather than re-scanning the in_scope list per asset.
+    The explicit ones (`www.algolia.com`, `dashboard.algolia.com`) are
+    usually the operator-facing assets — a far better sample for
+    `--max-targets` than the alphabetical-first wildcard fan-out
+    (`c3-eu-1.algolia.net` matched via `*.algolia.net`)."""
+    return frozenset(e.lower() for e in in_scope if not e.startswith("*."))

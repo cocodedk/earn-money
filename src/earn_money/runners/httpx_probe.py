@@ -36,7 +36,8 @@ def _load_in_scope_assets(conn: sqlite3.Connection, s: scope.Scope) -> list[str]
         row[0] for row in cursor
         if scope.is_in_scope(row[0], s.in_scope, s.out_of_scope)
     ]
-    return sorted(matches, key=lambda h: (not scope.is_explicit(h, s.in_scope), h))
+    explicit = scope.explicit_literals(s.in_scope)
+    return sorted(matches, key=lambda h: (h.lower() not in explicit, h))
 
 
 def _write_manifest(artifact_dir: Path, payload: dict[str, Any]) -> None:

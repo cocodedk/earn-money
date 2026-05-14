@@ -46,8 +46,9 @@ def _load_in_scope_service_urls(
         (url, subdomain, scheme, port) for url, subdomain, scheme, port in cursor
         if scope.is_in_scope(subdomain, s.in_scope, s.out_of_scope)
     ]
+    explicit = scope.explicit_literals(s.in_scope)
     matches.sort(
-        key=lambda r: (not scope.is_explicit(r[1], s.in_scope), r[1], r[2], r[3]),
+        key=lambda r: (r[1].lower() not in explicit, r[1], r[2], r[3]),
     )
     return [url for url, _, _, _ in matches]
 
@@ -99,8 +100,9 @@ def run_program(
         if max_targets is not None and max_targets >= 0:
             # Cap discovered when algolia's *.algolia.net wildcard resolved
             # to 27,808 cluster shards — nuclei at batch_size=1 would take
-            # weeks. Deterministic first-N slice (already alphabetical by
-            # subdomain). Cluster-aware sampling is a follow-up.
+            # weeks. Deterministic first-N slice; explicit scope entries
+            # come first per _load_in_scope_service_urls' sort, alphabetical
+            # within tier. Cluster-aware sampling is a follow-up.
             targets = targets[:max_targets]
         runs.start_run(
             conn, run_id=run_id, platform=platform, slug=slug, tool="nuclei",
