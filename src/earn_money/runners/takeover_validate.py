@@ -53,6 +53,7 @@ def run_program(
     tool_run: ToolRun,
     run_id: str | None = None,
     max_targets: int | None = None,
+    extra_manifest_fields: dict[str, object] | None = None,
 ) -> active.ActiveRunResult:
     """Gate-check → load assets → invoke subzy → scope-filter signals → record."""
     s = active.check_gates(paths, platform, slug, mode="active")
@@ -105,13 +106,16 @@ def run_program(
             raw_stdout=tool_result.raw_stdout,
             raw_stderr=tool_result.raw_stderr,
         )
-        nuclei_artifacts.write_manifest(artifact_dir, {
+        manifest: dict[str, object] = {
             "run_id": run_id, "tool": "subzy",
             "platform": platform, "slug": slug,
             "started_at": now, "input_count": len(targets),
             "signal_count": len(in_scope_sigs), "oos_drops": oos_drops,
             "roe": program_roe.manifest_payload(),
-        })
+        }
+        if extra_manifest_fields:
+            manifest.update(extra_manifest_fields)
+        nuclei_artifacts.write_manifest(artifact_dir, manifest)
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)
         finished = now_iso()

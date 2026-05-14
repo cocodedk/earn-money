@@ -173,6 +173,66 @@ def test_manifest_records_roe_block(tmp_repo: Path) -> None:
     assert manifest["roe"]["authorized_test_environments"] == []
 
 
+def test_source_failures_promote_run_to_partial(tmp_repo: Path) -> None:
+    """A subzy batch returning non-zero (e.g. crashed mid-host) must
+    record status='partial' so the digest surfaces the partial
+    outcome instead of falsely reporting clean."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    def flaky(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(
+            outputs=(),
+            source_failures=1,
+            raw_stderr="panic: runtime error in dns.Lookup\n",
+        )
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example", tool_run=flaky,
+    )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT status, source_failures, error_summary FROM recon_runs "
+        "WHERE tool = 'subzy'"
+    ).fetchone()
+    conn.close()
+    assert row is not None
+    status, source_failures, error_summary = row
+    assert status == "partial"
+    assert source_failures == 1
+    assert error_summary is not None
+    assert "1 batch" in error_summary
+    assert "dns.Lookup" in error_summary
+
+
+def test_extra_manifest_fields_appended(tmp_repo: Path) -> None:
+    """`extra_manifest_fields` lets the CLI thread tool-specific audit
+    data (e.g. resolved subzy_concurrency) into the manifest without
+    leaking tool details into the runner core."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example",
+        tool_run=lambda _t: active.ToolRunResult(outputs=()),
+        extra_manifest_fields={"subzy_concurrency": 5},
+    )
+
+    manifest = json.loads(
+        next(
+            (paths.root / "recon/outputs/hackerone/example/subzy").rglob("manifest.json")
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["subzy_concurrency"] == 5
+    # roe block is preserved alongside the extra fields.
+    assert "roe" in manifest
+
+
 def test_cli_returns_6_on_invalid_roe(
     tmp_repo: Path, capsys: pytest.CaptureFixture[str],
 ) -> None:
