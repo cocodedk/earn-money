@@ -70,6 +70,28 @@ session. One bullet per gap, loosely tagged `signal`, `tooling`,
   or '(empty stderr)'>`. Next time this happens we'll at least have
   the cause recorded in the DB. (See plan task B.)
 
+## Engagement outcome — 2026-05-14 cycle 2
+
+- Cycle 2 used the expanded nuclei template set (added http/takeovers,
+  http/exposures, http/exposed-panels alongside cves + misconfiguration).
+  25 min runtime, 0 signals again, 1 source failure.
+- The B fix paid off: error_summary on the cycle-2 run row is now
+  `"1 batch(es) failed: (empty stderr)"` — same pattern as cycle 1
+  but now visible in the DB without grovel.
+- **Root cause** (cycle-2 made it diagnosable): the 15 targets × 5
+  template dirs all run in one batch (max_batch_size=50). With 5
+  dirs the batch exceeds the 1500s subprocess-timeout ceiling and
+  gets killed silently. raw.jsonl was 0 bytes — nuclei never wrote
+  anything because it was killed mid-scan. This means cycle 1 may
+  also have been a timeout, not a "transient": 15 × 2 dirs just
+  barely fit; 15 × 5 dirs did not.
+- **Fixed 2026-05-14:** `_BATCH_SIZE` now 5 (was 50). With 3 batches
+  of 5 targets each at 5 template dirs, each batch fits comfortably
+  in the 1500s ceiling. Total runtime estimate: ~60-75 min for cycle 3.
+- Pivot trigger still at cycle 3 of 3 per spec — but cycles 1 and 2
+  produced NO real scan data, so cycle 3 is effectively cycle 1 of
+  real-data. Operator can extend the budget or pivot regardless.
+
 ## What I'd do next session, in order
 
 Aimed at shortening the path to the first paid bounty. The $5

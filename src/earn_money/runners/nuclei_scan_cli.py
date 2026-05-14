@@ -19,10 +19,14 @@ from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
 from earn_money.runners.watchdog import Reason
 
-# A full http/cves scan against one live host can run 10-20 minutes at
-# the spec's -rl 10 throughput cap. 1500s = 25 min gives margin without
-# burning the systemd timer's 90-min ceiling.
+# Per-batch runtime caps. Discovered in cycle 2 of engagement-1: 15
+# targets x 5 template dirs (http/cves, misconfiguration, takeovers,
+# exposures, exposed-panels) exceeded 1500s in one batch and got
+# silently killed (subprocess timeout). Now we cap each batch at 5
+# targets so the batch-duration ceiling holds even as approved
+# template dirs grow.
 _BATCH_DURATION_S = 1500.0
+_BATCH_SIZE = 5
 
 
 def _build_real_tool(
@@ -54,7 +58,7 @@ def _build_real_tool(
                 command_factory=lambda chunk: nuclei_tool.build_command(
                     chunk, template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
                 ),
-                max_batch_size=50, max_batch_duration_s=_BATCH_DURATION_S,
+                max_batch_size=_BATCH_SIZE, max_batch_duration_s=_BATCH_DURATION_S,
                 abort=abort,
             )
         finally:
