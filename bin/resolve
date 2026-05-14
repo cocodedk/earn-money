@@ -1,0 +1,91 @@
+#!/bin/sh
+# resolve — Transition a finding to a resolved state on the VPS.
+#
+# Usage:
+#   bin/resolve --program <slug> <hash-prefix> <state> [--note <text>]
+#
+# States (from queued/submitted):
+#   resolved_na    Not applicable / false positive
+#   resolved_info  Informational, not bountyable
+#   resolved_dupe  Duplicate of an existing report
+#   resolved_paid  Paid out (from submitted only)
+#
+# Examples:
+#   bin/resolve --program security f5df5f0d resolved_na
+#   bin/resolve --program algolia abc123 resolved_info --note "Low impact"
+#
+# Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+
+PROGRAM=""
+PREFIX=""
+STATE=""
+NOTE=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --program) PROGRAM="$2"; shift 2 ;;
+        --note)    NOTE="$2";    shift 2 ;;
+        --*)       echo "resolve: unknown option '$1'" >&2; exit 1 ;;
+        *)
+            if [ -z "$PREFIX" ]; then PREFIX="$1"
+            elif [ -z "$STATE" ]; then STATE="$1"
+            else echo "resolve: unexpected argument '$1'" >&2; exit 1
+            fi
+            shift ;;
+    esac
+done
+
+if [ -z "$PROGRAM" ] || [ -z "$PREFIX" ] || [ -z "$STATE" ]; then
+    echo "Usage: bin/resolve --program <slug> <hash-prefix> <state> [--note <text>]" >&2
+    echo "States: resolved_na  resolved_info  resolved_dupe  resolved_paid" >&2
+    exit 1
+fi
+
+ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT' '$PROGRAM' '$PREFIX' '$STATE' '$NOTE'" <<'PYEOF'
+import sys
+from pathlib import Path
+from earn_money import config, db
+from earn_money.triage.history import transition_state, FindingNotFound, IllegalStateTransition
+from earn_money._time import now_iso
+
+root, program, prefix, state, note = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+paths = config.Paths.from_root(Path(root))
+conn = db.open_db(paths.program_db('hackerone', program))
+
+escaped = prefix.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+rows = conn.execute(
+    "SELECT finding_hash, vuln_class, asset, current_state FROM findings "
+    "WHERE finding_hash LIKE ? ESCAPE '\\' ORDER BY finding_hash",
+    (escaped + '%',),
+).fetchall()
+
+if len(rows) == 0:
+    print(f"resolve: no finding matches prefix '{prefix}'", file=sys.stderr)
+    sys.exit(1)
+if len(rows) > 1:
+    print(f"resolve: prefix '{prefix}' is ambiguous ({len(rows)} matches):", file=sys.stderr)
+    for fhash, vuln, asset, cur in rows:
+        print(f"  {fhash[:16]}  {vuln}  {asset}  [{cur}]", file=sys.stderr)
+    sys.exit(1)
+
+fhash, vuln, asset, cur_state = rows[0]
+try:
+    transition_state(conn, finding_hash=fhash, to_state=state,
+                     actor='operator', note=note or None, now=now_iso())
+    conn.commit()
+except FindingNotFound:
+    print(f"resolve: finding {fhash[:8]} not found", file=sys.stderr)
+    sys.exit(1)
+except IllegalStateTransition as e:
+    print(f"resolve: {e}", file=sys.stderr)
+    sys.exit(1)
+
+print(f"resolved: {fhash[:8]}  {vuln}  {asset}")
+print(f"  {cur_state} → {state}")
+if note:
+    print(f"  note: {note}")
+PYEOF
