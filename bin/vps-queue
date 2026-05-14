@@ -1,0 +1,56 @@
+#!/bin/sh
+# vps-queue — Show findings that need operator review on the VPS.
+#
+# Usage: bin/vps-queue [--program <slug>]
+#
+# Lists all findings with current_state='queued' or 'verified', and any
+# finding with severity_hint NOT in (info, none), across all programs
+# (or a single program with --program).
+#
+# Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+PROGRAM="${1:-}"
+if [ "$PROGRAM" = "--program" ]; then
+    PROGRAM="$2"
+fi
+
+ssh "$VPS_HOST" "python3 - '$VPS_ROOT' '$PROGRAM'" <<'PYEOF'
+import sqlite3, pathlib, sys
+
+root = pathlib.Path(sys.argv[1])
+filter_slug = sys.argv[2]
+
+dbs = sorted(root.glob("programs/*/*/db.sqlite"))
+found_any = False
+for db_path in dbs:
+    slug = db_path.parent.name
+    if filter_slug and slug != filter_slug:
+        continue
+    con = sqlite3.connect(db_path)
+    rows = con.execute("""
+        SELECT current_state, severity_hint, vuln_class, asset, title
+        FROM findings
+        WHERE current_state IN ('queued','verified')
+           OR severity_hint NOT IN ('info','none','unknown','')
+        ORDER BY
+            CASE severity_hint
+                WHEN 'critical' THEN 1 WHEN 'high' THEN 2
+                WHEN 'medium' THEN 3 WHEN 'low' THEN 4
+                ELSE 5 END,
+            current_state
+    """).fetchall()
+    if not rows:
+        continue
+    print(f"\n=== {slug} ===")
+    print(f"  {'State':<14}  {'Sev':<8}  {'Class':<32}  {'Asset'}")
+    print("  " + "-" * 80)
+    for state, sev, vuln, asset, title in rows:
+        print(f"  {state:<14}  {sev or '?':<8}  {vuln:<32}  {asset}")
+    found_any = True
+
+if not found_any:
+    print("Nothing queued or notable.")
+PYEOF

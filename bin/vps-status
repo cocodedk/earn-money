@@ -1,0 +1,40 @@
+#!/bin/sh
+# vps-status — Show findings and signal counts for all programs on the VPS.
+#
+# Usage: bin/vps-status
+#
+# Prints a table of: program | signals | findings (by state) for every
+# program DB found under /opt/earn-money/programs on the VPS.
+#
+# Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+
+ssh "$VPS_HOST" "python3 - '$VPS_ROOT'" <<'PYEOF'
+import sqlite3, pathlib, sys
+
+root = pathlib.Path(sys.argv[1])
+dbs = sorted(root.glob("programs/*/*/db.sqlite"))
+if not dbs:
+    print("No program DBs found under", root)
+    sys.exit(0)
+
+print(f"{'Program':<24}  {'Signals':>7}  {'Findings by state'}")
+print("-" * 72)
+for db_path in dbs:
+    slug = db_path.parent.name
+    con = sqlite3.connect(db_path)
+    try:
+        sigs = con.execute("SELECT COUNT(*) FROM signals").fetchone()[0]
+        states = {}
+        for state, n in con.execute(
+            "SELECT current_state, COUNT(*) FROM findings GROUP BY current_state"
+        ):
+            states[state] = n
+        state_str = "  ".join(f"{s}={n}" for s, n in sorted(states.items()))
+        print(f"{slug:<24}  {sigs:>7}  {state_str or '(none)'}")
+    except Exception as e:
+        print(f"{slug:<24}  error: {e}")
+PYEOF

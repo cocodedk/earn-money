@@ -1,0 +1,18 @@
+#!/bin/sh
+# Discover free OpenRouter models and recommend profile assignments.
+# Writes .env.model-scout — source that file to activate the models.
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ -f "$ROOT/.env" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+fi
+
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "scout-models: .venv not found — run 'make install-dev' first" >&2
+  exit 1
+fi
+
+exec "$ROOT/.venv/bin/python" -m earn_money.agent.model_scout_fetch "$@"

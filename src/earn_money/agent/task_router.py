@@ -77,6 +77,11 @@ def resolve_model(task: str | TaskType | None) -> str:
     )
 
 
+def profile_env_var(task: TaskType) -> str:
+    """Return the env-var name that configures the model for `task`."""
+    return _PROFILE_ENV[task]
+
+
 def all_profile_envs() -> tuple[str, ...]:
     """Lookup helper for docs/diagnostics."""
     return (*_PROFILE_ENV.values(), _GLOBAL_DEFAULT_ENV)

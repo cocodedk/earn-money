@@ -1,0 +1,45 @@
+#!/bin/sh
+# vps-triage — Run the triage engine on the VPS for one or all programs.
+#
+# Usage:
+#   bin/vps-triage --program <slug>   # triage a specific program
+#   bin/vps-triage --all              # triage every program with a scope.md
+#
+# The triage engine reads untriaged recon runs, upserts findings rows,
+# and writes findings/_queue/<hash>.md for newly-created findings.
+# It sends no target traffic and respects kill-switch + freeze flags.
+#
+# Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+
+if [ $# -eq 0 ]; then
+    echo "Usage: bin/vps-triage --program <slug> | --all" >&2
+    exit 1
+fi
+
+if [ "$1" = "--all" ]; then
+    ssh "$VPS_HOST" "python3 - '$VPS_ROOT'" <<'PYEOF'
+import pathlib, subprocess, sys
+root = pathlib.Path(sys.argv[1])
+for scope_file in sorted(root.glob("programs/*/*/scope.md")):
+    slug = scope_file.parent.name
+    result = subprocess.run(
+        [str(root / ".venv/bin/python"), "-m", "earn_money.runners.triage",
+         "--root", str(root), "--program", slug],
+        capture_output=True, text=True
+    )
+    print(f"{slug}: {result.stdout.strip() or result.stderr.strip()}")
+PYEOF
+else
+    if [ "$1" = "--program" ]; then
+        SLUG="$2"
+    else
+        echo "Usage: bin/vps-triage --program <slug> | --all" >&2
+        exit 1
+    fi
+    ssh "$VPS_HOST" \
+        "cd '$VPS_ROOT' && .venv/bin/python -m earn_money.runners.triage --root . --program '$SLUG'"
+fi
