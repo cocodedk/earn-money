@@ -12,17 +12,15 @@ prereq is the `assets` table being populated by passive_recon.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import uuid
 from collections.abc import Callable
-from pathlib import Path
 
 from earn_money import config, db, roe, scope
 from earn_money._time import now_iso
 from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
-from earn_money.runners import active
+from earn_money.runners import active, nuclei_artifacts
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
@@ -45,31 +43,6 @@ def _load_in_scope_subdomains(
     ]
     explicit = scope.explicit_literals(s.in_scope)
     return sorted(matches, key=lambda h: (h.lower() not in explicit, h))
-
-
-def _write_manifest(artifact_dir: Path, payload: dict[str, object]) -> None:
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    (artifact_dir / "manifest.json").write_text(
-        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-    )
-
-
-def _write_signals_jsonl(
-    artifact_dir: Path, sigs: list[Signal]
-) -> None:
-    artifact_dir.mkdir(parents=True, exist_ok=True)
-    lines = [
-        json.dumps({
-            "tool": s.tool, "signal_type": s.signal_type,
-            "asset": s.asset, "target": s.target,
-            "signature": s.signature, "payload": s.payload,
-            "observed_at": s.observed_at,
-        })
-        for s in sigs
-    ]
-    (artifact_dir / "signals.jsonl").write_text(
-        "\n".join(lines) + ("\n" if lines else ""), encoding="utf-8"
-    )
 
 
 def run_program(
@@ -125,8 +98,14 @@ def run_program(
 
         if in_scope_sigs:
             signals.insert_signals(conn, in_scope_sigs)
-        _write_signals_jsonl(artifact_dir, in_scope_sigs)
-        _write_manifest(artifact_dir, {
+        nuclei_artifacts.write_signals_jsonl(artifact_dir, in_scope_sigs)
+        nuclei_artifacts.write_required_artifacts(
+            artifact_dir,
+            targets=targets,
+            raw_stdout=tool_result.raw_stdout,
+            raw_stderr=tool_result.raw_stderr,
+        )
+        nuclei_artifacts.write_manifest(artifact_dir, {
             "run_id": run_id, "tool": "subzy",
             "platform": platform, "slug": slug,
             "started_at": now, "input_count": len(targets),
