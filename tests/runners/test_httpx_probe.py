@@ -282,4 +282,6 @@ def test_manifest_records_roe_under_which_probe_ran(tmp_repo: Path) -> None:
         "social_engineering_authorized": False,
         "pii_handling": "one_redacted_screenshot",
         "max_requests_per_second": 10,
+        "authorized_test_environments": [],
+        "authorized_test_accounts": [],
     }

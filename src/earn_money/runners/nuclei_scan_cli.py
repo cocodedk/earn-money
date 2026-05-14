@@ -130,11 +130,11 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = config.Paths.from_root(args.root)
     run_id = uuid.uuid4().hex
-    real_tool = _build_real_tool(
-        paths, platform=args.platform, slug=args.program, run_id=run_id
-    )
 
     try:
+        real_tool = _build_real_tool(
+            paths, platform=args.platform, slug=args.program, run_id=run_id
+        )
         result = nuclei_scan.run_program(
             paths, args.platform, args.program,
             tool_run=real_tool, run_id=run_id, max_targets=args.max_targets,
@@ -151,6 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     except nuclei_tool.UnsafeTemplateProfile as e:
         print(f"nuclei-scan: {e}", file=sys.stderr)
         return 5
+    except roe.InvalidRoE as e:
+        print(f"nuclei-scan: invalid roe.md: {e}", file=sys.stderr)
+        return 6
     except Exception as e:
         print(
             f"nuclei-scan: unexpected error: {type(e).__name__}: {e}",

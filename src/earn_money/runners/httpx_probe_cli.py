@@ -11,7 +11,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from earn_money import config, flags, policy
+from earn_money import config, flags, policy, roe
 from earn_money._time import now_iso
 from earn_money.runners import active, httpx_probe
 from earn_money.runners.watchdog import Reason
@@ -103,6 +103,9 @@ def main(argv: list[str] | None = None) -> int:
     except policy.PolicyViolation as e:
         print(f"httpx-probe: {e}", file=sys.stderr)
         return 4
+    except roe.InvalidRoE as e:
+        print(f"httpx-probe: invalid roe.md: {e}", file=sys.stderr)
+        return 6
     except Exception as e:
         print(f"httpx-probe: unexpected error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1

@@ -17,7 +17,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from earn_money import config, db, scope
+from earn_money import config, db, roe, scope
 from earn_money._time import now_iso, to_iso
 from earn_money.recon import runs, signals
 from earn_money.recon.nuclei_tool import APPROVED_TEMPLATE_DIRS
@@ -78,6 +78,7 @@ def run_program(
 ) -> active.ActiveRunResult:
     """Gate-check → prereq freshness → load services → scan → filter → record."""
     s = active.check_gates(paths, platform, slug, mode="active")
+    program_roe = roe.read_roe(paths.roe_file(platform, slug))
 
     run_id = run_id or uuid.uuid4().hex
     now_dt = datetime.now(UTC)
@@ -146,6 +147,8 @@ def run_program(
             "started_at": now, "input_count": len(targets),
             "signal_count": len(in_scope_sigs), "oos_drops": oos_drops,
             "approved_templates": sorted(APPROVED_TEMPLATE_DIRS),
+            # Audit trail: what authority did this scan operate under?
+            "roe": program_roe.manifest_payload(),
         })
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)

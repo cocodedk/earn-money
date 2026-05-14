@@ -45,9 +45,11 @@ class RoE:
     def manifest_payload(self) -> dict[str, Any]:
         """Audit-trail subset for embedding in a runner's `manifest.json`.
 
-        Omits free-text and list fields — only the technique-level
-        authority flags + rate cap, which is what a post-run reviewer
-        needs to confirm the probe ran under the right authority.
+        Carries the technique-level flags, rate cap, *and* the named
+        test-environments / test-accounts lists — without those a
+        reviewer can't reconstruct whether an elevated-authority run
+        respected the declared environment boundary. `special_notes`
+        (free-text) is the only field omitted.
         """
         return {
             "dos_authorized": self.dos_authorized,
@@ -55,6 +57,8 @@ class RoE:
             "social_engineering_authorized": self.social_engineering_authorized,
             "pii_handling": self.pii_handling,
             "max_requests_per_second": self.max_requests_per_second,
+            "authorized_test_environments": list(self.authorized_test_environments),
+            "authorized_test_accounts": list(self.authorized_test_accounts),
         }
 
 
