@@ -57,6 +57,54 @@ def test_root_returns_html_with_title(
     assert "<title>earn-money dashboard</title>" in r.text
 
 
+def test_static_tokens_css_is_served_with_css_content_type(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/tokens.css", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/css")
+    # Sanity check that the actual tokens CSS — not the HTML — was sent.
+    assert ":root" in r.text and "--paper" in r.text
+
+
+def test_static_dashboard_css_is_served_with_css_content_type(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/dashboard.css", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/css")
+    # Layout-level selector lives in dashboard.css, not tokens.css.
+    assert "article.program" in r.text
+
+
+def test_static_dashboard_js_is_served_with_js_content_type(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/dashboard.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    # Polling lives in dashboard.js.
+    assert "/api/status" in r.text
+
+
+def test_static_render_js_is_served_with_js_content_type(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/render.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    # Render functions live in render.js.
+    assert "renderAcross" in r.text and "renderPrograms" in r.text
+
+
 def test_unknown_path_returns_404(
     running_server: tuple[ThreadingHTTPServer, str],
 ) -> None:
@@ -64,6 +112,18 @@ def test_unknown_path_returns_404(
     with httpx.Client() as c:
         r = c.get(f"{base}/no-such-route", timeout=2)
     assert r.status_code == 404
+
+
+def test_static_route_ignores_query_string(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    """A cache-buster (`?v=2`) on a known static asset must still
+    resolve, not 404 silently."""
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/tokens.css?v=2", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/css")
 
 
 def test_concurrent_status_requests_run_in_parallel(

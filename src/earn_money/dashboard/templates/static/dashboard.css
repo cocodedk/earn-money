@@ -1,0 +1,192 @@
+/* Design tokens live in tokens.css. This file is layout + components,
+   loaded after tokens so var(--...) resolves. */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
+               Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 14px; line-height: 1.55;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  font-variant-numeric: tabular-nums;
+  text-rendering: geometricPrecision;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,0.025) 0, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0,0,0,0.02)  0, transparent 50%);
+  mix-blend-mode: multiply;
+}
+main { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto;
+       padding: clamp(1.5rem, 4vw, 3rem); }
+
+/* HEADER */
+header { display: grid; grid-template-columns: 1fr auto;
+         gap: 1rem; align-items: end; margin-bottom: 2.5rem; }
+.brand { line-height: 1; }
+.brand .marque {
+  margin: 0; font-size: clamp(2.5rem, 7vw, 4.5rem);
+  font-weight: 700; letter-spacing: -0.04em; color: var(--ink);
+}
+.brand .marque small {
+  display: inline-block; font-size: 0.18em; font-weight: 600;
+  letter-spacing: 0.28em; vertical-align: top; margin-left: 0.6em;
+  margin-top: 0.6em; color: var(--mute);
+}
+.brand .sub { margin-top: 0.6em; font-size: 0.78rem; color: var(--mute);
+              letter-spacing: 0.06em; }
+.live {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.6rem; border: 1px solid var(--rule);
+  background: var(--paper-2); font-size: 0.7rem;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-2);
+  white-space: nowrap;
+}
+.live .dot {
+  width: 0.45rem; height: 0.45rem; border-radius: 50%;
+  background: var(--good); box-shadow: 0 0 0 0 var(--good);
+  animation: pulse 2.4s ease-out infinite;
+}
+.live.busy .dot  { background: var(--mute); animation: none; }
+.live.stale .dot { background: var(--bad); animation: none; }
+.live.stale      { border-color: var(--bad); color: var(--bad); }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* SECTION RULES */
+/* `.rule` is applied to <h2>, so `font-weight: inherit` cancels the
+   user-agent bold and lets the surrounding tracking carry the eyebrow. */
+.rule { display: flex; align-items: baseline; gap: 1rem;
+        margin: 2.5rem 0 1.25rem; color: var(--mute);
+        font-size: 0.7rem; font-weight: inherit;
+        letter-spacing: 0.32em; text-transform: uppercase; }
+.rule::before, .rule::after { content: ""; flex: 1 0 auto;
+                              border-top: 1px solid var(--rule); }
+.rule::before { flex: 0 0 clamp(1.5rem, 3vw, 3rem); }
+
+/* METRICS */
+#across { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.metric { padding: 1.5rem 1.25rem; border-right: 1px solid var(--rule);
+          display: flex; flex-direction: column; gap: 0.5rem; }
+.metric:last-child { border-right: none; }
+.metric .label { font-size: 0.65rem; letter-spacing: 0.28em;
+                 text-transform: uppercase; color: var(--mute); }
+.metric .value { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 700;
+                 line-height: 1; letter-spacing: -0.04em;
+                 font-variant-numeric: tabular-nums; }
+.metric .value.good { color: var(--good); }
+.metric .value.bad  { color: var(--bad); }
+.metric .unit { font-size: 0.55em; font-weight: 500;
+                color: var(--mute); margin-left: 0.25em; }
+
+/* PROGRAMS — header, finding-state strip, queue table, recent-runs strip */
+#programs { display: grid; gap: 2.25rem; }
+article.program { display: grid; gap: 0.85rem;
+                  padding: 1.25rem 1.5rem; border: 1px solid var(--rule);
+                  background: var(--paper-2); position: relative; }
+article.program::after {
+  content: attr(data-index); position: absolute; top: 0.65rem; right: 0.85rem;
+  font-size: 0.65rem; letter-spacing: 0.22em; color: var(--mute); font-weight: 600;
+}
+.prog-head { display: flex; align-items: baseline; flex-wrap: wrap;
+             gap: 0.6rem 1rem; }
+.prog-title { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; }
+.prog-title .slug { color: var(--ink); }
+.prog-title .sep  { color: var(--mute); margin: 0 0.2em; font-weight: 400; }
+.prog-title .platform { color: var(--ink-2); font-weight: 500; }
+.policy { font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+          font-weight: 700; padding: 0.25rem 0.55rem; border: 1px solid var(--ink); }
+.policy.rate-limited-OK { background: var(--paper); color: var(--ink); }
+.policy.manual-only     { background: var(--ink); color: var(--paper); }
+.policy.ambiguous       { background: var(--paper); color: var(--bad);
+                          border-color: var(--bad); }
+.prog-synced { margin-left: auto; font-size: 0.72rem; color: var(--mute);
+               letter-spacing: 0.08em; }
+.frozen-row, .error-row {
+  border-left: 3px solid var(--bad); padding: 0.5rem 0.85rem;
+  background: var(--paper); font-size: 0.78rem; color: var(--bad);
+  white-space: pre-wrap; word-break: break-word;
+}
+.error-row { border-color: var(--medium); color: var(--medium); }
+.states { display: flex; flex-wrap: wrap; gap: 0.4rem 0.85rem;
+          font-size: 0.72rem; letter-spacing: 0.06em; }
+.states .state { display: inline-flex; align-items: baseline; gap: 0.35rem; }
+.states .state .name { text-transform: uppercase; font-size: 0.6rem;
+                       letter-spacing: 0.22em; color: var(--mute); }
+.states .state .n { font-weight: 700; font-size: 0.9rem; }
+.states .state.queued    .n { color: var(--ink); }
+.states .state.verified  .n { color: var(--verified); }
+.states .state.submitted .n { color: var(--high); }
+.states .state.resolved_paid .n { color: var(--good); }
+.states .state.resolved_info .n { color: var(--mute); }
+
+.qtbl { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.qtbl thead th {
+  text-align: left; font-weight: 600; padding: 0.35rem 0.5rem 0.35rem 0;
+  border-bottom: 1px solid var(--ink); color: var(--mute);
+  text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.6rem;
+}
+.qtbl tbody td { padding: 0.4rem 0.5rem 0.4rem 0; vertical-align: top; }
+.qtbl .hash  { font-weight: 600; color: var(--ink); }
+.qtbl .vc    { color: var(--ink); }
+.qtbl .asset { color: var(--mute); }
+.qtbl .ts    { color: var(--mute); white-space: nowrap; font-size: 0.7rem; }
+.empty { color: var(--mute); font-style: italic; font-size: 0.78rem;
+         padding: 0.5rem 0; }
+.sev { display: inline-block; font-size: 0.6rem; font-weight: 700;
+       text-transform: uppercase; letter-spacing: 0.18em;
+       padding: 0.12rem 0.45rem; border: 1px solid currentColor; }
+/* Base border is solid (from `border: 1px solid currentColor` above);
+   medium/low get dashed, info/unknown get dotted — redundant signal
+   alongside the color so the badge survives a color-blind read. */
+.sev.critical { color: var(--critical); }
+.sev.high     { color: var(--high); }
+.sev.medium   { color: var(--medium); border-style: dashed; }
+.sev.low      { color: var(--low);    border-style: dashed; }
+.sev.info     { color: var(--info);   border-style: dotted; }
+.sev.unknown  { color: var(--mute);   border-style: dotted; }
+
+.runs { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.7rem;
+        color: var(--mute); }
+.run { display: inline-flex; align-items: baseline; gap: 0.3rem;
+       padding: 0.18rem 0.45rem; border: 1px solid var(--rule);
+       background: var(--paper); }
+.run .rtool { font-weight: 700; color: var(--ink); letter-spacing: 0.08em; }
+.run .rstatus { text-transform: uppercase; font-size: 0.58rem;
+                letter-spacing: 0.22em; font-weight: 700; }
+.run .rstatus.success     { color: var(--good); }
+.run .rstatus.partial     { color: var(--high); }
+.run .rstatus.failed      { color: var(--bad); }
+.run .rstatus.skipped     { color: var(--mute); }
+.run .rstatus.in_progress { color: var(--medium); }
+
+footer { margin-top: 4rem; padding-top: 1.25rem;
+         border-top: 1px solid var(--rule); color: var(--mute);
+         font-size: 0.7rem; letter-spacing: 0.12em;
+         display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+
+/* One-shot load animation. body.boot is set on first paint and removed by
+   dashboard.js after the first successful /api/status render so the
+   stagger doesn't replay on every 10s poll. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); }
+                    to   { opacity: 1; transform: translateY(0); } }
+  body.boot header, body.boot .rule, body.boot #across,
+  body.boot #programs > *, body.boot footer {
+    animation: rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  body.boot header                { animation-delay: 0ms;   }
+  body.boot .rule:nth-of-type(1)  { animation-delay: 100ms; }
+  body.boot #across               { animation-delay: 140ms; }
+  body.boot .rule:nth-of-type(2)  { animation-delay: 180ms; }
+  body.boot #programs > *         { animation-delay: calc(220ms + var(--i, 0) * 60ms); }
+  body.boot footer                { animation-delay: 460ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live .dot { animation: none; }
+}

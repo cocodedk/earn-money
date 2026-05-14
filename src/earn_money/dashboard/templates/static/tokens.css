@@ -1,0 +1,31 @@
+/* Design tokens — colors only. Light is the default; dark is opt-in via
+   prefers-color-scheme. Names are semantic (purpose), not literal (hue),
+   so the dark override is a value swap, not a rename. */
+:root {
+  --paper:    #ece6d4;
+  --paper-2:  #e3dcc6;
+  --ink:      #14110b;
+  --ink-2:    #2b2418;
+  --mute:     #7a715a;
+  --rule:     #b3aa90;
+  --frozen:   #a3261b;
+  --critical: #b32a1d;
+  --high:     #c25627;
+  --medium:   #8a6310;
+  --low:      #5a6b25;
+  --info:     #5e5743;
+  --verified: #7a5814;
+  --good:     #2f5732;
+  --bad:      #a3261b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper:    #16140d;  --paper-2:  #1d1a11;
+    --ink:      #ece6d4;  --ink-2:    #c8c0a4;
+    --mute:     #807762;  --rule:     #3a3527;
+    --frozen:   #e25b4f;  --critical: #e25b4f;
+    --high:     #e9874a;  --medium:   #d6a93e;
+    --low:      #9eb16a;  --info:     #6e6650;
+    --verified: #d6a93e;  --good:     #7aa067;  --bad: #e25b4f;
+  }
+}

@@ -1,10 +1,12 @@
 """HTTP server for the dashboard.
 
 stdlib `ThreadingHTTPServer` + a small `BaseHTTPRequestHandler` subclass.
-Two routes:
-- `GET /`           → ``templates/index.html`` (200, ``text/html``)
-- `GET /api/status` → ``aggregator.build_status(paths)`` as JSON
-- anything else     → 404
+Routes:
+- `GET /`                      → ``templates/index.html`` (200, ``text/html``)
+- `GET /static/dashboard.css`  → cached CSS bytes (200, ``text/css``)
+- `GET /static/dashboard.js`   → cached JS bytes  (200, ``application/javascript``)
+- `GET /api/status`            → ``aggregator.build_status(paths)`` as JSON
+- anything else                → 404
 
 Default bind is ``127.0.0.1`` (loopback only). `--host` lets the
 operator opt into a non-loopback bind when the host firewall is the
@@ -23,9 +25,18 @@ from pathlib import Path
 from earn_money import config
 from earn_money.dashboard import aggregator
 
-_TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
+_TEMPLATES = Path(__file__).parent / "templates"
+_STATIC = _TEMPLATES / "static"
 _DEFAULT_PORT = 8080
 _DEFAULT_HOST = "127.0.0.1"
+
+# URL → (filesystem path, Content-Type).
+_STATIC_ROUTES: dict[str, tuple[Path, str]] = {
+    "/static/tokens.css":    (_STATIC / "tokens.css",    "text/css; charset=utf-8"),
+    "/static/dashboard.css": (_STATIC / "dashboard.css", "text/css; charset=utf-8"),
+    "/static/render.js":     (_STATIC / "render.js",     "application/javascript; charset=utf-8"),
+    "/static/dashboard.js":  (_STATIC / "dashboard.js",  "application/javascript; charset=utf-8"),
+}
 
 
 def build(
@@ -38,22 +49,29 @@ def build(
     (or a specific interface) to accept direct connections; the firewall
     is then the auth boundary. `port=0` picks an ephemeral port.
 
-    The HTML template is read once here so per-request handlers don't
-    hit the filesystem. A missing template is a fail-fast install bug:
-    `FileNotFoundError` propagates and the server refuses to start.
+    Static assets (index.html plus the entries in `_STATIC_ROUTES`) are
+    read once here so per-request handlers don't hit the filesystem. A
+    missing file is a fail-fast install bug: `FileNotFoundError`
+    propagates and the server refuses to start.
     """
-    index_html = _TEMPLATE_PATH.read_bytes()
-    handler_cls = _make_handler(paths, index_html)
+    index_html = (_TEMPLATES / "index.html").read_bytes()
+    static_assets: dict[str, tuple[bytes, str]] = {
+        url: (path.read_bytes(), ctype)
+        for url, (path, ctype) in _STATIC_ROUTES.items()
+    }
+    handler_cls = _make_handler(paths, index_html, static_assets)
     return ThreadingHTTPServer((host, port), handler_cls)
 
 
 def _make_handler(
-    paths: config.Paths, index_html: bytes
+    paths: config.Paths,
+    index_html: bytes,
+    static_assets: dict[str, tuple[bytes, str]],
 ) -> type[BaseHTTPRequestHandler]:
     """Build a `BaseHTTPRequestHandler` subclass that closes over `paths`.
 
     The handler must be a class, not an instance, so we bake `paths` and
-    the cached template into a fresh subclass per server. This is the
+    the cached assets into a fresh subclass per server. This is the
     standard pattern for injecting state into `BaseHTTPRequestHandler`.
     """
 
@@ -69,10 +87,16 @@ def _make_handler(
 
         def do_GET(self) -> None:
             try:
-                if self.path == "/api/status":
+                # Strip any query string before route dispatch — a cache-
+                # buster like `?v=2` would otherwise miss every match and
+                # silently 404 a real asset.
+                path = self.path.split("?", 1)[0]
+                if path == "/api/status":
                     self._serve_status()
-                elif self.path == "/":
+                elif path == "/":
                     self._serve_index()
+                elif path in static_assets:
+                    self._send_bytes(*static_assets[path])
                 else:
                     self.send_error(404, "Not Found")
             except Exception:
@@ -83,18 +107,17 @@ def _make_handler(
 
         def _serve_status(self) -> None:
             payload = json.dumps(aggregator.build_status(paths)).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
+            self._send_bytes(payload, "application/json")
 
         def _serve_index(self) -> None:
+            self._send_bytes(index_html, "text/html; charset=utf-8")
+
+        def _send_bytes(self, body: bytes, content_type: str) -> None:
             self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(index_html)))
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(index_html)
+            self.wfile.write(body)
 
     return DashboardHandler
 
