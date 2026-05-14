@@ -92,6 +92,28 @@ session. One bullet per gap, loosely tagged `signal`, `tooling`,
   produced NO real scan data, so cycle 3 is effectively cycle 1 of
   real-data. Operator can extend the budget or pivot regardless.
 
+## Engagement outcome — 2026-05-14 cycle 3
+
+- Cycle 3 (batch_size=5): **all three batches hit the 1500s timeout**.
+  75 min total, 0 outputs again. Same silent-failure pattern.
+- Manual diagnostic on the VPS: `timeout 60 nuclei -u
+  https://hackerone.com -t http/exposures …` returned a hit in
+  under 60s. So one-target × one-dir runs are fast.
+- **Real root cause** (finally): nuclei's `-rl 10` is a GLOBAL rate
+  cap across all targets in one process. With 5 targets and 5 dirs
+  (~3000-5000 templates per target), template-load + DNS + initial
+  request scheduling eats most of 1500s. By the time nuclei starts
+  producing useful output, it's been killed.
+- **Fixed 2026-05-14:** `_BATCH_SIZE` now **1** (was 5). One target
+  per nuclei invocation, all 5 template dirs per invocation. 15
+  batches × ~5 min each ≈ 75 min total. Inside the systemd ceiling
+  and inside the per-batch 1500s with margin.
+- Side find from the manual diagnostic: `azure-domain-tenant`
+  template fires on `hackerone.com` — but `matched-at` URL is
+  `login.microsoftonline.com` (Microsoft's OAuth endpoint).
+  Scope-filter will drop it as OOS, which is the correct behavior.
+  Confirms scope discipline holds even on info-class hits.
+
 ## What I'd do next session, in order
 
 Aimed at shortening the path to the first paid bounty. The $5

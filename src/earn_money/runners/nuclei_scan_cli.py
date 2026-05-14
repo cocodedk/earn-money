@@ -19,14 +19,21 @@ from earn_money.recon import nuclei_tool
 from earn_money.runners import active, nuclei_scan
 from earn_money.runners.watchdog import Reason
 
-# Per-batch runtime caps. Discovered in cycle 2 of engagement-1: 15
-# targets x 5 template dirs (http/cves, misconfiguration, takeovers,
-# exposures, exposed-panels) exceeded 1500s in one batch and got
-# silently killed (subprocess timeout). Now we cap each batch at 5
-# targets so the batch-duration ceiling holds even as approved
-# template dirs grow.
+# Per-batch runtime caps. Tuning history:
+#   - Cycle 1 (15 targets x 2 dirs, batch_size=50): just barely fit in
+#     1500s, 0 signals produced — but it was a timeout we missed.
+#   - Cycle 2 (15 x 5, batch_size=50): silent timeout, 0 outputs.
+#   - Cycle 3 (15 x 5, batch_size=5): 3 batches all hit 1500s, 0
+#     outputs across the board.
+# nuclei's -rl 10 is a GLOBAL rate cap across all targets in one
+# process; loading templates + DNS-resolving 5 targets + 5 dirs of
+# templates eats most of 1500s before any output. Manual one-target
+# probe completes in ~60s. Going to batch_size=1 — each nuclei
+# invocation scans one target across all 5 template dirs. 15 batches
+# x ~5 min each = ~75 min total, comfortably under the 90-min
+# systemd ceiling and well within the per-batch 1500s.
 _BATCH_DURATION_S = 1500.0
-_BATCH_SIZE = 5
+_BATCH_SIZE = 1
 
 
 def _build_real_tool(
