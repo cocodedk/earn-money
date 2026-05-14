@@ -122,7 +122,9 @@ def test_verify_takeover_indeterminate(
 def test_verify_takeover_rate_limited(
     tmp_repo: Path, capsys: pytest.CaptureFixture[str], mocker: pytest.FixtureRequest,
 ) -> None:
-    """GitHub returns 403 with X-RateLimit-Remaining=0 → INDETERMINATE."""
+    """Rate-limited lookup (mock returns status 429, which our wrapper
+    produces for GitHub's 403+X-RateLimit-Remaining=0) → INDETERMINATE
+    verdict + no automatic transition suggestion."""
     paths = engine_paths(tmp_repo)
     fh = "9" * 64
     _insert_takeover(paths, fh, extracted="some-org.github.io")
