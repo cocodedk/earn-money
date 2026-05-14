@@ -5,11 +5,10 @@ Pure read against the program DB + filesystem. No mutation.
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from earn_money import config, roe, scope
+from earn_money import config, flags, roe, scope
 from earn_money.dashboard import aggregator_blocks
 from earn_money.engine.active_pipeline import StepResult
 
@@ -50,24 +49,14 @@ def build_state(
     """
     s = scope.read_scope(paths.scope_file(platform, slug))
     program_roe = roe.read_roe(paths.roe_file(platform, slug))
-    db_path = paths.program_db(platform, slug)
-    block: dict[str, Any]
-    if db_path.exists():
-        uri = f"file:{db_path}?mode=ro"
-        conn = sqlite3.connect(uri, uri=True)
-        try:
-            block, _ = aggregator_blocks.db_block(paths, platform, slug)
-        finally:
-            conn.close()
-    else:
-        block = aggregator_blocks.zero_db_block()
+    block, _ = aggregator_blocks.db_block(paths, platform, slug)
 
     return PipelineState(
         platform=platform,
         slug=slug,
         policy=s.policy,
         frozen=paths.freeze_flag(platform, slug).exists(),
-        frozen_reason=None,
+        frozen_reason=flags.freeze_reason_text(paths, platform, slug),
         scope_summary={
             "in_scope_count": len(s.in_scope),
             "out_of_scope_count": len(s.out_of_scope),

@@ -126,7 +126,7 @@ def decide_next_step(
             or any_requires_human_review(validated_actions)
         ),
     )
-    _record_audit(paths, platform, slug, state, decision)
+    _record_audit(paths, platform, slug, decision)
     return decision
 
 
@@ -134,7 +134,6 @@ def _record_audit(
     paths: config.Paths,
     platform: str,
     slug: str,
-    state: PipelineState,
     decision: Decision,
 ) -> None:
     """Append one row to scratch/agent-audit/<date>.jsonl per spec §13."""
@@ -147,10 +146,6 @@ def _record_audit(
             timestamp=datetime.now(UTC).isoformat(),
             task="default_assistant",
             prompt_template_version=POLICY_PROMPT_VERSION,
-            evidence_ids=tuple(
-                str(s.get("signature", ""))[:32]
-                for s in state.recent_signals
-            ),
             proposed_actions=tuple(
                 {
                     "action_type": a.action_type,

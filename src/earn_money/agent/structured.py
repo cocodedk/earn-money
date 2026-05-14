@@ -19,10 +19,10 @@ The helper never trusts the model just because a schema was requested.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from typing import Any
 
+from earn_money.agent.decider_helpers import parse_reply
 from earn_money.agent.providers import Provider
 from earn_money.agent.task_router import TaskType
 
@@ -61,7 +61,7 @@ def request_structured(
         reply = _call_with_response_format(
             provider, enriched_system, prompt, schema, task,
         )
-        parsed = _try_parse_json(reply)
+        parsed = parse_reply(reply)
         if parsed is None:
             last_error = "reply was not valid JSON"
             continue
@@ -127,20 +127,6 @@ def _call_with_response_format(
     except TypeError:
         # Defensive: a non-protocol provider may not accept the kwarg.
         return provider.complete(system=system, user=user, task=task)
-
-
-def _try_parse_json(reply: str) -> dict[str, Any] | None:
-    """Extract the first JSON object from the reply. Models often wrap
-    JSON in fenced code blocks or trailing prose; the regex finds the
-    outermost-looking brace pair."""
-    match = re.search(r"\{.*\}", reply, re.DOTALL)
-    if not match:
-        return None
-    try:
-        loaded = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return None
-    return loaded if isinstance(loaded, dict) else None
 
 
 def _json_dumps(value: Any) -> str:
