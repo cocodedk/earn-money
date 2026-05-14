@@ -4,7 +4,7 @@
 // and toggles the refresh-state indicator. Loaded after render.js so
 // renderAcross / renderPrograms are defined when tick() first runs.
 
-const REFRESH_MS = 10000;
+const REFRESH_MS = 30000;
 const FETCH_TIMEOUT_MS = 8000;
 
 const refreshEl  = document.getElementById("refresh");
@@ -26,7 +26,9 @@ function setRefresh(state, label) {
 async function tick() {
   if (inflight) return;
   inflight = true;
-  setRefresh("busy", "FETCHING");
+  // No per-tick busy flash — the pulsing LIVE dot already signals
+  // "alive". Page load starts in the HTML default `busy/CONNECTING`
+  // state and flips to LIVE on the first success.
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
   try {
