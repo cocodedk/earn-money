@@ -21,7 +21,7 @@ first_seen: {{first_seen}}
 - URL: `{{target}}`
 - Asset: `{{asset}}`
 
-## Steps to reproduce
+## Steps to Reproduce
 
 [**Operator: replace with real manual steps.** The scanner found something; you must confirm it actually exploits. List the exact requests / clicks an attacker takes.]
 
