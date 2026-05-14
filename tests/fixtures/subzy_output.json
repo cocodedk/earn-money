@@ -1,0 +1,30 @@
+[
+  {
+    "data": "mta-sts.example.com",
+    "status": "VULNERABLE",
+    "service": "Heroku",
+    "vulnerable": true,
+    "https_status": 404
+  },
+  {
+    "data": "old.example.com",
+    "status": "VULNERABLE",
+    "service": "GitHub Pages",
+    "vulnerable": true,
+    "https_status": 404
+  },
+  {
+    "data": "www.example.com",
+    "status": "NOT_VULNERABLE",
+    "service": null,
+    "vulnerable": false,
+    "https_status": 200
+  },
+  {
+    "data": "down.example.com",
+    "status": "HTTP_ERROR",
+    "service": null,
+    "vulnerable": false,
+    "https_status": 0
+  }
+]
