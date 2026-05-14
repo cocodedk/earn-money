@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -251,3 +252,34 @@ def test_records_failed_run_when_tool_raises(tmp_repo: Path) -> None:
     ).fetchall()
     conn.close()
     assert rows == [("failed", "RuntimeError: simulated tool crash")]
+
+
+def test_manifest_records_roe_under_which_probe_ran(tmp_repo: Path) -> None:
+    """The probe's manifest carries an `roe` block so the post-run audit
+    trail shows what authority the probe operated under, even when the
+    program has no roe.md (floor applies)."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    def fake_tool(targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(
+            outputs=tuple(_make_service(t) for t in targets),
+        )
+
+    httpx_probe.run_program(paths, "hackerone", "example", tool_run=fake_tool)
+
+    manifest_path = next(
+        (paths.root / "recon" / "outputs" / "hackerone" / "example" / "httpx").rglob(
+            "manifest.json"
+        )
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["roe"] == {
+        "dos_authorized": False,
+        "destructive_payloads_authorized": False,
+        "social_engineering_authorized": False,
+        "pii_handling": "one_redacted_screenshot",
+        "max_requests_per_second": 10,
+    }

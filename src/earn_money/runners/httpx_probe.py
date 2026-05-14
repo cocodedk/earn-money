@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from earn_money import config, db, scope
+from earn_money import config, db, roe, scope
 from earn_money._time import now_iso
 from earn_money.recon import runs, services
 from earn_money.runners import active
@@ -63,6 +63,7 @@ def run_program(
     (alphabetical) so wildcard-explosion programs don't run forever.
     """
     s = active.check_gates(paths, platform, slug, mode="active")
+    program_roe = roe.read_roe(paths.roe_file(platform, slug))
 
     run_id = run_id or uuid.uuid4().hex
     now = now_iso()
@@ -109,6 +110,16 @@ def run_program(
             "platform": platform, "slug": slug,
             "started_at": now, "input_count": len(targets),
             "output_count": len(in_scope), "oos_drops": oos_drops,
+            # Audit trail: what authority did this probe operate under?
+            "roe": {
+                "dos_authorized": program_roe.dos_authorized,
+                "destructive_payloads_authorized":
+                    program_roe.destructive_payloads_authorized,
+                "social_engineering_authorized":
+                    program_roe.social_engineering_authorized,
+                "pii_handling": program_roe.pii_handling,
+                "max_requests_per_second": program_roe.max_requests_per_second,
+            },
         })
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)
