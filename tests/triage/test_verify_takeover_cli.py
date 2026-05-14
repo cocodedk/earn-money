@@ -119,6 +119,22 @@ def test_verify_takeover_indeterminate(
     assert "INDETERMINATE" in out
 
 
+def test_verify_takeover_rate_limited(
+    tmp_repo: Path, capsys: pytest.CaptureFixture[str], mocker: pytest.FixtureRequest,
+) -> None:
+    """GitHub returns 403 with X-RateLimit-Remaining=0 → INDETERMINATE."""
+    paths = engine_paths(tmp_repo)
+    fh = "9" * 64
+    _insert_takeover(paths, fh, extracted="some-org.github.io")
+    mocker.patch.object(  # type: ignore[attr-defined]
+        verify_takeover_cli, "_github_user_lookup",
+        return_value=(429, {"error": "GitHub API rate limit exhausted"}),
+    )
+    rc, out, _ = _run(paths.root, ["--program", "example", fh[:8]], capsys)
+    assert rc == 0
+    assert "INDETERMINATE" in out
+
+
 def test_verify_takeover_refuses_non_takeover_finding(
     tmp_repo: Path, capsys: pytest.CaptureFixture[str],
 ) -> None:
