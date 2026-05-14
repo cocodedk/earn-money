@@ -30,6 +30,12 @@ from earn_money.recon.signals import Signal
 
 InScope = Callable[[str], bool]
 
+# Per-target script-count cap. Bounds worst-case traffic per base URL
+# (HTML + N JS + up to N maps = 1 + 2N requests). Pages with more than
+# this many in-scope scripts are truncated explicit-first; operator can
+# re-scan with a tighter base URL list if a page genuinely has more.
+MAX_SCRIPTS_PER_TARGET = 25
+
 _SCRIPT_SRC = re.compile(
     r'<script[^>]+src=["\']([^"\'>\s]+)["\']',
     re.IGNORECASE,
@@ -44,6 +50,7 @@ class ScanResult:
     signals: tuple[Signal, ...]
     scripts_fetched: int
     sourcemaps_fetched: int
+    scripts_truncated: int = 0
 
 
 def extract_script_urls(html: str, base_url: str) -> list[str]:
@@ -140,10 +147,12 @@ def scan_target(
     if html_resp is None:
         return ScanResult(signals=(), scripts_fetched=0, sourcemaps_fetched=0)
 
-    script_urls = [
+    all_in_scope = [
         u for u in extract_script_urls(html_resp.text, base_url)
         if in_scope(_host_of(u))
     ]
+    script_urls = all_in_scope[:MAX_SCRIPTS_PER_TARGET]
+    scripts_truncated = max(0, len(all_in_scope) - len(script_urls))
 
     out: list[Signal] = []
     scripts_fetched = 0
@@ -184,4 +193,5 @@ def scan_target(
         signals=tuple(out),
         scripts_fetched=scripts_fetched,
         sourcemaps_fetched=maps_fetched,
+        scripts_truncated=scripts_truncated,
     )

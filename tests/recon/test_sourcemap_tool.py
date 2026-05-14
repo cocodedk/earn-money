@@ -129,7 +129,58 @@ def test_scan_target_handles_404_html_silently() -> None:
         )
     assert result == sourcemap_tool.ScanResult(
         signals=(), scripts_fetched=0, sourcemaps_fetched=0,
+        scripts_truncated=0,
     )
+
+
+def test_scan_target_skips_out_of_scope_sourcemap_url() -> None:
+    """A bundle whose sourceMappingURL points off-host must NOT be fetched."""
+    routes = {
+        "https://app.example.com/":
+            (200, '<script src="/app.js"></script>'),
+        "https://app.example.com/app.js": (
+            200,
+            "console.log(1);\n"
+            "//# sourceMappingURL=https://cdn.attacker.com/app.js.map\n",
+        ),
+        # If the scope filter is wrong the mock would serve this; the
+        # assertion is on counters: no map fetched, no exposed_sourcemap.
+        "https://cdn.attacker.com/app.js.map":
+            (200, '{"version":3,"sources":["secret.js"]}'),
+    }
+    with _mock_client(routes) as client:
+        result = sourcemap_tool.scan_target(
+            "https://app.example.com/",
+            client=client,
+            in_scope=_accept_example_com,
+            run_id="r1",
+            observed_at="t",
+        )
+    assert result.sourcemaps_fetched == 0
+    assert all(s.signal_type != "exposed_sourcemap" for s in result.signals)
+
+
+def test_scan_target_truncates_script_list_to_cap() -> None:
+    """Pages with more in-scope scripts than the cap stop fetching at the cap."""
+    cap = sourcemap_tool.MAX_SCRIPTS_PER_TARGET
+    scripts = "".join(
+        f'<script src="/s{i}.js"></script>' for i in range(cap + 5)
+    )
+    routes: dict[str, tuple[int, str]] = {
+        "https://app.example.com/": (200, scripts),
+    }
+    for i in range(cap + 5):
+        routes[f"https://app.example.com/s{i}.js"] = (200, "var x = 1;")
+    with _mock_client(routes) as client:
+        result = sourcemap_tool.scan_target(
+            "https://app.example.com/",
+            client=client,
+            in_scope=_accept_example_com,
+            run_id="r1",
+            observed_at="t",
+        )
+    assert result.scripts_fetched == cap
+    assert result.scripts_truncated == 5
 
 
 def test_scan_target_handles_network_error_silently() -> None:
