@@ -13,7 +13,10 @@ import sys
 from pathlib import Path
 
 from earn_money import config, db
+from earn_money.agent.providers import ProviderError, ProviderUnavailable, from_env
+from earn_money.agent.structured import StructuredOutputError
 from earn_money.triage import findings
+from earn_money.triage.draft_llm import DraftNotFound, polish_draft
 
 
 class DraftAlreadyExists(Exception):
@@ -120,9 +123,38 @@ def main(argv: list[str] | None = None) -> int:
         default=False,
         help="Draft even if finding is not yet in 'verified' state.",
     )
+    parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        default=False,
+        help="Re-fill an existing draft's Summary/Steps/Impact sections via LLM.",
+    )
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
+
+    if args.regenerate:
+        try:
+            provider = from_env()
+            path = polish_draft(
+                paths,
+                platform=args.platform,
+                slug=args.program,
+                finding_hash=args.finding_hash,
+                provider=provider,
+            )
+        except (
+            ProviderUnavailable,
+            ProviderError,
+            StructuredOutputError,
+            DraftNotFound,
+            ValueError,
+        ) as e:
+            print(f"draft: {type(e).__name__}: {e}", file=sys.stderr)
+            return 1
+        print(f"draft: regenerated {path}")
+        return 0
+
     try:
         path = draft_for(
             paths,
