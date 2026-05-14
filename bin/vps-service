@@ -14,24 +14,26 @@
 # Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
 set -eu
 
-VPS_HOST="${VPS_HOST:-recon-vps}"
+# shellcheck source=lib/vps-common.sh
+. "$(dirname "$0")/../lib/vps-common.sh"
 
 _all_units="earn-money-dashboard.service earn-money-passive-tick.timer"
 
-_resolve_unit() {
-    case "$1" in
-        dashboard) echo "earn-money-dashboard.service" ;;
-        timer)     echo "earn-money-passive-tick.timer" ;;
+CMD="${1:-status}"
+UNIT="${2:-}"
+
+if [ -n "$UNIT" ]; then
+    case "$UNIT" in
+        dashboard) TARGET="earn-money-dashboard.service" ;;
+        timer)     TARGET="earn-money-passive-tick.timer" ;;
         *)
-            echo "vps-service: unknown unit '$1' (use: dashboard, timer)" >&2
+            echo "vps-service: unknown unit '$UNIT' (use: dashboard, timer)" >&2
             exit 1
             ;;
     esac
-}
-
-CMD="${1:-status}"
-UNIT="${2:-}"
-TARGET="$( [ -n "$UNIT" ] && _resolve_unit "$UNIT" || echo "$_all_units" )"
+else
+    TARGET="$_all_units"
+fi
 
 case "$CMD" in
     status)

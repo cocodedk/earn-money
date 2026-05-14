@@ -10,14 +10,18 @@
 # Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
 set -eu
 
-VPS_HOST="${VPS_HOST:-recon-vps}"
-VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
-PROGRAM="${1:-}"
-if [ "$PROGRAM" = "--program" ]; then
-    PROGRAM="$2"
-fi
+# shellcheck source=lib/vps-common.sh
+. "$(dirname "$0")/../lib/vps-common.sh"
 
-ssh "$VPS_HOST" "python3 - '$VPS_ROOT' '$PROGRAM'" <<'PYEOF'
+PROGRAM=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --program) PROGRAM="$2"; shift 2 ;;
+        *) echo "vps-queue: unknown option '$1'" >&2; exit 1 ;;
+    esac
+done
+
+ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT' '$PROGRAM'" <<'PYEOF'
 import sqlite3, pathlib, sys
 
 root = pathlib.Path(sys.argv[1])

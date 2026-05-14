@@ -12,8 +12,8 @@
 # Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
 set -eu
 
-VPS_HOST="${VPS_HOST:-recon-vps}"
-VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+# shellcheck source=lib/vps-common.sh
+. "$(dirname "$0")/../lib/vps-common.sh"
 
 if [ $# -eq 0 ]; then
     echo "Usage: bin/vps-triage --program <slug> | --all" >&2
@@ -21,25 +21,35 @@ if [ $# -eq 0 ]; then
 fi
 
 if [ "$1" = "--all" ]; then
-    ssh "$VPS_HOST" "python3 - '$VPS_ROOT'" <<'PYEOF'
+    ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT'" <<'PYEOF'
 import pathlib, subprocess, sys
 root = pathlib.Path(sys.argv[1])
+py = str(root / ".venv/bin/python")
+failed = []
 for scope_file in sorted(root.glob("programs/*/*/scope.md")):
     slug = scope_file.parent.name
     result = subprocess.run(
-        [str(root / ".venv/bin/python"), "-m", "earn_money.runners.triage",
-         "--root", str(root), "--program", slug],
-        capture_output=True, text=True
+        [py, "-m", "earn_money.runners.triage", "--root", str(root), "--program", slug],
+        capture_output=True, text=True, timeout=300,
     )
-    print(f"{slug}: {result.stdout.strip() or result.stderr.strip()}")
+    summary = result.stdout.strip() or result.stderr.strip() or "(no output)"
+    status = "OK" if result.returncode == 0 else f"FAIL({result.returncode})"
+    print(f"{slug}: [{status}] {summary}")
+    if result.returncode != 0:
+        failed.append(slug)
+if failed:
+    print(f"\nFailed programs: {', '.join(failed)}", file=sys.stderr)
+    sys.exit(1)
 PYEOF
-else
-    if [ "$1" = "--program" ]; then
-        SLUG="$2"
-    else
-        echo "Usage: bin/vps-triage --program <slug> | --all" >&2
+elif [ "$1" = "--program" ]; then
+    if [ -z "${2:-}" ]; then
+        echo "vps-triage: --program requires a slug" >&2
         exit 1
     fi
+    SLUG="$2"
     ssh "$VPS_HOST" \
         "cd '$VPS_ROOT' && .venv/bin/python -m earn_money.runners.triage --root . --program '$SLUG'"
+else
+    echo "Usage: bin/vps-triage --program <slug> | --all" >&2
+    exit 1
 fi

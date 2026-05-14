@@ -9,10 +9,10 @@
 # Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
 set -eu
 
-VPS_HOST="${VPS_HOST:-recon-vps}"
-VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+# shellcheck source=lib/vps-common.sh
+. "$(dirname "$0")/../lib/vps-common.sh"
 
-ssh "$VPS_HOST" "python3 - '$VPS_ROOT'" <<'PYEOF'
+ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT'" <<'PYEOF'
 import sqlite3, pathlib, sys
 
 root = pathlib.Path(sys.argv[1])

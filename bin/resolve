@@ -2,7 +2,7 @@
 # resolve — Transition a finding to a resolved state on the VPS.
 #
 # Usage:
-#   bin/resolve --program <slug> <hash-prefix> <state> [--note <text>]
+#   bin/resolve --program <slug> <hash-prefix> <state> [--note <text>] [--platform <name>]
 #
 # States (from queued/submitted):
 #   resolved_na    Not applicable / false positive
@@ -17,19 +17,21 @@
 # Requires: SSH alias 'recon-vps' configured in ~/.ssh/config.
 set -eu
 
-VPS_HOST="${VPS_HOST:-recon-vps}"
-VPS_ROOT="${VPS_ROOT:-/opt/earn-money}"
+# shellcheck source=lib/vps-common.sh
+. "$(dirname "$0")/../lib/vps-common.sh"
 
 PROGRAM=""
+PLATFORM="hackerone"
 PREFIX=""
 STATE=""
 NOTE=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --program) PROGRAM="$2"; shift 2 ;;
-        --note)    NOTE="$2";    shift 2 ;;
-        --*)       echo "resolve: unknown option '$1'" >&2; exit 1 ;;
+        --program)  PROGRAM="$2";  shift 2 ;;
+        --platform) PLATFORM="$2"; shift 2 ;;
+        --note)     NOTE="$2";     shift 2 ;;
+        --*)        echo "resolve: unknown option '$1'" >&2; exit 1 ;;
         *)
             if [ -z "$PREFIX" ]; then PREFIX="$1"
             elif [ -z "$STATE" ]; then STATE="$1"
@@ -40,21 +42,27 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PROGRAM" ] || [ -z "$PREFIX" ] || [ -z "$STATE" ]; then
-    echo "Usage: bin/resolve --program <slug> <hash-prefix> <state> [--note <text>]" >&2
+    echo "Usage: bin/resolve --program <slug> <hash-prefix> <state> [--note <text>] [--platform <name>]" >&2
     echo "States: resolved_na  resolved_info  resolved_dupe  resolved_paid" >&2
     exit 1
 fi
 
-ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT' '$PROGRAM' '$PREFIX' '$STATE' '$NOTE'" <<'PYEOF'
-import sys
+# Base64-encode the note so single/double quotes can't escape the SSH command.
+NOTE_B64="$(printf '%s' "$NOTE" | base64 | tr -d '\n')"
+
+ssh "$VPS_HOST" "'$VPS_ROOT'/.venv/bin/python3 - '$VPS_ROOT' '$PLATFORM' '$PROGRAM' '$PREFIX' '$STATE' '$NOTE_B64'" <<'PYEOF'
+import sys, base64
 from pathlib import Path
 from earn_money import config, db
 from earn_money.triage.history import transition_state, FindingNotFound, IllegalStateTransition
 from earn_money._time import now_iso
 
-root, program, prefix, state, note = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+root, platform, program, prefix, state, note_b64 = (
+    sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+)
+note = base64.b64decode(note_b64).decode() if note_b64 else ""
 paths = config.Paths.from_root(Path(root))
-conn = db.open_db(paths.program_db('hackerone', program))
+conn = db.open_db(paths.program_db(platform, program))
 
 escaped = prefix.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
 rows = conn.execute(
