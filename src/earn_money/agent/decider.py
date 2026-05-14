@@ -13,6 +13,7 @@ back to the next sequential step + flags the failure in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -22,6 +23,7 @@ from earn_money.agent.action_allowlist import (
     any_requires_human_review,
     validate_actions,
 )
+from earn_money.agent.audit import AuditEvent, audit_root_for, record
 from earn_money.agent.decider_helpers import (
     ALLOWED_STEPS,
     SYSTEM_PROMPT,
@@ -31,6 +33,7 @@ from earn_money.agent.decider_helpers import (
     render_user,
     safe_from_env,
 )
+from earn_money.agent.policy_prompt import POLICY_PROMPT_VERSION
 from earn_money.agent.providers import Provider
 from earn_money.agent.state import PipelineState, build_state
 from earn_money.engine.active_pipeline import StepResult
@@ -112,7 +115,7 @@ def decide_next_step(
     validated_actions = (
         validate_actions(raw_actions) if isinstance(raw_actions, list) else []
     )
-    return Decision(
+    decision = Decision(
         next_step=next_step,
         reason=str(parsed.get("reason") or "")[:500],
         max_targets=coerce_int(parsed.get("max_targets")),
@@ -121,6 +124,42 @@ def decide_next_step(
         requires_human_review=(
             bool(parsed.get("requires_human_review"))
             or any_requires_human_review(validated_actions)
+        ),
+    )
+    _record_audit(paths, platform, slug, state, decision)
+    return decision
+
+
+def _record_audit(
+    paths: config.Paths,
+    platform: str,
+    slug: str,
+    state: PipelineState,
+    decision: Decision,
+) -> None:
+    """Append one row to scratch/agent-audit/<date>.jsonl per spec §13."""
+    record(
+        audit_root_for(paths.root),
+        AuditEvent(
+            event_type="agent_decision",
+            platform=platform,
+            slug=slug,
+            timestamp=datetime.now(UTC).isoformat(),
+            task="default_assistant",
+            prompt_template_version=POLICY_PROMPT_VERSION,
+            evidence_ids=tuple(
+                str(s.get("signature", ""))[:32]
+                for s in state.recent_signals
+            ),
+            proposed_actions=tuple(
+                {
+                    "action_type": a.action_type,
+                    "risk_level": a.risk_level,
+                    "allowed": a.allowed,
+                }
+                for a in decision.proposed_actions
+            ),
+            requires_human_review=decision.requires_human_review,
         ),
     )
 
