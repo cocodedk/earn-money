@@ -22,14 +22,21 @@ ToolRun = Callable[[list[str]], active.ToolRunResult]
 
 
 def _load_in_scope_assets(conn: sqlite3.Connection, s: scope.Scope) -> list[str]:
+    """Return in-scope subdomains, sorted explicit-first then alphabetical.
+
+    Explicit-first means program-authored entries like `www.algolia.com`
+    (literal scope.md entry) come before wildcard-resolved fan-out like
+    `c3-eu-1.algolia.net` (matched via `*.algolia.net`). When `max_targets`
+    slices this list, the operator gets the program-facing assets first.
+    """
     cursor = conn.execute(
-        "SELECT subdomain FROM assets WHERE in_scope_at_observation = 1 "
-        "ORDER BY subdomain"
+        "SELECT subdomain FROM assets WHERE in_scope_at_observation = 1"
     )
-    return [
+    matches = [
         row[0] for row in cursor
         if scope.is_in_scope(row[0], s.in_scope, s.out_of_scope)
     ]
+    return sorted(matches, key=lambda h: (not scope.is_explicit(h, s.in_scope), h))
 
 
 def _write_manifest(artifact_dir: Path, payload: dict[str, Any]) -> None:

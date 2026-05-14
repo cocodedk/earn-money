@@ -78,6 +78,34 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
         )
 
 
+def test_explicit_scope_entries_sort_before_wildcard_matches(tmp_repo: Path) -> None:
+    """Sampling sorts program-authored entries (literal scope.md hostnames)
+    before wildcard-resolved fan-out. Drove this bug when algolia's
+    *.algolia.net resolved to 27k cluster shards: --max-targets 5 picked
+    c3-eu-1..c3-eu-5 (internal shards, 0 services) instead of the
+    operator-facing www.algolia.com + dashboard.algolia.com."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    # Scope has TWO explicit hosts + one wildcard.
+    _seed(paths, in_scope=["www.algolia.com", "dashboard.algolia.com", "*.algolia.net"])
+    _seed_assets(paths, [
+        "c3-eu-1.algolia.net", "c3-eu-2.algolia.net", "c3-eu-3.algolia.net",
+        "dashboard.algolia.com", "www.algolia.com",
+    ])
+    captured: list[list[str]] = []
+
+    def fake_tool(targets: list[str]) -> active.ToolRunResult:
+        captured.append(list(targets))
+        return active.ToolRunResult(outputs=())
+
+    httpx_probe.run_program(
+        paths, "hackerone", "example", tool_run=fake_tool, max_targets=2,
+    )
+    # Explicit entries (alphabetically dashboard < www) come first, both
+    # picked under the cap of 2; the wildcard-matched shards are skipped.
+    assert captured[0] == ["dashboard.algolia.com", "www.algolia.com"]
+
+
 def test_max_targets_caps_in_scope_assets(tmp_repo: Path) -> None:
     """When wildcards resolve to many assets, --max-targets N slices the
     target list to the first N alphabetical. Discovered when algolia's

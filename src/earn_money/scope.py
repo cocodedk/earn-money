@@ -98,3 +98,15 @@ def is_in_scope(
     if _matches_any(fqdn, out_of_scope):
         return False
     return _matches_any(fqdn, in_scope)
+
+
+def is_explicit(fqdn: str, in_scope: Sequence[str]) -> bool:
+    """True if ``fqdn`` is listed literally (non-wildcard) in ``in_scope``.
+
+    Used by sampling code to prioritize program-authored entries
+    (`www.algolia.com`) before wildcard-resolved fan-out
+    (`c3-eu-1.algolia.net` matched against `*.algolia.net`). The
+    explicit ones are usually the operator-facing assets — a far better
+    sample for `--max-targets` than the alphabetical-first wildcard fan."""
+    fqdn_l = fqdn.lower()
+    return any(entry.lower() == fqdn_l for entry in in_scope)

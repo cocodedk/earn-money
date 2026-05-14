@@ -34,14 +34,22 @@ _PREREQ_FRESHNESS_HOURS = 24
 def _load_in_scope_service_urls(
     conn: sqlite3.Connection, s: scope.Scope
 ) -> list[str]:
+    """Return in-scope service URLs, sorted explicit-first then alphabetical
+    by subdomain. Same rationale as the httpx runner: program-authored
+    entries come before wildcard-resolved fan-out, so `max_targets` picks
+    the operator-facing assets first."""
     cursor = conn.execute(
-        "SELECT url, subdomain FROM http_services "
-        "WHERE in_scope_at_observation = 1 ORDER BY subdomain, scheme, port"
+        "SELECT url, subdomain, scheme, port FROM http_services "
+        "WHERE in_scope_at_observation = 1"
     )
-    return [
-        url for url, subdomain in cursor
+    matches = [
+        (url, subdomain, scheme, port) for url, subdomain, scheme, port in cursor
         if scope.is_in_scope(subdomain, s.in_scope, s.out_of_scope)
     ]
+    matches.sort(
+        key=lambda r: (not scope.is_explicit(r[1], s.in_scope), r[1], r[2], r[3]),
+    )
+    return [url for url, _, _, _ in matches]
 
 
 def _recent_httpx_success(
