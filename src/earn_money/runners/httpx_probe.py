@@ -111,15 +111,7 @@ def run_program(
             "started_at": now, "input_count": len(targets),
             "output_count": len(in_scope), "oos_drops": oos_drops,
             # Audit trail: what authority did this probe operate under?
-            "roe": {
-                "dos_authorized": program_roe.dos_authorized,
-                "destructive_payloads_authorized":
-                    program_roe.destructive_payloads_authorized,
-                "social_engineering_authorized":
-                    program_roe.social_engineering_authorized,
-                "pii_handling": program_roe.pii_handling,
-                "max_requests_per_second": program_roe.max_requests_per_second,
-            },
+            "roe": program_roe.manifest_payload(),
         })
 
         run_status, terminated_reason = active.resolve_run_status(tool_result)

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, get_args
 
 import frontmatter
 import yaml
@@ -24,9 +24,7 @@ PiiHandling = Literal[
     "synthetic_data_only",
     "authorized_per_roe",
 ]
-_ALLOWED_PII: frozenset[str] = frozenset(
-    {"one_redacted_screenshot", "synthetic_data_only", "authorized_per_roe"}
-)
+_ALLOWED_PII: frozenset[str] = frozenset(get_args(PiiHandling))
 
 
 class InvalidRoE(Exception):
@@ -44,22 +42,41 @@ class RoE:
     authorized_test_accounts: tuple[str, ...]
     special_notes: str = ""
 
+    def manifest_payload(self) -> dict[str, Any]:
+        """Audit-trail subset for embedding in a runner's `manifest.json`.
 
-_DEFAULT_RATE = 10
+        Omits free-text and list fields — only the technique-level
+        authority flags + rate cap, which is what a post-run reviewer
+        needs to confirm the probe ran under the right authority.
+        """
+        return {
+            "dos_authorized": self.dos_authorized,
+            "destructive_payloads_authorized": self.destructive_payloads_authorized,
+            "social_engineering_authorized": self.social_engineering_authorized,
+            "pii_handling": self.pii_handling,
+            "max_requests_per_second": self.max_requests_per_second,
+        }
 
 
 def default_roe() -> RoE:
-    """Conservative floor matching CLAUDE.md's repo-wide invariants."""
-    return RoE(
-        dos_authorized=False,
-        destructive_payloads_authorized=False,
-        social_engineering_authorized=False,
-        pii_handling="one_redacted_screenshot",
-        max_requests_per_second=_DEFAULT_RATE,
-        authorized_test_environments=(),
-        authorized_test_accounts=(),
-        special_notes="",
-    )
+    """Conservative floor matching CLAUDE.md's repo-wide invariants.
+
+    Returns the shared `DEFAULT_ROE` singleton — `RoE` is frozen, so a
+    single instance is safe to share across callers.
+    """
+    return DEFAULT_ROE
+
+
+DEFAULT_ROE = RoE(
+    dos_authorized=False,
+    destructive_payloads_authorized=False,
+    social_engineering_authorized=False,
+    pii_handling="one_redacted_screenshot",
+    max_requests_per_second=10,
+    authorized_test_environments=(),
+    authorized_test_accounts=(),
+    special_notes="",
+)
 
 
 def _bool(value: object, key: str) -> bool:
@@ -89,15 +106,15 @@ def read_roe(path: Path) -> RoE:
     floor. Any malformed input raises `InvalidRoE` with the offending key.
     """
     if not path.exists():
-        return default_roe()
+        return DEFAULT_ROE
 
     try:
-        post = frontmatter.loads(path.read_text(encoding="utf-8"))
+        post = frontmatter.load(path)
     except yaml.YAMLError as exc:
         raise InvalidRoE(f"{path}: malformed YAML: {exc}") from exc
 
     meta = post.metadata or {}
-    floor = default_roe()
+    floor = DEFAULT_ROE
 
     pii = meta.get("pii_handling", floor.pii_handling)
     if pii not in _ALLOWED_PII:
@@ -140,4 +157,11 @@ def read_roe(path: Path) -> RoE:
     )
 
 
-__all__ = ["InvalidRoE", "PiiHandling", "RoE", "default_roe", "read_roe"]
+__all__ = [
+    "DEFAULT_ROE",
+    "InvalidRoE",
+    "PiiHandling",
+    "RoE",
+    "default_roe",
+    "read_roe",
+]
