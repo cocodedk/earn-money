@@ -105,6 +105,29 @@ def test_static_render_js_is_served_with_js_content_type(
     assert "renderAcross" in r.text and "renderPrograms" in r.text
 
 
+def test_static_render_panels_js_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/render_panels.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    assert "renderActiveRuns" in r.text
+    assert "renderRecentSignals" in r.text
+
+
+def test_static_panels_css_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/panels.css", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/css")
+    assert ".sigtype" in r.text
+
+
 def test_unknown_path_returns_404(
     running_server: tuple[ThreadingHTTPServer, str],
 ) -> None:

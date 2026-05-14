@@ -38,6 +38,8 @@ async function tick() {
     const sig = JSON.stringify({ across: data.across, programs: data.programs });
     if (sig !== lastSig) {
       renderAcross(data.across || {});
+      renderActiveRuns((data.across && data.across.active_runs) || []);
+      renderRecentSignals((data.across && data.across.recent_signals) || []);
       renderPrograms(data.programs || []);
       lastSig = sig;
     }

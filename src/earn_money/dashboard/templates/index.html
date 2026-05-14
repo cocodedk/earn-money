@@ -7,6 +7,7 @@
 <meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/dashboard.css">
+<link rel="stylesheet" href="/static/panels.css">
 </head>
 <body>
 <main>
@@ -23,7 +24,13 @@
   <h2 class="rule"><span>§ 01 — SUMMARY</span></h2>
   <section id="across" aria-label="across-program summary"></section>
 
-  <h2 class="rule"><span>§ 02 — PROGRAMS</span></h2>
+  <h2 class="rule"><span>§ 02 — ACTIVE SCANS</span></h2>
+  <section id="active-runs" aria-label="runs in flight"></section>
+
+  <h2 class="rule"><span>§ 03 — RECENT SIGNALS</span></h2>
+  <section id="recent-signals" aria-label="latest signals across programs"></section>
+
+  <h2 class="rule"><span>§ 04 — PROGRAMS</span></h2>
   <section id="programs" aria-label="per-program status"></section>
 
   <footer>
@@ -32,6 +39,7 @@
   </footer>
 </main>
 <script src="/static/render.js"></script>
+<script src="/static/render_panels.js"></script>
 <script src="/static/dashboard.js"></script>
 </body>
 </html>

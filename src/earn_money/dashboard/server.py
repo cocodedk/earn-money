@@ -31,11 +31,15 @@ _DEFAULT_PORT = 8080
 _DEFAULT_HOST = "127.0.0.1"
 
 # URL → (filesystem path, Content-Type).
+_CSS = "text/css; charset=utf-8"
+_JS = "application/javascript; charset=utf-8"
 _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
-    "/static/tokens.css":    (_STATIC / "tokens.css",    "text/css; charset=utf-8"),
-    "/static/dashboard.css": (_STATIC / "dashboard.css", "text/css; charset=utf-8"),
-    "/static/render.js":     (_STATIC / "render.js",     "application/javascript; charset=utf-8"),
-    "/static/dashboard.js":  (_STATIC / "dashboard.js",  "application/javascript; charset=utf-8"),
+    "/static/tokens.css":       (_STATIC / "tokens.css",       _CSS),
+    "/static/dashboard.css":    (_STATIC / "dashboard.css",    _CSS),
+    "/static/panels.css":       (_STATIC / "panels.css",       _CSS),
+    "/static/render.js":        (_STATIC / "render.js",        _JS),
+    "/static/render_panels.js": (_STATIC / "render_panels.js", _JS),
+    "/static/dashboard.js":     (_STATIC / "dashboard.js",     _JS),
 }
 
 

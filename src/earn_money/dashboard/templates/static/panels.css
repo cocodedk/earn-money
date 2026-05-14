@@ -1,0 +1,41 @@
+/* Across-program panels: ACTIVE SCANS + RECENT SIGNALS. Loaded after
+   dashboard.css so the base `.qtbl`, `.run`, `.empty` rules apply. */
+
+/* Active-scans strip — borrow .run chip styling but tint to indicate
+   in-flight. The pulsing border draws the eye without making the page
+   feel anxious. */
+.run.active {
+  border-color: var(--high);
+  background: var(--paper);
+}
+.run.active .rstatus.in_progress {
+  color: var(--high);
+  animation: pulse-text 2.4s ease-in-out infinite;
+}
+.run .rage {
+  margin-left: 0.25em;
+  color: var(--mute);
+  font-size: 0.7em;
+}
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run.active .rstatus.in_progress { animation: none; }
+}
+
+/* Recent-signals table reuses .qtbl shell + adds severity-tinted
+   signal-type badges. Same `border-style` redundant signal as .sev
+   so color-blind readers still get the type cue. */
+.qtbl.signals { margin-bottom: 1.5rem; }
+.sigtype {
+  display: inline-block; font-size: 0.6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.18em;
+  padding: 0.1rem 0.45rem; border: 1px solid currentColor;
+}
+.sigtype.template_match        { color: var(--mute);     border-style: solid; }
+.sigtype.takeover_vulnerable   { color: var(--critical); border-style: solid; }
+.sigtype.leaked_secret         { color: var(--high);     border-style: solid; }
+.sigtype.exposed_sourcemap     { color: var(--medium);   border-style: dashed; }
+.sigtype.introspection_enabled { color: var(--medium);   border-style: dashed; }
