@@ -18,6 +18,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from earn_money import config, flags, policy, roe, scope
 from earn_money.runners import (
@@ -29,6 +30,9 @@ from earn_money.runners import (
     sourcemap_scan,
     takeover_validate,
 )
+
+if TYPE_CHECKING:
+    from earn_money.agent.decider import AgentDecider  # type-only; no runtime cycle
 
 ToolRun = Callable[[list[str]], active.ToolRunResult]
 
@@ -81,6 +85,9 @@ _PIPELINE: tuple[tuple[str, Callable[..., active.ActiveRunResult]], ...] = (
 )
 
 
+_PIPELINE_BY_NAME = dict(_PIPELINE)
+
+
 def run_program_pipeline(
     paths: config.Paths,
     platform: str,
@@ -88,12 +95,15 @@ def run_program_pipeline(
     *,
     tool_factory: Callable[[str, config.Paths, str, str, str], ToolRun],
     max_targets_per_step: int | None = None,
+    decider: AgentDecider | None = None,
 ) -> PipelineResult:
-    """Run every active runner once for `(platform, slug)` sequentially.
+    """Run active runners for `(platform, slug)`.
 
-    `tool_factory(runner_name, paths, platform, slug, run_id)` builds the
-    `tool_run` callable for each runner — the CLI passes the real
-    factory that wires subprocess + watchdog; tests pass a fake.
+    Without `decider`: iterate `_PIPELINE` in fixed order (current behavior).
+    With `decider`: ask it for the next step between iterations; the
+    orchestrator validates that the chosen name is in `_PIPELINE_BY_NAME`
+    and refuses anything else. Decider may also override `max_targets`
+    per step and request a `stop`.
     """
     abort = _gate_check(paths, platform, slug)
     if abort is not None:
@@ -102,17 +112,22 @@ def run_program_pipeline(
         )
 
     steps: list[StepResult] = []
-    for name, run_program in _PIPELINE:
+    pending = [name for name, _ in _PIPELINE]
+    for _ in range(len(_PIPELINE)):
+        name, max_targets = _pick_next(
+            pending, steps, paths, platform, slug, decider, max_targets_per_step,
+        )
+        if name is None:
+            break
+        run_program = _PIPELINE_BY_NAME[name]
         run_id = uuid.uuid4().hex
         try:
             tool_run = tool_factory(name, paths, platform, slug, run_id)
             result = run_program(
                 paths, platform, slug,
-                tool_run=tool_run, run_id=run_id,
-                max_targets=max_targets_per_step,
+                tool_run=tool_run, run_id=run_id, max_targets=max_targets,
             )
         except (flags.ReconDisabled, flags.ProgramFrozen) as exc:
-            # Kill switch flipped mid-pipeline — short-circuit hard.
             return PipelineResult(
                 platform=platform, slug=slug, steps=tuple(steps),
                 aborted_reason=f"{type(exc).__name__}: {exc}",
@@ -122,7 +137,11 @@ def run_program_pipeline(
                 runner=name, status="failed",
                 detail=f"{type(exc).__name__}: {exc}",
             ))
+            if name in pending:
+                pending.remove(name)
             continue
+        if name in pending:
+            pending.remove(name)
         if getattr(result, "prereq_skipped", False):
             steps.append(StepResult(
                 runner=name, status="skipped", detail="prereq missing",
@@ -133,3 +152,31 @@ def run_program_pipeline(
             outputs_recorded=result.outputs_recorded,
         ))
     return PipelineResult(platform=platform, slug=slug, steps=tuple(steps))
+
+
+def _pick_next(
+    pending: list[str],
+    completed: list[StepResult],
+    paths: config.Paths,
+    platform: str,
+    slug: str,
+    decider: AgentDecider | None,
+    default_max_targets: int | None,
+) -> tuple[str | None, int | None]:
+    """Return (step_name, max_targets) for the next runner, or (None, _)
+    to stop the pipeline. With `decider=None`, picks the first pending
+    step in fixed order."""
+    if not pending:
+        return None, None
+    if decider is None:
+        return pending[0], default_max_targets
+    decision = decider(
+        paths, platform, slug, completed_steps=tuple(completed),
+    )
+    if decision.next_step == "stop":
+        return None, None
+    if decision.next_step not in _PIPELINE_BY_NAME:
+        # Decider returned an unexpected step name — fall back to the
+        # next pending step rather than crashing the whole pipeline.
+        return pending[0], default_max_targets
+    return decision.next_step, decision.max_targets or default_max_targets

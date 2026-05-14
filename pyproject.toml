@@ -23,6 +23,11 @@ dev = [
     "mypy>=1.10",
     "types-PyYAML>=6.0",
 ]
+# Pick the LLM extras for whichever provider(s) the operator wants
+# active. `agent-all` pulls every adapter at once.
+agent-anthropic = ["anthropic>=0.43"]
+agent-openai = ["openai>=1.50"]
+agent-all = ["anthropic>=0.43", "openai>=1.50"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

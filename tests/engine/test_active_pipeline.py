@@ -122,6 +122,60 @@ def test_pipeline_marks_step_skipped_when_prereq_missing(tmp_repo: Path) -> None
     assert statuses["graphql-probe"] == "skipped"
 
 
+def test_decider_overrides_step_order(tmp_repo: Path) -> None:
+    """When a decider is provided, it picks the next step — not the
+    fixed _PIPELINE order. Orchestrator validates the choice."""
+    from earn_money.agent.decider import Decision
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+    chosen = iter([
+        "takeover-validate",  # not the natural-first step (httpx is)
+        "graphql-probe",
+        "stop",
+    ])
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        try:
+            nxt = next(chosen)
+        except StopIteration:
+            nxt = "stop"
+        return Decision(next_step=nxt, reason="test")
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
+    )
+    runners = [s.runner for s in result.steps]
+    assert runners == ["takeover-validate", "graphql-probe"]
+
+
+def test_decider_stop_short_circuits(tmp_repo: Path) -> None:
+    """`next_step='stop'` ends the pipeline cleanly without further runs."""
+    from earn_money.agent.decider import Decision
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        return Decision(next_step="stop", reason="enough for today")
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
+    )
+    assert result.steps == ()
+    assert result.aborted_reason is None
+
+
 def test_pipeline_continues_after_a_runner_raises(tmp_repo: Path) -> None:
     """A tool-level exception in one runner must not stop the rest of
     the pipeline. The failing step is recorded as 'failed' with detail."""

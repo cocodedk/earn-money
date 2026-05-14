@@ -72,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=Path.cwd(), type=Path)
     parser.add_argument("--max-targets", type=int, default=None,
                         help="per-step target cap (passes through to each runner)")
+    parser.add_argument("--intelligent", action="store_true",
+                        help="use the LLM agent decider (env-configured provider) "
+                             "instead of the fixed sequential pipeline")
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
@@ -84,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
         print("active-tick: no matching programs", file=sys.stderr)
         return 1
 
+    decider = None
+    if args.intelligent:
+        from earn_money.agent.decider import decide_next_step
+        decider = decide_next_step
+
     any_failure = False
     for platform, slug in targets:
         try:
@@ -91,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
                 paths, platform, slug,
                 tool_factory=_real_tool_factory,
                 max_targets_per_step=args.max_targets,
+                decider=decider,
             )
         except Exception as exc:
             print(
