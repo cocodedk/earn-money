@@ -63,19 +63,26 @@ def _resolve_finding(
     conn: sqlite3.Connection, prefix: str,
 ) -> tuple[str, str, str, str] | None:
     """Return (finding_hash, vuln_class, asset, signal_payload) for a unique
-    hash-prefix match, or None if missing/ambiguous (caller prints the error)."""
+    hash-prefix match, or None if missing/ambiguous (caller prints the error).
+
+    Multiple signals can fire on the same (run_id, asset) when several
+    templates match the same host — match on signature too so we pick
+    the *correct* template's payload, not some other template's payload
+    that happened to land on the same asset in the same run."""
     escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     rows = conn.execute(
-        "SELECT finding_hash, vuln_class, asset, source_run_id FROM findings "
-        "WHERE finding_hash LIKE ? ESCAPE '\\' ORDER BY finding_hash",
+        "SELECT finding_hash, vuln_class, asset, source_run_id, signature "
+        "FROM findings WHERE finding_hash LIKE ? ESCAPE '\\' "
+        "ORDER BY finding_hash",
         (escaped + "%",),
     ).fetchall()
     if len(rows) != 1:
         return None
-    fhash, vuln_class, asset, source_run_id = rows[0]
+    fhash, vuln_class, asset, source_run_id, signature = rows[0]
     sig_row = conn.execute(
-        "SELECT payload FROM signals WHERE run_id = ? AND asset = ? LIMIT 1",
-        (source_run_id, asset),
+        "SELECT payload FROM signals "
+        "WHERE run_id = ? AND asset = ? AND signature = ? LIMIT 1",
+        (source_run_id, asset, signature),
     ).fetchone()
     payload = sig_row[0] if sig_row else "{}"
     return fhash, vuln_class, asset, payload
