@@ -23,19 +23,23 @@ class SubzyUnavailable(Exception):
     """Raised when the subzy binary is missing on the PATH."""
 
 
+_DEFAULT_OUTPUT = "/dev/stdout"  # Linux-only — VPS runtime; not the laptop.
+
+
 def build_command(
     targets_file: str,
     *,
     rate_limit: int,
-    output_file: str = "-",
+    output_file: str = _DEFAULT_OUTPUT,
 ) -> list[str]:
     """Build the `subzy run` argv.
 
     `targets_file` is a newline-delimited file of subdomains owned by
     the runner. `rate_limit` maps onto subzy's `--concurrency` (subzy
     has no req/s throttle; concurrent goroutines is the nearest knob).
-    `output_file` defaults to `-` (stdout) so the runner can capture
-    JSON without an extra tmpfile.
+    `output_file` defaults to `/dev/stdout` — subzy treats `--output`
+    as a filename (not a marker for stdout), so we pass the proc FS
+    path explicitly. The runner captures the JSON via Popen.communicate.
     """
     if rate_limit <= 0:
         raise ValueError(f"rate_limit must be positive, got {rate_limit}")

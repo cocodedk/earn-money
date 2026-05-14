@@ -153,7 +153,7 @@ subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1
 nuclei -version 2>&1 | grep -i "version" | head -1
 katana -version 2>&1 | grep -i "current version" | head -1
-subzy --version 2>&1 | head -1 || warn "  subzy not on PATH — go install may have failed"
+subzy version 2>&1 | head -1 || warn "  subzy not on PATH — go install may have failed"
 naabu -version 2>&1 | grep -i "current version" | head -1
 nmap --version 2>&1 | head -1
 sqlmap --version 2>&1 | head -1

@@ -25,9 +25,10 @@ def test_build_command_includes_safety_flags() -> None:
     # --vuln keeps only VULNERABLE rows; --hide_fails suppresses errors.
     assert "--vuln" in cmd
     assert "--hide_fails" in cmd
-    # --output - means stdout; the runner pipes that into parse_output.
+    # --output /dev/stdout: subzy treats --output as a filename, not a
+    # stdout marker, so we pass the proc FS path explicitly.
     assert "--output" in cmd
-    assert cmd[cmd.index("--output") + 1] == "-"
+    assert cmd[cmd.index("--output") + 1] == "/dev/stdout"
 
 
 def test_build_command_uses_custom_rate_limit() -> None:
