@@ -78,6 +78,31 @@ def test_refuses_manual_only(tmp_repo: Path) -> None:
         )
 
 
+def test_max_targets_caps_in_scope_assets(tmp_repo: Path) -> None:
+    """When wildcards resolve to many assets, --max-targets N slices the
+    target list to the first N alphabetical. Discovered when algolia's
+    *.algolia.net resolved to 27,808 cluster shards."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed(paths, in_scope=["*.example.com"])
+    _seed_assets(paths, [f"shard{i:02d}.example.com" for i in range(10)])
+    captured: list[list[str]] = []
+
+    def fake_tool(targets: list[str]) -> active.ToolRunResult:
+        captured.append(list(targets))
+        return active.ToolRunResult(
+            outputs=tuple(_make_service(t) for t in targets),
+        )
+
+    httpx_probe.run_program(
+        paths, "hackerone", "example", tool_run=fake_tool, max_targets=3,
+    )
+    assert len(captured) == 1
+    assert captured[0] == [
+        "shard00.example.com", "shard01.example.com", "shard02.example.com",
+    ]
+
+
 def test_writes_services_for_in_scope_assets(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()

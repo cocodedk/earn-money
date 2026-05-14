@@ -65,6 +65,7 @@ def run_program(
     *,
     tool_run: ToolRun,
     run_id: str | None = None,
+    max_targets: int | None = None,
 ) -> active.ActiveRunResult:
     """Gate-check → prereq freshness → load services → scan → filter → record."""
     s = active.check_gates(paths, platform, slug, mode="active")
@@ -87,6 +88,12 @@ def run_program(
             )
 
         targets = _load_in_scope_service_urls(conn, s)
+        if max_targets is not None and max_targets >= 0:
+            # Cap discovered when algolia's *.algolia.net wildcard resolved
+            # to 27,808 cluster shards — nuclei at batch_size=1 would take
+            # weeks. Deterministic first-N slice (already alphabetical by
+            # subdomain). Cluster-aware sampling is a follow-up.
+            targets = targets[:max_targets]
         runs.start_run(
             conn, run_id=run_id, platform=platform, slug=slug, tool="nuclei",
             started_at=now, artifact_dir=str(artifact_dir), input_count=len(targets),

@@ -60,6 +60,42 @@ def _seed_httpx_run_and_services(
 # Happy-path test — asserts all 5 artifact files
 # ---------------------------------------------------------------------------
 
+def test_max_targets_caps_in_scope_service_urls(tmp_repo: Path) -> None:
+    """When a program's wildcard resolves to many in-scope services,
+    `max_targets=N` slices the target list to the first N alphabetical
+    so nuclei (batch_size=1 ~5 min/target) doesn't take weeks."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["*.example.com"])
+    _seed_httpx_run_and_services(paths, services_to_insert=[
+        services.HttpService(
+            subdomain=f"shard{i:02d}.example.com", scheme="https", port=443,
+            url=f"https://shard{i:02d}.example.com/", status_code=200,
+            title=None, server=None, technologies=(), redirect_to=None,
+            tls_summary=None, observed_at="t", last_run_id="httpx-r1",
+            in_scope_at_observation=True,
+        )
+        for i in range(10)
+    ])
+    captured: list[list[str]] = []
+
+    def fake_tool(targets: list[str]) -> active.ToolRunResult:
+        captured.append(list(targets))
+        return active.ToolRunResult(outputs=())
+
+    nuclei_scan.run_program(
+        paths, "hackerone", "example",
+        tool_run=fake_tool, run_id="nuclei-r1", max_targets=3,
+    )
+    assert len(captured) == 1
+    # Alphabetical order: shard00, shard01, shard02 first.
+    assert captured[0] == [
+        "https://shard00.example.com/",
+        "https://shard01.example.com/",
+        "https://shard02.example.com/",
+    ]
+
+
 def test_writes_signals_for_in_scope_services(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()

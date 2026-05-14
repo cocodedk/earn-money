@@ -76,6 +76,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--platform", default="hackerone")
     parser.add_argument("--program", required=True)
     parser.add_argument("--root", default=Path.cwd(), type=Path)
+    parser.add_argument(
+        "--max-targets", type=int, default=None,
+        help="Cap in-scope assets to the first N alphabetical. "
+             "Default unlimited; raise for wildcard-explosion programs.",
+    )
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
@@ -86,7 +91,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = httpx_probe.run_program(
-            paths, args.platform, args.program, tool_run=real_tool, run_id=run_id,
+            paths, args.platform, args.program, tool_run=real_tool,
+            run_id=run_id, max_targets=args.max_targets,
         )
     except flags.ReconDisabled as e:
         print(f"httpx-probe: {e}", file=sys.stderr)

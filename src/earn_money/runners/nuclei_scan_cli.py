@@ -103,6 +103,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--platform", default="hackerone")
     parser.add_argument("--program", required=True)
     parser.add_argument("--root", default=Path.cwd(), type=Path)
+    parser.add_argument(
+        "--max-targets", type=int, default=None,
+        help="Cap in-scope service URLs to the first N alphabetical. "
+             "Critical for wildcard-explosion programs — nuclei at "
+             "batch_size=1 takes ~5 min per target.",
+    )
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
@@ -114,7 +120,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = nuclei_scan.run_program(
             paths, args.platform, args.program,
-            tool_run=real_tool, run_id=run_id,
+            tool_run=real_tool, run_id=run_id, max_targets=args.max_targets,
         )
     except flags.ReconDisabled as e:
         print(f"nuclei-scan: {e}", file=sys.stderr)

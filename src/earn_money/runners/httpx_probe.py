@@ -46,9 +46,14 @@ def run_program(
     *,
     tool_run: ToolRun,
     run_id: str | None = None,
+    max_targets: int | None = None,
 ) -> active.ActiveRunResult:
     """Gate-check → load assets → scope filter → call tool → upsert services
-    → write manifest → record run.  Returns a typed result for the digest."""
+    → write manifest → record run.  Returns a typed result for the digest.
+
+    ``max_targets`` caps the in-scope asset set to the first N entries
+    (alphabetical) so wildcard-explosion programs don't run forever.
+    """
     s = active.check_gates(paths, platform, slug, mode="active")
 
     run_id = run_id or uuid.uuid4().hex
@@ -60,6 +65,8 @@ def run_program(
     conn = db.open_db(paths.program_db(platform, slug))
     try:
         targets = _load_in_scope_assets(conn, s)
+        if max_targets is not None and max_targets >= 0:
+            targets = targets[:max_targets]
         runs.start_run(
             conn, run_id=run_id, platform=platform, slug=slug, tool="httpx",
             started_at=now, artifact_dir=str(artifact_dir), input_count=len(targets),
