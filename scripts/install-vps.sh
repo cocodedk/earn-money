@@ -100,7 +100,8 @@ for entry in \
     "gau|github.com/lc/gau/v2/cmd/gau@latest" \
     "dalfox|github.com/hahwul/dalfox/v2@latest" \
     "gitleaks|github.com/gitleaks/gitleaks/v8@latest" \
-    "trufflehog|github.com/trufflesecurity/trufflehog/v3@latest"; do
+    "trufflehog|github.com/trufflesecurity/trufflehog/v3@latest" \
+    "subzy|github.com/PentestPad/subzy@latest"; do
     bin="${entry%%|*}"
     path="${entry##*|}"
     if command -v "$bin" >/dev/null 2>&1; then
@@ -152,6 +153,7 @@ subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1
 nuclei -version 2>&1 | grep -i "version" | head -1
 katana -version 2>&1 | grep -i "current version" | head -1
+subzy --version 2>&1 | head -1 || warn "  subzy not on PATH — go install may have failed"
 naabu -version 2>&1 | grep -i "current version" | head -1
 nmap --version 2>&1 | head -1
 sqlmap --version 2>&1 | head -1
