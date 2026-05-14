@@ -1,16 +1,22 @@
 """LLM provider abstraction for the agent decider.
 
-A `Provider` exposes one method — `complete(system, user)` → string.
-Concrete adapters wrap each vendor's SDK behind that interface so
-the decider can swap providers without touching its logic.
+A `Provider` exposes one method — `complete(system, user, task)` —
+returning the model's reply text. Concrete adapters wrap each vendor's
+SDK behind that interface so the decider can swap providers without
+touching its logic.
 
 Selection at runtime:
 
     EARN_MONEY_LLM_PROVIDER=anthropic|openai|openrouter|huggingface
-    EARN_MONEY_LLM_MODEL=<model-name>          # provider-specific default if unset
 
-API keys come from env: ANTHROPIC_API_KEY, OPENAI_API_KEY,
-OPENROUTER_API_KEY, HF_API_KEY.
+OpenRouter additionally honours the task router (spec §3 + §4) so a
+per-call `task` kwarg picks the right model from the profile env vars.
+Per-vendor env vars carry the API key + optional headers:
+
+    OPENROUTER_BASE_URL (default https://openrouter.ai/api/v1)
+    OPENROUTER_SITE_URL    → HTTP-Referer
+    OPENROUTER_APP_NAME    → X-Title
+    OPENROUTER_TIMEOUT_SECONDS
 """
 
 from __future__ import annotations
@@ -18,22 +24,37 @@ from __future__ import annotations
 import os
 from typing import Protocol
 
-# Provider-default models. Override via EARN_MONEY_LLM_MODEL.
+from earn_money.agent.providers_openai_compat import (
+    OPENROUTER_BASE_URL,
+    OpenAIProvider,
+    ProviderError,
+    ProviderUnavailable,
+    openrouter_headers,
+    openrouter_timeout,
+)
+from earn_money.agent.task_router import TaskType
+
 _DEFAULT_ANTHROPIC = "claude-opus-4-7"
-_DEFAULT_OPENAI = "gpt-4o-mini"
-_DEFAULT_OPENROUTER = "openrouter/auto"
 _DEFAULT_HUGGINGFACE = "meta-llama/Meta-Llama-3.1-70B-Instruct"
 _MAX_TOKENS = 4096
 
+__all__ = [
+    "AnthropicProvider",
+    "HuggingFaceProvider",
+    "OpenAIProvider",
+    "Provider",
+    "ProviderError",
+    "ProviderUnavailable",
+    "from_env",
+]
+
 
 class Provider(Protocol):
-    """Minimal LLM interface — system + user → reply text."""
+    """Minimal LLM interface — system + user (+ optional task) → reply text."""
 
-    def complete(self, *, system: str, user: str) -> str: ...
-
-
-class ProviderUnavailable(Exception):
-    """Raised when the requested provider's SDK or API key is missing."""
+    def complete(
+        self, *, system: str, user: str, task: str | TaskType | None = None,
+    ) -> str: ...
 
 
 class AnthropicProvider:
@@ -47,42 +68,16 @@ class AnthropicProvider:
         self._client = anthropic.Anthropic()
         self._model = model or _DEFAULT_ANTHROPIC
 
-    def complete(self, *, system: str, user: str) -> str:
+    def complete(
+        self, *, system: str, user: str, task: str | TaskType | None = None,
+    ) -> str:
+        # Anthropic model is fixed at constructor time. `task` is
+        # accepted for protocol parity but ignored.
         resp = self._client.messages.create(
             model=self._model, max_tokens=_MAX_TOKENS,
             system=system, messages=[{"role": "user", "content": user}],
         )
         return _extract_anthropic_text(resp)
-
-
-class OpenAIProvider:
-    """Works for both api.openai.com and any OpenAI-compatible endpoint.
-    OpenRouter and many self-hosted gateways speak the same dialect."""
-
-    def __init__(
-        self, model: str | None = None, *,
-        api_key_env: str = "OPENAI_API_KEY", base_url: str | None = None,
-        default_model: str = _DEFAULT_OPENAI,
-    ) -> None:
-        try:
-            import openai
-        except ImportError as exc:
-            raise ProviderUnavailable("install with [agent-openai]") from exc
-        api_key = os.environ.get(api_key_env)
-        if not api_key:
-            raise ProviderUnavailable(f"{api_key_env} unset")
-        self._client = openai.OpenAI(api_key=api_key, base_url=base_url)
-        self._model = model or default_model
-
-    def complete(self, *, system: str, user: str) -> str:
-        resp = self._client.chat.completions.create(
-            model=self._model, max_tokens=_MAX_TOKENS,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        )
-        return (resp.choices[0].message.content or "").strip()
 
 
 class HuggingFaceProvider:
@@ -100,7 +95,9 @@ class HuggingFaceProvider:
         )
         self._model = model or _DEFAULT_HUGGINGFACE
 
-    def complete(self, *, system: str, user: str) -> str:
+    def complete(
+        self, *, system: str, user: str, task: str | TaskType | None = None,
+    ) -> str:
         prompt = f"[SYSTEM]\n{system}\n\n[USER]\n{user}\n\n[ASSISTANT]\n"
         resp = self._client.post(
             f"/models/{self._model}",
@@ -123,9 +120,12 @@ def from_env() -> Provider:
         return OpenAIProvider(model=model)
     if name == "openrouter":
         return OpenAIProvider(
-            model=model, api_key_env="OPENROUTER_API_KEY",
-            base_url="https://openrouter.ai/api/v1",
-            default_model=_DEFAULT_OPENROUTER,
+            model=model,
+            api_key_env="OPENROUTER_API_KEY",
+            base_url=os.environ.get("OPENROUTER_BASE_URL") or OPENROUTER_BASE_URL,
+            extra_headers=openrouter_headers(),
+            timeout=openrouter_timeout(),
+            use_task_router=True,
         )
     if name == "huggingface":
         return HuggingFaceProvider(model=model)
