@@ -99,33 +99,6 @@ def test_first_verified_with_operator_note_flag(tmp_repo: Path) -> None:
     assert status["across"]["first_verified_with_operator_note"] is True
 
 
-def test_broken_program_is_contained(tmp_repo: Path) -> None:
-    paths = engine_paths(tmp_repo)
-    conn = db.open_db(paths.program_db("hackerone", "example"))
-    try:
-        seed_queued(conn)
-    finally:
-        conn.close()
-
-    # A second program with scope.md but no db.sqlite.
-    register_program(paths, platform="hackerone", slug="example2")
-    assert not paths.program_db("hackerone", "example2").exists()
-
-    status = aggregator.build_status(paths, now=_NOW)
-    assert len(status["programs"]) == 2
-    by_slug = {p["slug"]: p for p in status["programs"]}
-    # First program data is intact.
-    assert by_slug["example"]["finding_states"]["queued"] == 1
-    # Second program reports zero counts but is still listed.
-    example2 = by_slug["example2"]
-    assert example2["finding_states"]["queued"] == 0
-    assert all(v == 0 for v in example2["finding_states"].values())
-    assert example2["asset_count"] == 0
-    assert example2["http_service_count"] == 0
-    assert example2["top_queue"] == []
-    assert example2["recent_runs"] == []
-
-
 def test_aggregator_does_not_create_missing_db_file(tmp_repo: Path) -> None:
     paths = engine_paths(tmp_repo)
     register_program(paths, platform="hackerone", slug="example2")

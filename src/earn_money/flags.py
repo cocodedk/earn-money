@@ -44,6 +44,20 @@ def freeze_reason(paths: Paths, platform: str, slug: str) -> str:
     return flag.read_text(encoding="utf-8") if flag.exists() else ""
 
 
+def freeze_reason_text(paths: Paths, platform: str, slug: str) -> str | None:
+    """Return just the operator-supplied reason text (the body of the
+    FROZEN file after the timestamp line), or None if the program is not
+    frozen or the file lacks a reason line."""
+    flag = paths.freeze_flag(platform, slug)
+    if not flag.exists():
+        return None
+    lines = flag.read_text(encoding="utf-8").splitlines()
+    if len(lines) < 2:
+        return None  # only timestamp; no operator reason
+    body = "\n".join(lines[1:]).strip()
+    return body or None
+
+
 def require_program_not_frozen(paths: Paths, platform: str, slug: str) -> None:
     reason = freeze_reason(paths, platform, slug)
     if reason:

@@ -40,3 +40,17 @@ def test_require_program_not_frozen_raises(tmp_repo: Path) -> None:
     with pytest.raises(flags.ProgramFrozen) as excinfo:
         flags.require_program_not_frozen(paths, "hackerone", "example")
     assert "dest-diff: a, b removed" in str(excinfo.value)
+
+
+def test_freeze_reason_text_roundtrips_operator_reason(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    # Absent flag -> None.
+    assert flags.freeze_reason_text(paths, "hackerone", "example") is None
+    # After freeze, the body (timestamp stripped) is returned verbatim.
+    flags.freeze_program(
+        paths, "hackerone", "example", reason="rescoped; asset removed"
+    )
+    assert (
+        flags.freeze_reason_text(paths, "hackerone", "example")
+        == "rescoped; asset removed"
+    )

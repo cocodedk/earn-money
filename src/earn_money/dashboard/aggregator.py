@@ -45,13 +45,17 @@ def _build_program(
     """Return `(program_dict, has_operator_verified_note)`.
 
     A failure for one program does NOT propagate; the program is still
-    returned with zero counts and an `error` key.
+    returned with zero counts and an `error` key. Programming bugs
+    (TypeError, AttributeError, KeyError) intentionally propagate so they
+    surface in tests and logs rather than being silently swallowed.
     """
-    base = _scope_block(paths, platform, slug)
     try:
+        base = _scope_block(paths, platform, slug)
         db_block, has_op_note = _db_block(paths, platform, slug)
-    except Exception as exc:
-        return {**base, **_zero_db_block(), "error": f"{type(exc).__name__}: {exc}"}, False
+    except (sqlite3.Error, OSError, scope.InvalidScope, ValueError) as exc:
+        base_skeleton = base if "base" in locals() else {"platform": platform, "slug": slug}
+        return {**base_skeleton, **_zero_db_block(),
+                "error": f"{type(exc).__name__}: {exc}"}, False
     return {**base, **db_block}, has_op_note
 
 
@@ -59,10 +63,7 @@ def _scope_block(paths: Paths, platform: str, slug: str) -> dict[str, Any]:
     """Static, non-DB program fields: policy + freeze state."""
     s = scope.read_scope(paths.scope_file(platform, slug))
     frozen = flags.is_program_frozen(paths, platform, slug)
-    frozen_reason: str | None = None
-    if frozen:
-        raw = flags.freeze_reason(paths, platform, slug)
-        frozen_reason = _parse_freeze_reason(raw)
+    frozen_reason = flags.freeze_reason_text(paths, platform, slug) if frozen else None
     return {
         "platform": platform,
         "slug": slug,
@@ -118,6 +119,8 @@ def _scalar(conn: sqlite3.Connection, sql: str) -> int:
 
 
 def _top_queue(queued: list[Finding]) -> list[dict[str, Any]]:
+    # findings_in_state orders by first_seen; we want severity-first for the
+    # top-N display, so re-sort with severity.sort_key.
     queued = sorted(queued, key=sort_key)[:_TOP_QUEUE_LIMIT]
     return [
         {
@@ -137,7 +140,7 @@ def _recent_runs(
     cursor = conn.execute(
         "SELECT tool, status, started_at, signal_count, source_failures "
         "FROM recon_runs WHERE platform = ? AND slug = ? "
-        "ORDER BY started_at DESC LIMIT ?",
+        "ORDER BY started_at DESC, run_id DESC LIMIT ?",
         (platform, slug, _RECENT_RUNS_LIMIT),
     )
     return [
@@ -160,19 +163,6 @@ def _has_operator_verified_note(conn: sqlite3.Connection) -> bool:
         "LIMIT 1"
     ).fetchone()
     return row is not None
-
-
-def _parse_freeze_reason(text: str) -> str | None:
-    """Return the operator-supplied reason from a FROZEN flag file.
-
-    Format written by ``flags.freeze_program`` is ``<timestamp>\\n<reason>\\n``,
-    so the reason is everything after the first line. A single-line legacy
-    file falls back to that line.
-    """
-    lines = text.splitlines()
-    if len(lines) >= 2:
-        return "\n".join(lines[1:]).strip() or None
-    return lines[0].strip() if lines else None
 
 
 def _build_across(
