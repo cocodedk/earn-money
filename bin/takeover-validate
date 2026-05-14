@@ -1,0 +1,17 @@
+#!/bin/sh
+# Thin wrapper around the takeover-validate runner.
+set -eu
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ -f "$ROOT/.env" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/.env"
+fi
+
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "takeover-validate: .venv not found at $ROOT/.venv — run 'make install-dev' first" >&2
+  exit 1
+fi
+
+exec "$ROOT/.venv/bin/python" -m earn_money.runners.takeover_validate_cli --root "$ROOT" "$@"

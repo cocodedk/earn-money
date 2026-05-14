@@ -173,6 +173,28 @@ def test_manifest_records_roe_block(tmp_repo: Path) -> None:
     assert manifest["roe"]["authorized_test_environments"] == []
 
 
+def test_cli_returns_6_on_invalid_roe(
+    tmp_repo: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """End-to-end: malformed roe.md surfaces as exit 6 with a named-
+    error message, same controlled-failure shape as nuclei-scan."""
+    from earn_money.runners import takeover_validate_cli
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    roe_path = paths.roe_file("hackerone", "example")
+    roe_path.parent.mkdir(parents=True, exist_ok=True)
+    roe_path.write_text(
+        "---\nmax_requests_per_second: -1\n---\n", encoding="utf-8",
+    )
+    rc = takeover_validate_cli.main(
+        ["--platform", "hackerone", "--program", "example",
+         "--root", str(paths.root)]
+    )
+    assert rc == 6
+    assert "invalid roe.md" in capsys.readouterr().err
+
+
 def test_records_recon_run_row(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
