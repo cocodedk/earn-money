@@ -114,6 +114,35 @@ session. One bullet per gap, loosely tagged `signal`, `tooling`,
   Scope-filter will drop it as OOS, which is the correct behavior.
   Confirms scope discipline holds even on info-class hits.
 
+## Engagement outcome — 2026-05-14 cycle 4 (real data)
+
+- 4h 35m runtime. status=success. 112 signals across 13 template_ids,
+  0 source_failures. **First cycle to produce real data.**
+- Breakdown: 96x http-missing-security-headers (info), 3x missing-sri
+  (info), 3x fastly-debug-headers (info), 1 each of cookies-without-
+  httponly, csp-script-src-wildcard, missing-cookie-samesite-strict,
+  weak-csp-detect, xss-deprecated-header, keycloak-openid-config,
+  ghost-panel, graphql-alias-batching, graphql-directive-overloading,
+  and one **github-takeover (HIGH)** on mta-sts.wearehackerone.com.
+- Triage created 110 findings (1 OOS-dropped, 1 refreshed). bin/queue
+  surfaced github-takeover at the top by severity.
+- Manual verification of f5df5f0d (github-takeover) — CNAME really
+  points to hacker0x01.github.io which returns "Site not found", but
+  Hacker0x01 is HackerOne's own claimed GitHub org. False positive:
+  dangling Pages CNAME, no exploitable takeover.
+- [tooling] Pattern is general enough to engineer for. Shipped
+  `bin/verify-takeover <hash>` — operator-triggered helper that calls
+  the GitHub API on a takeover finding's `payload.extracted`, prints
+  CLAIMED / UNCLAIMED / INDETERMINATE + the recommended transition.
+  Sub-5-second verify per finding. v1 supports github-takeover only;
+  other providers (bitbucket, heroku, aws-bucket) follow the same
+  shape.
+- **Spec success criterion partially met:** finding survived
+  suppression, was manually reproduced (CNAME + Pages 404 + GitHub
+  org check), has an impact narrative ready ("CNAME exists but org
+  is claimed by HackerOne, no takeover, recommend resolved_na").
+  Operator transition pending.
+
 ## What I'd do next session, in order
 
 Aimed at shortening the path to the first paid bounty. The $5
