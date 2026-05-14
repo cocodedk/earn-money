@@ -48,3 +48,15 @@ rules:
     vuln_class: xss-deprecated-header
     severity: info
     reason: info-no-impact
+  # Added 2026-05-14 after the algolia cycle 4 noise — nuclei's
+  # `credentials-disclosure` template regex-matches any `API_KEY = "..."`
+  # literal and fires at severity=unknown when it can't classify the
+  # vendor. In practice this is overwhelmingly analytics write keys
+  # (Amplitude, Segment, GA measurement IDs, Mixpanel project tokens)
+  # that are public by design. A real credential leak — AWS access key,
+  # admin API key, JWT signing secret — fires at medium or higher and
+  # is *not* suppressed by this rule.
+  - name: noise.credentials-disclosure-unknown
+    vuln_class: credentials-disclosure
+    severity: unknown
+    reason: analytics-write-key-public-by-design
