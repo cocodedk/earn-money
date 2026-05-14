@@ -148,6 +148,16 @@ else
     log "  unit already installed; reload with 'systemctl daemon-reload' if you changed it"
 fi
 
+log "passive-tick daily timer (scope-sync + passive_recon per program)"
+install -m 0644 /opt/earn-money/scripts/passive-tick.service \
+    /etc/systemd/system/earn-money-passive-tick.service
+install -m 0644 /opt/earn-money/scripts/passive-tick.timer \
+    /etc/systemd/system/earn-money-passive-tick.timer
+systemctl daemon-reload
+systemctl enable --now earn-money-passive-tick.timer >/dev/null 2>&1 || \
+    warn "  passive-tick timer enable failed; check 'systemctl status'"
+log "  enabled. fires once per day at 04:30 UTC, gated by RECON_ENABLED"
+
 log "installed versions:"
 subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1

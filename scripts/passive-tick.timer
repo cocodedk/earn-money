@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily passive-recon pass for earn-money
+# 04:30 UTC chosen because (a) it's outside Western-Europe business
+# hours (Babak is in DK; programs and their triage teams are mostly
+# US/EU based), (b) it's offset 30m from the dpkg / apt timers that
+# cluster on minute 0.
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

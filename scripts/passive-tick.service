@@ -1,0 +1,16 @@
+[Unit]
+# Daily passive-recon pass for every registered program. Companion of
+# passive-tick.timer, which fires once per day at 04:30 UTC. Passive
+# only — never sends a live probe to a program asset.
+Description=earn-money passive-recon daily tick
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/earn-money
+ExecStart=/opt/earn-money/scripts/passive-tick.sh
+User=root
+PrivateTmp=true
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
