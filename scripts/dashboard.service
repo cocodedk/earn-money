@@ -1,0 +1,25 @@
+[Unit]
+# Live read-only dashboard for the earn-money pipeline.
+# Binds 127.0.0.1 only; access from the laptop via:
+#   ssh -L 8080:localhost:8080 recon-vps
+# then open http://localhost:8080 in the browser.
+Description=earn-money dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/earn-money
+ExecStart=/opt/earn-money/bin/dashboard --port 8080
+Restart=on-failure
+RestartSec=5
+User=root
+# Defense in depth: even if a future code change relaxed the in-process
+# 127.0.0.1 bind, systemd hardening keeps the service local-only.
+ProtectSystem=strict
+ReadOnlyPaths=/opt/earn-money
+ReadWritePaths=/opt/earn-money/recon/outputs
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

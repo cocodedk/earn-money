@@ -135,6 +135,18 @@ for an_file in \
         || warn "  $fname: download failed"
 done
 
+log "dashboard systemd unit"
+if [ ! -f /etc/systemd/system/earn-money-dashboard.service ]; then
+    install -m 0644 /opt/earn-money/scripts/dashboard.service \
+        /etc/systemd/system/earn-money-dashboard.service
+    systemctl daemon-reload
+    systemctl enable earn-money-dashboard.service >/dev/null 2>&1 || \
+        warn "  systemctl enable failed; check 'systemctl status'"
+    log "  installed and enabled. start with 'systemctl start earn-money-dashboard'"
+else
+    log "  unit already installed; reload with 'systemctl daemon-reload' if you changed it"
+fi
+
 log "installed versions:"
 subfinder -version 2>&1 | grep -i "current version" | head -1
 httpx -version 2>&1 | grep -i "current version" | head -1

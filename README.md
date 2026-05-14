@@ -122,15 +122,35 @@ Full operator routine: see [`ops/playbook.md`](ops/playbook.md).
 
 ## Live dashboard
 
-`bin/dashboard` starts a read-only HTTP server on `127.0.0.1:8080` showing
-queue, recon-runs, and FROZEN status across every registered program.
-Polls `/api/status` every 10 s.
+Read-only HTTP server on `127.0.0.1:8080` showing queue, recon-runs,
+finding-state badges, and FROZEN status across every registered
+program. Polls `/api/status` every 10 s.
+
+The VPS install (`scripts/install-vps.sh`) drops a systemd unit so the
+dashboard auto-starts and survives reboots:
 
 ```bash
-bin/dashboard --port 8080           # local
-# On laptop, tunnel to the VPS to read its DBs:
-ssh -L 8080:localhost:8080 recon-vps
-bin/dashboard --port 8080            # then open http://localhost:8080
+ssh recon-vps systemctl status earn-money-dashboard   # check it's running
+```
+
+From the laptop, one command opens the tunnel and the browser. Add to
+your shell rc (`~/.bashrc` / `~/.zshrc`):
+
+```sh
+dash() {
+  ssh -fNL 8080:localhost:8080 recon-vps 2>/dev/null
+  xdg-open http://localhost:8080 || open http://localhost:8080
+}
+```
+
+Then just type `dash` whenever you want to look. The `-f` flag puts SSH
+in the background; the tunnel stays up across the session. To stop it
+later: `pkill -f 'ssh.*8080:localhost:8080'`.
+
+Local use (laptop's own DBs, not VPS data):
+
+```bash
+bin/dashboard                       # http://127.0.0.1:8080
 ```
 
 ## Glossary
