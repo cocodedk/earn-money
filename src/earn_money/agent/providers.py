@@ -50,10 +50,13 @@ __all__ = [
 
 
 class Provider(Protocol):
-    """Minimal LLM interface — system + user (+ optional task) → reply text."""
+    """Minimal LLM interface — system + user (+ optional task +
+    response_format) → reply text."""
 
     def complete(
-        self, *, system: str, user: str, task: str | TaskType | None = None,
+        self, *, system: str, user: str,
+        task: str | TaskType | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> str: ...
 
 
@@ -69,10 +72,15 @@ class AnthropicProvider:
         self._model = model or _DEFAULT_ANTHROPIC
 
     def complete(
-        self, *, system: str, user: str, task: str | TaskType | None = None,
+        self, *, system: str, user: str,
+        task: str | TaskType | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> str:
-        # Anthropic model is fixed at constructor time. `task` is
-        # accepted for protocol parity but ignored.
+        # Anthropic model is fixed at constructor time. `task` and
+        # `response_format` are accepted for protocol parity but
+        # ignored — Anthropic uses tools for structured output, which
+        # the structured.py JSON-only fallback handles via the
+        # augmented system prompt.
         resp = self._client.messages.create(
             model=self._model, max_tokens=_MAX_TOKENS,
             system=system, messages=[{"role": "user", "content": user}],
@@ -96,8 +104,12 @@ class HuggingFaceProvider:
         self._model = model or _DEFAULT_HUGGINGFACE
 
     def complete(
-        self, *, system: str, user: str, task: str | TaskType | None = None,
+        self, *, system: str, user: str,
+        task: str | TaskType | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> str:
+        # HF Inference API doesn't speak OpenAI's response_format; the
+        # caller (structured.py) augments the system prompt instead.
         prompt = f"[SYSTEM]\n{system}\n\n[USER]\n{user}\n\n[ASSISTANT]\n"
         resp = self._client.post(
             f"/models/{self._model}",

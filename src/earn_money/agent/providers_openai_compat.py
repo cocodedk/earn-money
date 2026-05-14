@@ -81,16 +81,22 @@ class OpenAIProvider:
         return self._default_model
 
     def complete(
-        self, *, system: str, user: str, task: str | TaskType | None = None,
+        self, *, system: str, user: str,
+        task: str | TaskType | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> str:
+        kwargs: dict[str, Any] = {
+            "model": self._resolve(task),
+            "max_tokens": _MAX_TOKENS,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+        if response_format is not None:
+            kwargs["response_format"] = response_format
         try:
-            resp = self._client.chat.completions.create(
-                model=self._resolve(task), max_tokens=_MAX_TOKENS,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-            )
+            resp = self._client.chat.completions.create(**kwargs)
         except Exception as exc:
             raise ProviderError(
                 f"openai-compatible call failed: {type(exc).__name__}"
