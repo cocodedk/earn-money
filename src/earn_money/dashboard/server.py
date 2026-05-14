@@ -6,8 +6,10 @@ Two routes:
 - `GET /api/status` → ``aggregator.build_status(paths)`` as JSON
 - anything else     → 404
 
-Bound to ``127.0.0.1`` by construction; non-loopback access is blocked
-at the socket layer rather than via auth.
+Default bind is ``127.0.0.1`` (loopback only). `--host` lets the
+operator opt into a non-loopback bind when the host firewall is the
+auth boundary (e.g. VPS deployment behind a FW rule allowing only the
+operator's IP).
 """
 
 from __future__ import annotations
@@ -23,14 +25,18 @@ from earn_money.dashboard import aggregator
 
 _TEMPLATE_PATH = Path(__file__).parent / "templates" / "index.html"
 _DEFAULT_PORT = 8080
-_HOST = "127.0.0.1"
+_DEFAULT_HOST = "127.0.0.1"
 
 
-def build(paths: config.Paths, port: int) -> ThreadingHTTPServer:
-    """Return a `ThreadingHTTPServer` bound to 127.0.0.1:`port`.
+def build(
+    paths: config.Paths, port: int, host: str = _DEFAULT_HOST,
+) -> ThreadingHTTPServer:
+    """Return a `ThreadingHTTPServer` bound to `host`:`port`.
 
-    `port=0` picks an ephemeral port (used by tests). The server is not
-    started — the caller runs `serve_forever()` on a thread.
+    Default host is `127.0.0.1` — loopback-only. Operators behind a
+    host firewall that allow-lists their own IP can pass `host="0.0.0.0"`
+    (or a specific interface) to accept direct connections; the firewall
+    is then the auth boundary. `port=0` picks an ephemeral port.
 
     The HTML template is read once here so per-request handlers don't
     hit the filesystem. A missing template is a fail-fast install bug:
@@ -38,7 +44,7 @@ def build(paths: config.Paths, port: int) -> ThreadingHTTPServer:
     """
     index_html = _TEMPLATE_PATH.read_bytes()
     handler_cls = _make_handler(paths, index_html)
-    return ThreadingHTTPServer((_HOST, port), handler_cls)
+    return ThreadingHTTPServer((host, port), handler_cls)
 
 
 def _make_handler(
@@ -97,13 +103,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dashboard")
     parser.add_argument("--root", default=Path.cwd(), type=Path)
     parser.add_argument("--port", default=_DEFAULT_PORT, type=int)
+    parser.add_argument(
+        "--host", default=_DEFAULT_HOST,
+        help="bind address; default 127.0.0.1 (loopback). Set to 0.0.0.0 "
+             "for direct access when the host firewall is the auth boundary.",
+    )
     args = parser.parse_args(argv)
     paths = config.Paths.from_root(args.root)
-    httpd = build(paths, port=args.port)
-    # `_HOST` is the bound host by construction; `server_address[1]` is
-    # the actual int port (which may differ from `args.port` when 0).
+    httpd = build(paths, port=args.port, host=args.host)
+    # `server_address[1]` is the actual int port (which may differ from
+    # `args.port` when 0).
     bound_port = httpd.server_address[1]
-    print(f"dashboard: serving on http://{_HOST}:{bound_port}")
+    print(f"dashboard: serving on http://{args.host}:{bound_port}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

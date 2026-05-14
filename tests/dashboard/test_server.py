@@ -128,10 +128,21 @@ def test_root_returns_500_when_index_handler_raises(
     assert r.status_code == 500
 
 
-def test_bind_host_is_loopback(tmp_repo: Path) -> None:
+def test_bind_host_defaults_to_loopback(tmp_repo: Path) -> None:
     paths = engine_paths(tmp_repo)
     httpd = server.build(paths, port=0)
     try:
         assert httpd.server_address[0] == "127.0.0.1"
+    finally:
+        httpd.server_close()
+
+
+def test_bind_host_can_be_overridden(tmp_repo: Path) -> None:
+    """`--host 0.0.0.0` is the deployment shape when the host firewall
+    is the auth boundary (operator-locked IP)."""
+    paths = engine_paths(tmp_repo)
+    httpd = server.build(paths, port=0, host="0.0.0.0")
+    try:
+        assert httpd.server_address[0] == "0.0.0.0"
     finally:
         httpd.server_close()

@@ -1,20 +1,21 @@
 [Unit]
 # Live read-only dashboard for the earn-money pipeline.
-# Binds 127.0.0.1 only; access from the laptop via:
-#   ssh -L 8080:localhost:8080 recon-vps
-# then open http://localhost:8080 in the browser.
+# Bind: 0.0.0.0:80 (direct access). The HOST firewall must be the auth
+# boundary — restrict inbound 80/tcp to the operator's IP. The service
+# itself has no auth; if the FW rule is wide-open you've leaked recon
+# state on plaintext HTTP.
 Description=earn-money dashboard
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/earn-money
-ExecStart=/opt/earn-money/bin/dashboard --port 8080
+ExecStart=/opt/earn-money/bin/dashboard --host 0.0.0.0 --port 80
 Restart=on-failure
 RestartSec=5
 User=root
-# Defense in depth: even if a future code change relaxed the in-process
-# 127.0.0.1 bind, systemd hardening keeps the service local-only.
+# Defense in depth: filesystem hardening even though the service is
+# read-only by design (sqlite3 ?mode=ro URI).
 ProtectSystem=strict
 ReadOnlyPaths=/opt/earn-money
 ReadWritePaths=/opt/earn-money/recon/outputs
