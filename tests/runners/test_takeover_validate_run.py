@@ -1,0 +1,173 @@
+"""Manifest, resilience, and run-record tests for the takeover-validate runner."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from pathlib import Path
+
+import pytest
+
+from earn_money import config, db, scope
+from earn_money.recon import assets
+from earn_money.recon.signals import Signal
+from earn_money.runners import active, takeover_validate
+
+
+def _seed_scope(
+    paths: config.Paths,
+    *,
+    policy_value: scope.Policy = "rate-limited-OK",
+    in_scope: list[str] | None = None,
+    out_of_scope: list[str] | None = None,
+) -> None:
+    s = scope.Scope(
+        platform="hackerone", slug="example", policy=policy_value,
+        in_scope=in_scope or ["*.example.com"],
+        out_of_scope=out_of_scope or [],
+        notes="", scope_hash="seed", last_synced="2026-05-12T07:00:00Z",
+    )
+    scope.write_scope(paths.scope_file("hackerone", "example"), s)
+
+
+def _seed_assets(paths: config.Paths, subdomains: list[str]) -> None:
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    obs = [assets.AssetObservation(subdomain=sd, ips=()) for sd in subdomains]
+    assets.upsert_assets(conn, obs, observed_at="2026-05-12T07:00:00Z", in_scope=True)
+    conn.close()
+
+
+def _make_signal(host: str, *, service: str = "Heroku") -> Signal:
+    return Signal(
+        run_id="r",
+        tool="subzy",
+        signal_type="takeover_vulnerable",
+        asset=host,
+        target=f"https://{host}/",
+        signature=f"subzy|{service.lower()}|{host}",
+        payload=json.dumps({"service": service.lower(), "severity": "high"}),
+        observed_at="2026-05-14T10:00:00Z",
+    )
+
+
+def test_manifest_records_roe_block(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example",
+        tool_run=lambda _t: active.ToolRunResult(outputs=()),
+    )
+
+    manifest = json.loads(
+        next(
+            (paths.root / "recon/outputs/hackerone/example/subzy").rglob("manifest.json")
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["tool"] == "subzy"
+    assert manifest["roe"]["dos_authorized"] is False
+    assert manifest["roe"]["max_requests_per_second"] == 10
+    assert manifest["roe"]["authorized_test_environments"] == []
+
+
+def test_source_failures_promote_run_to_partial(tmp_repo: Path) -> None:
+    """A subzy batch returning non-zero (e.g. crashed mid-host) must
+    record status='partial' so the digest surfaces the partial
+    outcome instead of falsely reporting clean."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    def flaky(_targets: list[str]) -> active.ToolRunResult:
+        return active.ToolRunResult(
+            outputs=(),
+            source_failures=1,
+            raw_stderr="panic: runtime error in dns.Lookup\n",
+        )
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example", tool_run=flaky,
+    )
+
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT status, source_failures, error_summary FROM recon_runs "
+        "WHERE tool = 'subzy'"
+    ).fetchone()
+    conn.close()
+    assert row is not None
+    status, source_failures, error_summary = row
+    assert status == "partial"
+    assert source_failures == 1
+    assert error_summary is not None
+    assert "1 batch" in error_summary
+    assert "dns.Lookup" in error_summary
+
+
+def test_extra_manifest_fields_appended(tmp_repo: Path) -> None:
+    """`extra_manifest_fields` lets the CLI thread tool-specific audit
+    data (e.g. resolved subzy_concurrency) into the manifest without
+    leaking tool details into the runner core."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example",
+        tool_run=lambda _t: active.ToolRunResult(outputs=()),
+        extra_manifest_fields={"subzy_concurrency": 5},
+    )
+
+    manifest = json.loads(
+        next(
+            (paths.root / "recon/outputs/hackerone/example/subzy").rglob("manifest.json")
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["subzy_concurrency"] == 5
+    # roe block is preserved alongside the extra fields.
+    assert "roe" in manifest
+
+
+def test_cli_returns_6_on_invalid_roe(
+    tmp_repo: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    """End-to-end: malformed roe.md surfaces as exit 6 with a named-
+    error message, same controlled-failure shape as nuclei-scan."""
+    from earn_money.runners import takeover_validate_cli
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    roe_path = paths.roe_file("hackerone", "example")
+    roe_path.parent.mkdir(parents=True, exist_ok=True)
+    roe_path.write_text(
+        "---\nmax_requests_per_second: -1\n---\n", encoding="utf-8",
+    )
+    rc = takeover_validate_cli.main(
+        ["--platform", "hackerone", "--program", "example",
+         "--root", str(paths.root)]
+    )
+    assert rc == 6
+    assert "invalid roe.md" in capsys.readouterr().err
+
+
+def test_records_recon_run_row(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, in_scope=["api.example.com"])
+    _seed_assets(paths, ["api.example.com"])
+
+    takeover_validate.run_program(
+        paths, "hackerone", "example",
+        tool_run=lambda _t: active.ToolRunResult(outputs=()),
+    )
+    conn = sqlite3.connect(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT tool, status, input_count, signal_count FROM recon_runs "
+        "WHERE tool = 'subzy'"
+    ).fetchall()
+    conn.close()
+    assert rows == [("subzy", "success", 1, 0)]

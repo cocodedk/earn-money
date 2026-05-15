@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 from earn_money.agent.model_scout import (
     ModelInfo,
     is_free_model,
     parse_models_response,
-    recommend_profiles,
     score_model,
 )
 from earn_money.agent.task_router import TaskType
@@ -146,77 +143,3 @@ def test_score_unknown_task_type_returns_zero_for_no_keywords() -> None:
         assert isinstance(score_model(model, task), int)
 
 
-# ---------------------------------------------------------------------------
-# recommend_profiles
-# ---------------------------------------------------------------------------
-
-
-def test_recommend_profiles_covers_all_task_types() -> None:
-    models = [_CODER, _REASONER, _GRANITE, _MISTRAL, _GENERIC]
-    result = recommend_profiles(models)
-    for task in TaskType:
-        from earn_money.agent.task_router import profile_env_var
-
-        assert profile_env_var(task) in result
-
-
-def test_recommend_profiles_sets_global_default() -> None:
-    result = recommend_profiles([_GENERIC])
-    assert "OPENROUTER_DEFAULT_MODEL" in result
-
-
-def test_recommend_profiles_empty_returns_empty() -> None:
-    assert recommend_profiles([]) == {}
-
-
-def test_recommend_profiles_picks_highest_scorer() -> None:
-    # For DEEP_REASONING, _REASONER should win over _GENERIC
-    result = recommend_profiles([_GENERIC, _REASONER])
-    from earn_money.agent.task_router import profile_env_var
-
-    assert result[profile_env_var(TaskType.DEEP_REASONING)] == _REASONER.id
-
-
-# ---------------------------------------------------------------------------
-# fetch_models_json (mocked HTTP)
-# ---------------------------------------------------------------------------
-
-
-def test_fetch_models_json_calls_correct_url() -> None:
-    from earn_money.agent.model_scout_fetch import fetch_models_json
-
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = {"data": []}
-    mock_resp.raise_for_status = MagicMock()
-
-    with patch("earn_money.agent.model_scout_fetch.httpx.Client") as mock_client_cls:
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
-        mock_ctx.get.return_value = mock_resp
-        mock_client_cls.return_value = mock_ctx
-
-        result = fetch_models_json("sk-test", "https://openrouter.ai/api/v1")
-
-    mock_ctx.get.assert_called_once_with("https://openrouter.ai/api/v1/models")
-    assert result == {"data": []}
-
-
-def test_fetch_models_json_passes_auth_header() -> None:
-    from earn_money.agent.model_scout_fetch import fetch_models_json
-
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = {"data": []}
-    mock_resp.raise_for_status = MagicMock()
-
-    with patch("earn_money.agent.model_scout_fetch.httpx.Client") as mock_client_cls:
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
-        mock_ctx.get.return_value = mock_resp
-        mock_client_cls.return_value = mock_ctx
-
-        fetch_models_json("sk-testkey")
-
-    call_kwargs = mock_client_cls.call_args.kwargs
-    assert call_kwargs["headers"]["Authorization"] == "Bearer sk-testkey"

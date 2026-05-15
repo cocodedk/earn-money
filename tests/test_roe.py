@@ -106,3 +106,50 @@ def test_roe_is_frozen_dataclass() -> None:
     with pytest.raises(FrozenInstanceError):
         r.max_requests_per_second = 999  # type: ignore[misc]
     assert isinstance(r, RoE)
+
+
+def test_default_roe_new_fields_are_conservative() -> None:
+    d = default_roe()
+    assert d.extra_nuclei_dirs == ()
+    assert d.auth_testing_authorized is False
+    assert d.sqli_time_based is False
+    assert d.mutation_testing_authorized is False
+    assert d.auth_lockout_budget == 0
+
+
+def test_read_roe_parses_extra_nuclei_dirs(tmp_path: Path) -> None:
+    (tmp_path / "roe.md").write_text(
+        "---\nextra_nuclei_dirs:\n  - http/vulnerabilities\n  - http/xss\n---\n",
+        encoding="utf-8",
+    )
+    r = read_roe(tmp_path / "roe.md")
+    assert set(r.extra_nuclei_dirs) == {"http/vulnerabilities", "http/xss"}
+
+
+def test_read_roe_rejects_unknown_nuclei_dir(tmp_path: Path) -> None:
+    (tmp_path / "roe.md").write_text(
+        "---\nextra_nuclei_dirs:\n  - http/dangerous\n---\n", encoding="utf-8",
+    )
+    with pytest.raises(InvalidRoE, match="unknown dirs"):
+        read_roe(tmp_path / "roe.md")
+
+
+def test_read_roe_parses_auth_and_sqli_fields(tmp_path: Path) -> None:
+    (tmp_path / "roe.md").write_text(
+        "---\nauth_testing_authorized: true\nsqli_time_based: false\n"
+        "mutation_testing_authorized: true\nauth_lockout_budget: 3\n---\n",
+        encoding="utf-8",
+    )
+    r = read_roe(tmp_path / "roe.md")
+    assert r.auth_testing_authorized is True
+    assert r.sqli_time_based is False
+    assert r.mutation_testing_authorized is True
+    assert r.auth_lockout_budget == 3
+
+
+def test_read_roe_rejects_negative_auth_lockout_budget(tmp_path: Path) -> None:
+    (tmp_path / "roe.md").write_text(
+        "---\nauth_lockout_budget: -1\n---\n", encoding="utf-8",
+    )
+    with pytest.raises(InvalidRoE, match="non-negative"):
+        read_roe(tmp_path / "roe.md")

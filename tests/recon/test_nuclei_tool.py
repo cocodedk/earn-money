@@ -107,6 +107,27 @@ def test_parse_jsonl_skips_malformed_lines(fixtures_dir: Path) -> None:
     assert len(signals) == 3
 
 
+def test_build_command_includes_extra_dirs() -> None:
+    cmd = nuclei_tool.build_command(
+        ["https://target.cocode.dk/"],
+        template_dirs=("http/cves",),
+        extra_dirs=("http/vulnerabilities", "http/xss"),
+    )
+    t_values = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-t"]
+    assert "http/cves" in t_values
+    assert "http/vulnerabilities" in t_values
+    assert "http/xss" in t_values
+
+
+def test_build_command_rejects_unapproved_extra_dir() -> None:
+    with pytest.raises(nuclei_tool.UnsafeTemplateProfile, match="unapproved extra"):
+        nuclei_tool.build_command(
+            ["https://target.cocode.dk/"],
+            template_dirs=("http/cves",),
+            extra_dirs=("http/fuzzing",),
+        )
+
+
 def test_parse_jsonl_payload_carries_severity_and_template(fixtures_dir: Path) -> None:
     raw = (fixtures_dir / "nuclei_output.jsonl").read_text(encoding="utf-8")
     signals = nuclei_tool.parse_jsonl(raw, run_id="r1", observed_at="t")

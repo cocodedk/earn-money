@@ -23,12 +23,15 @@ from typing import TYPE_CHECKING
 from earn_money import config, flags, policy, roe, scope
 from earn_money.runners import (
     active,
+    auth_bypass_probe,
     graphql_probe,
     httpx_probe,
     katana_crawl,
     nuclei_scan,
     sourcemap_scan,
+    sqli_probe,
     takeover_validate,
+    xss_probe,
 )
 
 if TYPE_CHECKING:
@@ -82,6 +85,9 @@ _PIPELINE: tuple[tuple[str, Callable[..., active.ActiveRunResult]], ...] = (
     ("sourcemap-scan", sourcemap_scan.run_program),
     ("katana-crawl", katana_crawl.run_program),
     ("graphql-probe", graphql_probe.run_program),
+    ("auth-bypass-probe", auth_bypass_probe.run_program),
+    ("sqli-probe", sqli_probe.run_program),
+    ("xss-probe", xss_probe.run_program),
 )
 
 
@@ -113,7 +119,7 @@ def run_program_pipeline(
 
     steps: list[StepResult] = []
     pending = [name for name, _ in _PIPELINE]
-    for _ in range(len(_PIPELINE)):
+    for _ in range(len(_PIPELINE) * 2):  # allow each step up to 2 tries (prereq retry)
         name, max_targets = _pick_next(
             pending, steps, paths, platform, slug, decider, max_targets_per_step,
         )
@@ -127,7 +133,7 @@ def run_program_pipeline(
                 paths, platform, slug,
                 tool_run=tool_run, run_id=run_id, max_targets=max_targets,
             )
-        except (flags.ReconDisabled, flags.ProgramFrozen) as exc:
+        except (flags.ReconDisabled, flags.ProgramFrozen, roe.InvalidRoE) as exc:
             return PipelineResult(
                 platform=platform, slug=slug, steps=tuple(steps),
                 aborted_reason=f"{type(exc).__name__}: {exc}",
@@ -140,13 +146,24 @@ def run_program_pipeline(
             if name in pending:
                 pending.remove(name)
             continue
-        if name in pending:
-            pending.remove(name)
         if getattr(result, "prereq_skipped", False):
             steps.append(StepResult(
                 runner=name, status="skipped", detail="prereq missing",
             ))
+            # Rotate to end so the step is retried after its prereq runs.
+            if name in pending:
+                pending.remove(name)
+                pending.append(name)
             continue
+        if getattr(result, "roe_skipped", False):
+            if name in pending:
+                pending.remove(name)
+            steps.append(StepResult(
+                runner=name, status="skipped", detail="roe not authorized",
+            ))
+            continue
+        if name in pending:
+            pending.remove(name)
         steps.append(StepResult(
             runner=name, status="ok",
             outputs_recorded=result.outputs_recorded,
@@ -175,8 +192,8 @@ def _pick_next(
     )
     if decision.next_step == "stop":
         return None, None
-    if decision.next_step not in _PIPELINE_BY_NAME:
-        # Decider returned an unexpected step name — fall back to the
-        # next pending step rather than crashing the whole pipeline.
+    if decision.next_step not in _PIPELINE_BY_NAME or decision.next_step not in pending:
+        # Decider returned an unknown or already-completed step — fall back to
+        # the next pending step rather than crashing or looping the pipeline.
         return pending[0], default_max_targets
     return decision.next_step, decision.max_targets or default_max_targets

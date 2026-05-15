@@ -91,6 +91,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
+
+    try:
+        flags.require_recon_enabled(paths)
+        flags.require_program_not_frozen(paths, args.platform, args.program)
+    except flags.ReconDisabled as e:
+        print(f"scope-sync: {e}", file=sys.stderr)
+        return 2
+    except flags.ProgramFrozen as e:
+        print(f"scope-sync: {e}", file=sys.stderr)
+        return 3
+
+    if args.platform != "hackerone":
+        print(f"scope-sync: platform {args.platform!r} has no sync adapter — skipping")
+        return 0
+
     client: hackerone.Client | None = None
     try:
         client = hackerone.Client(

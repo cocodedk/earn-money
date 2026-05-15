@@ -49,6 +49,19 @@ def _load_in_scope_service_urls(
     return [url for url, _, _, _ in matches]
 
 
+def _load_in_scope_hosts(
+    conn: sqlite3.Connection, s: scope.Scope
+) -> list[str]:
+    """Return httpx-validated live hosts for katana -cs scope enforcement."""
+    cursor = conn.execute(
+        "SELECT DISTINCT subdomain FROM http_services WHERE in_scope_at_observation = 1"
+    )
+    return [
+        row[0] for row in cursor
+        if scope.is_in_scope(row[0], s.in_scope, s.out_of_scope)
+    ]
+
+
 def _recent_httpx_success(
     conn: sqlite3.Connection, *, platform: str, slug: str, now: datetime,
 ) -> bool:

@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from earn_money.recon.signals import Signal
+from earn_money.roe import EXTRA_ALLOWED_NUCLEI_DIRS
 from earn_money.triage import hashing
 
 # Template paths are relative to the local templates root
@@ -54,6 +55,7 @@ def build_command(
     targets: Sequence[str],
     *,
     template_dirs: Sequence[str],
+    extra_dirs: Sequence[str] = (),
     rate_limit: int = _DEFAULT_RATE_LIMIT,
 ) -> list[str]:
     if not targets:
@@ -66,6 +68,12 @@ def build_command(
             f"refusing to invoke nuclei with unapproved template "
             f"directories: {sorted(unapproved)}. "
             f"Approved: {sorted(APPROVED_TEMPLATE_DIRS)}"
+        )
+    unapproved_extra = set(extra_dirs) - EXTRA_ALLOWED_NUCLEI_DIRS
+    if unapproved_extra:
+        raise UnsafeTemplateProfile(
+            f"refusing unapproved extra dirs: {sorted(unapproved_extra)}. "
+            f"Allowed: {sorted(EXTRA_ALLOWED_NUCLEI_DIRS)}"
         )
     argv: list[str] = [
         "nuclei",
@@ -81,7 +89,7 @@ def build_command(
         "-bs", "10",
         "-stats-interval", "60",
     ]
-    for d in template_dirs:
+    for d in list(template_dirs) + list(extra_dirs):
         argv.extend(["-t", d])
     return argv
 

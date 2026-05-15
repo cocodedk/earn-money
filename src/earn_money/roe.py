@@ -1,14 +1,4 @@
-"""Per-program Rules of Engagement.
-
-`roe.md` lives alongside `scope.md` in each `programs/<platform>/<slug>/`.
-It declares *technique-level* authority for that program: DoS, destructive
-payloads, social engineering, PII handling, max request rate, named test
-environments, named test accounts. Loaded at runtime by active-probing
-runners; never written to the DB.
-
-`CLAUDE.md` is the conservative *floor* for any field a program leaves
-unspecified. `default_roe()` returns that floor.
-"""
+"""Per-program Rules of Engagement — technique-level authority from roe.md."""
 
 from __future__ import annotations
 
@@ -26,9 +16,17 @@ PiiHandling = Literal[
 ]
 _ALLOWED_PII: frozenset[str] = frozenset(get_args(PiiHandling))
 
+# Opt-in nuclei template directories beyond the default approved set.
+# Any value NOT in this set raises InvalidRoE when read from roe.md.
+EXTRA_ALLOWED_NUCLEI_DIRS: frozenset[str] = frozenset({
+    "http/vulnerabilities",
+    "http/injection",
+    "http/xss",
+})
+
 
 class InvalidRoE(Exception):
-    """Raised when roe.md is malformed or carries an out-of-range value."""
+    """Malformed or out-of-range roe.md value."""
 
 
 @dataclass(frozen=True)
@@ -41,16 +39,15 @@ class RoE:
     authorized_test_environments: tuple[str, ...]
     authorized_test_accounts: tuple[str, ...]
     special_notes: str = ""
+    extra_nuclei_dirs: tuple[str, ...] = ()
+    auth_testing_authorized: bool = False
+    sqli_time_based: bool = False
+    mutation_testing_authorized: bool = False
+    auth_lockout_budget: int = 0
+    injection_testing_authorized: bool = False
 
     def manifest_payload(self) -> dict[str, Any]:
-        """Audit-trail subset for embedding in a runner's `manifest.json`.
-
-        Carries the technique-level flags, rate cap, *and* the named
-        test-environments / test-accounts lists — without those a
-        reviewer can't reconstruct whether an elevated-authority run
-        respected the declared environment boundary. `special_notes`
-        (free-text) is the only field omitted.
-        """
+        """Audit-trail subset for embedding in a runner's `manifest.json`."""
         return {
             "dos_authorized": self.dos_authorized,
             "destructive_payloads_authorized": self.destructive_payloads_authorized,
@@ -59,15 +56,17 @@ class RoE:
             "max_requests_per_second": self.max_requests_per_second,
             "authorized_test_environments": list(self.authorized_test_environments),
             "authorized_test_accounts": list(self.authorized_test_accounts),
+            "extra_nuclei_dirs": list(self.extra_nuclei_dirs),
+            "auth_testing_authorized": self.auth_testing_authorized,
+            "sqli_time_based": self.sqli_time_based,
+            "mutation_testing_authorized": self.mutation_testing_authorized,
+            "auth_lockout_budget": self.auth_lockout_budget,
+            "injection_testing_authorized": self.injection_testing_authorized,
         }
 
 
 def default_roe() -> RoE:
-    """Conservative floor matching CLAUDE.md's repo-wide invariants.
-
-    Returns the shared `DEFAULT_ROE` singleton — `RoE` is frozen, so a
-    single instance is safe to share across callers.
-    """
+    """Conservative floor — returns the shared DEFAULT_ROE singleton."""
     return DEFAULT_ROE
 
 
@@ -79,7 +78,6 @@ DEFAULT_ROE = RoE(
     max_requests_per_second=10,
     authorized_test_environments=(),
     authorized_test_accounts=(),
-    special_notes="",
 )
 
 
@@ -101,6 +99,22 @@ def _str_list(value: object, key: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
         raise InvalidRoE(f"{key}: must be a list of strings")
     return tuple(value)
+
+
+def _non_negative_int(value: object, key: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise InvalidRoE(f"{key}: must be a non-negative integer, got {value!r}")
+    return value
+
+
+def _nuclei_dirs(value: object, key: str) -> tuple[str, ...]:
+    dirs = _str_list(value, key)
+    bad = frozenset(dirs) - EXTRA_ALLOWED_NUCLEI_DIRS
+    if bad:
+        raise InvalidRoE(
+            f"{key}: unknown dirs {sorted(bad)}; allowed: {sorted(EXTRA_ALLOWED_NUCLEI_DIRS)}"
+        )
+    return dirs
 
 
 def read_roe(path: Path) -> RoE:
@@ -131,17 +145,11 @@ def read_roe(path: Path) -> RoE:
             meta.get("dos_authorized", floor.dos_authorized), "dos_authorized"
         ),
         destructive_payloads_authorized=_bool(
-            meta.get(
-                "destructive_payloads_authorized",
-                floor.destructive_payloads_authorized,
-            ),
+            meta.get("destructive_payloads_authorized", floor.destructive_payloads_authorized),
             "destructive_payloads_authorized",
         ),
         social_engineering_authorized=_bool(
-            meta.get(
-                "social_engineering_authorized",
-                floor.social_engineering_authorized,
-            ),
+            meta.get("social_engineering_authorized", floor.social_engineering_authorized),
             "social_engineering_authorized",
         ),
         pii_handling=pii,
@@ -150,19 +158,39 @@ def read_roe(path: Path) -> RoE:
             "max_requests_per_second",
         ),
         authorized_test_environments=_str_list(
-            meta.get("authorized_test_environments", []),
-            "authorized_test_environments",
+            meta.get("authorized_test_environments", []), "authorized_test_environments",
         ),
         authorized_test_accounts=_str_list(
-            meta.get("authorized_test_accounts", []),
-            "authorized_test_accounts",
+            meta.get("authorized_test_accounts", []), "authorized_test_accounts",
         ),
         special_notes=str(meta.get("special_notes", floor.special_notes)),
+        extra_nuclei_dirs=_nuclei_dirs(
+            meta.get("extra_nuclei_dirs", []), "extra_nuclei_dirs",
+        ),
+        auth_testing_authorized=_bool(
+            meta.get("auth_testing_authorized", floor.auth_testing_authorized),
+            "auth_testing_authorized",
+        ),
+        sqli_time_based=_bool(
+            meta.get("sqli_time_based", floor.sqli_time_based), "sqli_time_based",
+        ),
+        mutation_testing_authorized=_bool(
+            meta.get("mutation_testing_authorized", floor.mutation_testing_authorized),
+            "mutation_testing_authorized",
+        ),
+        auth_lockout_budget=_non_negative_int(
+            meta.get("auth_lockout_budget", floor.auth_lockout_budget), "auth_lockout_budget",
+        ),
+        injection_testing_authorized=_bool(
+            meta.get("injection_testing_authorized", floor.injection_testing_authorized),
+            "injection_testing_authorized",
+        ),
     )
 
 
 __all__ = [
     "DEFAULT_ROE",
+    "EXTRA_ALLOWED_NUCLEI_DIRS",
     "InvalidRoE",
     "PiiHandling",
     "RoE",

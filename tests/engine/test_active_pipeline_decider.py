@@ -1,0 +1,159 @@
+"""Tests for active-pipeline decider integration and runner-failure resilience."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+from earn_money import config, db, scope
+from earn_money._time import to_iso
+from earn_money.agent.decider import Decision
+from earn_money.engine import active_pipeline
+from earn_money.recon import assets, runs, services
+from earn_money.runners import active
+
+
+def _seed_scope(paths: config.Paths) -> None:
+    s = scope.Scope(
+        platform="hackerone", slug="example", policy="rate-limited-OK",
+        in_scope=["api.example.com"], out_of_scope=[],
+        notes="", scope_hash="seed", last_synced="2026-05-12T07:00:00Z",
+    )
+    scope.write_scope(paths.scope_file("hackerone", "example"), s)
+
+
+def _seed_httpx_run(paths: config.Paths) -> None:
+    """Recent httpx success so nuclei/sourcemap/katana/graphql don't skip."""
+    now = datetime.now(UTC)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    try:
+        runs.start_run(
+            conn, run_id="httpx-bootstrap", platform="hackerone", slug="example",
+            tool="httpx", started_at=to_iso(now - timedelta(minutes=10)),
+            artifact_dir="x", input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="httpx-bootstrap",
+            finished_at=to_iso(now - timedelta(minutes=5)),
+            status="success", output_count=1, signal_count=0,
+            source_failures=0, oos_drops=0,
+        )
+        services.upsert_service(conn, services.HttpService(
+            subdomain="api.example.com", scheme="https", port=443,
+            url="https://api.example.com/", status_code=200,
+            title=None, server=None, technologies=(),
+            redirect_to=None, tls_summary=None,
+            observed_at="t", last_run_id="httpx-bootstrap",
+            in_scope_at_observation=True,
+        ))
+        assets.upsert_assets(
+            conn,
+            [assets.AssetObservation(subdomain="api.example.com", ips=())],
+            observed_at="t", in_scope=True,
+        )
+        katana_artifact = (
+            paths.root / "recon/outputs/hackerone/example/katana/seed/ka1"
+        )
+        katana_artifact.mkdir(parents=True, exist_ok=True)
+        (katana_artifact / "discovered_urls.jsonl").write_text("", encoding="utf-8")
+        runs.start_run(
+            conn, run_id="ka1", platform="hackerone", slug="example",
+            tool="katana", started_at=to_iso(now - timedelta(minutes=8)),
+            artifact_dir=str(katana_artifact), input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="ka1",
+            finished_at=to_iso(now - timedelta(minutes=4)),
+            status="success", output_count=1, signal_count=0,
+            source_failures=0, oos_drops=0,
+        )
+    finally:
+        conn.close()
+
+
+def _noop_factory(
+    _runner: str, _paths: config.Paths, _platform: str, _slug: str, _run_id: str,
+) -> active.ToolRun:  # type: ignore[name-defined]
+    return lambda _t: active.ToolRunResult(outputs=())
+
+
+def test_decider_overrides_step_order(tmp_repo: Path) -> None:
+    """When a decider is provided, it picks the next step -- not the
+    fixed _PIPELINE order. Orchestrator validates the choice."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+    chosen = iter([
+        "takeover-validate",  # not the natural-first step (httpx is)
+        "graphql-probe",
+        "stop",
+    ])
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        try:
+            nxt = next(chosen)
+        except StopIteration:
+            nxt = "stop"
+        return Decision(next_step=nxt, reason="test")
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
+    )
+    runners = [s.runner for s in result.steps]
+    assert runners == ["takeover-validate", "graphql-probe"]
+
+
+def test_decider_stop_short_circuits(tmp_repo: Path) -> None:
+    """`next_step='stop'` ends the pipeline cleanly without further runs."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        return Decision(next_step="stop", reason="enough for today")
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
+    )
+    assert result.steps == ()
+    assert result.aborted_reason is None
+
+
+def test_pipeline_continues_after_a_runner_raises(tmp_repo: Path) -> None:
+    """A tool-level exception in one runner must not stop the rest of
+    the pipeline. The failing step is recorded as 'failed' with detail."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+
+    def factory(
+        runner: str, _paths: config.Paths, _platform: str, _slug: str,
+        _run_id: str,
+    ) -> active.ToolRun:  # type: ignore[name-defined]
+        if runner == "nuclei-scan":
+            def boom(_t: list[str]) -> active.ToolRunResult:
+                raise RuntimeError("simulated nuclei crash")
+            return boom
+        return lambda _t: active.ToolRunResult(outputs=())
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example", tool_factory=factory,
+    )
+    statuses = {s.runner: s.status for s in result.steps}
+    assert statuses["nuclei-scan"] == "failed"
+    failed = next(s for s in result.steps if s.runner == "nuclei-scan")
+    assert "simulated nuclei crash" in failed.detail
+    # Subsequent steps still ran.
+    assert statuses["takeover-validate"] == "ok"
+    assert statuses["sourcemap-scan"] == "ok"

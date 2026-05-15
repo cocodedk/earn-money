@@ -24,6 +24,7 @@ class ActiveRunResult:
     oos_drops: int = 0
     terminated_reason: Literal["kill_switch", "freeze", "timeout"] | None = None
     prereq_skipped: bool = False
+    roe_skipped: bool = False
 
 
 @dataclass(frozen=True)

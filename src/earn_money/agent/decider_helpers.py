@@ -22,7 +22,8 @@ from earn_money.agent.state import PipelineState
 
 ALLOWED_STEPS = frozenset({
     "httpx-probe", "nuclei-scan", "takeover-validate",
-    "sourcemap-scan", "katana-crawl", "graphql-probe", "stop",
+    "sourcemap-scan", "katana-crawl", "graphql-probe",
+    "auth-bypass-probe", "sqli-probe", "xss-probe", "stop",
 })
 
 _DECIDER_INSTRUCTIONS = (

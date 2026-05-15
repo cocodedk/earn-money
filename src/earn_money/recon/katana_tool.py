@@ -13,6 +13,7 @@ and -jc requires a headless Chrome the VPS doesn't run.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -36,12 +37,16 @@ def build_command(
     rate_limit: int,
     depth: int = 2,
     concurrency: int = 10,
+    crawl_scope: Sequence[str] = (),
 ) -> list[str]:
     """Build the `katana` argv for crawling a list of seed URLs.
 
     `targets_file` is a newline-delimited file of seed URLs. `rate_limit`
-    is requests-per-second (katana has a real `-rl` knob). `depth` caps
-    the crawl recursion; `concurrency` is parallel workers.
+    is requests-per-second. `depth` caps crawl recursion. `concurrency`
+    is parallel workers. `crawl_scope` provides explicit `-cs` hosts so
+    katana never issues requests to OOS hosts before the post-filter runs;
+    values should be already-validated live hosts (from `http_services`),
+    not raw `scope.md` patterns.
     """
     if rate_limit <= 0:
         raise ValueError(f"rate_limit must be positive, got {rate_limit}")
@@ -49,7 +54,7 @@ def build_command(
         raise ValueError(f"depth must be positive, got {depth}")
     if concurrency <= 0:
         raise ValueError(f"concurrency must be positive, got {concurrency}")
-    return [
+    cmd = [
         "katana",
         "-list", targets_file,
         "-jsonl",
@@ -59,6 +64,11 @@ def build_command(
         "-depth", str(depth),
         "-concurrency", str(concurrency),
     ]
+    for host in crawl_scope:
+        # Katana -cs is a URL regex; scheme-anchored so bare hostname patterns can't bypass scope.
+        pattern = r"^https?://" + re.escape(host).replace(r"\*", ".*") + r"(?::\d+)?(?:/.*)?$"
+        cmd.extend(["-cs", pattern])
+    return cmd
 
 
 def parse_jsonl(raw: str) -> list[DiscoveredUrl]:
