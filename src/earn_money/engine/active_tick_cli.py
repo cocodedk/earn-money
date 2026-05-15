@@ -19,12 +19,15 @@ from earn_money import config
 from earn_money.engine import active_pipeline
 from earn_money.registry import iter_registered_programs
 from earn_money.runners import (
+    auth_bypass_probe_cli,
     graphql_probe_cli,
     httpx_probe_cli,
     katana_crawl_cli,
     nuclei_scan_cli,
     sourcemap_scan_cli,
+    sqli_probe_cli,
     takeover_validate_cli,
+    xss_probe_cli,
 )
 
 
@@ -47,6 +50,12 @@ def _real_tool_factory(
         return katana_crawl_cli._build_real_tool(paths, platform, slug, run_id)
     if runner == "graphql-probe":
         return graphql_probe_cli._build_real_tool(paths, platform, slug, run_id)
+    if runner == "auth-bypass-probe":
+        return auth_bypass_probe_cli._build_real_tool(paths, platform, slug, run_id)
+    if runner == "sqli-probe":
+        return sqli_probe_cli._build_real_tool(paths, platform, slug, run_id)
+    if runner == "xss-probe":
+        return xss_probe_cli._build_real_tool(paths, platform, slug, run_id)
     raise ValueError(f"unknown runner {runner!r}")
 
 

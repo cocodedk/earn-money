@@ -10,10 +10,7 @@ authorized_test_environments:
 authorized_test_accounts: []
 auth_lockout_budget: 3
 sqli_time_based: false
-extra_nuclei_dirs:
-  - http/vulnerabilities
-  - http/injection
-  - http/xss
+extra_nuclei_dirs: []
 special_notes: |
   Operator-owned OWASP Juice Shop at target.cocode.dk.
   Full HTTP technique authorization on the designated test environment.
