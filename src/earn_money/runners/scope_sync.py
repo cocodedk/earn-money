@@ -91,11 +91,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
-    client = hackerone.Client(
-        username=os.environ.get("HACKERONE_API_USERNAME", ""),
-        token=os.environ.get("HACKERONE_API_TOKEN", ""),
-    )
+    client: hackerone.Client | None = None
     try:
+        client = hackerone.Client(
+            username=os.environ.get("HACKERONE_API_USERNAME", ""),
+            token=os.environ.get("HACKERONE_API_TOKEN", ""),
+        )
         result = sync_program(paths, args.platform, args.program, client)
     except flags.ReconDisabled as e:
         print(f"scope-sync: {e}", file=sys.stderr)
@@ -104,10 +105,22 @@ def main(argv: list[str] | None = None) -> int:
         print(f"scope-sync: {e}", file=sys.stderr)
         return 3
     except Exception as e:
+        # Spec line 103: any sync failure freezes the program.
+        try:
+            flags.freeze_program(
+                paths, args.platform, args.program,
+                reason=f"scope-sync failed: {type(e).__name__}: {e}",
+            )
+        except Exception as freeze_exc:
+            print(
+                f"scope-sync: also failed to write freeze flag: {freeze_exc}",
+                file=sys.stderr,
+            )
         print(f"scope-sync: unexpected error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
     finally:
-        client.close()
+        if client is not None:
+            client.close()
     print(f"scope-sync: {result.action} — {result.detail}")
     return 0
 

@@ -24,8 +24,19 @@ if [ ! -f "$ROOT/RECON_ENABLED" ]; then
     exit 0
 fi
 
-log "scope-sync"
-"$ROOT/bin/scope-sync" || warn "  scope-sync exited non-zero (continuing)"
+log "scope-sync (per program)"
+find "$ROOT/programs" -mindepth 2 -maxdepth 2 -type d | while read -r prog_dir; do
+    slug="$(basename "$prog_dir")"
+    platform="$(basename "$(dirname "$prog_dir")")"
+    [ -f "$prog_dir/scope.md" ] || continue
+    if [ -f "$prog_dir/FROZEN" ]; then
+        warn "  $platform/$slug FROZEN — skipping"
+        continue
+    fi
+    log "  scope-sync $platform/$slug"
+    "$ROOT/bin/scope-sync" --platform "$platform" --program "$slug" \
+        || warn "    exit non-zero — runner is responsible for freezing"
+done
 
 # Iterate every programs/<platform>/<slug>/ that carries a scope.md.
 find "$ROOT/programs" -mindepth 2 -maxdepth 2 -type d | while read -r prog_dir; do

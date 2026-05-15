@@ -159,6 +159,58 @@ def test_no_change_only_updates_last_synced(tmp_repo: Path, fixtures_dir: Path) 
     assert second.last_synced >= first.last_synced
 
 
+def test_api_failure_freezes_program(
+    tmp_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Network/API errors during sync must freeze the program (spec line 103)."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, "example", in_scope=[], out_of_scope=[])
+
+    monkeypatch.setenv("HACKERONE_API_USERNAME", "u")
+    monkeypatch.setenv("HACKERONE_API_TOKEN", "t")
+
+    def explode(_self: object, _slug: str) -> tuple[list[str], list[str]]:
+        raise hackerone.HackerOneAPIError("boom")
+
+    monkeypatch.setattr(hackerone.Client, "fetch_structured_scope", explode)
+
+    rc = scope_sync.main(
+        ["--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)]
+    )
+
+    assert rc != 0
+    assert flags.is_program_frozen(paths, "hackerone", "example")
+    reason = flags.freeze_reason(paths, "hackerone", "example")
+    assert "scope-sync failed" in reason
+
+
+def test_missing_credentials_freezes_program(
+    tmp_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If creds are missing, the API call must still freeze the program."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths, "example", in_scope=[], out_of_scope=[])
+
+    monkeypatch.delenv("HACKERONE_API_USERNAME", raising=False)
+    monkeypatch.delenv("HACKERONE_API_TOKEN", raising=False)
+
+    def explode(_self: object, _slug: str) -> tuple[list[str], list[str]]:
+        raise hackerone.HackerOneAPIError("no creds")
+
+    monkeypatch.setattr(hackerone.Client, "fetch_structured_scope", explode)
+
+    rc = scope_sync.main(
+        ["--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)]
+    )
+
+    assert rc != 0
+    assert flags.is_program_frozen(paths, "hackerone", "example")
+    reason = flags.freeze_reason(paths, "hackerone", "example")
+    assert "scope-sync failed" in reason
+
+
 def test_empty_api_response_freezes_when_prior_scope_existed(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
