@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -39,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     paths = config.Paths.from_root(args.root)
 
     try:
-        active.check_gates(paths, args.platform, args.program, mode="active")
+        prog_scope = active.check_gates(paths, args.platform, args.program, mode="active")
     except flags.ReconDisabled as e:
         print(f"juice-shop-run: {e}", file=sys.stderr)
         return 2
@@ -52,6 +53,20 @@ def main(argv: list[str] | None = None) -> int:
     except scope.InvalidScope as e:
         print(f"juice-shop-run: invalid scope: {e}", file=sys.stderr)
         return 5
+
+    base_host = urlparse(args.base_url).hostname or ""
+    if not scope.is_in_scope(base_host, prog_scope.in_scope, prog_scope.out_of_scope):
+        print(f"juice-shop-run: --base-url host {base_host!r} not in scope", file=sys.stderr)
+        return 6
+
+    conn_check = db.open_db(paths.program_db(args.platform, args.program))
+    asset_count = conn_check.execute(
+        "SELECT COUNT(*) FROM assets WHERE in_scope_at_observation = 1"
+    ).fetchone()[0]
+    conn_check.close()
+    if asset_count == 0:
+        print("juice-shop-run: no assets in DB — run passive-recon first", file=sys.stderr)
+        return 7
 
     print(f"juice-shop-run: pre-run snapshot from {args.base_url}")
     try:

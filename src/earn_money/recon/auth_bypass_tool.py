@@ -1,15 +1,4 @@
-"""Auth-bypass probe — admin path discovery and JWT alg:none bypass.
-
-Three techniques:
-1. Admin path discovery: try common admin/API endpoints; flag 200s that aren't
-   login-page redirects.
-2. JWT alg:none GET: craft an unsigned JWT, present it as a Bearer token, check
-   whether the server accepts it for protected GET paths.
-3. JWT alg:none write (requires auth_testing_authorized=True AND
-   mutation_testing_authorized=True in roe.md): PUT to <api-path>/99999 with
-   unsigned JWT; a 404 after a 401 baseline confirms write-level auth bypass
-   without mutating state (non-existent ID).
-"""
+"""Auth-bypass probe — admin path discovery and JWT alg:none bypass (GET + write)."""
 
 from __future__ import annotations
 
@@ -86,6 +75,16 @@ def probe_service(
                 continue
             if len(resp.content) < 50:
                 continue
+            # Confirm the endpoint actually gates on auth: try an invalid token.
+            # If it still returns 200, the path is public — not a bypass.
+            try:
+                check = client.get(url, headers={"Authorization": "Bearer invalid_probe"})
+                if request_interval:
+                    time.sleep(request_interval)
+                if check.status_code == 200 and not _is_login_redirect(check):
+                    continue
+            except httpx.HTTPError:
+                pass
             signals.append(_make_signal(
                 url, "admin_path_open",
                 f"status={resp.status_code} len={len(resp.text)}",
