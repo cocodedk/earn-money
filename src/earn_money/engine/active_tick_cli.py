@@ -34,6 +34,7 @@ from earn_money.runners import (
 def _real_tool_factory(
     runner: str, paths: config.Paths, platform: str, slug: str, run_id: str,
 ) -> active_pipeline.ToolRun:
+    program_roe = roe.read_roe(paths.roe_file(platform, slug))
     if runner == "httpx-probe":
         return httpx_probe_cli._build_real_tool(paths, platform, slug, run_id)
     if runner == "nuclei-scan":
@@ -50,22 +51,21 @@ def _real_tool_factory(
         return katana_crawl_cli._build_real_tool(paths, platform, slug, run_id)
     if runner == "graphql-probe":
         return graphql_probe_cli._build_real_tool(paths, platform, slug, run_id)
-    if runner in ("auth-bypass-probe", "sqli-probe", "xss-probe"):
-        program_roe = roe.read_roe(paths.roe_file(platform, slug))
-        if runner == "auth-bypass-probe":
-            return auth_bypass_probe_cli._build_real_tool(
-                paths, platform, slug, run_id,
-                auth_testing_authorized=program_roe.auth_testing_authorized,
-                mutation_testing_authorized=program_roe.mutation_testing_authorized,
-                auth_lockout_budget=program_roe.auth_lockout_budget,
-                authorized_test_accounts=tuple(program_roe.authorized_test_accounts),
-                max_requests_per_second=program_roe.max_requests_per_second,
-            )
-        if runner == "sqli-probe":
-            return sqli_probe_cli._build_real_tool(
-                paths, platform, slug, run_id,
-                max_requests_per_second=program_roe.max_requests_per_second,
-            )
+    if runner == "auth-bypass-probe":
+        return auth_bypass_probe_cli._build_real_tool(
+            paths, platform, slug, run_id,
+            auth_testing_authorized=program_roe.auth_testing_authorized,
+            mutation_testing_authorized=program_roe.mutation_testing_authorized,
+            auth_lockout_budget=program_roe.auth_lockout_budget,
+            authorized_test_accounts=tuple(program_roe.authorized_test_accounts),
+            max_requests_per_second=program_roe.max_requests_per_second,
+        )
+    if runner == "sqli-probe":
+        return sqli_probe_cli._build_real_tool(
+            paths, platform, slug, run_id,
+            max_requests_per_second=program_roe.max_requests_per_second,
+        )
+    if runner == "xss-probe":
         return xss_probe_cli._build_real_tool(
             paths, platform, slug, run_id,
             max_requests_per_second=program_roe.max_requests_per_second,

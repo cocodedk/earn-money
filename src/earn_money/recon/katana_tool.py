@@ -65,7 +65,7 @@ def build_command(
         "-concurrency", str(concurrency),
     ]
     for host in crawl_scope:
-        # Katana -cs is a URL regex; anchor with scheme so bare hostname patterns don't match.
+        # Katana -cs is a URL regex; scheme-anchored so bare hostname patterns can't bypass scope.
         pattern = r"^https?://" + re.escape(host).replace(r"\*", ".*") + r"(?::\d+)?(?:/.*)?$"
         cmd.extend(["-cs", pattern])
     return cmd

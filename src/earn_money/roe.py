@@ -165,7 +165,7 @@ def read_roe(path: Path) -> RoE:
         ),
         special_notes=str(meta.get("special_notes", floor.special_notes)),
         extra_nuclei_dirs=_nuclei_dirs(
-            meta.get("extra_nuclei_dirs", None), "extra_nuclei_dirs",
+            meta.get("extra_nuclei_dirs", []), "extra_nuclei_dirs",
         ),
         auth_testing_authorized=_bool(
             meta.get("auth_testing_authorized", floor.auth_testing_authorized),

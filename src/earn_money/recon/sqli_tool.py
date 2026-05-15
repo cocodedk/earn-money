@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import json
 import time
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
 from earn_money.recon.signals import Signal
+from earn_money.recon.url_inject import inject_param
 from earn_money.triage import hashing
 
 # DB error fragments that reliably indicate error-based SQLi.
@@ -34,7 +35,9 @@ ERROR_PATTERNS: tuple[str, ...] = (
 _ERR_PAYLOAD = "'"
 _BOOL_TRUE = "' OR '1'='1"
 _BOOL_FALSE = "' OR '1'='2"
-_BOOL_RATIO_THRESHOLD = 0.20  # >20% content-length difference triggers boolean flag
+# 20% body-length divergence between true/false payloads. Lower → more FPs on dynamic
+# pages; higher → misses subtle boolean injections. Tune if FP rate is too high.
+_BOOL_RATIO_THRESHOLD = 0.20
 
 
 def probe_url(
@@ -61,19 +64,12 @@ def probe_url(
     return signals
 
 
-def _inject(url: str, param: str, value: str) -> str:
-    parsed = urlparse(url)
-    params = parse_qs(parsed.query, keep_blank_values=True)
-    params[param] = [value]
-    return urlunparse(parsed._replace(query=urlencode({k: v[0] for k, v in params.items()})))
-
-
 def _probe_param(
     url: str, param: str, *, client: httpx.Client, request_interval: float = 0.0,
 ) -> tuple[str, str] | None:
     """Return (kind, evidence) if the param appears injectable, else None."""
     try:
-        err_resp = client.get(_inject(url, param, _ERR_PAYLOAD))
+        err_resp = client.get(inject_param(url, param, _ERR_PAYLOAD))
         if request_interval:
             time.sleep(request_interval)
         body_lower = err_resp.text.lower()
@@ -81,10 +77,10 @@ def _probe_param(
             if pattern in body_lower:
                 return "error_based", f"matched:{pattern!r}"
 
-        true_resp = client.get(_inject(url, param, _BOOL_TRUE))
+        true_resp = client.get(inject_param(url, param, _BOOL_TRUE))
         if request_interval:
             time.sleep(request_interval)
-        false_resp = client.get(_inject(url, param, _BOOL_FALSE))
+        false_resp = client.get(inject_param(url, param, _BOOL_FALSE))
         if request_interval:
             time.sleep(request_interval)
         tl, fl = len(true_resp.text), len(false_resp.text)

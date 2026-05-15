@@ -25,7 +25,7 @@ ADMIN_PATHS: tuple[str, ...] = (
     "/api/admin",
 )
 
-_LOGIN_INDICATORS = ("login", "signin", "sign-in", "authenticate", "401", "403")
+_LOGIN_INDICATORS = ("login", "signin", "sign-in", "authenticate")
 
 
 def _make_alg_none_jwt(email: str = "admin@example.com", role: str = "admin") -> str:

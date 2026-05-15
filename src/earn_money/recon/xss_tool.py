@@ -9,11 +9,12 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
 from earn_money.recon.signals import Signal
+from earn_money.recon.url_inject import inject_param
 from earn_money.triage import hashing
 
 _MARKER_PREFIX = "xsspwn"
@@ -47,20 +48,13 @@ def probe_url(
     return signals
 
 
-def _inject(url: str, param: str, value: str) -> str:
-    parsed = urlparse(url)
-    params = parse_qs(parsed.query, keep_blank_values=True)
-    params[param] = [value]
-    return urlunparse(parsed._replace(query=urlencode({k: v[0] for k, v in params.items()})))
-
-
 def _probe_param(
     url: str, param: str, marker: str, *, client: httpx.Client,
     request_interval: float = 0.0,
 ) -> bool:
     """Return True if `marker` appears in the response body."""
     try:
-        resp = client.get(_inject(url, param, marker))
+        resp = client.get(inject_param(url, param, marker))
         if request_interval:
             time.sleep(request_interval)
         return marker in resp.text
