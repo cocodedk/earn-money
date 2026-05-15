@@ -1,0 +1,39 @@
+# Disclosure-replay benchmark coverage map.
+#
+# Records which earn-money plugins target each vuln_class. Loaded by
+# benchmark_score; the version field is written into each scored row's
+# scoring_rubric_version column so verdicts remain attributable to a
+# specific rubric snapshot even after the map evolves.
+#
+# Truth table for verdict assignment (see
+# docs/superpowers/specs/2026-05-15-benchmark-disclosures.md):
+#   - 0 plugins                          → FN
+#   - >=1 plugin + regex-friendly        → inconclusive
+#   - >=1 plugin + requires-auth         → FN  (no auth scanning yet)
+#   - >=1 plugin + requires-business-logic → FN
+#   - >=1 plugin + requires-payload-crafting → FN
+#   - >=1 plugin + requires-chain / -fuzzing / unclear → inconclusive
+#
+# katana-crawl is intentionally absent — it produces context (URLs),
+# not detections.
+
+coverage_map_version: 1
+coverage:
+  - vuln_class: Info-Disclosure
+    plugins: [nuclei, sourcemap-scan, graphql-probe]
+    notes: variant-dependent; unauthenticated only.
+  - vuln_class: IDOR
+    plugins: []
+    notes: no current plugin targets IDOR specifically.
+  - vuln_class: Auth-Bypass
+    plugins: []
+    notes: no current plugin; needs authenticated scanning primitives.
+  - vuln_class: SSRF
+    plugins: []
+    notes: no current SSRF detector wired in.
+  - vuln_class: Logic-Flaw
+    plugins: []
+    notes: scanner-out-of-class — definitionally not regex/template catchable.
+  - vuln_class: Misc
+    plugins: []
+    notes: class too broad to claim coverage.

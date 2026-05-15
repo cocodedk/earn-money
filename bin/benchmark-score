@@ -1,0 +1,16 @@
+#!/bin/sh
+# benchmark-score — apply the disclosure-replay coverage map to a program's
+# benchmark_disclosures rows, write verdicts back, render markdown report.
+#
+# Usage:
+#   bin/benchmark-score --platform <name> --program <slug>
+#                       [--assert-coverage-map-version N]
+set -eu
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "benchmark-score: .venv not found at $ROOT/.venv — run 'make install-dev' first" >&2
+  exit 1
+fi
+
+exec "$ROOT/.venv/bin/python" -m earn_money.triage.benchmark_score --root "$ROOT" "$@"

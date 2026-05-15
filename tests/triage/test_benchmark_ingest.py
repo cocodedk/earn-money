@@ -81,6 +81,126 @@ def test_ingest_writes_rows(tmp_repo: Path) -> None:
     )
 
 
+def test_ingest_sets_eligibility_from_corpus(tmp_repo: Path) -> None:
+    """Rows with explicit in_window: false land as in_window_eligible=0;
+    rows without the field default to 1 (matches the actual corpus shape
+    where only algolia's historical anchors carry the field)."""
+    register_program(config.Paths.from_root(tmp_repo))
+    corpus = json.loads(json.dumps(_SAMPLE_CORPUS))
+    corpus["disclosures"][0]["in_window"] = False
+    # second row has no in_window field — implicit True
+    d = tmp_repo / "benchmarks" / "disclosures"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "hackerone-example.json").write_text(json.dumps(corpus), encoding="utf-8")
+
+    rc = benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+    assert rc == 0
+
+    paths = config.Paths.from_root(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    rows = conn.execute(
+        "SELECT report_url, in_window_eligible FROM benchmark_disclosures "
+        "ORDER BY report_url"
+    ).fetchall()
+    conn.close()
+
+    assert rows == [
+        ("https://hackerone.com/reports/111", 0),  # explicit in_window: false
+        ("https://hackerone.com/reports/222", 1),  # implicit True
+    ]
+
+
+def test_ingest_self_heals_stale_scorer_verdict_on_eligibility_flip(
+    tmp_repo: Path,
+) -> None:
+    """When a row flips to in_window_eligible=0, ingest clears scorer-owned
+    verdict state (operator verdicts preserved separately)."""
+    register_program(config.Paths.from_root(tmp_repo))
+    _seed_corpus(tmp_repo)  # both rows eligible
+    benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+
+    paths = config.Paths.from_root(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    # Simulate a scorer verdict landing on row 111.
+    conn.execute(
+        "UPDATE benchmark_disclosures SET verdict = ?, verdict_reason = ?, "
+        "verdict_set_at = ?, verdict_source = ?, scoring_rubric_version = ? "
+        "WHERE report_url = ?",
+        ("FN", "no plugin", "2026-05-15T10:00:00Z", "scorer", "1",
+         "https://hackerone.com/reports/111"),
+    )
+    conn.commit()
+    conn.close()
+
+    # Flip the corpus to mark row 111 as out-of-window, re-ingest.
+    p = tmp_repo / "benchmarks" / "disclosures" / "hackerone-example.json"
+    corpus = json.loads(p.read_text())
+    corpus["disclosures"][0]["in_window"] = False
+    p.write_text(json.dumps(corpus), encoding="utf-8")
+
+    benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT in_window_eligible, verdict, verdict_reason, verdict_source, "
+        "scoring_rubric_version FROM benchmark_disclosures WHERE report_url = ?",
+        ("https://hackerone.com/reports/111",),
+    ).fetchone()
+    conn.close()
+
+    assert row == (0, None, None, None, None)
+
+
+def test_ingest_preserves_operator_verdict_on_eligibility_flip(
+    tmp_repo: Path,
+) -> None:
+    """Operator verdicts survive an eligibility flip — only scorer verdicts
+    are self-healed."""
+    register_program(config.Paths.from_root(tmp_repo))
+    _seed_corpus(tmp_repo)
+    benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+
+    paths = config.Paths.from_root(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    conn.execute(
+        "UPDATE benchmark_disclosures SET verdict = ?, verdict_reason = ?, "
+        "verdict_set_at = ?, verdict_source = ?, scoring_rubric_version = ? "
+        "WHERE report_url = ?",
+        ("TP", "manually replayed, plugin fires", "2026-05-15T10:00:00Z",
+         "operator", "1",
+         "https://hackerone.com/reports/111"),
+    )
+    conn.commit()
+    conn.close()
+
+    p = tmp_repo / "benchmarks" / "disclosures" / "hackerone-example.json"
+    corpus = json.loads(p.read_text())
+    corpus["disclosures"][0]["in_window"] = False
+    p.write_text(json.dumps(corpus), encoding="utf-8")
+
+    benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT in_window_eligible, verdict, verdict_source FROM "
+        "benchmark_disclosures WHERE report_url = ?",
+        ("https://hackerone.com/reports/111",),
+    ).fetchone()
+    conn.close()
+
+    assert row == (0, "TP", "operator")
+
+
 def test_ingest_records_provenance(tmp_repo: Path) -> None:
     """Provenance columns (corpus_source, corpus_generated_at, in_window_range,
     date_precision_note) must land alongside the disclosure row."""

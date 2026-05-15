@@ -215,12 +215,38 @@ def _apply_v5(conn: sqlite3.Connection) -> None:
         )
 
 
+_V6_BENCHMARK_DISCLOSURE_COLUMNS: tuple[tuple[str, str], ...] = (
+    # Phase B preparation per docs/superpowers/specs/2026-05-15-benchmark-disclosures.md:
+    # in_window_eligible defaults to 1 for fresh inserts; pre-v6 rows on the 3
+    # already-onboarded programs need a re-ingest to backfill correctly. See
+    # the spec's "Backfill procedure for v6" section.
+    ("in_window_eligible", "INTEGER NOT NULL DEFAULT 1"),
+    # Verdict provenance: 'scorer' = written by the scoring engine,
+    # 'operator' = manual override. NULL when verdict is NULL.
+    ("verdict_source",     "TEXT"),
+)
+
+
+def _apply_v6(conn: sqlite3.Connection) -> None:
+    """Add eligibility + verdict_source columns to benchmark_disclosures."""
+    existing = {
+        row[1] for row in conn.execute("PRAGMA table_info(benchmark_disclosures)")
+    }
+    for name, definition in _V6_BENCHMARK_DISCLOSURE_COLUMNS:
+        if name in existing:
+            continue
+        conn.execute(
+            f"ALTER TABLE benchmark_disclosures ADD COLUMN {name} {definition}"
+        )
+
+
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
     3: _apply_v3,
     4: _apply_v4,
     5: _apply_v5,
+    6: _apply_v6,
 }
 
 

@@ -57,8 +57,12 @@ def ingest(
 
     conn = db.open_db(paths.program_db(platform, slug))
     try:
-        # Upsert: refresh corpus + provenance fields, preserve verdict columns.
+        # Upsert: refresh corpus + provenance + eligibility, preserve verdict
+        # columns. Then self-heal any scorer verdict that now lives on an
+        # ineligible row — operator verdicts are preserved.
         for row in rows:
+            # in_window absent (most rows) → eligible (1); explicit False → 0.
+            eligible = 0 if row.get("in_window") is False else 1
             conn.execute(
                 """
                 INSERT INTO benchmark_disclosures (
@@ -66,8 +70,8 @@ def ingest(
                     asset_pattern, vuln_class, vector_summary,
                     auto_detectable_hint, ingested_at,
                     corpus_source, corpus_generated_at, in_window_range,
-                    date_precision_note
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    date_precision_note, in_window_eligible
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(report_url) DO UPDATE SET
                     title = excluded.title,
                     severity = excluded.severity,
@@ -81,7 +85,8 @@ def ingest(
                     corpus_source = excluded.corpus_source,
                     corpus_generated_at = excluded.corpus_generated_at,
                     in_window_range = excluded.in_window_range,
-                    date_precision_note = excluded.date_precision_note
+                    date_precision_note = excluded.date_precision_note,
+                    in_window_eligible = excluded.in_window_eligible
                 """,
                 (
                     row["report_url"],
@@ -98,8 +103,26 @@ def ingest(
                     corpus_generated_at,
                     in_window_range,
                     date_precision_note,
+                    eligible,
                 ),
             )
+            # Self-healing guard per spec: a scorer verdict on a now-ineligible
+            # row is stale by definition. Operator verdicts are preserved.
+            if eligible == 0:
+                conn.execute(
+                    """
+                    UPDATE benchmark_disclosures
+                    SET verdict = NULL,
+                        verdict_reason = NULL,
+                        verdict_set_at = NULL,
+                        scoring_rubric_version = NULL,
+                        verdict_source = NULL
+                    WHERE report_url = ?
+                      AND in_window_eligible = 0
+                      AND verdict_source = 'scorer'
+                    """,
+                    (row["report_url"],),
+                )
         conn.commit()
     finally:
         conn.close()
