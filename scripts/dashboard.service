@@ -1,16 +1,21 @@
 [Unit]
 # Live read-only dashboard for the earn-money pipeline.
-# Bind: 0.0.0.0:80 (direct access). The HOST firewall must be the auth
-# boundary — restrict inbound 80/tcp to the operator's IP. The service
-# itself has no auth; if the FW rule is wide-open you've leaked recon
-# state on plaintext HTTP.
+# Bind: 127.0.0.1:8080 (localhost only). Caddy on the VPS fronts this on
+# h1.cocode.dk:443 with an auto-renewing Let's Encrypt cert and redirects
+# :80 -> :443. The Caddyfile lives at /etc/caddy/Caddyfile and is not in
+# this repo (single-host config).
+#
+# The dashboard service itself has no auth — it relies on the host
+# firewall + Caddy + the obscurity of h1.cocode.dk as the auth boundary.
+# If you ever need real auth, add a Caddy `basicauth` directive in the
+# h1.cocode.dk block, not here.
 Description=earn-money dashboard
 After=network.target
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/earn-money
-ExecStart=/opt/earn-money/bin/dashboard --host 0.0.0.0 --port 80
+ExecStart=/opt/earn-money/bin/dashboard --host 127.0.0.1 --port 8080
 Restart=on-failure
 RestartSec=5
 User=root

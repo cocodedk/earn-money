@@ -148,6 +148,35 @@ else
     log "  unit already installed; reload with 'systemctl daemon-reload' if you changed it"
 fi
 
+log "caddy reverse proxy (HTTPS termination for h1.cocode.dk)"
+if ! command -v caddy >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        debian-keyring debian-archive-keyring apt-transport-https gpg
+    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
+        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt \
+        > /etc/apt/sources.list.d/caddy-stable.list
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq caddy
+fi
+if [ ! -f /etc/caddy/Caddyfile.earn-money-installed ]; then
+    cat > /etc/caddy/Caddyfile <<'CADDY_EOF'
+{
+    email babak@cocode.dk
+}
+
+h1.cocode.dk {
+    reverse_proxy 127.0.0.1:8080
+    encode gzip
+}
+CADDY_EOF
+    touch /etc/caddy/Caddyfile.earn-money-installed
+    systemctl restart caddy
+    log "  Caddyfile installed; auto-TLS via Let's Encrypt"
+else
+    log "  Caddyfile already installed; leaving in place"
+fi
+
 log "passive-tick daily timer (scope-sync + passive_recon per program)"
 install -m 0644 /opt/earn-money/scripts/passive-tick.service \
     /etc/systemd/system/earn-money-passive-tick.service
