@@ -23,12 +23,15 @@ from typing import TYPE_CHECKING
 from earn_money import config, flags, policy, roe, scope
 from earn_money.runners import (
     active,
+    auth_bypass_probe,
     graphql_probe,
     httpx_probe,
     katana_crawl,
     nuclei_scan,
     sourcemap_scan,
+    sqli_probe,
     takeover_validate,
+    xss_probe,
 )
 
 if TYPE_CHECKING:
@@ -82,6 +85,9 @@ _PIPELINE: tuple[tuple[str, Callable[..., active.ActiveRunResult]], ...] = (
     ("sourcemap-scan", sourcemap_scan.run_program),
     ("katana-crawl", katana_crawl.run_program),
     ("graphql-probe", graphql_probe.run_program),
+    ("auth-bypass-probe", auth_bypass_probe.run_program),
+    ("sqli-probe", sqli_probe.run_program),
+    ("xss-probe", xss_probe.run_program),
 )
 
 

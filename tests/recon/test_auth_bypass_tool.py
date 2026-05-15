@@ -1,0 +1,80 @@
+"""Tests for auth_bypass_tool — admin path probe and JWT alg:none."""
+
+from __future__ import annotations
+
+import httpx
+
+from earn_money.recon import auth_bypass_tool
+
+
+def _client_with_map(responses: dict[str, tuple[int, str]]) -> httpx.Client:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        url_str = str(req.url)
+        for pattern, (status, body) in responses.items():
+            if pattern in url_str:
+                return httpx.Response(status, text=body)
+        return httpx.Response(404, text="not found")
+    return httpx.Client(transport=httpx.MockTransport(_handler))
+
+
+def test_probe_service_detects_open_admin_path() -> None:
+    responses = {"/api/Users": (200, '[{"id":1,"email":"admin@juice-sh.op"}]')}
+    with _client_with_map(responses) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+        )
+    open_paths = [s for s in sigs if s.signal_type == "auth_bypass_candidate"]
+    assert any("admin_path_open" in s.signature for s in open_paths)
+
+
+def test_probe_service_detects_jwt_alg_none() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        if "/api/Users" in str(req.url) and "Authorization" in req.headers:
+            return httpx.Response(200, text='[{"id":1}]')
+        return httpx.Response(401, text="unauthorized")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+        )
+    jwt_sigs = [s for s in sigs if "jwt_alg_none" in s.signature]
+    assert len(jwt_sigs) >= 1
+    assert jwt_sigs[0].tool == "auth-bypass-probe"
+
+
+def test_probe_service_skips_login_redirects() -> None:
+    responses = {"/admin": (302, ""), "/api/Users": (302, "")}
+
+    def _handler(req: httpx.Request) -> httpx.Response:
+        for path, (status, body) in responses.items():
+            if path in str(req.url):
+                return httpx.Response(status, headers={"location": "/login"}, text=body)
+        return httpx.Response(404, text="")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+        )
+    assert sigs == []
+
+
+def test_make_alg_none_jwt_produces_unsigned_token() -> None:
+    token = auth_bypass_tool._make_alg_none_jwt()
+    parts = token.split(".")
+    assert len(parts) == 3
+    assert parts[2] == ""  # empty signature
+
+
+def test_probe_service_swallows_http_error() -> None:
+    def _fail(req: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down")
+
+    with httpx.Client(transport=httpx.MockTransport(_fail)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+        )
+    assert sigs == []

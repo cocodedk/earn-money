@@ -50,6 +50,21 @@ def _seed_httpx_run(paths: config.Paths) -> None:
             [assets.AssetObservation(subdomain="api.example.com", ips=())],
             observed_at="t", in_scope=True,
         )
+        # Seed a katana run so sqli-probe and xss-probe don't skip.
+        katana_artifact = paths.root / "recon/outputs/hackerone/example/katana/seed/ka1"
+        katana_artifact.mkdir(parents=True, exist_ok=True)
+        (katana_artifact / "discovered_urls.jsonl").write_text("", encoding="utf-8")
+        runs.start_run(
+            conn, run_id="ka1", platform="hackerone", slug="example",
+            tool="katana", started_at=to_iso(now - timedelta(minutes=8)),
+            artifact_dir=str(katana_artifact), input_count=1,
+        )
+        runs.finish_run(
+            conn, run_id="ka1",
+            finished_at=to_iso(now - timedelta(minutes=4)),
+            status="success", output_count=1, signal_count=0,
+            source_failures=0, oos_drops=0,
+        )
     finally:
         conn.close()
 
@@ -96,6 +111,7 @@ def test_pipeline_runs_all_six_steps_in_order(tmp_repo: Path) -> None:
     assert runners == [
         "httpx-probe", "nuclei-scan", "takeover-validate",
         "sourcemap-scan", "katana-crawl", "graphql-probe",
+        "auth-bypass-probe", "sqli-probe", "xss-probe",
     ]
     # No prereq_skipped — httpx was seeded as a recent success.
     assert all(s.status == "ok" for s in result.steps)
