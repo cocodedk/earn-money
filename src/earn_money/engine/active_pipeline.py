@@ -119,7 +119,7 @@ def run_program_pipeline(
 
     steps: list[StepResult] = []
     pending = [name for name, _ in _PIPELINE]
-    for _ in range(len(_PIPELINE)):
+    for _ in range(len(_PIPELINE) * 2):  # allow each step up to 2 tries (prereq retry)
         name, max_targets = _pick_next(
             pending, steps, paths, platform, slug, decider, max_targets_per_step,
         )
@@ -146,13 +146,17 @@ def run_program_pipeline(
             if name in pending:
                 pending.remove(name)
             continue
-        if name in pending:
-            pending.remove(name)
         if getattr(result, "prereq_skipped", False):
             steps.append(StepResult(
                 runner=name, status="skipped", detail="prereq missing",
             ))
+            # Rotate to end so the step is retried after its prereq runs.
+            if name in pending:
+                pending.remove(name)
+                pending.append(name)
             continue
+        if name in pending:
+            pending.remove(name)
         steps.append(StepResult(
             runner=name, status="ok",
             outputs_recorded=result.outputs_recorded,

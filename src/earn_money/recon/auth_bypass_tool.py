@@ -40,7 +40,6 @@ _LOGIN_INDICATORS = ("login", "signin", "sign-in", "authenticate", "401", "403")
 
 
 def _make_alg_none_jwt(email: str = "admin@juice-sh.op", role: str = "admin") -> str:
-    """Craft a JWT with alg:none — no signature — as a read-only probe."""
     header = base64.urlsafe_b64encode(
         json.dumps({"typ": "JWT", "alg": "none"}).encode()
     ).rstrip(b"=").decode()
@@ -81,20 +80,26 @@ def probe_service(
         except httpx.HTTPError:
             continue
         if resp.status_code == 200 and not _is_login_redirect(resp):
+            content_type = resp.headers.get("content-type", "")
+            if "/api/" in path and "application/json" not in content_type:
+                continue
+            if len(resp.content) < 50:
+                continue
             signals.append(_make_signal(
                 url, "admin_path_open",
                 f"status={resp.status_code} len={len(resp.text)}",
                 run_id=run_id, observed_at=observed_at,
             ))
 
+    # JWT-bearing probes (GET + write) require explicit RoE authorization.
+    if not auth_testing_authorized:
+        return signals
+
     jwt = _make_alg_none_jwt()
     api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
 
-    # JWT auth budget: each JWT-bearing request counts toward lockout budget.
-    # Baseline (no-auth) requests do not count.
     write_authorized = auth_testing_authorized and mutation_testing_authorized
     jwt_remaining = auth_lockout_budget if auth_lockout_budget > 0 else len(api_paths) * 4
-    # Reserve at least 1 JWT slot for write probes when both flags are set.
     get_jwt_cap = (jwt_remaining - 1) if write_authorized else jwt_remaining
 
     for path in api_paths:

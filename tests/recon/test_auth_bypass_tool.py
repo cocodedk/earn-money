@@ -7,19 +7,17 @@ import httpx
 from earn_money.recon import auth_bypass_tool
 
 
-def _client_with_map(responses: dict[str, tuple[int, str]]) -> httpx.Client:
-    def _handler(req: httpx.Request) -> httpx.Response:
-        url_str = str(req.url)
-        for pattern, (status, body) in responses.items():
-            if pattern in url_str:
-                return httpx.Response(status, text=body)
-        return httpx.Response(404, text="not found")
-    return httpx.Client(transport=httpx.MockTransport(_handler))
-
-
 def test_probe_service_detects_open_admin_path() -> None:
-    responses = {"/api/Users": (200, '[{"id":1,"email":"admin@juice-sh.op"}]')}
-    with _client_with_map(responses) as client:
+    body = '[{"id":1,"email":"admin@juice-sh.op","role":"admin","isActive":true}]'
+
+    def _handler(req: httpx.Request) -> httpx.Response:
+        if "/api/Users" in str(req.url) and "Authorization" not in req.headers:
+            return httpx.Response(
+                200, text=body, headers={"content-type": "application/json"},
+            )
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
         sigs = auth_bypass_tool.probe_service(
             "https://target.cocode.dk",
             client=client, run_id="r1", observed_at="t",
@@ -31,15 +29,19 @@ def test_probe_service_detects_open_admin_path() -> None:
 def test_probe_service_detects_jwt_alg_none() -> None:
     def _handler(req: httpx.Request) -> httpx.Response:
         if "/api/Users" in str(req.url) and "Authorization" in req.headers:
-            return httpx.Response(200, text='[{"id":1}]')
+            return httpx.Response(
+                200, text='[{"id":1,"email":"admin@juice-sh.op"}]',
+                headers={"content-type": "application/json"},
+            )
         return httpx.Response(401, text="unauthorized")
 
     with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
         sigs = auth_bypass_tool.probe_service(
             "https://target.cocode.dk",
             client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True,
         )
-    jwt_sigs = [s for s in sigs if "jwt_alg_none" in s.signature]
+    jwt_sigs = [s for s in sigs if "jwt_alg_none" in s.signature and "write" not in s.signature]
     assert len(jwt_sigs) >= 1
     assert jwt_sigs[0].tool == "auth-bypass-probe"
 

@@ -96,8 +96,8 @@ def test_build_command_adds_cs_flags_for_crawl_scope() -> None:
         crawl_scope=["target.cocode.dk", "api.example.com"],
     )
     cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
-    # Dots are escaped for Katana's Go regex -cs flag
-    assert cs_flags == [r"target\.cocode\.dk", r"api\.example\.com"]
+    # Anchored Go regex: dots escaped, anchored to prevent suffix-matching OOS hosts
+    assert cs_flags == [r"^target\.cocode\.dk(?::\d+)?$", r"^api\.example\.com(?::\d+)?$"]
 
 
 def test_build_command_escapes_wildcard_in_crawl_scope() -> None:
@@ -106,7 +106,7 @@ def test_build_command_escapes_wildcard_in_crawl_scope() -> None:
         crawl_scope=["*.example.com"],
     )
     cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
-    assert cs_flags == [r".*\.example\.com"]
+    assert cs_flags == [r"^.*\.example\.com(?::\d+)?$"]
 
 
 def test_build_command_no_cs_flags_when_scope_empty() -> None:

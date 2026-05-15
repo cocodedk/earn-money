@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 
-from earn_money import config, db, juiceshop_adapter
+from earn_money import config, db, flags, juiceshop_adapter
 from earn_money.engine import active_pipeline, active_tick_cli
 
 _DEFAULT_BASE_URL = "https://target.cocode.dk"
@@ -36,6 +36,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     paths = config.Paths.from_root(args.root)
+
+    try:
+        flags.require_recon_enabled(paths)
+        flags.require_program_not_frozen(paths, args.platform, args.program)
+    except flags.ReconDisabled as e:
+        print(f"juice-shop-run: {e}", file=sys.stderr)
+        return 2
+    except flags.ProgramFrozen as e:
+        print(f"juice-shop-run: {e}", file=sys.stderr)
+        return 3
 
     print(f"juice-shop-run: pre-run snapshot from {args.base_url}")
     try:
