@@ -22,11 +22,21 @@ def test_non_hackerone_platform_exits_zero_no_freeze(tmp_path: Path) -> None:
     assert not flags.is_program_frozen(paths, "local", "juice-shop")
 
 
-def test_non_hackerone_skips_before_env_check(tmp_path: Path) -> None:
+def test_non_hackerone_skips_before_h1_env_check(tmp_path: Path) -> None:
     """Skip fires even without HACKERONE_API_USERNAME/TOKEN set."""
     root = tmp_path
     paths = config.Paths.from_root(root)
-    # No RECON_ENABLED, no H1 creds — still returns 0
+    paths.recon_enabled_flag.touch()  # kill-switch must be present
     rc = scope_sync.main(["--platform", "ctf", "--program", "any", "--root", str(root)])
     assert rc == 0
     assert not flags.is_program_frozen(paths, "ctf", "any")
+
+
+def test_non_hackerone_respects_kill_switch(tmp_path: Path) -> None:
+    """Kill-switch is enforced even for non-HackerOne platforms."""
+    root = tmp_path
+    paths = config.Paths.from_root(root)
+    # No RECON_ENABLED flag — kill-switch fires before platform guard
+    rc = scope_sync.main(["--platform", "local", "--program", "any", "--root", str(root)])
+    assert rc == 2
+    assert not flags.is_program_frozen(paths, "local", "any")

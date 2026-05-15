@@ -73,6 +73,7 @@ def test_sqli_probe_skips_when_not_authorized(tmp_repo: Path) -> None:
     )
     assert result.outputs_recorded == 0
     assert result.prereq_skipped is False
+    assert result.roe_skipped is True
 
 
 def test_sqli_probe_skips_when_no_katana_artifact(tmp_repo: Path) -> None:

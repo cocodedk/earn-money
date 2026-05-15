@@ -77,9 +77,6 @@ def run_program(
     program_roe = roe.read_roe(paths.roe_file(platform, slug))
 
     run_id = run_id or uuid.uuid4().hex
-
-    if not program_roe.injection_testing_authorized:
-        return active.ActiveRunResult(run_id=run_id)
     now_dt = datetime.now(UTC)
     now = to_iso(now_dt)
     artifact_dir = paths.root / (
@@ -88,6 +85,17 @@ def run_program(
 
     conn = db.open_db(paths.program_db(platform, slug))
     try:
+        if not program_roe.injection_testing_authorized:
+            runs.start_run(
+                conn, run_id=run_id, platform=platform, slug=slug, tool="xss",
+                started_at=now, artifact_dir=str(artifact_dir), input_count=0,
+            )
+            runs.finish_run(
+                conn, run_id=run_id, finished_at=now_iso(), status="roe_skip",
+                output_count=0, signal_count=0, source_failures=0, oos_drops=0,
+                error_summary="injection_testing_authorized=false in roe.md",
+            )
+            return active.ActiveRunResult(run_id=run_id, roe_skipped=True)
         katana_artifact = _recent_katana_artifact(
             conn, platform=platform, slug=slug, now=now_dt,
         )

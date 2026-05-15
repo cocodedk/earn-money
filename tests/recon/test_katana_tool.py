@@ -96,8 +96,11 @@ def test_build_command_adds_cs_flags_for_crawl_scope() -> None:
         crawl_scope=["target.cocode.dk", "api.example.com"],
     )
     cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
-    # Anchored Go regex: dots escaped, anchored to prevent suffix-matching OOS hosts
-    assert cs_flags == [r"^target\.cocode\.dk(?::\d+)?$", r"^api\.example\.com(?::\d+)?$"]
+    # URL-regex: scheme-anchored so bare hostname patterns can't bypass the scope gate
+    assert cs_flags == [
+        r"^https?://target\.cocode\.dk(?::\d+)?(?:/.*)?$",
+        r"^https?://api\.example\.com(?::\d+)?(?:/.*)?$",
+    ]
 
 
 def test_build_command_escapes_wildcard_in_crawl_scope() -> None:
@@ -106,7 +109,7 @@ def test_build_command_escapes_wildcard_in_crawl_scope() -> None:
         crawl_scope=["*.example.com"],
     )
     cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
-    assert cs_flags == [r"^.*\.example\.com(?::\d+)?$"]
+    assert cs_flags == [r"^https?://.*\.example\.com(?::\d+)?(?:/.*)?$"]
 
 
 def test_build_command_no_cs_flags_when_scope_empty() -> None:

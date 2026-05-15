@@ -69,6 +69,13 @@ def _seed_httpx_run(paths: config.Paths) -> None:
         conn.close()
 
 
+def _seed_roe(paths: config.Paths) -> None:
+    """Seed a roe.md with injection_testing_authorized so sqli/xss don't roe_skip."""
+    roe_path = paths.roe_file("hackerone", "example")
+    roe_path.parent.mkdir(parents=True, exist_ok=True)
+    roe_path.write_text("---\ninjection_testing_authorized: true\n---\n", encoding="utf-8")
+
+
 def _noop_factory(
     _runner: str, _paths: config.Paths, _platform: str, _slug: str, _run_id: str,
 ) -> active.ToolRun:  # type: ignore[name-defined]
@@ -103,6 +110,7 @@ def test_pipeline_runs_all_six_steps_in_order(tmp_repo: Path) -> None:
     paths.recon_enabled_flag.touch()
     _seed_scope(paths)
     _seed_httpx_run(paths)
+    _seed_roe(paths)
     result = active_pipeline.run_program_pipeline(
         paths, "hackerone", "example", tool_factory=_noop_factory,
     )

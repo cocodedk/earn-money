@@ -65,8 +65,8 @@ def build_command(
         "-concurrency", str(concurrency),
     ]
     for host in crawl_scope:
-        # Katana -cs is a Go regex; anchor and escape so sub-domain suffixes don't match.
-        pattern = "^" + re.escape(host).replace(r"\*", ".*") + r"(?::\d+)?$"
+        # Katana -cs is a URL regex; anchor with scheme so bare hostname patterns don't match.
+        pattern = r"^https?://" + re.escape(host).replace(r"\*", ".*") + r"(?::\d+)?(?:/.*)?$"
         cmd.extend(["-cs", pattern])
     return cmd
 

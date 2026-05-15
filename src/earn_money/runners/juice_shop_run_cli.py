@@ -13,7 +13,6 @@ from earn_money import config, db, flags, juiceshop_adapter, policy, scope
 from earn_money.engine import active_pipeline, active_tick_cli
 from earn_money.runners import active
 
-_DEFAULT_BASE_URL = "https://target.cocode.dk"
 _DEFAULT_PLATFORM = "local"
 _DEFAULT_PROGRAM = "juice-shop"
 _HTTP_TIMEOUT = 10.0
@@ -32,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="juice-shop-run")
     parser.add_argument("--platform", default=_DEFAULT_PLATFORM)
     parser.add_argument("--program", default=_DEFAULT_PROGRAM)
-    parser.add_argument("--base-url", default=_DEFAULT_BASE_URL)
+    parser.add_argument("--base-url", required=True, help="Juice Shop base URL")
     parser.add_argument("--root", default=Path.cwd(), type=Path)
     parser.add_argument("--max-targets", type=int, default=None)
     args = parser.parse_args(argv)

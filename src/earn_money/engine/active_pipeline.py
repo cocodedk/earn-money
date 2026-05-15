@@ -155,6 +155,13 @@ def run_program_pipeline(
                 pending.remove(name)
                 pending.append(name)
             continue
+        if getattr(result, "roe_skipped", False):
+            if name in pending:
+                pending.remove(name)
+            steps.append(StepResult(
+                runner=name, status="skipped", detail="roe not authorized",
+            ))
+            continue
         if name in pending:
             pending.remove(name)
         steps.append(StepResult(
