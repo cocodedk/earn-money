@@ -1,0 +1,6 @@
+2026-05-15T11:55:00Z
+operator directive (via agent-coordinator msg #1347): "we drop bykea scans and just use their experiences instead to develop earn-money's capabilities."
+
+bykea is corpus-only. No live scanning (active or passive). FN-rate delta against the disclosure corpus is the metric for plugin development going forward.
+
+Reverse via `bin/ack-freeze hackerone/bykea` if the stance ever changes.

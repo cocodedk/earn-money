@@ -13,6 +13,24 @@ special_notes: |
   otherwise applies: no DoS, no destructive payloads, no social
   engineering, PII limited to one redacted screenshot.
 
+  ## 2026-05-15 operator directive: corpus-only, no live scanning
+
+  Operator verbatim: "we drop bykea scans and just use their experiences
+  instead to develop earn-money's capabilities."
+
+  Effective immediately, Bykea is "disclosure-corpus-only" — no live
+  scanning of any kind (active OR passive). Enforcement primitive is
+  the FROZEN flag at `programs/hackerone/bykea/FROZEN`, which the
+  existing per-program freeze-flag check honours across every runner.
+  Reversibility via `bin/ack-freeze hackerone/bykea` if the stance
+  changes; but the default position is corpus-only.
+
+  Bykea's 8-row disclosure corpus at
+  `benchmarks/disclosures/hackerone-bykea.json` is now the development
+  target for new plugins / heuristics. FN-rate delta against the
+  bykea + security combined corpus (17 rows) is the metric for plugin
+  work going forward.
+
   If Bykea later names a sandbox or test account, capture that here.
 ---
 
