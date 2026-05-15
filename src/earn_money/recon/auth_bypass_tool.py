@@ -66,7 +66,6 @@ def probe_service(
 ) -> list[Signal]:
     """Probe `base_url` for admin path access and JWT alg:none bypass."""
     signals: list[Signal] = []
-    found_api_paths: list[str] = []
 
     for path in ADMIN_PATHS:
         url = urljoin(base_url, path)
@@ -80,8 +79,6 @@ def probe_service(
                 f"status={resp.status_code} len={len(resp.text)}",
                 run_id=run_id, observed_at=observed_at,
             ))
-            if "/api/" in path:
-                found_api_paths.append(path)
 
     # JWT alg:none GET: try /api/Users with unsigned token
     jwt = _make_alg_none_jwt()
@@ -98,7 +95,8 @@ def probe_service(
         pass
 
     if auth_testing_authorized:
-        for path in found_api_paths[:3]:
+        api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
+        for path in api_paths[:3]:
             sig = _probe_jwt_alg_none_write(
                 path, base_url, jwt=jwt, client=client,
                 run_id=run_id, observed_at=observed_at,
@@ -138,8 +136,7 @@ def _make_signal(
 ) -> Signal:
     asset = hashing.normalize_asset(url)
     target = hashing.normalize_target(url)
-    normalized = hashing.normalize_target(url)
-    signature = f"auth-bypass|{kind}|{normalized[:20]}"
+    signature = f"auth-bypass|{kind}|{target[:20]}"
     payload = json.dumps(
         {"url": url, "kind": kind, "evidence": evidence, "severity": "high"},
         sort_keys=True,
