@@ -15,6 +15,7 @@ _SAMPLE_CORPUS = {
     "source": "test fixture",
     "generated_at": "2026-05-15T09:30:00Z",
     "in_window_range": "2023-01-01 to present",
+    "disclosed_date_precision_note": "approximate ±6 months",
     "disclosures": [
         {
             "report_url": "https://hackerone.com/reports/111",
@@ -77,6 +78,34 @@ def test_ingest_writes_rows(tmp_repo: Path) -> None:
     assert rows[1] == (
         "https://hackerone.com/reports/222", "Info-Disclosure", "medium", None,
         "regex-friendly", None,
+    )
+
+
+def test_ingest_records_provenance(tmp_repo: Path) -> None:
+    """Provenance columns (corpus_source, corpus_generated_at, in_window_range,
+    date_precision_note) must land alongside the disclosure row."""
+    register_program(config.Paths.from_root(tmp_repo))
+    _seed_corpus(tmp_repo)
+
+    rc = benchmark_ingest.main([
+        "--platform", "hackerone", "--program", "example", "--root", str(tmp_repo)
+    ])
+    assert rc == 0
+
+    paths = config.Paths.from_root(tmp_repo)
+    conn = db.open_db(paths.program_db("hackerone", "example"))
+    row = conn.execute(
+        "SELECT corpus_source, corpus_generated_at, in_window_range, "
+        "date_precision_note, scoring_rubric_version "
+        "FROM benchmark_disclosures WHERE report_url = ?",
+        ("https://hackerone.com/reports/111",),
+    ).fetchone()
+    conn.close()
+
+    assert row == (
+        "test fixture", "2026-05-15T09:30:00Z", "2023-01-01 to present",
+        "approximate ±6 months",
+        None,  # scoring_rubric_version is reserved for Phase B
     )
 
 

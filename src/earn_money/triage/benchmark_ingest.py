@@ -49,18 +49,25 @@ def ingest(
     data: dict[str, Any] = json.loads(corpus_file.read_text(encoding="utf-8"))
     rows = data.get("disclosures") or []
     ingested_at = now_iso()
+    # Provenance — replicated per row so each disclosure carries its origin.
+    corpus_source = str(data.get("source") or "")
+    corpus_generated_at = str(data.get("generated_at") or "")
+    in_window_range = str(data.get("in_window_range") or "")
+    date_precision_note = data.get("disclosed_date_precision_note")
 
     conn = db.open_db(paths.program_db(platform, slug))
     try:
-        # Upsert: refresh corpus fields, preserve verdict columns.
+        # Upsert: refresh corpus + provenance fields, preserve verdict columns.
         for row in rows:
             conn.execute(
                 """
                 INSERT INTO benchmark_disclosures (
                     report_url, title, severity, disclosed_date, bounty_usd,
                     asset_pattern, vuln_class, vector_summary,
-                    auto_detectable_hint, ingested_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    auto_detectable_hint, ingested_at,
+                    corpus_source, corpus_generated_at, in_window_range,
+                    date_precision_note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(report_url) DO UPDATE SET
                     title = excluded.title,
                     severity = excluded.severity,
@@ -70,7 +77,11 @@ def ingest(
                     vuln_class = excluded.vuln_class,
                     vector_summary = excluded.vector_summary,
                     auto_detectable_hint = excluded.auto_detectable_hint,
-                    ingested_at = excluded.ingested_at
+                    ingested_at = excluded.ingested_at,
+                    corpus_source = excluded.corpus_source,
+                    corpus_generated_at = excluded.corpus_generated_at,
+                    in_window_range = excluded.in_window_range,
+                    date_precision_note = excluded.date_precision_note
                 """,
                 (
                     row["report_url"],
@@ -83,6 +94,10 @@ def ingest(
                     row["vector_summary"],
                     row["auto_detectable_hint"],
                     ingested_at,
+                    corpus_source,
+                    corpus_generated_at,
+                    in_window_range,
+                    date_precision_note,
                 ),
             )
         conn.commit()

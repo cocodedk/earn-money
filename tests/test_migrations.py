@@ -148,6 +148,50 @@ def test_v4_migration_is_idempotent(tmp_path: Path) -> None:
     assert _user_version(conn) == 4
 
 
+def test_fresh_db_migrates_to_v5(tmp_path: Path) -> None:
+    """v5 adds provenance + scoring_rubric_version columns."""
+    conn = sqlite3.connect(tmp_path / "fresh_v5.sqlite")
+    migrations.migrate(conn, target_version=5)
+    assert _user_version(conn) == 5
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(benchmark_disclosures)")
+    }
+    assert columns >= {
+        "corpus_source", "corpus_generated_at", "in_window_range",
+        "date_precision_note", "scoring_rubric_version",
+    }
+
+
+def test_v4_to_v5_preserves_existing_rows(tmp_path: Path) -> None:
+    """An existing v4 benchmark_disclosures row must survive v5 with sensible
+    defaults for the new provenance columns."""
+    conn = sqlite3.connect(tmp_path / "v4_to_v5.sqlite")
+    migrations.migrate(conn, target_version=4)
+    conn.execute(
+        "INSERT INTO benchmark_disclosures "
+        "(report_url, title, severity, disclosed_date, bounty_usd, "
+        " asset_pattern, vuln_class, vector_summary, auto_detectable_hint, "
+        " ingested_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ("https://h1.com/reports/9", "T", "high", "2024-01", 100,
+         "*.example.com", "IDOR", "v", "requires-auth",
+         "2026-05-15T09:00:00Z"),
+    )
+    conn.commit()
+
+    migrations.migrate(conn, target_version=5)
+
+    row = conn.execute(
+        "SELECT report_url, corpus_source, corpus_generated_at, "
+        "in_window_range, date_precision_note, scoring_rubric_version "
+        "FROM benchmark_disclosures WHERE report_url = ?",
+        ("https://h1.com/reports/9",),
+    ).fetchone()
+    assert row == (
+        "https://h1.com/reports/9", "", "", "", None, None,
+    )
+
+
 def test_v2_to_v3_backfills_legacy_findings(tmp_path: Path) -> None:
     """An existing v2 row in findings (created via the legacy 6-column shape)
     must survive v3 with sensible default values for the new columns."""

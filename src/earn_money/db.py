@@ -7,7 +7,7 @@ from pathlib import Path
 
 from earn_money import migrations
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def open_db(path: Path) -> sqlite3.Connection:

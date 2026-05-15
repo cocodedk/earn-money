@@ -190,11 +190,37 @@ def _apply_v4(conn: sqlite3.Connection) -> None:
     _execute_script(conn, _V4_SCHEMA)
 
 
+_V5_BENCHMARK_DISCLOSURE_COLUMNS: tuple[tuple[str, str], ...] = (
+    # Provenance — replicated per row, denormalised for Phase A.
+    ("corpus_source",         "TEXT NOT NULL DEFAULT ''"),
+    ("corpus_generated_at",   "TEXT NOT NULL DEFAULT ''"),
+    ("in_window_range",       "TEXT NOT NULL DEFAULT ''"),
+    ("date_precision_note",   "TEXT"),
+    # Reserved for Phase B scoring — captures which rubric version set the
+    # verdict, so a map evolution doesn't silently invalidate old verdicts.
+    ("scoring_rubric_version", "TEXT"),
+)
+
+
+def _apply_v5(conn: sqlite3.Connection) -> None:
+    """Add provenance + reserved-for-Phase-B columns to benchmark_disclosures."""
+    existing = {
+        row[1] for row in conn.execute("PRAGMA table_info(benchmark_disclosures)")
+    }
+    for name, definition in _V5_BENCHMARK_DISCLOSURE_COLUMNS:
+        if name in existing:
+            continue
+        conn.execute(
+            f"ALTER TABLE benchmark_disclosures ADD COLUMN {name} {definition}"
+        )
+
+
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
     3: _apply_v3,
     4: _apply_v4,
+    5: _apply_v5,
 }
 
 
