@@ -1,4 +1,4 @@
-"""Tests for the active-pipeline orchestrator."""
+"""Tests for active-pipeline decider integration and runner-failure resilience."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from pathlib import Path
 
 from earn_money import config, db, scope
 from earn_money._time import to_iso
+from earn_money.agent.decider import Decision
 from earn_money.engine import active_pipeline
 from earn_money.recon import assets, runs, services
 from earn_money.runners import active
@@ -50,8 +51,9 @@ def _seed_httpx_run(paths: config.Paths) -> None:
             [assets.AssetObservation(subdomain="api.example.com", ips=())],
             observed_at="t", in_scope=True,
         )
-        # Seed a katana run so sqli-probe and xss-probe don't skip.
-        katana_artifact = paths.root / "recon/outputs/hackerone/example/katana/seed/ka1"
+        katana_artifact = (
+            paths.root / "recon/outputs/hackerone/example/katana/seed/ka1"
+        )
         katana_artifact.mkdir(parents=True, exist_ok=True)
         (katana_artifact / "discovered_urls.jsonl").write_text("", encoding="utf-8")
         runs.start_run(
@@ -75,66 +77,83 @@ def _noop_factory(
     return lambda _t: active.ToolRunResult(outputs=())
 
 
-def test_pipeline_aborts_when_recon_disabled(tmp_repo: Path) -> None:
-    paths = config.Paths.from_root(tmp_repo)
-    _seed_scope(paths)
-    result = active_pipeline.run_program_pipeline(
-        paths, "hackerone", "example", tool_factory=_noop_factory,
-    )
-    assert result.aborted_reason == "kill_switch"
-    assert result.steps == ()
-
-
-def test_pipeline_aborts_when_program_frozen(tmp_repo: Path) -> None:
-    paths = config.Paths.from_root(tmp_repo)
-    paths.recon_enabled_flag.touch()
-    _seed_scope(paths)
-    paths.freeze_flag("hackerone", "example").write_text(
-        "2026-05-12T00:00:00Z\nseed reason\n", encoding="utf-8",
-    )
-    result = active_pipeline.run_program_pipeline(
-        paths, "hackerone", "example", tool_factory=_noop_factory,
-    )
-    assert result.aborted_reason == "frozen"
-
-
-def test_pipeline_runs_all_six_steps_in_order(tmp_repo: Path) -> None:
+def test_decider_overrides_step_order(tmp_repo: Path) -> None:
+    """When a decider is provided, it picks the next step -- not the
+    fixed _PIPELINE order. Orchestrator validates the choice."""
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _seed_scope(paths)
     _seed_httpx_run(paths)
+    chosen = iter([
+        "takeover-validate",  # not the natural-first step (httpx is)
+        "graphql-probe",
+        "stop",
+    ])
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        try:
+            nxt = next(chosen)
+        except StopIteration:
+            nxt = "stop"
+        return Decision(next_step=nxt, reason="test")
+
     result = active_pipeline.run_program_pipeline(
-        paths, "hackerone", "example", tool_factory=_noop_factory,
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
     )
-    assert result.aborted_reason is None
     runners = [s.runner for s in result.steps]
-    assert runners == [
-        "httpx-probe", "nuclei-scan", "takeover-validate",
-        "sourcemap-scan", "katana-crawl", "graphql-probe",
-        "auth-bypass-probe", "sqli-probe", "xss-probe",
-    ]
-    # No prereq_skipped — httpx was seeded as a recent success.
-    assert all(s.status == "ok" for s in result.steps)
+    assert runners == ["takeover-validate", "graphql-probe"]
 
 
-def test_pipeline_marks_step_skipped_when_prereq_missing(tmp_repo: Path) -> None:
-    """No httpx run → nuclei/sourcemap/katana/graphql self-report
-    prereq_skipped, which the orchestrator records as 'skipped'."""
+def test_decider_stop_short_circuits(tmp_repo: Path) -> None:
+    """`next_step='stop'` ends the pipeline cleanly without further runs."""
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _seed_scope(paths)
-    # No _seed_httpx_run() — prereq-gated runners will skip.
+    _seed_httpx_run(paths)
+
+    def decider(
+        _paths: config.Paths, _platform: str, _slug: str,
+        *, completed_steps: tuple[active_pipeline.StepResult, ...],
+    ) -> Decision:
+        return Decision(next_step="stop", reason="enough for today")
+
     result = active_pipeline.run_program_pipeline(
-        paths, "hackerone", "example", tool_factory=_noop_factory,
+        paths, "hackerone", "example",
+        tool_factory=_noop_factory, decider=decider,
+    )
+    assert result.steps == ()
+    assert result.aborted_reason is None
+
+
+def test_pipeline_continues_after_a_runner_raises(tmp_repo: Path) -> None:
+    """A tool-level exception in one runner must not stop the rest of
+    the pipeline. The failing step is recorded as 'failed' with detail."""
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _seed_scope(paths)
+    _seed_httpx_run(paths)
+
+    def factory(
+        runner: str, _paths: config.Paths, _platform: str, _slug: str,
+        _run_id: str,
+    ) -> active.ToolRun:  # type: ignore[name-defined]
+        if runner == "nuclei-scan":
+            def boom(_t: list[str]) -> active.ToolRunResult:
+                raise RuntimeError("simulated nuclei crash")
+            return boom
+        return lambda _t: active.ToolRunResult(outputs=())
+
+    result = active_pipeline.run_program_pipeline(
+        paths, "hackerone", "example", tool_factory=factory,
     )
     statuses = {s.runner: s.status for s in result.steps}
-    # httpx + takeover have no httpx prereq → "ok"
-    assert statuses["httpx-probe"] == "ok"
+    assert statuses["nuclei-scan"] == "failed"
+    failed = next(s for s in result.steps if s.runner == "nuclei-scan")
+    assert "simulated nuclei crash" in failed.detail
+    # Subsequent steps still ran.
     assert statuses["takeover-validate"] == "ok"
-    # nuclei + sourcemap + katana + graphql all gate on httpx → "skipped"
-    assert statuses["nuclei-scan"] == "skipped"
-    assert statuses["sourcemap-scan"] == "skipped"
-    assert statuses["katana-crawl"] == "skipped"
-    assert statuses["graphql-probe"] == "skipped"
-
-
+    assert statuses["sourcemap-scan"] == "ok"
