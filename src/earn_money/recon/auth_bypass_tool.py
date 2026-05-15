@@ -75,16 +75,17 @@ def probe_service(
                 continue
             if len(resp.content) < 50:
                 continue
-            # Confirm the endpoint actually gates on auth: try an invalid token.
-            # If it still returns 200, the path is public — not a bypass.
-            try:
-                check = client.get(url, headers={"Authorization": "Bearer invalid_probe"})
-                if request_interval:
-                    time.sleep(request_interval)
-                if check.status_code == 200 and not _is_login_redirect(check):
-                    continue
-            except httpx.HTTPError:
-                pass
+            # Only confirm auth gate when auth testing is authorized — sending
+            # a token-bearing request to an unauthorized program violates RoE.
+            if auth_testing_authorized:
+                try:
+                    check = client.get(url, headers={"Authorization": "Bearer invalid_probe"})
+                    if request_interval:
+                        time.sleep(request_interval)
+                    if check.status_code == 200 and not _is_login_redirect(check):
+                        continue
+                except httpx.HTTPError:
+                    pass
             signals.append(_make_signal(
                 url, "admin_path_open",
                 f"status={resp.status_code} len={len(resp.text)}",

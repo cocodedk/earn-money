@@ -27,7 +27,11 @@ def _build_real_tool(
     authorized_test_accounts: tuple[str, ...] = (),
     max_requests_per_second: int = 10,
 ) -> Callable[[list[str]], active.ToolRunResult]:
+    # Budget is shared across the entire run, not reset per target.
+    budget_remaining = auth_lockout_budget
+
     def real_tool(targets: list[str]) -> active.ToolRunResult:
+        nonlocal budget_remaining
         signals: list[object] = []
         errors = 0
         now = now_iso()
@@ -45,10 +49,15 @@ def _build_real_tool(
                         url, client=client, run_id=run_id, observed_at=now,
                         auth_testing_authorized=auth_testing_authorized,
                         mutation_testing_authorized=mutation_testing_authorized,
-                        auth_lockout_budget=auth_lockout_budget,
+                        auth_lockout_budget=budget_remaining,
                         authorized_test_accounts=authorized_test_accounts,
                         request_interval=interval,
                     )
+                    # Deduct the max JWT requests probe_service could have sent.
+                    api_count = sum(1 for p in auth_bypass_tool.ADMIN_PATHS if "/api/" in p)
+                    write_factor = 2 if mutation_testing_authorized else 1
+                    used = min(budget_remaining, api_count * write_factor)
+                    budget_remaining = max(0, budget_remaining - used)
                 except httpx.HTTPError:
                     errors += 1
                     continue

@@ -1,8 +1,4 @@
-"""Per-program Rules of Engagement.
-
-`roe.md` alongside `scope.md` declares technique-level authority. `CLAUDE.md`
-is the conservative floor for any field left unspecified. `default_roe()` returns that floor.
-"""
+"""Per-program Rules of Engagement — technique-level authority from roe.md."""
 
 from __future__ import annotations
 
@@ -30,7 +26,7 @@ EXTRA_ALLOWED_NUCLEI_DIRS: frozenset[str] = frozenset({
 
 
 class InvalidRoE(Exception):
-    """Raised when roe.md is malformed or carries an out-of-range value."""
+    """Malformed or out-of-range roe.md value."""
 
 
 @dataclass(frozen=True)
@@ -48,6 +44,7 @@ class RoE:
     sqli_time_based: bool = False
     mutation_testing_authorized: bool = False
     auth_lockout_budget: int = 0
+    injection_testing_authorized: bool = False
 
     def manifest_payload(self) -> dict[str, Any]:
         """Audit-trail subset for embedding in a runner's `manifest.json`."""
@@ -64,6 +61,7 @@ class RoE:
             "sqli_time_based": self.sqli_time_based,
             "mutation_testing_authorized": self.mutation_testing_authorized,
             "auth_lockout_budget": self.auth_lockout_budget,
+            "injection_testing_authorized": self.injection_testing_authorized,
         }
 
 
@@ -182,6 +180,10 @@ def read_roe(path: Path) -> RoE:
         ),
         auth_lockout_budget=_non_negative_int(
             meta.get("auth_lockout_budget", floor.auth_lockout_budget), "auth_lockout_budget",
+        ),
+        injection_testing_authorized=_bool(
+            meta.get("injection_testing_authorized", floor.injection_testing_authorized),
+            "injection_testing_authorized",
         ),
     )
 

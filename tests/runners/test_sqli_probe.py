@@ -30,6 +30,12 @@ def _write_scope(paths: config.Paths) -> None:
     scope.write_scope(paths.scope_file("local", "juice-shop"), s)
 
 
+def _write_roe(paths: config.Paths) -> None:
+    roe_path = paths.roe_file("local", "juice-shop")
+    roe_path.parent.mkdir(parents=True, exist_ok=True)
+    roe_path.write_text("---\ninjection_testing_authorized: true\n---\n")
+
+
 def _write_katana_artifact(paths: config.Paths, urls: list[str]) -> str:
     """Write a fake discovered_urls.jsonl and a recon_run row; return artifact_dir."""
     import uuid
@@ -57,10 +63,23 @@ def _write_katana_artifact(paths: config.Paths, urls: list[str]) -> str:
     return str(artifact_dir)
 
 
+def test_sqli_probe_skips_when_not_authorized(tmp_repo: Path) -> None:
+    paths = config.Paths.from_root(tmp_repo)
+    paths.recon_enabled_flag.touch()
+    _write_scope(paths)  # no roe.md → injection_testing_authorized defaults to False
+    result = sqli_probe.run_program(
+        paths, "local", "juice-shop",
+        tool_run=lambda _: active.ToolRunResult(outputs=()),
+    )
+    assert result.outputs_recorded == 0
+    assert result.prereq_skipped is False
+
+
 def test_sqli_probe_skips_when_no_katana_artifact(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _write_scope(paths)
+    _write_roe(paths)
     result = sqli_probe.run_program(
         paths, "local", "juice-shop",
         tool_run=lambda _: active.ToolRunResult(outputs=()),
@@ -72,6 +91,7 @@ def test_sqli_probe_records_signals(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _write_scope(paths)
+    _write_roe(paths)
     _write_katana_artifact(paths, ["https://target.cocode.dk/search?q=test"])
 
     def fake_tool(targets: list[str]) -> active.ToolRunResult:
@@ -89,6 +109,7 @@ def test_sqli_probe_drops_oos_signals(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _write_scope(paths)
+    _write_roe(paths)
     _write_katana_artifact(paths, ["https://target.cocode.dk/search?q=test"])
 
     oos_sig = Signal(
@@ -112,6 +133,7 @@ def test_sqli_probe_skips_urls_without_params(tmp_repo: Path) -> None:
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
     _write_scope(paths)
+    _write_roe(paths)
     _write_katana_artifact(paths, [
         "https://target.cocode.dk/page",       # no params — should be filtered
         "https://target.cocode.dk/search?q=x", # has params — included

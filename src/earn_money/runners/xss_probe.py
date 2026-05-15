@@ -71,11 +71,14 @@ def run_program(
     run_id: str | None = None,
     max_targets: int | None = None,
 ) -> active.ActiveRunResult:
-    """Gate → prereq (katana artifact) → load URLs → probe → record."""
+    """Gate → RoE → prereq (katana artifact) → load URLs → probe → record."""
     s = active.check_gates(paths, platform, slug, mode="active")
     program_roe = roe.read_roe(paths.roe_file(platform, slug))
 
     run_id = run_id or uuid.uuid4().hex
+
+    if not program_roe.injection_testing_authorized:
+        return active.ActiveRunResult(run_id=run_id)
     now_dt = datetime.now(UTC)
     now = to_iso(now_dt)
     artifact_dir = paths.root / (

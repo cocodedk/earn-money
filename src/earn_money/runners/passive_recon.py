@@ -71,12 +71,14 @@ def run_program(
     s = scope.read_scope(paths.scope_file(platform, slug))
     policy.require_policy_allows(s, mode="passive")
 
-    apexes = _apexes_from_in_scope(s.in_scope)
+    # Only enumerate subdomains for wildcard scope entries. A scope entry like
+    # "target.cocode.dk" must not cause subfinder/chaos to enumerate all of
+    # "cocode.dk" — that would touch out-of-scope infrastructure.
+    wildcard_entries = [e for e in s.in_scope if e.startswith("*.")]
+    apexes = _apexes_from_in_scope(wildcard_entries)
 
-    # Explicit literals are themselves candidates — subfinder/chaos enumerate
-    # *subdomains of* an apex and never return the apex itself, so a scope
-    # entry like ``hackerone.com`` or a private-suffix S3 bucket FQDN would
-    # otherwise be silently dropped.
+    # Explicit entries are themselves candidates. Subfinder/chaos only run
+    # for wildcard scopes where subdomain enumeration is the intent.
     candidates: set[str] = {
         entry.lower() for entry in s.in_scope if not entry.startswith("*.")
     }

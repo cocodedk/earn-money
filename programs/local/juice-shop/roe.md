@@ -11,6 +11,7 @@ authorized_test_environments:
 authorized_test_accounts: []
 auth_lockout_budget: 10
 sqli_time_based: false
+injection_testing_authorized: true
 extra_nuclei_dirs: []
 special_notes: |
   Operator-owned OWASP Juice Shop at target.cocode.dk.

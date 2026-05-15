@@ -159,4 +159,5 @@ def test_manifest_records_roe_under_which_probe_ran(tmp_repo: Path) -> None:
         "sqli_time_based": False,
         "mutation_testing_authorized": False,
         "auth_lockout_budget": 0,
+        "injection_testing_authorized": False,
     }
