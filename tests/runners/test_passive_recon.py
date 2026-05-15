@@ -152,17 +152,24 @@ def test_wildcard_match_includes_descendants(tmp_repo: Path) -> None:
     assert result.subdomains_discovered == 2
 
 
-def test_rejects_non_hackerone_platform(tmp_repo: Path) -> None:
+def test_non_hackerone_platform_runs_discovery(tmp_repo: Path) -> None:
+    """passive-recon is platform-agnostic — subfinder/chaos/DNS work for any platform."""
     paths = config.Paths.from_root(tmp_repo)
     paths.recon_enabled_flag.touch()
-    # The platform check fires before scope.read_scope, so no scope file is needed.
-    with pytest.raises(ValueError, match="not supported"):
-        passive_recon.run_program(
-            paths, "intigriti", "example",
-            chaos_client=_chaos_client({"domain": "example.com", "subdomains": []}),
-            dns_resolver=MagicMock(),
-            subfinder_run=lambda d: [],
-        )
+    s = scope.Scope(
+        platform="intigriti", slug="example", policy="rate-limited-OK",
+        in_scope=["target.example.com"], out_of_scope=[], notes="",
+        scope_hash="seed", last_synced="2026-05-15T00:00:00Z",
+    )  # type: ignore[arg-type]
+    scope.write_scope(paths.scope_file("intigriti", "example"), s)
+    result = passive_recon.run_program(
+        paths, "intigriti", "example",
+        chaos_client=_chaos_client({"domain": "example.com", "subdomains": []}),
+        dns_resolver=MagicMock(),
+        subfinder_run=lambda d: [],
+    )
+    # Non-HackerOne platforms run discovery without raising; no source failures.
+    assert result.source_failures == 0
 
 
 def test_empty_in_scope_does_nothing(tmp_repo: Path) -> None:

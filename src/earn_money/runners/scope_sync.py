@@ -90,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.platform != "hackerone":
+        print(f"scope-sync: platform {args.platform!r} has no sync adapter — skipping")
+        return 0
+
     paths = config.Paths.from_root(args.root)
     client: hackerone.Client | None = None
     try:

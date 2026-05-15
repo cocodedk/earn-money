@@ -66,8 +66,7 @@ def run_program(
     flags.require_recon_enabled(paths)
     flags.require_program_not_frozen(paths, platform, slug)
 
-    if platform != "hackerone":
-        raise ValueError(f"platform {platform!r} not supported in Phase 2")
+    # Platform is not restricted — subfinder/chaos/DNS are generic tools.
 
     s = scope.read_scope(paths.scope_file(platform, slug))
     policy.require_policy_allows(s, mode="passive")
