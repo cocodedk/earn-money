@@ -78,3 +78,58 @@ def test_probe_service_swallows_http_error() -> None:
             client=client, run_id="r1", observed_at="t",
         )
     assert sigs == []
+
+
+def test_write_probe_detects_bypass_when_auth_testing_authorized() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        url = str(req.url)
+        if req.method == "GET" and "/api/Users" in url:
+            return httpx.Response(200, text='[{"id":1}]')
+        if req.method == "PUT" and "/api/Users/99999" in url:
+            return httpx.Response(404, text='{"message":"Not Found"}')
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True,
+        )
+    write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
+    assert len(write_sigs) == 1
+    assert "status=404" in write_sigs[0].payload
+
+
+def test_write_probe_skipped_when_not_authorized() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "GET" and "/api/Users" in str(req.url):
+            return httpx.Response(200, text='[{"id":1}]')
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=False,
+        )
+    write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
+    assert write_sigs == []
+
+
+def test_write_probe_no_signal_when_proper_401() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        url = str(req.url)
+        if req.method == "GET" and "/api/Users" in url:
+            return httpx.Response(200, text='[{"id":1}]')
+        if req.method == "PUT" and "/api/Users/99999" in url:
+            return httpx.Response(401, text="Unauthorized")
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True,
+        )
+    write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
+    assert write_sigs == []

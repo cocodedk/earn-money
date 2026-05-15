@@ -1,13 +1,13 @@
 """Auth-bypass probe — admin path discovery and JWT alg:none bypass.
 
-Two passive techniques, both GET-only:
+Three techniques:
 1. Admin path discovery: try common admin/API endpoints; flag 200s that aren't
    login-page redirects.
-2. JWT alg:none: craft an unsigned JWT (no credentials needed), present it as
-   a Bearer token, and check whether the server accepts it for protected paths.
-
-`auth_testing_authorized` in roe.md is required for credential-based checks
-(not used here). These two techniques are read-only and don't require accounts.
+2. JWT alg:none GET: craft an unsigned JWT, present it as a Bearer token, check
+   whether the server accepts it for protected GET paths.
+3. JWT alg:none write (requires auth_testing_authorized=True in roe.md): PUT to
+   <api-path>/99999 with unsigned JWT; a non-401/403 response confirms write-level
+   auth bypass without mutating state (non-existent ID).
 """
 
 from __future__ import annotations
@@ -62,9 +62,11 @@ def probe_service(
     client: httpx.Client,
     run_id: str,
     observed_at: str,
+    auth_testing_authorized: bool = False,
 ) -> list[Signal]:
     """Probe `base_url` for admin path access and JWT alg:none bypass."""
     signals: list[Signal] = []
+    found_api_paths: list[str] = []
 
     for path in ADMIN_PATHS:
         url = urljoin(base_url, path)
@@ -78,8 +80,10 @@ def probe_service(
                 f"status={resp.status_code} len={len(resp.text)}",
                 run_id=run_id, observed_at=observed_at,
             ))
+            if "/api/" in path:
+                found_api_paths.append(path)
 
-    # JWT alg:none: try /api/Users with unsigned token
+    # JWT alg:none GET: try /api/Users with unsigned token
     jwt = _make_alg_none_jwt()
     api_url = urljoin(base_url, "/api/Users")
     try:
@@ -93,7 +97,39 @@ def probe_service(
     except httpx.HTTPError:
         pass
 
+    if auth_testing_authorized:
+        for path in found_api_paths[:3]:
+            sig = _probe_jwt_alg_none_write(
+                path, base_url, jwt=jwt, client=client,
+                run_id=run_id, observed_at=observed_at,
+            )
+            if sig:
+                signals.append(sig)
+
     return signals
+
+
+def _probe_jwt_alg_none_write(
+    path: str, base_url: str,
+    *, jwt: str, client: httpx.Client, run_id: str, observed_at: str,
+) -> Signal | None:
+    """PUT to <path>/99999 with alg:none JWT; 404 = bypass, 401/403 = gate working."""
+    write_url = urljoin(base_url, path.rstrip("/") + "/99999")
+    try:
+        resp = client.put(
+            write_url,
+            headers={"Authorization": f"Bearer {jwt}", "Content-Type": "application/json"},
+            content=b"{}",
+        )
+    except httpx.HTTPError:
+        return None
+    if resp.status_code in (401, 403):
+        return None
+    return _make_signal(
+        write_url, "jwt_alg_none_write",
+        f"status={resp.status_code} (expected 401/403 — write auth bypassed)",
+        run_id=run_id, observed_at=observed_at,
+    )
 
 
 def _make_signal(

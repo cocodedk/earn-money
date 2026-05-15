@@ -21,6 +21,7 @@ _USER_AGENT = "earn-money-authbypass/1.0 (bb@cocode.dk)"
 
 def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str,
+    auth_testing_authorized: bool = False,
 ) -> Callable[[list[str]], active.ToolRunResult]:
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         signals: list[object] = []
@@ -35,6 +36,7 @@ def _build_real_tool(
                 try:
                     sigs = auth_bypass_tool.probe_service(
                         url, client=client, run_id=run_id, observed_at=now,
+                        auth_testing_authorized=auth_testing_authorized,
                     )
                 except httpx.HTTPError:
                     errors += 1
@@ -60,8 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     run_id = uuid.uuid4().hex
 
     try:
+        program_roe = roe.read_roe(paths.roe_file(args.platform, args.program))
         real_tool = _build_real_tool(
             paths, platform=args.platform, slug=args.program, run_id=run_id,
+            auth_testing_authorized=program_roe.auth_testing_authorized,
         )
         result = auth_bypass_probe.run_program(
             paths, args.platform, args.program,
