@@ -284,4 +284,9 @@ def test_manifest_records_roe_under_which_probe_ran(tmp_repo: Path) -> None:
         "max_requests_per_second": 10,
         "authorized_test_environments": [],
         "authorized_test_accounts": [],
+        "extra_nuclei_dirs": [],
+        "auth_testing_authorized": False,
+        "sqli_time_based": False,
+        "mutation_testing_authorized": False,
+        "auth_lockout_budget": 0,
     }

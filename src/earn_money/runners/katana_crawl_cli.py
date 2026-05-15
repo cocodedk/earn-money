@@ -30,11 +30,19 @@ def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str,
 ) -> Callable[[list[str]], active.ToolRunResult]:
     """Wire kill-switch watchdog + tmpfile + katana subprocess + parser."""
+    from earn_money import db
+    from earn_money import scope as scope_mod
     from earn_money.runners import batch, watchdog
 
     rate_limit = resolve_rate_limit(paths, platform, slug)
 
     def real_tool(targets: list[str]) -> active.ToolRunResult:
+        # Compute crawl scope from validated http_services at call time.
+        _conn = db.open_db(paths.program_db(platform, slug))
+        _s = scope_mod.read_scope(paths.scope_file(platform, slug))
+        crawl_scope = katana_crawl._load_in_scope_hosts(_conn, _s)
+        _conn.close()
+
         abort = threading.Event()
         abort_reason: list[Reason | None] = [None]
 
@@ -55,6 +63,7 @@ def _build_real_tool(
                 tf.write_text("\n".join(chunk) + "\n", encoding="utf-8")
                 return katana_tool.build_command(
                     str(tf), rate_limit=rate_limit, depth=_DEFAULT_DEPTH,
+                    crawl_scope=crawl_scope,
                 )
 
             try:

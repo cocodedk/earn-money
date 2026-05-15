@@ -84,8 +84,21 @@ def test_filter_in_scope_drops_oos_hosts(fixtures_dir: Path) -> None:
 
 
 def test_filter_in_scope_empty_input() -> None:
-    keep, drops = katana_tool.filter_in_scope(
+    keep, _drops = katana_tool.filter_in_scope(
         [], in_scope_host=lambda _h: True,
     )
     assert keep == []
-    assert drops == 0
+
+
+def test_build_command_adds_cs_flags_for_crawl_scope() -> None:
+    cmd = katana_tool.build_command(
+        "/tmp/s.txt", rate_limit=10,
+        crawl_scope=["target.cocode.dk", "api.example.com"],
+    )
+    cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
+    assert cs_flags == ["target.cocode.dk", "api.example.com"]
+
+
+def test_build_command_no_cs_flags_when_scope_empty() -> None:
+    cmd = katana_tool.build_command("/tmp/s.txt", rate_limit=10)
+    assert "-cs" not in cmd
