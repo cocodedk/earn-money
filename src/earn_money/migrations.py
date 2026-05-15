@@ -240,6 +240,26 @@ def _apply_v6(conn: sqlite3.Connection) -> None:
         )
 
 
+_V7_SCHEMA = """
+CREATE TABLE IF NOT EXISTS juice_shop_scores (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id    TEXT NOT NULL,
+    snapshot_type  TEXT NOT NULL,
+    snapshot_time  TEXT NOT NULL,
+    challenge_id   INTEGER NOT NULL,
+    challenge_name TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    difficulty     INTEGER NOT NULL,
+    solved         INTEGER NOT NULL DEFAULT 0
+);
+"""
+
+
+def _apply_v7(conn: sqlite3.Connection) -> None:
+    """Add juice_shop_scores table for pre/post challenge tracking."""
+    _execute_script(conn, _V7_SCHEMA)
+
+
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
@@ -247,6 +267,7 @@ _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     4: _apply_v4,
     5: _apply_v5,
     6: _apply_v6,
+    7: _apply_v7,
 }
 
 

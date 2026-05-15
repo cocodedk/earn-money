@@ -36,12 +36,16 @@ def build_command(
     rate_limit: int,
     depth: int = 2,
     concurrency: int = 10,
+    crawl_scope: Sequence[str] = (),
 ) -> list[str]:
     """Build the `katana` argv for crawling a list of seed URLs.
 
     `targets_file` is a newline-delimited file of seed URLs. `rate_limit`
-    is requests-per-second (katana has a real `-rl` knob). `depth` caps
-    the crawl recursion; `concurrency` is parallel workers.
+    is requests-per-second. `depth` caps crawl recursion. `concurrency`
+    is parallel workers. `crawl_scope` provides explicit `-cs` hosts so
+    katana never issues requests to OOS hosts before the post-filter runs;
+    values should be already-validated live hosts (from `http_services`),
+    not raw `scope.md` patterns.
     """
     if rate_limit <= 0:
         raise ValueError(f"rate_limit must be positive, got {rate_limit}")
@@ -49,7 +53,7 @@ def build_command(
         raise ValueError(f"depth must be positive, got {depth}")
     if concurrency <= 0:
         raise ValueError(f"concurrency must be positive, got {concurrency}")
-    return [
+    cmd = [
         "katana",
         "-list", targets_file,
         "-jsonl",
@@ -59,6 +63,9 @@ def build_command(
         "-depth", str(depth),
         "-concurrency", str(concurrency),
     ]
+    for host in crawl_scope:
+        cmd.extend(["-cs", host])
+    return cmd
 
 
 def parse_jsonl(raw: str) -> list[DiscoveredUrl]:
