@@ -40,6 +40,7 @@ def test_probe_service_detects_jwt_alg_none() -> None:
             "https://target.cocode.dk",
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True, auth_lockout_budget=10,
+            authorized_test_accounts=("admin@juice-sh.op",),
         )
     jwt_sigs = [s for s in sigs if "jwt_alg_none" in s.signature and "write" not in s.signature]
     assert len(jwt_sigs) >= 1
@@ -64,10 +65,8 @@ def test_probe_service_skips_login_redirects() -> None:
 
 
 def test_make_alg_none_jwt_produces_unsigned_token() -> None:
-    token = auth_bypass_tool._make_alg_none_jwt()
-    parts = token.split(".")
-    assert len(parts) == 3
-    assert parts[2] == ""  # empty signature
+    parts = auth_bypass_tool._make_alg_none_jwt().split(".")
+    assert len(parts) == 3 and parts[2] == ""
 
 
 def test_probe_service_swallows_http_error() -> None:
@@ -85,10 +84,8 @@ def test_probe_service_swallows_http_error() -> None:
 def test_write_probe_detects_bypass_when_both_flags_set() -> None:
     def _handler(req: httpx.Request) -> httpx.Response:
         if req.method == "PUT":
-            # Baseline (no JWT): endpoint requires auth
             if "Authorization" not in req.headers:
                 return httpx.Response(401, text="Unauthorized")
-            # With JWT: auth bypassed, resource absent
             return httpx.Response(404, text='{"message":"Not Found"}')
         return httpx.Response(404, text="not found")
 
@@ -99,6 +96,7 @@ def test_write_probe_detects_bypass_when_both_flags_set() -> None:
             auth_testing_authorized=True,
             mutation_testing_authorized=True,
             auth_lockout_budget=10,
+            authorized_test_accounts=("admin@juice-sh.op",),
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert len(write_sigs) >= 1
@@ -138,10 +136,7 @@ def test_write_probe_skipped_without_mutation_authorized() -> None:
 
 
 def test_write_probe_no_signal_when_baseline_not_auth_gated() -> None:
-    """404 from unauthenticated PUT means route doesn't require auth — not a bypass."""
     def _handler(req: httpx.Request) -> httpx.Response:
-        if req.method == "PUT":
-            return httpx.Response(404, text="not found")
         return httpx.Response(404, text="not found")
 
     with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
@@ -175,7 +170,6 @@ def test_write_probe_no_signal_when_jwt_returns_401() -> None:
 
 
 def test_write_probe_no_signal_for_405_method_not_allowed() -> None:
-    """405 on baseline = route doesn't support method, not auth-gated."""
     def _handler(req: httpx.Request) -> httpx.Response:
         if req.method == "PUT":
             return httpx.Response(405, text="Method Not Allowed")
@@ -191,3 +185,16 @@ def test_write_probe_no_signal_for_405_method_not_allowed() -> None:
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
+
+
+def test_probe_service_skips_jwt_when_no_accounts() -> None:
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda _r: httpx.Response(200, text="[]")),
+    ) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True, auth_lockout_budget=10,
+        )
+    jwt_sigs = [s for s in sigs if "jwt" in s.signature]
+    assert jwt_sigs == []

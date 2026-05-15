@@ -8,7 +8,8 @@ pii_handling: synthetic_data_only
 max_requests_per_second: 10
 authorized_test_environments:
   - target.cocode.dk
-authorized_test_accounts: []
+authorized_test_accounts:
+  - admin@juice-sh.op
 auth_lockout_budget: 10
 sqli_time_based: false
 injection_testing_authorized: true

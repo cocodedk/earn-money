@@ -11,11 +11,13 @@ import sqlite3
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 
 from earn_money import config, db, roe, scope
 from earn_money._time import now_iso, to_iso
 from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
+from earn_money.recon.urls import target_host
 from earn_money.runners import active, nuclei_artifacts
 from earn_money.runners._prereq import record_prereq_missing
 
@@ -87,6 +89,9 @@ def run_program(
             )
 
         targets = _load_in_scope_service_urls(conn, s)
+        if program_roe.authorized_test_environments:
+            test_envs = set(program_roe.authorized_test_environments)
+            targets = [t for t in targets if urlparse(t).hostname in test_envs]
         if max_targets is not None and max_targets >= 0:
             targets = targets[:max_targets]
 
@@ -114,6 +119,9 @@ def run_program(
         in_scope_found = [
             sig for sig in found
             if scope.is_in_scope(sig.asset, s.in_scope, s.out_of_scope)
+            and scope.is_in_scope(
+                target_host(sig.target, sig.asset), s.in_scope, s.out_of_scope,
+            )
         ]
         oos_drops = len(found) - len(in_scope_found)
 

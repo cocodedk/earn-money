@@ -92,11 +92,12 @@ def probe_service(
                 run_id=run_id, observed_at=observed_at,
             ))
 
-    # JWT-bearing probes require explicit RoE authorization and a positive budget.
-    if not auth_testing_authorized or auth_lockout_budget <= 0:
+    # JWT-bearing probes require explicit RoE authorization, a positive budget,
+    # and at least one named test account (to avoid forging unspecified identities).
+    if not auth_testing_authorized or auth_lockout_budget <= 0 or not authorized_test_accounts:
         return signals
 
-    test_email = authorized_test_accounts[0] if authorized_test_accounts else "admin@example.com"
+    test_email = authorized_test_accounts[0]
     jwt = _make_alg_none_jwt(email=test_email)
     api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
 

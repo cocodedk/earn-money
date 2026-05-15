@@ -73,3 +73,19 @@ class Client:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+
+class NullChaosClient:
+    """No-op client for explicit-only scope where CHAOS_API_TOKEN is absent."""
+
+    def fetch_subdomains(self, _domain: str) -> list[str]:
+        return []
+
+    def close(self) -> None:
+        pass
+
+    def __enter__(self) -> NullChaosClient:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        pass

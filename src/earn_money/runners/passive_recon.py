@@ -58,7 +58,7 @@ def run_program(
     platform: str,
     slug: str,
     *,
-    chaos_client: chaos.Client,
+    chaos_client: chaos.Client | chaos.NullChaosClient,
     dns_resolver: dns.resolver.Resolver,
     subfinder_run: SubfinderRun = subfinder.enumerate_subdomains,
 ) -> PassiveReconResult:
@@ -148,12 +148,10 @@ def main(argv: list[str] | None = None) -> int:
     nameservers = args.resolver or ["1.1.1.1", "9.9.9.9"]
     paths = config.Paths.from_root(args.root)
 
-    try:
-        chaos_token = os.environ.get("CHAOS_API_TOKEN", "")
-        chaos_client = chaos.Client(token=chaos_token)
-    except chaos.ChaosAPIError as e:
-        print(f"passive-recon: {e}", file=sys.stderr)
-        return 1
+    chaos_token = os.environ.get("CHAOS_API_TOKEN", "")
+    chaos_client: chaos.Client | chaos.NullChaosClient = (
+        chaos.Client(token=chaos_token) if chaos_token else chaos.NullChaosClient()
+    )
 
     dns_resolver = resolver.make_default_resolver(nameservers)
 
