@@ -24,6 +24,7 @@ def _build_real_tool(
     auth_testing_authorized: bool = False,
     mutation_testing_authorized: bool = False,
     auth_lockout_budget: int = 0,
+    authorized_test_accounts: tuple[str, ...] = (),
     max_requests_per_second: int = 10,
 ) -> Callable[[list[str]], active.ToolRunResult]:
     def real_tool(targets: list[str]) -> active.ToolRunResult:
@@ -45,6 +46,7 @@ def _build_real_tool(
                         auth_testing_authorized=auth_testing_authorized,
                         mutation_testing_authorized=mutation_testing_authorized,
                         auth_lockout_budget=auth_lockout_budget,
+                        authorized_test_accounts=authorized_test_accounts,
                         request_interval=interval,
                     )
                 except httpx.HTTPError:
@@ -77,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
             auth_testing_authorized=program_roe.auth_testing_authorized,
             mutation_testing_authorized=program_roe.mutation_testing_authorized,
             auth_lockout_budget=program_roe.auth_lockout_budget,
+            authorized_test_accounts=tuple(program_roe.authorized_test_accounts),
             max_requests_per_second=program_roe.max_requests_per_second,
         )
         result = auth_bypass_probe.run_program(

@@ -34,7 +34,7 @@ ERROR_PATTERNS: tuple[str, ...] = (
 _ERR_PAYLOAD = "'"
 _BOOL_TRUE = "' OR '1'='1"
 _BOOL_FALSE = "' OR '1'='2"
-_BOOL_RATIO_THRESHOLD = 0.05  # 5% content-length difference triggers boolean flag
+_BOOL_RATIO_THRESHOLD = 0.20  # >20% content-length difference triggers boolean flag
 
 
 def probe_url(

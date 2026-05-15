@@ -58,6 +58,7 @@ def _real_tool_factory(
                 auth_testing_authorized=program_roe.auth_testing_authorized,
                 mutation_testing_authorized=program_roe.mutation_testing_authorized,
                 auth_lockout_budget=program_roe.auth_lockout_budget,
+                authorized_test_accounts=tuple(program_roe.authorized_test_accounts),
                 max_requests_per_second=program_roe.max_requests_per_second,
             )
         if runner == "sqli-probe":

@@ -27,9 +27,10 @@ _SEVERITY_CONFIDENCE: dict[str, int] = {
 def classify(sig: Signal) -> Classification:
     """Derive (vuln_class, title, severity_hint, confidence) from a signal."""
     if sig.signal_type == "prereq_missing":
+        required = json.loads(sig.payload or "{}").get("required_tool", "httpx")
         return (
             "recon-prereq-missing",
-            f"{sig.tool} skipped: no recent httpx run",
+            f"{sig.tool} skipped: no recent {required} run",
             "info",
             100,
         )

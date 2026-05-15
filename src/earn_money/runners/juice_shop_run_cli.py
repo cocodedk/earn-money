@@ -8,8 +8,9 @@ from pathlib import Path
 
 import httpx
 
-from earn_money import config, db, flags, juiceshop_adapter
+from earn_money import config, db, flags, juiceshop_adapter, policy, scope
 from earn_money.engine import active_pipeline, active_tick_cli
+from earn_money.runners import active
 
 _DEFAULT_BASE_URL = "https://target.cocode.dk"
 _DEFAULT_PLATFORM = "local"
@@ -38,14 +39,19 @@ def main(argv: list[str] | None = None) -> int:
     paths = config.Paths.from_root(args.root)
 
     try:
-        flags.require_recon_enabled(paths)
-        flags.require_program_not_frozen(paths, args.platform, args.program)
+        active.check_gates(paths, args.platform, args.program, mode="active")
     except flags.ReconDisabled as e:
         print(f"juice-shop-run: {e}", file=sys.stderr)
         return 2
     except flags.ProgramFrozen as e:
         print(f"juice-shop-run: {e}", file=sys.stderr)
         return 3
+    except policy.PolicyViolation as e:
+        print(f"juice-shop-run: policy violation: {e}", file=sys.stderr)
+        return 4
+    except scope.InvalidScope as e:
+        print(f"juice-shop-run: invalid scope: {e}", file=sys.stderr)
+        return 5
 
     print(f"juice-shop-run: pre-run snapshot from {args.base_url}")
     try:

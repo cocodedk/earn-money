@@ -39,7 +39,7 @@ def test_probe_service_detects_jwt_alg_none() -> None:
         sigs = auth_bypass_tool.probe_service(
             "https://target.cocode.dk",
             client=client, run_id="r1", observed_at="t",
-            auth_testing_authorized=True,
+            auth_testing_authorized=True, auth_lockout_budget=10,
         )
     jwt_sigs = [s for s in sigs if "jwt_alg_none" in s.signature and "write" not in s.signature]
     assert len(jwt_sigs) >= 1
@@ -98,6 +98,7 @@ def test_write_probe_detects_bypass_when_both_flags_set() -> None:
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True,
             mutation_testing_authorized=True,
+            auth_lockout_budget=10,
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert len(write_sigs) >= 1
@@ -130,6 +131,7 @@ def test_write_probe_skipped_without_mutation_authorized() -> None:
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True,
             mutation_testing_authorized=False,
+            auth_lockout_budget=10,
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
@@ -148,6 +150,7 @@ def test_write_probe_no_signal_when_baseline_not_auth_gated() -> None:
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True,
             mutation_testing_authorized=True,
+            auth_lockout_budget=10,
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
@@ -165,6 +168,7 @@ def test_write_probe_no_signal_when_jwt_returns_401() -> None:
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True,
             mutation_testing_authorized=True,
+            auth_lockout_budget=10,
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
@@ -183,6 +187,7 @@ def test_write_probe_no_signal_for_405_method_not_allowed() -> None:
             client=client, run_id="r1", observed_at="t",
             auth_testing_authorized=True,
             mutation_testing_authorized=True,
+            auth_lockout_budget=10,
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
