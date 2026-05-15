@@ -118,8 +118,15 @@ Operator pre-flight: set env vars before running agent action.
 ```bash
 HISTFILE=/dev/null  # prevent key from appearing in shell history
 export JUICE_SHOP_WALLET_KEY=<operator-provided-private-key>
+export ALCHEMY_API_KEY=<operator-provided-alchemy-api-key>
 export ALCHEMY_SEPOLIA_RPC="https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY"
 # Chain ID: 11155111. ABIs in Juice Shop source: data/static/web3-snippets/
+```
+
+Verify key derivation matches the target wallet before proceeding:
+```bash
+WALLET=$(cast wallet address "$JUICE_SHOP_WALLET_KEY")
+[ "$WALLET" = "0x8343d2eb2B13A2495De435a1b15e85b98115Ce05" ] || { echo "Key mismatch — check JUICE_SHOP_WALLET_KEY"; exit 1; }
 ```
 
 **Operator action:** fund address `0x8343d2eb2B13A2495De435a1b15e85b98115Ce05`
@@ -145,6 +152,7 @@ curl -s -XPOST https://target.cocode.dk/rest/web3/walletNFTVerify \
 3. For `web3WalletChallenge` (ETHWalletBank at `0x413744D59d31AFDC2889aeE602636177805Bd7b0`):
    a. POST `/rest/web3/walletExploitAddress`
       `{"walletAddress": "0x8343d2eb2B13A2495De435a1b15e85b98115Ce05"}`.
+      (EOA registered here; attacker contract address unknown until after step 3c — ordering intentional.)
    b. Save and compile `Attacker.sol` (Solidity 0.8, chain 11155111):
 ```solidity
 interface IBank { function deposit() external payable; function withdraw(uint256) external; }
@@ -185,6 +193,23 @@ differ and were not caused by operator action taken since this spec was written)
 Row 4 (wallet balance) becomes irrelevant once the operator funds the address — that
 is expected drift, not falsification. A non-destructive bypass for any Category A
 challenge key also falsifies the decision.
+
+### Post-execution acceptance criteria
+
+After each operator unlock, verify by challenge key:
+
+**Category B (after Ollama is running + agent action):**
+| Challenge | Command | Expected |
+|-----------|---------|----------|
+| chatbotPromptInjectionChallenge | `curl -s 'https://target.cocode.dk/api/Challenges?key=chatbotPromptInjectionChallenge'\|jq '.data[0].solved'` | `true` |
+| chatbotGreedyInjectionChallenge | `curl -s 'https://target.cocode.dk/api/Challenges?key=chatbotGreedyInjectionChallenge'\|jq '.data[0].solved'` | `true` |
+| aiDebuggingChallenge | `curl -s 'https://target.cocode.dk/api/Challenges?key=aiDebuggingChallenge'\|jq '.data[0].solved'` | `true` |
+
+**Category C (after wallet funded + agent action):**
+| Challenge | Command | Expected |
+|-----------|---------|----------|
+| nftMintChallenge | `curl -s 'https://target.cocode.dk/api/Challenges?key=nftMintChallenge'\|jq '.data[0].solved'` | `true` |
+| web3WalletChallenge | `curl -s 'https://target.cocode.dk/api/Challenges?key=web3WalletChallenge'\|jq '.data[0].solved'` | `true` |
 
 ---
 
