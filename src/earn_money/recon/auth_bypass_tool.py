@@ -80,22 +80,23 @@ def probe_service(
                 run_id=run_id, observed_at=observed_at,
             ))
 
-    # JWT alg:none GET: try /api/Users with unsigned token
     jwt = _make_alg_none_jwt()
-    api_url = urljoin(base_url, "/api/Users")
-    try:
-        resp = client.get(api_url, headers={"Authorization": f"Bearer {jwt}"})
-        if resp.status_code == 200 and not _is_login_redirect(resp):
-            signals.append(_make_signal(
-                api_url, "jwt_alg_none",
-                f"status={resp.status_code} len={len(resp.text)}",
-                run_id=run_id, observed_at=observed_at,
-            ))
-    except httpx.HTTPError:
-        pass
+    api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
+
+    for path in api_paths[:3]:
+        api_url = urljoin(base_url, path)
+        try:
+            resp = client.get(api_url, headers={"Authorization": f"Bearer {jwt}"})
+            if resp.status_code == 200 and not _is_login_redirect(resp):
+                signals.append(_make_signal(
+                    api_url, "jwt_alg_none",
+                    f"status={resp.status_code} len={len(resp.text)}",
+                    run_id=run_id, observed_at=observed_at,
+                ))
+        except httpx.HTTPError:
+            pass
 
     if auth_testing_authorized:
-        api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
         for path in api_paths[:3]:
             sig = _probe_jwt_alg_none_write(
                 path, base_url, jwt=jwt, client=client,
