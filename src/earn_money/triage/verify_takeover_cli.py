@@ -13,50 +13,13 @@ exists so tests mock the network call cleanly; production hits
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from earn_money import config, db
-
-
-def _github_user_lookup(name: str) -> tuple[int, dict[str, Any]]:
-    """Return (status, body). status=0 on network failure (indeterminate).
-
-    Reads ``GITHUB_TOKEN`` from the environment when present and sends it
-    as a Bearer token — the unauthenticated quota is 60 requests/hour
-    per IP, low enough to hit on a busy day. 403 with the rate-limit
-    headers set surfaces as status 429 + an error body so the caller
-    can distinguish "rate-limited" from "actually-claimed-but-forbidden".
-    """
-    headers = {"Accept": "application/vnd.github+json"}
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    try:
-        r = httpx.get(
-            f"https://api.github.com/users/{name}",
-            timeout=10.0,
-            headers=headers,
-        )
-    except httpx.HTTPError:
-        return 0, {}
-    if r.status_code == 200:
-        try:
-            return 200, r.json()
-        except ValueError:
-            return 200, {}
-    if r.status_code == 403 and r.headers.get("X-RateLimit-Remaining") == "0":
-        return 429, {
-            "rate_limit_reset": r.headers.get("X-RateLimit-Reset", ""),
-            "error": "GitHub API rate limit exhausted; set GITHUB_TOKEN to raise it.",
-        }
-    return r.status_code, {}
+from earn_money.triage.github_takeover import _extract_github_name, _github_user_lookup
 
 
 def _resolve_finding(
@@ -86,21 +49,6 @@ def _resolve_finding(
     ).fetchone()
     payload = sig_row[0] if sig_row else "{}"
     return fhash, vuln_class, asset, payload
-
-
-def _extract_github_name(payload: str) -> str | None:
-    """Pull the GitHub user/org name out of payload.extracted (e.g.
-    'hacker0x01.github.io' → 'hacker0x01'). Returns None on parse failure."""
-    try:
-        parsed = json.loads(payload)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(parsed, dict):
-        return None
-    host = str(parsed.get("extracted", ""))
-    if not host.endswith(".github.io"):
-        return None
-    return host[: -len(".github.io")]
 
 
 def _print_verdict(
