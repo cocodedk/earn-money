@@ -1,0 +1,16 @@
+#!/bin/sh
+# benchmark-ingest — load benchmarks/disclosures/<platform>-<slug>.json
+# into the program's benchmark_disclosures SQLite table. Idempotent;
+# preserves any verdict columns already set by scoring or operator.
+#
+# Usage:
+#   bin/benchmark-ingest --platform <name> --program <slug>
+set -eu
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+  echo "benchmark-ingest: .venv not found at $ROOT/.venv — run 'make install-dev' first" >&2
+  exit 1
+fi
+
+exec "$ROOT/.venv/bin/python" -m earn_money.triage.benchmark_ingest --root "$ROOT" "$@"

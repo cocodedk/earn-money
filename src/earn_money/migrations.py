@@ -162,10 +162,39 @@ def _apply_v3(conn: sqlite3.Connection) -> None:
     _execute_script(conn, _V3_SCHEMA_HISTORY)
 
 
+_V4_SCHEMA = """
+CREATE TABLE IF NOT EXISTS benchmark_disclosures (
+    report_url          TEXT PRIMARY KEY,
+    title               TEXT NOT NULL,
+    severity            TEXT NOT NULL,
+    disclosed_date      TEXT NOT NULL,
+    bounty_usd          INTEGER,
+    asset_pattern       TEXT NOT NULL,
+    vuln_class          TEXT NOT NULL,
+    vector_summary      TEXT NOT NULL,
+    auto_detectable_hint TEXT NOT NULL,
+    ingested_at         TEXT NOT NULL,
+    verdict             TEXT,
+    verdict_reason      TEXT,
+    verdict_set_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_benchmark_disclosures_vuln_class
+    ON benchmark_disclosures(vuln_class);
+CREATE INDEX IF NOT EXISTS idx_benchmark_disclosures_verdict
+    ON benchmark_disclosures(verdict);
+"""
+
+
+def _apply_v4(conn: sqlite3.Connection) -> None:
+    """Add benchmark_disclosures table for the disclosure-replay benchmark."""
+    _execute_script(conn, _V4_SCHEMA)
+
+
 _STEPS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _apply_v1,
     2: _apply_v2,
     3: _apply_v3,
+    4: _apply_v4,
 }
 
 

@@ -124,6 +124,30 @@ def test_v3_migration_is_idempotent(tmp_path: Path) -> None:
     assert _user_version(conn) == 3
 
 
+def test_fresh_db_migrates_to_v4(tmp_path: Path) -> None:
+    """v4 adds benchmark_disclosures table with verdict columns."""
+    conn = sqlite3.connect(tmp_path / "fresh_v4.sqlite")
+    migrations.migrate(conn, target_version=4)
+    assert _user_version(conn) == 4
+    assert "benchmark_disclosures" in _tables(conn)
+    columns = {
+        row[1] for row in conn.execute("PRAGMA table_info(benchmark_disclosures)")
+    }
+    assert columns >= {
+        "report_url", "title", "severity", "disclosed_date", "bounty_usd",
+        "asset_pattern", "vuln_class", "vector_summary",
+        "auto_detectable_hint", "ingested_at",
+        "verdict", "verdict_reason", "verdict_set_at",
+    }
+
+
+def test_v4_migration_is_idempotent(tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_path / "idem_v4.sqlite")
+    migrations.migrate(conn, target_version=4)
+    migrations.migrate(conn, target_version=4)
+    assert _user_version(conn) == 4
+
+
 def test_v2_to_v3_backfills_legacy_findings(tmp_path: Path) -> None:
     """An existing v2 row in findings (created via the legacy 6-column shape)
     must survive v3 with sensible default values for the new columns."""
