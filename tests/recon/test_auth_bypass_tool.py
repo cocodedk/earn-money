@@ -127,3 +127,35 @@ def test_write_probe_no_signal_when_proper_401() -> None:
         )
     write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
     assert write_sigs == []
+
+
+def test_write_probe_no_signal_for_405_method_not_allowed() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "PUT":
+            return httpx.Response(405, text="Method Not Allowed")
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True,
+        )
+    write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
+    assert write_sigs == []
+
+
+def test_write_probe_no_signal_for_500_server_error() -> None:
+    def _handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "PUT":
+            return httpx.Response(500, text="Internal Server Error")
+        return httpx.Response(404, text="not found")
+
+    with httpx.Client(transport=httpx.MockTransport(_handler)) as client:
+        sigs = auth_bypass_tool.probe_service(
+            "https://target.cocode.dk",
+            client=client, run_id="r1", observed_at="t",
+            auth_testing_authorized=True,
+        )
+    write_sigs = [s for s in sigs if "jwt_alg_none_write" in s.signature]
+    assert write_sigs == []

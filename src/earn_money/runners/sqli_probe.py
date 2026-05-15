@@ -15,10 +15,11 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from earn_money import config, db, roe, scope
 from earn_money._time import now_iso, to_iso
-from earn_money.recon import runs
+from earn_money.recon import runs, signals
 from earn_money.recon.signals import Signal
 from earn_money.runners import active, nuclei_artifacts
 from earn_money.runners._prereq import record_prereq_missing
@@ -101,6 +102,10 @@ def run_program(
             )
 
         targets = _load_discovered_urls(katana_artifact)
+        targets = [
+            u for u in targets
+            if scope.is_in_scope(urlparse(u).hostname or "", s.in_scope, s.out_of_scope)
+        ]
         if max_targets is not None and max_targets >= 0:
             targets = targets[:max_targets]
 
@@ -131,6 +136,7 @@ def run_program(
         ]
         oos_drops = len(found) - len(in_scope_found)
 
+        signals.insert_signals(conn, in_scope_found)
         nuclei_artifacts.write_signals_jsonl(artifact_dir, in_scope_found)
         nuclei_artifacts.write_required_artifacts(
             artifact_dir, targets=targets,

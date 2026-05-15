@@ -58,6 +58,10 @@ reports/drafts/
 scratch/
 tmp/
 
+# Browser automation artifacts (playwright-mcp, screenshots)
+.playwright-mcp/
+deluxe_page*.png
+
 # Build artefacts
 build/
 dist/

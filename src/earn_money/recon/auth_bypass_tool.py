@@ -122,7 +122,12 @@ def _probe_jwt_alg_none_write(
         )
     except httpx.HTTPError:
         return None
+    # 401/403 = gate working; 404 = server processed past auth (non-existent ID by design)
+    # 2xx = request fully accepted. Anything else (405, 5xx, 3xx) is not a bypass signal.
     if resp.status_code in (401, 403):
+        return None
+    bypass_codes = {404, *range(200, 300)}
+    if resp.status_code not in bypass_codes:
         return None
     return _make_signal(
         write_url, "jwt_alg_none_write",

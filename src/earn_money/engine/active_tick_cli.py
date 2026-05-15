@@ -15,7 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from earn_money import config
+from earn_money import config, roe
 from earn_money.engine import active_pipeline
 from earn_money.registry import iter_registered_programs
 from earn_money.runners import (
@@ -51,7 +51,11 @@ def _real_tool_factory(
     if runner == "graphql-probe":
         return graphql_probe_cli._build_real_tool(paths, platform, slug, run_id)
     if runner == "auth-bypass-probe":
-        return auth_bypass_probe_cli._build_real_tool(paths, platform, slug, run_id)
+        program_roe = roe.read_roe(paths.roe_file(platform, slug))
+        return auth_bypass_probe_cli._build_real_tool(
+            paths, platform, slug, run_id,
+            auth_testing_authorized=program_roe.auth_testing_authorized,
+        )
     if runner == "sqli-probe":
         return sqli_probe_cli._build_real_tool(paths, platform, slug, run_id)
     if runner == "xss-probe":
