@@ -56,6 +56,7 @@ def _build_real_tool(
     from earn_money.runners import batch, watchdog
 
     rate_limit = resolve_rate_limit(paths, platform, slug)
+    extra_dirs = tuple(roe.read_roe(paths.roe_file(platform, slug)).extra_nuclei_dirs)
 
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         abort = threading.Event()
@@ -80,6 +81,7 @@ def _build_real_tool(
                 command_factory=lambda chunk: nuclei_tool.build_command(
                     chunk,
                     template_dirs=tuple(sorted(nuclei_tool.APPROVED_TEMPLATE_DIRS)),
+                    extra_dirs=extra_dirs,
                     rate_limit=rate_limit,
                 ),
                 max_batch_size=_BATCH_SIZE, max_batch_duration_s=_BATCH_DURATION_S,
