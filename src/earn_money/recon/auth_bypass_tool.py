@@ -14,15 +14,15 @@ from earn_money.triage import hashing
 
 ADMIN_PATHS: tuple[str, ...] = (
     "/admin",
-    "/api/Users",
-    "/api/SecurityAnswers",
-    "/api/Feedbacks",
-    "/rest/admin/application-configuration",
     "/administration",
     "/manage",
     "/management",
     "/admin/users",
     "/api/admin",
+    "/api/v1/admin",
+    "/api/v2/admin",
+    "/api/users",
+    "/api/config",
 )
 
 _LOGIN_INDICATORS = ("login", "signin", "sign-in", "authenticate")

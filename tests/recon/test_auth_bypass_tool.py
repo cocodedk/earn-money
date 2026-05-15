@@ -11,7 +11,7 @@ def test_probe_service_detects_open_admin_path() -> None:
     body = '[{"id":1,"email":"admin@juice-sh.op","role":"admin","isActive":true}]'
 
     def _handler(req: httpx.Request) -> httpx.Response:
-        if "/api/Users" in str(req.url) and "Authorization" not in req.headers:
+        if "/api/admin" in str(req.url) and "Authorization" not in req.headers:
             return httpx.Response(
                 200, text=body, headers={"content-type": "application/json"},
             )
@@ -28,7 +28,7 @@ def test_probe_service_detects_open_admin_path() -> None:
 
 def test_probe_service_detects_jwt_alg_none() -> None:
     def _handler(req: httpx.Request) -> httpx.Response:
-        if "/api/Users" in str(req.url) and "Authorization" in req.headers:
+        if "/api/admin" in str(req.url) and "Authorization" in req.headers:
             return httpx.Response(
                 200, text='[{"id":1,"email":"admin@juice-sh.op"}]',
                 headers={"content-type": "application/json"},
@@ -48,7 +48,7 @@ def test_probe_service_detects_jwt_alg_none() -> None:
 
 
 def test_probe_service_skips_login_redirects() -> None:
-    responses = {"/admin": (302, ""), "/api/Users": (302, "")}
+    responses = {"/admin": (302, ""), "/api/admin": (302, "")}
 
     def _handler(req: httpx.Request) -> httpx.Response:
         for path, (status, body) in responses.items():
@@ -105,7 +105,7 @@ def test_write_probe_detects_bypass_when_both_flags_set() -> None:
 
 def test_write_probe_skipped_when_auth_testing_not_authorized() -> None:
     def _handler(req: httpx.Request) -> httpx.Response:
-        if req.method == "GET" and "/api/Users" in str(req.url):
+        if req.method == "GET" and "/api/admin" in str(req.url):
             return httpx.Response(200, text='[{"id":1}]')
         return httpx.Response(404, text="not found")
 
