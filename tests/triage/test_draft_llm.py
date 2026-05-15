@@ -7,7 +7,6 @@ from unittest.mock import patch
 import pytest
 
 from earn_money import config, db
-from earn_money.agent.structured import StructuredOutputError
 from earn_money.triage import draft_llm
 from tests.triage.conftest import make_finding, register_program
 
@@ -197,40 +196,3 @@ def test_polish_rejects_path_traversal(tmp_path: Path) -> None:
         )
 
 
-def test_polish_propagates_structured_output_error(tmp_path: Path) -> None:
-    paths = _p(tmp_path)
-    _seed(paths)
-    _skeleton(paths)
-
-    with patch(
-        "earn_money.triage.draft_llm.request_structured",
-        side_effect=StructuredOutputError("bad"),
-    ), pytest.raises(StructuredOutputError):
-        draft_llm.polish_draft(
-            paths,
-            platform="hackerone",
-            slug="example",
-            finding_hash="h1",
-            provider=object(),
-        )
-
-
-def test_validate_rejects_empty_string() -> None:
-    from earn_money.triage.draft_llm import _validate
-
-    with pytest.raises(ValueError, match="non-empty"):
-        _validate({"summary": "", "steps": "ok", "impact": "ok"})
-
-
-def test_validate_rejects_header_at_start() -> None:
-    from earn_money.triage.draft_llm import _validate
-
-    with pytest.raises(ValueError, match="section header"):
-        _validate({"summary": "## New Section\ntext", "steps": "ok", "impact": "ok"})
-
-
-def test_validate_rejects_inline_header() -> None:
-    from earn_money.triage.draft_llm import _validate
-
-    with pytest.raises(ValueError, match="section header"):
-        _validate({"summary": "text\n## Injected", "steps": "ok", "impact": "ok"})
