@@ -13,6 +13,7 @@ and -jc requires a headless Chrome the VPS doesn't run.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -64,7 +65,9 @@ def build_command(
         "-concurrency", str(concurrency),
     ]
     for host in crawl_scope:
-        cmd.extend(["-cs", host])
+        # Katana -cs is a Go regex; escape literal dots and convert glob * to .*
+        pattern = re.escape(host).replace(r"\*", ".*")
+        cmd.extend(["-cs", pattern])
     return cmd
 
 

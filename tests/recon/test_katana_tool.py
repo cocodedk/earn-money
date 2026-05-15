@@ -96,7 +96,17 @@ def test_build_command_adds_cs_flags_for_crawl_scope() -> None:
         crawl_scope=["target.cocode.dk", "api.example.com"],
     )
     cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
-    assert cs_flags == ["target.cocode.dk", "api.example.com"]
+    # Dots are escaped for Katana's Go regex -cs flag
+    assert cs_flags == [r"target\.cocode\.dk", r"api\.example\.com"]
+
+
+def test_build_command_escapes_wildcard_in_crawl_scope() -> None:
+    cmd = katana_tool.build_command(
+        "/tmp/s.txt", rate_limit=10,
+        crawl_scope=["*.example.com"],
+    )
+    cs_flags = [cmd[i + 1] for i, v in enumerate(cmd) if v == "-cs"]
+    assert cs_flags == [r".*\.example\.com"]
 
 
 def test_build_command_no_cs_flags_when_scope_empty() -> None:

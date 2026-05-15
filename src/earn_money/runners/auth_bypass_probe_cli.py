@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -46,13 +45,12 @@ def _build_real_tool(
                         auth_testing_authorized=auth_testing_authorized,
                         mutation_testing_authorized=mutation_testing_authorized,
                         auth_lockout_budget=auth_lockout_budget,
+                        request_interval=interval,
                     )
                 except httpx.HTTPError:
                     errors += 1
-                    time.sleep(interval)
                     continue
                 signals.extend(sigs)
-                time.sleep(interval)
         return active.ToolRunResult(
             outputs=tuple(signals),
             source_failures=errors,

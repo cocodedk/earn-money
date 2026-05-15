@@ -86,5 +86,8 @@ _AVAILABLE_STEPS: tuple[str, ...] = (
     "sourcemap-scan",
     "katana-crawl",
     "graphql-probe",
+    "auth-bypass-probe",
+    "sqli-probe",
+    "xss-probe",
     "stop",
 )

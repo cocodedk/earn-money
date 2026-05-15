@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -40,13 +39,12 @@ def _build_real_tool(
                 try:
                     sigs = xss_tool.probe_url(
                         url, client=client, run_id=run_id, observed_at=now,
+                        request_interval=interval,
                     )
                 except httpx.HTTPError:
                     errors += 1
-                    time.sleep(interval)
                     continue
                 signals.extend(sigs)
-                time.sleep(interval)
         return active.ToolRunResult(
             outputs=tuple(signals),
             source_failures=errors,

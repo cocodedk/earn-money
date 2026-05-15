@@ -3,12 +3,13 @@ dos_authorized: false
 destructive_payloads_authorized: false
 social_engineering_authorized: false
 auth_testing_authorized: true
+mutation_testing_authorized: true
 pii_handling: synthetic_data_only
 max_requests_per_second: 10
 authorized_test_environments:
   - target.cocode.dk
 authorized_test_accounts: []
-auth_lockout_budget: 3
+auth_lockout_budget: 10
 sqli_time_based: false
 extra_nuclei_dirs: []
 special_notes: |

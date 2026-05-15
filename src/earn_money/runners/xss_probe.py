@@ -95,6 +95,7 @@ def run_program(
                 write_signals_jsonl=nuclei_artifacts.write_signals_jsonl,
                 write_manifest=nuclei_artifacts.write_manifest,
                 prereq_freshness_hours=_PREREQ_FRESHNESS_HOURS,
+                required_tool="katana",
             )
 
         targets = _load_discovered_urls(katana_artifact)

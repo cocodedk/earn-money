@@ -57,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
         max_targets_per_step=args.max_targets,
     )
     active_tick_cli._print_pipeline_result(pipeline_result)
+    if pipeline_result.aborted_reason or any(
+        s.status == "failed" for s in pipeline_result.steps
+    ):
+        print("juice-shop-run: pipeline had failures — continuing to post-snapshot",
+              file=sys.stderr)
 
     print("juice-shop-run: post-run snapshot")
     try:
@@ -79,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
         f"total={delta['total']} newly={len(delta['newly_solved'])}"
     )
     print(f"juice-shop-run: report → {report_path}")
+    if pipeline_result.aborted_reason or any(
+        s.status == "failed" for s in pipeline_result.steps
+    ):
+        return 1
     return 0
 
 

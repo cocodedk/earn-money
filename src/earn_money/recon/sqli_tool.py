@@ -8,6 +8,7 @@ payloads are off by default; roe.md must set sqli_time_based: true.
 from __future__ import annotations
 
 import json
+import time
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import httpx
@@ -42,6 +43,7 @@ def probe_url(
     client: httpx.Client,
     run_id: str,
     observed_at: str,
+    request_interval: float = 0.0,
 ) -> list[Signal]:
     """Test each GET parameter in `url` for error-based or boolean SQLi."""
     params = parse_qs(urlparse(url).query, keep_blank_values=True)
@@ -49,7 +51,7 @@ def probe_url(
         return []
     signals: list[Signal] = []
     for param in params:
-        result = _probe_param(url, param, client=client)
+        result = _probe_param(url, param, client=client, request_interval=request_interval)
         if result is None:
             continue
         kind, evidence = result
@@ -67,18 +69,24 @@ def _inject(url: str, param: str, value: str) -> str:
 
 
 def _probe_param(
-    url: str, param: str, *, client: httpx.Client,
+    url: str, param: str, *, client: httpx.Client, request_interval: float = 0.0,
 ) -> tuple[str, str] | None:
     """Return (kind, evidence) if the param appears injectable, else None."""
     try:
         err_resp = client.get(_inject(url, param, _ERR_PAYLOAD))
+        if request_interval:
+            time.sleep(request_interval)
         body_lower = err_resp.text.lower()
         for pattern in ERROR_PATTERNS:
             if pattern in body_lower:
                 return "error_based", f"matched:{pattern!r}"
 
         true_resp = client.get(_inject(url, param, _BOOL_TRUE))
+        if request_interval:
+            time.sleep(request_interval)
         false_resp = client.get(_inject(url, param, _BOOL_FALSE))
+        if request_interval:
+            time.sleep(request_interval)
         tl, fl = len(true_resp.text), len(false_resp.text)
         if tl > 0 and fl > 0:
             ratio = abs(tl - fl) / max(tl, fl)
@@ -95,8 +103,7 @@ def _make_signal(
 ) -> Signal:
     asset = hashing.normalize_asset(url)
     target = hashing.normalize_target(url)
-    normalized = hashing.normalize_target(url)
-    signature = f"sqli|{kind}|{param}|{normalized[:20]}"
+    signature = f"sqli|{kind}|{param}|{target[:20]}"
     payload = json.dumps(
         {"url": url, "param": param, "kind": kind, "evidence": evidence, "severity": "high"},
         sort_keys=True,

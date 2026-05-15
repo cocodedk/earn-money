@@ -5,15 +5,17 @@ Three techniques:
    login-page redirects.
 2. JWT alg:none GET: craft an unsigned JWT, present it as a Bearer token, check
    whether the server accepts it for protected GET paths.
-3. JWT alg:none write (requires auth_testing_authorized=True in roe.md): PUT to
-   <api-path>/99999 with unsigned JWT; a non-401/403 response confirms write-level
-   auth bypass without mutating state (non-existent ID).
+3. JWT alg:none write (requires auth_testing_authorized=True AND
+   mutation_testing_authorized=True in roe.md): PUT to <api-path>/99999 with
+   unsigned JWT; a 404 after a 401 baseline confirms write-level auth bypass
+   without mutating state (non-existent ID).
 """
 
 from __future__ import annotations
 
 import base64
 import json
+import time
 from urllib.parse import urljoin
 
 import httpx
@@ -65,6 +67,7 @@ def probe_service(
     auth_testing_authorized: bool = False,
     mutation_testing_authorized: bool = False,
     auth_lockout_budget: int = 0,
+    request_interval: float = 0.0,
 ) -> list[Signal]:
     """Probe `base_url` for admin path access and JWT alg:none bypass."""
     signals: list[Signal] = []
@@ -73,6 +76,8 @@ def probe_service(
         url = urljoin(base_url, path)
         try:
             resp = client.get(url)
+            if request_interval:
+                time.sleep(request_interval)
         except httpx.HTTPError:
             continue
         if resp.status_code == 200 and not _is_login_redirect(resp):
@@ -85,16 +90,23 @@ def probe_service(
     jwt = _make_alg_none_jwt()
     api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
 
-    # Budget governs total JWT auth probes (GET + write). 0 means uncapped.
-    remaining = auth_lockout_budget if auth_lockout_budget > 0 else len(api_paths) * 2
+    # JWT auth budget: each JWT-bearing request counts toward lockout budget.
+    # Baseline (no-auth) requests do not count.
+    write_authorized = auth_testing_authorized and mutation_testing_authorized
+    jwt_remaining = auth_lockout_budget if auth_lockout_budget > 0 else len(api_paths) * 4
+    # Reserve at least 1 JWT slot for write probes when both flags are set.
+    get_jwt_cap = (jwt_remaining - 1) if write_authorized else jwt_remaining
 
     for path in api_paths:
-        if remaining <= 0:
+        if get_jwt_cap <= 0 or jwt_remaining <= 0:
             break
         api_url = urljoin(base_url, path)
         try:
             resp = client.get(api_url, headers={"Authorization": f"Bearer {jwt}"})
-            remaining -= 1
+            if request_interval:
+                time.sleep(request_interval)
+            jwt_remaining -= 1
+            get_jwt_cap -= 1
             if resp.status_code == 200 and not _is_login_redirect(resp):
                 signals.append(_make_signal(
                     api_url, "jwt_alg_none",
@@ -102,18 +114,19 @@ def probe_service(
                     run_id=run_id, observed_at=observed_at,
                 ))
         except httpx.HTTPError:
-            remaining -= 1
+            jwt_remaining -= 1
+            get_jwt_cap -= 1
 
-    if auth_testing_authorized and remaining > 0:
+    if write_authorized and jwt_remaining > 0:
         for path in api_paths:
-            if remaining <= 0:
+            if jwt_remaining <= 0:
                 break
             sig = _probe_jwt_alg_none_write(
                 path, base_url, jwt=jwt, client=client,
                 run_id=run_id, observed_at=observed_at,
-                mutation_testing_authorized=mutation_testing_authorized,
+                request_interval=request_interval,
             )
-            remaining -= 1
+            jwt_remaining -= 1
             if sig:
                 signals.append(sig)
 
@@ -123,14 +136,26 @@ def probe_service(
 def _probe_jwt_alg_none_write(
     path: str, base_url: str,
     *, jwt: str, client: httpx.Client, run_id: str, observed_at: str,
-    mutation_testing_authorized: bool = False,
+    request_interval: float = 0.0,
 ) -> Signal | None:
-    """PUT to <path>/99999 with alg:none JWT; 404 = bypass, 401/403 = gate working.
+    """PUT to <path>/99999; establish auth baseline first, then test JWT bypass.
 
-    2xx responses indicate the server may have mutated state; only signaled when
-    mutation_testing_authorized=True in the program's roe.md.
+    Baseline (no JWT) must return 401/403 to confirm the route requires auth.
+    404 with JWT confirms bypass (server processed past auth, resource absent).
     """
     write_url = urljoin(base_url, path.rstrip("/") + "/99999")
+    try:
+        # Baseline: confirm the endpoint requires auth when no JWT is presented.
+        baseline = client.put(
+            write_url, headers={"Content-Type": "application/json"}, content=b"{}",
+        )
+        if request_interval:
+            time.sleep(request_interval)
+    except httpx.HTTPError:
+        return None
+    if baseline.status_code not in (401, 403):
+        # Route doesn't gate on auth — a 404 from the JWT probe would be ambiguous.
+        return None
     try:
         resp = client.put(
             write_url,
@@ -141,11 +166,9 @@ def _probe_jwt_alg_none_write(
         return None
     if resp.status_code in (401, 403):
         return None
-    # 404 is always safe: server processed past auth but resource absent (non-destructive).
-    # 2xx is only safe when mutation is explicitly authorized — server may have upserted.
-    if resp.status_code != 404 and not (
-        resp.status_code in range(200, 300) and mutation_testing_authorized
-    ):
+    # 404 = server processed past auth but resource absent (non-destructive by design).
+    # 2xx = full acceptance (mutation_testing_authorized guards the write_authorized gate).
+    if resp.status_code != 404 and resp.status_code not in range(200, 300):
         return None
     return _make_signal(
         write_url, "jwt_alg_none_write",

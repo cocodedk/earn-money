@@ -35,8 +35,9 @@ def record_prereq_missing(
     write_signals_jsonl: Callable[[Path, list[Signal]], None],
     write_manifest: Callable[[Path, dict[str, Any]], None],
     prereq_freshness_hours: int,
+    required_tool: str = "httpx",
 ) -> active.ActiveRunResult:
-    """Common skip-with-audit path when a recent httpx prereq is missing.
+    """Common skip-with-audit path when a recent prereq run is missing.
 
     The three writer callables are injected so each runner can keep its
     own filename conventions. All five required artifact files are
@@ -49,9 +50,9 @@ def record_prereq_missing(
     prereq_sig = Signal(
         run_id=run_id, tool=tool, signal_type="prereq_missing",
         asset="", target="",
-        signature=f"prereq|httpx|<{prereq_freshness_hours}h",
+        signature=f"prereq|{required_tool}|<{prereq_freshness_hours}h",
         payload=json.dumps({
-            "required_tool": "httpx",
+            "required_tool": required_tool,
             "max_age_hours": prereq_freshness_hours,
         }),
         observed_at=now,
@@ -62,13 +63,13 @@ def record_prereq_missing(
     write_manifest(artifact_dir, {
         "run_id": run_id, "tool": tool,
         "platform": platform, "slug": slug, "started_at": now,
-        "status": "skipped", "reason": "no recent httpx run",
+        "status": "skipped", "reason": f"no recent {required_tool} run",
     })
     finished = now_iso()
     runs.finish_run(
         conn, run_id=run_id, finished_at=finished, status="skipped",
         output_count=0, signal_count=1, source_failures=0, oos_drops=0,
-        error_summary="no recent httpx run within prereq freshness window",
+        error_summary=f"no recent {required_tool} run within prereq freshness window",
     )
     return active.ActiveRunResult(
         run_id=run_id, targets_considered=0, targets_scanned=0,

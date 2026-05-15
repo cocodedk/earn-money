@@ -133,7 +133,7 @@ def run_program_pipeline(
                 paths, platform, slug,
                 tool_run=tool_run, run_id=run_id, max_targets=max_targets,
             )
-        except (flags.ReconDisabled, flags.ProgramFrozen) as exc:
+        except (flags.ReconDisabled, flags.ProgramFrozen, roe.InvalidRoE) as exc:
             return PipelineResult(
                 platform=platform, slug=slug, steps=tuple(steps),
                 aborted_reason=f"{type(exc).__name__}: {exc}",
