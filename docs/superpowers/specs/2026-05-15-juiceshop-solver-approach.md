@@ -30,7 +30,11 @@ All have `disabledEnv: "Docker"`. When `NODE_ENV === "Docker"`,
 `PUT /api/Challenges/:id` returns 401 (OpenSSL RS256 decoder error on that
 auth middleware). **No autonomous resolution possible.**
 
-Affected: rceChallenge, rceOccupyChallenge, sstiChallenge, fileWriteChallenge,
+17 challenges have `disabledEnv:"Docker"` in total; `xxeFileDisclosureChallenge`
+is among them but is already solved (fired via a code path that predates
+the guard). 16 remain unsolved.
+
+Affected (unsolved): rceChallenge, rceOccupyChallenge, sstiChallenge, fileWriteChallenge,
 reflectedXssChallenge, persistedXssUserChallenge, restfulXssChallenge,
 httpHeaderXssChallenge, persistedXssFeedbackChallenge, usernameXssChallenge,
 videoXssChallenge, noSqlCommandChallenge, noSqlOrdersChallenge,
@@ -267,7 +271,7 @@ Row 4 (wallet balance) requires `ALCHEMY_SEPOLIA_RPC` to be set first (Category 
 | Check | Command | Expected |
 |-------|---------|----------|
 | Solved count | `curl -s 'https://target.cocode.dk/api/Challenges?solved=true'\|jq '.data\|length'` | `91` |
-| Docker-disabled | `curl -s 'https://target.cocode.dk/api/Challenges'\|jq '[.data[]\|select(.disabledEnv=="Docker")]\|length'` | `16` |
+| Docker-disabled unsolved | `curl -s 'https://target.cocode.dk/api/Challenges'\|jq '[.data[]\|select(.disabledEnv=="Docker" and .solved==false)]\|length'` | `16` |
 | Chatbot offline | `curl -so/dev/null -w'%{http_code}' -XPOST https://target.cocode.dk/rest/chat -H'Content-Type: application/json' -H"Authorization: Bearer $JWT" -d'{"query":"hi"}'` | `500` |
 | Wallet balance | `curl -s -XPOST $ALCHEMY_SEPOLIA_RPC -d'{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x8343d2eb2B13A2495De435a1b15e85b98115Ce05","latest"],"id":1}' \| jq '.result'` | `"0x0"` |
 
