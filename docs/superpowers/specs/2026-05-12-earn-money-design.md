@@ -25,7 +25,8 @@ This division is what keeps the operation compliant with platform Terms of Servi
 - HackerOne, Intigriti, YesWeHack accounts as cocode.dk sole proprietor. KYC: passport, Danish tax forms (W-8BEN for HackerOne).
 - Payouts wired to the existing cocode.dk business account. Bookkeeping category: `bug-bounty`.
 - Researcher handle separate from the cocode.dk brand. Recommended: a neutral identifier not cross-linked to consulting work in public — this firewalls reputation risk in either direction.
-- One dedicated VPS with a static egress IP. **That IP is used for nothing else.** No SSH from laptop, no other services, no personal traffic. Triage teams cross-reference IPs.
+- One dedicated VPS with a static egress IP. **That IP is `178.105.140.53` (IPv4) and is used for nothing else** — no SSH from laptop, no other services, no personal traffic. Triage teams cross-reference IPs.
+- **No IPv6 egress.** Decision recorded 2026-05-15. Hetzner provisions a v6 /64 by default; the netplan stanza on `eth0` removes the static v6 address, sets `dhcp6: false` + `accept-ra: false` + `link-local: []` so the route can't return via SLAAC/RA, and pins DNS to v4 resolvers (`1.1.1.1` + `9.9.9.9`). Rationale: dual-stack lets Go-based scanners (subfinder/httpx/nuclei/katana, bundled resolvers) silently pick v6 for AAAA-bearing targets, leaking a second source IP into triagers' logs and breaking the "one IP, one identity" invariant above.
 - Dedicated DNS resolver on the VPS (1.1.1.1 or self-hosted). Not the ISP's resolver — avoids leaking enumeration patterns.
 - Caido license (replaces Burp Pro at this stage — cheaper, sufficient for pipeline use).
 - Tooling budget: ~€500/yr — Project Discovery Chaos API, Shodan, Caido. Add Burp Pro later only if manual testing volume grows.
