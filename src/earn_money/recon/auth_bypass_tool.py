@@ -63,6 +63,8 @@ def probe_service(
     run_id: str,
     observed_at: str,
     auth_testing_authorized: bool = False,
+    mutation_testing_authorized: bool = False,
+    auth_lockout_budget: int = 0,
 ) -> list[Signal]:
     """Probe `base_url` for admin path access and JWT alg:none bypass."""
     signals: list[Signal] = []
@@ -83,10 +85,16 @@ def probe_service(
     jwt = _make_alg_none_jwt()
     api_paths = [p for p in ADMIN_PATHS if "/api/" in p]
 
-    for path in api_paths[:3]:
+    # Budget governs total JWT auth probes (GET + write). 0 means uncapped.
+    remaining = auth_lockout_budget if auth_lockout_budget > 0 else len(api_paths) * 2
+
+    for path in api_paths:
+        if remaining <= 0:
+            break
         api_url = urljoin(base_url, path)
         try:
             resp = client.get(api_url, headers={"Authorization": f"Bearer {jwt}"})
+            remaining -= 1
             if resp.status_code == 200 and not _is_login_redirect(resp):
                 signals.append(_make_signal(
                     api_url, "jwt_alg_none",
@@ -94,14 +102,18 @@ def probe_service(
                     run_id=run_id, observed_at=observed_at,
                 ))
         except httpx.HTTPError:
-            pass
+            remaining -= 1
 
-    if auth_testing_authorized:
-        for path in api_paths[:3]:
+    if auth_testing_authorized and remaining > 0:
+        for path in api_paths:
+            if remaining <= 0:
+                break
             sig = _probe_jwt_alg_none_write(
                 path, base_url, jwt=jwt, client=client,
                 run_id=run_id, observed_at=observed_at,
+                mutation_testing_authorized=mutation_testing_authorized,
             )
+            remaining -= 1
             if sig:
                 signals.append(sig)
 
@@ -111,8 +123,13 @@ def probe_service(
 def _probe_jwt_alg_none_write(
     path: str, base_url: str,
     *, jwt: str, client: httpx.Client, run_id: str, observed_at: str,
+    mutation_testing_authorized: bool = False,
 ) -> Signal | None:
-    """PUT to <path>/99999 with alg:none JWT; 404 = bypass, 401/403 = gate working."""
+    """PUT to <path>/99999 with alg:none JWT; 404 = bypass, 401/403 = gate working.
+
+    2xx responses indicate the server may have mutated state; only signaled when
+    mutation_testing_authorized=True in the program's roe.md.
+    """
     write_url = urljoin(base_url, path.rstrip("/") + "/99999")
     try:
         resp = client.put(
@@ -122,12 +139,13 @@ def _probe_jwt_alg_none_write(
         )
     except httpx.HTTPError:
         return None
-    # 401/403 = gate working; 404 = server processed past auth (non-existent ID by design)
-    # 2xx = request fully accepted. Anything else (405, 5xx, 3xx) is not a bypass signal.
     if resp.status_code in (401, 403):
         return None
-    bypass_codes = {404, *range(200, 300)}
-    if resp.status_code not in bypass_codes:
+    # 404 is always safe: server processed past auth but resource absent (non-destructive).
+    # 2xx is only safe when mutation is explicitly authorized — server may have upserted.
+    if resp.status_code != 404 and not (
+        resp.status_code in range(200, 300) and mutation_testing_authorized
+    ):
         return None
     return _make_signal(
         write_url, "jwt_alg_none_write",

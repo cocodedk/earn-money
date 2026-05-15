@@ -181,8 +181,8 @@ def _pick_next(
     )
     if decision.next_step == "stop":
         return None, None
-    if decision.next_step not in _PIPELINE_BY_NAME:
-        # Decider returned an unexpected step name — fall back to the
-        # next pending step rather than crashing the whole pipeline.
+    if decision.next_step not in _PIPELINE_BY_NAME or decision.next_step not in pending:
+        # Decider returned an unknown or already-completed step — fall back to
+        # the next pending step rather than crashing or looping the pipeline.
         return pending[0], default_max_targets
     return decision.next_step, decision.max_targets or default_max_targets

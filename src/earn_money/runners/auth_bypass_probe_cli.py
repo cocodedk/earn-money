@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -22,26 +23,36 @@ _USER_AGENT = "earn-money-authbypass/1.0 (bb@cocode.dk)"
 def _build_real_tool(
     paths: config.Paths, platform: str, slug: str, run_id: str,
     auth_testing_authorized: bool = False,
+    mutation_testing_authorized: bool = False,
+    auth_lockout_budget: int = 0,
+    max_requests_per_second: int = 10,
 ) -> Callable[[list[str]], active.ToolRunResult]:
     def real_tool(targets: list[str]) -> active.ToolRunResult:
         signals: list[object] = []
         errors = 0
         now = now_iso()
+        interval = 1.0 / max_requests_per_second
         with httpx.Client(
             timeout=_HTTP_TIMEOUT,
             follow_redirects=False,
             headers={"User-Agent": _USER_AGENT},
         ) as client:
             for url in targets:
+                flags.require_recon_enabled(paths)
+                flags.require_program_not_frozen(paths, platform, slug)
                 try:
                     sigs = auth_bypass_tool.probe_service(
                         url, client=client, run_id=run_id, observed_at=now,
                         auth_testing_authorized=auth_testing_authorized,
+                        mutation_testing_authorized=mutation_testing_authorized,
+                        auth_lockout_budget=auth_lockout_budget,
                     )
                 except httpx.HTTPError:
                     errors += 1
+                    time.sleep(interval)
                     continue
                 signals.extend(sigs)
+                time.sleep(interval)
         return active.ToolRunResult(
             outputs=tuple(signals),
             source_failures=errors,
@@ -66,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
         real_tool = _build_real_tool(
             paths, platform=args.platform, slug=args.program, run_id=run_id,
             auth_testing_authorized=program_roe.auth_testing_authorized,
+            mutation_testing_authorized=program_roe.mutation_testing_authorized,
+            auth_lockout_budget=program_roe.auth_lockout_budget,
+            max_requests_per_second=program_roe.max_requests_per_second,
         )
         result = auth_bypass_probe.run_program(
             paths, args.platform, args.program,
