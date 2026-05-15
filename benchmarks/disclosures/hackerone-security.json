@@ -1,0 +1,120 @@
+{
+  "program": "hackerone/security",
+  "source": "HackerOne Hacktivity + Google-indexed disclosures + write-up cross-reference",
+  "generated_at": "2026-05-15T09:30:00Z",
+  "in_window_range": "2023-01-01 to present",
+  "disclosed_date_precision_note": "approximate ±6 months (derived from H1 report-ID ranges)",
+  "disclosures": [
+    {
+      "report_url": "https://hackerone.com/reports/2032716",
+      "title": "Attacker can view any user email via SaveCollaboratorsMutation",
+      "severity": "high",
+      "disclosed_date": "2023",
+      "bounty_usd": 12500,
+      "asset_pattern": "hackerone.com GraphQL SaveCollaboratorsMutation",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Created dummy report, invited target via collaborator mutation; response field echoed the invitee's private email.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2139190",
+      "title": "IDOR: Authorization Bypass in LockReport mutation",
+      "severity": "medium",
+      "disclosed_date": "2023",
+      "bounty_usd": null,
+      "asset_pattern": "hackerone.com GraphQL LockReport",
+      "vuln_class": "IDOR",
+      "vector_summary": "GraphQL LockReport mutation accepted any public report_id and locked it without authorization check.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2215434",
+      "title": "Hacker email disclosed on attachment in report",
+      "severity": "low",
+      "disclosed_date": "2024",
+      "bounty_usd": null,
+      "asset_pattern": "hackerone.com report attachments",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "A PoC video (h1_TabNab.mp4) attached to another report contained the hacker's email in-frame, exposed to viewers of that disclosure.",
+      "auto_detectable_hint": "requires-business-logic"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2262382",
+      "title": "SSRF via Analytics Reports (PDF generator)",
+      "severity": "critical",
+      "disclosed_date": "2024",
+      "bounty_usd": 25000,
+      "asset_pattern": "hackerone.com Analytics -> PDF generator",
+      "vuln_class": "SSRF",
+      "vector_summary": "Injected <iframe> into report template element; backend Ruby PDF renderer fetched the URL server-side, exfiltrating AWS IMDS creds.",
+      "auto_detectable_hint": "requires-payload-crafting"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2301565",
+      "title": "Server Side Request Forgery (SSRF) in Analytics Reports",
+      "severity": "critical",
+      "disclosed_date": "2024",
+      "bounty_usd": 25000,
+      "asset_pattern": "hackerone.com Analytics -> PDF generator",
+      "vuln_class": "SSRF",
+      "vector_summary": "Companion/variant of #2262382: PDF render path lacked output sanitization on error path, attacker forced outbound HTTP from renderer to internal metadata.",
+      "auto_detectable_hint": "requires-payload-crafting"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2404415",
+      "title": "View any user email using the API",
+      "severity": "high",
+      "disclosed_date": "2024",
+      "bounty_usd": null,
+      "asset_pattern": "hackerone.com API user endpoint",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Auth'd user with API token enumerated user_id values; response leaked any user's primary email.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2516250",
+      "title": "Access Control Vulnerability: close report as duplicate cross-program",
+      "severity": "medium",
+      "disclosed_date": "2024",
+      "bounty_usd": null,
+      "asset_pattern": "hackerone.com report duplicate workflow",
+      "vuln_class": "Auth-Bypass",
+      "vector_summary": "Unauthorized user could close a report as duplicate of a report belonging to a different program / organization.",
+      "auto_detectable_hint": "requires-business-logic"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2633771",
+      "title": "IDOR Vulnerability at [redacted endpoint]",
+      "severity": "medium",
+      "disclosed_date": "2024",
+      "bounty_usd": null,
+      "asset_pattern": "hackerone.com platform endpoint",
+      "vuln_class": "IDOR",
+      "vector_summary": "[redacted]",
+      "auto_detectable_hint": "unclear"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/3000510",
+      "title": "/reports/:id.json endpoint discloses reporter PII",
+      "severity": "high",
+      "disclosed_date": "2025",
+      "bounty_usd": 25000,
+      "asset_pattern": "hackerone.com/reports/:id.json",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Public .json representation of any disclosed report serialized reporter's email, phone, OTP backup codes, graphql_secret_token, tshirt size.",
+      "auto_detectable_hint": "regex-friendly"
+    }
+  ],
+  "summary": {
+    "count": 9,
+    "vuln_class_distribution": {
+      "Info-Disclosure": 4,
+      "IDOR": 2,
+      "SSRF": 2,
+      "Auth-Bypass": 1
+    },
+    "auth_picture": "Nearly all post-auth on hackerone.com GraphQL + REST. Only the .json endpoint disclosure (#3000510) is unauth-reachable against a known disclosed report URL.",
+    "detection_difficulty_note": "Splits two ways: GraphQL/IDOR class needs schema introspection and field-name awareness; PDF-render SSRF needs payload crafting inside a templated element. Neither is reachable by surface-scanning tools without flow context.",
+    "bounty_picture": "Healthy bounty range — $400 to $25,000. Three critical/high reports at $25k each; mid-severity often unbountied or undisclosed amounts."
+  }
+}

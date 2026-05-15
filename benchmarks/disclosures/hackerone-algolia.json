@@ -1,0 +1,70 @@
+{
+  "program": "hackerone/algolia",
+  "source": "HackerOne Hacktivity + Google-indexed disclosures + write-up cross-reference",
+  "generated_at": "2026-05-15T09:30:00Z",
+  "in_window_range": "2023-01-01 to present",
+  "disclosed_date_precision_note": "approximate ±6 months",
+  "in_window_finding": "EMPTY — no disclosed reports found in the 2023+ window for this program. Multiple search strategies attempted (Hacktivity, FireBounty mirror, Google site:hackerone.com/reports algolia). May reflect (a) genuinely low recent disclosure volume, (b) reports being disclosed without indexed metadata, or (c) the program triaging but not publicly disclosing. Pipeline should NOT score itself against the historical entries below as in-window targets — they are anchors only.",
+  "disclosures": [
+    {
+      "report_url": "https://hackerone.com/reports/1530066",
+      "title": "Web Cache Deception vulnerability on algolia.com leads to personal information leakage",
+      "severity": "medium",
+      "disclosed_date": "2022",
+      "in_window": false,
+      "bounty_usd": 400,
+      "asset_pattern": "algolia.com/<authenticated-path>/anything.css",
+      "vuln_class": "Misc",
+      "vector_summary": "Appending fake static extension to authenticated URL caused caching proxy to store private response; attacker fetched the cached copy.",
+      "auto_detectable_hint": "regex-friendly"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/1276373",
+      "title": "Information disclosure -> 2fa bypass -> POST exploitation",
+      "severity": "medium",
+      "disclosed_date": "2021",
+      "in_window": false,
+      "bounty_usd": 0,
+      "asset_pattern": "algolia.com account endpoints",
+      "vuln_class": "Auth-Bypass",
+      "vector_summary": "Info leak chained to 2FA bypass; mitigated by old-password requirement for password/2FA changes.",
+      "auto_detectable_hint": "requires-chain"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/1157893",
+      "title": "PHP-FPM status page disclosure",
+      "severity": "low",
+      "disclosed_date": "2021",
+      "in_window": false,
+      "bounty_usd": null,
+      "asset_pattern": "*.algolia.com PHP-FPM status page",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Publicly reachable /status from php-fpm leaked process debug info.",
+      "auto_detectable_hint": "regex-friendly"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/739251",
+      "title": "Information disclosure via a third party product",
+      "severity": "low",
+      "disclosed_date": "2020",
+      "in_window": false,
+      "bounty_usd": null,
+      "asset_pattern": "third-party SaaS used by Algolia",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Misconfigured 3rd-party product exposed Algolia user metadata; fixed jointly with vendor.",
+      "auto_detectable_hint": "unclear"
+    }
+  ],
+  "summary": {
+    "count": 4,
+    "in_window_count": 0,
+    "vuln_class_distribution_all": {
+      "Misc": 1,
+      "Auth-Bypass": 1,
+      "Info-Disclosure": 2
+    },
+    "auth_picture": "Historical bugs skew post-auth dashboard issues on *.algolia.com, not on the indexing API. PHP-FPM status page is the only unauth-reachable historical disclosure.",
+    "detection_difficulty_note": "Historical-only — not for benchmark scoring.",
+    "alternative_signal_source": "If Algolia-specific scanner-coverage signal is needed, consider broadening to indexed write-ups of Algolia API-key leakage (CloudSEK, YesWeHack, ProjectDiscovery research) rather than HackerOne disclosures."
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "program": "hackerone/bykea",
+  "source": "HackerOne Hacktivity + Google-indexed disclosures + write-up cross-reference",
+  "generated_at": "2026-05-15T09:30:00Z",
+  "in_window_range": "2023-01-01 to present",
+  "disclosed_date_precision_note": "approximate ±6 months (derived from H1 report-ID ranges; H1 pages are JS-rendered and didn't expose dates via WebFetch)",
+  "disclosures": [
+    {
+      "report_url": "https://hackerone.com/reports/2209750",
+      "title": "Exposed trip_no in WebSocket Responses Leading to Excessive Information Disclosure",
+      "severity": "medium",
+      "disclosed_date": "2024-01",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net WebSocket channel",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Driver sockets received trip_no before bid acceptance; trip_no fed customer tracking URLs and leaked rider PII.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2374730",
+      "title": "Broken Access Control (IDOR) in Booking Detail and Bids",
+      "severity": "high",
+      "disclosed_date": "2024-04",
+      "bounty_usd": 0,
+      "asset_pattern": "api.bykea.net/api/v1/bookings/{booking_id}",
+      "vuln_class": "IDOR",
+      "vector_summary": "Authenticated user changed booking_id in GET to read other users' booking details, bids info and bids config.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2861888",
+      "title": "Ability to increase any customer offered fare (BAC)",
+      "severity": "high",
+      "disclosed_date": "2024-12",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net /v1/config, /v1/bidding",
+      "vuln_class": "Logic-Flaw",
+      "vector_summary": "Chained unauthenticated GET /v1/config?trip_id=X to mint a hash and PUT /v1/bidding to inject a forged bid that inflated another customer's fare.",
+      "auto_detectable_hint": "requires-business-logic"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2867022",
+      "title": "Improper Access Control Allows Trip Hijacking and Passenger/Driver PII Disclosure",
+      "severity": "critical",
+      "disclosed_date": "2024-12",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net /acknowledged_the_offer, /accept",
+      "vuln_class": "Auth-Bypass",
+      "vector_summary": "Endpoints didn't validate trip_id ownership; attacker substituted victim's user_id in body to hijack trips and read PII.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/2894018",
+      "title": "Lack of Feedback Validation Permits Cross-Trip Feedback Manipulation",
+      "severity": "medium",
+      "disclosed_date": "2025-01",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net /feedback",
+      "vuln_class": "Logic-Flaw",
+      "vector_summary": "Auth'd passenger sent their own valid trip_id paired with any driver_id, leaving fake feedback for drivers they never rode with.",
+      "auto_detectable_hint": "requires-business-logic"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/3085742",
+      "title": "IDOR on in-app hardcoded zombie endpoint",
+      "severity": "medium",
+      "disclosed_date": "2025-04",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net legacy in-app endpoint",
+      "vuln_class": "IDOR",
+      "vector_summary": "Hardcoded zombie endpoint in Android app still reachable; iterating object ID exposed driver data from other users' trips.",
+      "auto_detectable_hint": "requires-auth"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/3228011",
+      "title": "Critical Information Disclosure via /talos/api/v1/files/upload",
+      "severity": "critical",
+      "disclosed_date": "2025-07",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net /talos/api/v1/files/upload",
+      "vuln_class": "Info-Disclosure",
+      "vector_summary": "Upload pipeline buffered to local disk before S3; misconfig appended server memory chunks into uploaded files served back to clients.",
+      "auto_detectable_hint": "requires-payload-crafting"
+    },
+    {
+      "report_url": "https://hackerone.com/reports/3295503",
+      "title": "Customer can cancel individual trip in a batch",
+      "severity": "low",
+      "disclosed_date": "2025-09",
+      "bounty_usd": 0,
+      "asset_pattern": "*.bykea.net batch-trip API",
+      "vuln_class": "Logic-Flaw",
+      "vector_summary": "Cancelling one trip inside a single-parcel batch left the batch in an inconsistent state; assigned partner stuck unable to complete or cancel.",
+      "auto_detectable_hint": "requires-business-logic"
+    }
+  ],
+  "summary": {
+    "count": 8,
+    "vuln_class_distribution": {
+      "IDOR": 2,
+      "Auth-Bypass": 1,
+      "Info-Disclosure": 2,
+      "Logic-Flaw": 3
+    },
+    "auth_picture": "Almost everything is post-auth (rider or driver token) on root-API subdomains. No marketing-site / takeover noise.",
+    "detection_difficulty_note": "Most bugs require trip-lifecycle semantics knowledge. Only the legacy-endpoint IDOR (#3085742) and the file-upload memory-leak (#3228011) are remotely regex/fuzzer reachable; the rest require multi-step business-logic awareness.",
+    "bounty_picture": "All disclosures are $0 — Bykea operates a VRP without monetary rewards; reputation/private-invite value only."
+  }
+}
