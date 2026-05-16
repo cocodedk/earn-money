@@ -97,9 +97,22 @@ class ProbeRunner(HackerLoop):
 
     # ── HackerLoop hook overrides ─────────────────────────────────────────
 
-    def _get_llm_response(self, prompt: str) -> str | None:
+    def _get_llm_response(
+        self, prompt: str, *, force_no_response_format: bool = False,
+    ) -> str | None:
         task = self._pick_task()
         self._last_model_id = _resolve_model_safely(task)
+        # `force_no_response_format=True` is the parse-retry path from
+        # HackerLoop.run(). Omit the kwarg entirely — see the base
+        # class's _get_llm_response for the rationale.
+        if force_no_response_format:
+            try:
+                return self.provider.complete(  # type: ignore[no-any-return]
+                    system=_SYSTEM_PROMPT, user=prompt, task=task,
+                )
+            except Exception as e:
+                log.error("Provider error (force_no_response_format): %s", e)
+                return None
         # First attempt with response_format; on any provider failure,
         # retry once without it. See HackerLoop._get_llm_response for
         # the rationale — same logic, mirrored here because the runner

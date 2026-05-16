@@ -117,6 +117,7 @@ class HackerLoop:
                 return self._result(turn, f"budget_exceeded: {e}")
 
             prompt = self._build_prompt()
+            used_response_format = True  # default for the first call below
             raw = self._get_llm_response(prompt)
             self._on_llm_response(turn, raw, self._last_model_id)
             if raw is None:
@@ -124,9 +125,32 @@ class HackerLoop:
 
             try:
                 action, parse_recovered = parse_action_with_recovery(raw)
-            except ActionParseError as e:
-                log.warning("Invalid action from LLM: %s", e)
-                return self._result(turn, "invalid_action")
+            except ActionParseError as first_err:
+                # If we used response_format on the first call, retry
+                # ONCE without it — some models return half-JSON / wrong
+                # tokens when the response_format hint is on. The
+                # `used_response_format` guard prevents infinite retries
+                # and prevents a second call when response_format was
+                # already disabled (e.g. by a future capability flag).
+                if used_response_format:
+                    log.warning(
+                        "LLM action parse failed with response_format; "
+                        "retrying once without response_format: %s",
+                        first_err,
+                    )
+                    raw = self._get_llm_response(prompt, force_no_response_format=True)
+                    used_response_format = False
+                    self._on_llm_response(turn, raw, self._last_model_id)
+                    if raw is None:
+                        return self._result(turn, "llm_error")
+                    try:
+                        action, parse_recovered = parse_action_with_recovery(raw)
+                    except ActionParseError as second_err:
+                        log.warning("Invalid action from LLM after retry: %s", second_err)
+                        return self._result(turn, "invalid_action")
+                else:
+                    log.warning("Invalid action from LLM: %s", first_err)
+                    return self._result(turn, "invalid_action")
             self._on_action_parsed(turn, action, parse_recovered)
 
             if isinstance(action, StopAction):
@@ -218,7 +242,23 @@ class HackerLoop:
             f"Return exactly one JSON action:"
         )
 
-    def _get_llm_response(self, prompt: str) -> str | None:
+    def _get_llm_response(
+        self, prompt: str, *, force_no_response_format: bool = False,
+    ) -> str | None:
+        # `force_no_response_format=True` is the caller's explicit ask to
+        # skip the JSON-object hint — used by run() on a parse-failure
+        # retry. We OMIT the kwarg entirely (rather than passing None);
+        # some OpenAI-compat providers treat None and omit differently.
+        if force_no_response_format:
+            try:
+                return self.provider.complete(  # type: ignore[no-any-return]
+                    system=_SYSTEM_PROMPT,
+                    user=prompt,
+                    task=TaskType.AGENT_PLANNING,
+                )
+            except Exception as e:
+                log.error("Provider error (force_no_response_format): %s", e)
+                return None
         # First attempt: pass response_format. Most OpenRouter models
         # honour `{"type": "json_object"}`; the ones that don't may
         # 400 the entire request. On any provider failure, retry ONCE

@@ -131,12 +131,16 @@ class TestHackerLoop:
         assert len(result.candidate_findings) >= 1
 
     def test_loop_fails_closed_on_invalid_json(self):
-        loop = _loop(["{not valid json"])
+        # Two garbage responses: the loop retries once without
+        # response_format on parse failure, so both calls must return
+        # garbage to drive the fail-closed path.
+        loop = _loop(["{not valid json", "{still not valid"])
         result = loop.run()
         assert result.stop_reason == "invalid_action"
 
     def test_loop_fails_closed_on_unknown_action(self):
-        loop = _loop([_j(tool="launch_missiles", category="bad", args={})])
+        bad = _j(tool="launch_missiles", category="bad", args={})
+        loop = _loop([bad, bad])
         result = loop.run()
         assert result.stop_reason == "invalid_action"
 
@@ -242,3 +246,45 @@ class TestResponseFormatPassthrough:
         assert len(calls) == 2
         assert calls[0].kwargs.get("response_format") == {"type": "json_object"}
         assert "response_format" not in calls[1].kwargs
+
+    def test_retries_without_response_format_when_first_parse_fails(self):
+        # First provider call succeeds but returns garbage (e.g. model
+        # returns half-JSON when response_format is on). Loop must retry
+        # ONCE without response_format and accept a valid action.
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{",  # parses_action_with_recovery raises ActionParseError
+            json.dumps({"tool": "stop", "category": "stop", "args": {"reason": "done"}}),
+        ]
+        result = loop.run()
+        assert result.stop_reason == "done"
+        calls = loop.provider.complete.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs.get("response_format") == {"type": "json_object"}
+        assert "response_format" not in calls[1].kwargs
+
+    def test_invalid_action_after_retry_also_fails(self):
+        # First parse fails, retry-without-response_format also returns
+        # garbage. No third call; loop exits with invalid_action.
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{",
+            "encoding/json",
+        ]
+        result = loop.run()
+        assert result.stop_reason == "invalid_action"
+        assert len(loop.provider.complete.call_args_list) == 2
+
+    def test_parse_retry_never_makes_more_than_two_calls(self):
+        # Regression guard for the `used_response_format` flag: a parse
+        # failure must trigger AT MOST one retry, never an infinite
+        # retry loop. Three consecutive garbage responses must result in
+        # exactly two provider calls (one normal, one retry) then exit
+        # with invalid_action.
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{", "{", "{",
+        ]
+        result = loop.run()
+        assert result.stop_reason == "invalid_action"
+        assert len(loop.provider.complete.call_args_list) == 2
