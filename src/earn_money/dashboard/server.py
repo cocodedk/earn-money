@@ -23,7 +23,7 @@ import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from earn_money import config, flags
 from earn_money.dashboard import aggregator
@@ -332,6 +332,68 @@ def _make_handler(
                     raise
 
             self._send_json(200, {"run_id": run_id})
+
+        def _serve_probe_stream(self) -> None:
+            qs = urlparse(self.path).query
+            params = parse_qs(qs)
+            run_id_list = params.get("run_id") or []
+            run_id = run_id_list[0] if run_id_list else None
+            if not run_id:
+                return self.send_error(400, "run_id query param required")
+
+            with _PROBE_SLOT_LOCK:
+                runner = _PROBE_SLOT
+            if runner is None:
+                return self.send_error(404, "no probe running")
+            if runner.run_id() != run_id:
+                return self.send_error(410, "run_id does not match the active probe")
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+
+            # Defence-in-depth: only known event names ever reach the
+            # wire. SSE event names must be a single line of ASCII; an
+            # accidental newline or non-ASCII byte from a future emitter
+            # would crash `name.encode("ascii")` outside the protocol.
+            _ALLOWED_SSE_EVENTS = {
+                "turn", "finding", "done", "probe_error", "_keepalive",
+            }
+
+            # Wrap EVERY wfile write — including the very first `retry: 0`
+            # frame — so a client that disconnects between end_headers()
+            # and the first byte doesn't escape as an uncaught
+            # BrokenPipeError. The loop thread is independent of this
+            # handler thread, so an early disconnect must not stop or
+            # clear the runner.
+            try:
+                self.wfile.write(b"retry: 0\n\n")
+                self.wfile.flush()
+
+                for evt in runner.events():
+                    name = evt.get("event", "")
+                    data = evt.get("data", {})
+                    if name not in _ALLOWED_SSE_EVENTS:
+                        # Coerce an unknown name into a probe_error frame
+                        # rather than crash on .encode("ascii").
+                        name = "probe_error"
+                        data = {"message": "invalid event type", "stage": "stream"}
+                    if name == "_keepalive":
+                        self.wfile.write(b":\n\n")
+                    else:
+                        payload = json.dumps(data, default=str).encode("utf-8")
+                        frame = (
+                            b"event: " + name.encode("ascii")
+                            + b"\ndata: " + payload + b"\n\n"
+                        )
+                        self.wfile.write(frame)
+                    self.wfile.flush()
+                    if name in ("done", "probe_error"):
+                        return
+            except (BrokenPipeError, ConnectionResetError):
+                return
 
     return DashboardHandler
 
