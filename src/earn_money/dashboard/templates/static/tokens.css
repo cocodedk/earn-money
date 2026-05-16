@@ -17,6 +17,15 @@
   --verified: #7a5814;
   --good:     #2f5732;
   --bad:      #a3261b;
+  /* Semantic aliases for component libraries */
+  --surface:      var(--paper);
+  --surface-2:    var(--paper-2);
+  --text-muted:   var(--mute);
+  --border:       var(--rule);
+  --accent:       var(--critical);
+  --ok:           var(--good);
+  --warn:         var(--bad);
+  --mono:         "JetBrains Mono", "Fira Code", monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -27,5 +36,13 @@
     --high:     #e9874a;  --medium:   #d6a93e;
     --low:      #9eb16a;  --info:     #6e6650;
     --verified: #d6a93e;  --good:     #7aa067;  --bad: #e25b4f;
+    /* Semantic aliases remain the same in dark mode */
+    --surface:      var(--paper);
+    --surface-2:    var(--paper-2);
+    --text-muted:   var(--mute);
+    --border:       var(--rule);
+    --accent:       var(--critical);
+    --ok:           var(--good);
+    --warn:         var(--bad);
   }
 }
