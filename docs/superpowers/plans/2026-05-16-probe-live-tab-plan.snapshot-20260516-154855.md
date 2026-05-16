@@ -1,3 +1,10 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-154855)
+
+Snapshot taken: 2026-05-16T15:48:55+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+Rolling companion: `2026-05-16-probe-live-tab-plan.consolidated.md`
+
+State at 20260516-154855 — after `_invoke_get` returns a DrivenGet NamedTuple (handler exposed; custom wfile accepted), and Task 8 now adds real do_POST/do_GET dispatcher tests so route-method bypass tests no longer hide dispatcher regressions.
 
 
 <!-- ====================================================================== -->

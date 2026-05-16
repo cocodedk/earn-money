@@ -10,18 +10,31 @@ This task adds the stream route. The dispatcher wiring lands in Task 8 — until
 
 - [ ] **Step 1: Write the failing test for 400-on-missing-run-id**
 
-Append to `tests/dashboard/test_probe_routes.py`:
+Append to `tests/dashboard/test_probe_routes.py` (the `from typing import NamedTuple` import goes near the top of the file alongside the existing imports added in Task 6):
 
 ```python
-def _invoke_get(handler_cls, path: str) -> tuple[int, bytes]:
-    """Convenience: drive GET on the stream route through the shared
-    `_drive` helper defined in tests/dashboard/test_probe_routes.py
-    (Task 6 introduces it). Returns (status, raw_wfile_bytes) — the
-    stream route writes SSE frames, not JSON, so callers inspect bytes
-    directly rather than the parsed-body dict."""
+from typing import NamedTuple
+
+
+class DrivenGet(NamedTuple):
+    """Result of `_invoke_get` — exposes the handler too so tests can
+    inspect `send_header.call_args_list` and so callers can supply a
+    custom wfile that raises (e.g. BrokenPipeError) mid-stream."""
+    status: int
+    body: bytes
+    handler: object
+
+
+def _invoke_get(handler_cls, path: str, *, wfile=None) -> DrivenGet:
+    """Drive GET on the stream route directly (bypassing do_GET). For
+    the dispatcher-coverage tests in Task 8, use `_drive_dispatch`
+    instead — that path exercises do_GET / do_POST."""
     import io
     from unittest.mock import MagicMock
-    wfile = io.BytesIO()
+
+    if wfile is None:
+        wfile = io.BytesIO()
+
     h = handler_cls.__new__(handler_cls)
     h.rfile = io.BytesIO(b"")
     h.wfile = wfile
@@ -37,14 +50,15 @@ def _invoke_get(handler_cls, path: str) -> tuple[int, bytes]:
     status = (h.send_response.call_args.args[0]
               if h.send_response.call_args else
               h.send_error.call_args.args[0])
-    return status, wfile.getvalue()
+    body = wfile.getvalue() if hasattr(wfile, "getvalue") else b""
+    return DrivenGet(status, body, h)
 
 
 class TestStreamRoute:
     def test_returns_400_when_run_id_query_param_missing(self, handler_factory):
         handler_cls, _paths = handler_factory
-        status, _ = _invoke_get(handler_cls, "/api/probe/stream")
-        assert status == 400
+        result = _invoke_get(handler_cls, "/api/probe/stream")
+        assert result.status == 400
 ```
 
 - [ ] **Step 2: Run — expect FAIL (`_serve_probe_stream` doesn't exist)**
@@ -108,18 +122,18 @@ uv run pytest tests/dashboard/test_probe_routes.py::TestStreamRoute::test_return
 
 - [ ] **Step 5: Add the remaining stream-route tests from spec 12**
 
-Implement each test below as a method on `TestStreamRoute`. **Never commit a test body that is only `pass` or `...`** — both silently pass. For each test, install a `_FakeRunner` in `server._PROBE_SLOT` first (the autouse fixture from Task 6 clears it between tests), wire `_FakeRunner.events` to yield the canned sequence the test needs, call `_invoke_get(handler_cls, "/api/probe/stream?run_id=fakerun123")`, then assert on the bytes written to `wfile` or on the status:
+Implement each test below as a method on `TestStreamRoute`. **Never commit a test body that is only `pass` or `...`** — both silently pass. For each test, install a `_FakeRunner` in `server._PROBE_SLOT` first (the autouse fixture from Task 6 clears it between tests), wire `_FakeRunner.events` to yield the canned sequence the test needs, call `_invoke_get(handler_cls, "/api/probe/stream?run_id=fakerun123")`, then assert on `result.status` / `result.body` / `result.handler.send_header.call_args_list`. For the disconnect test, pass a custom `wfile=` that raises:
 
-- `test_returns_404_when_no_probe_running` — leave `_PROBE_SLOT = None`. Assert `status == 404`.
-- `test_returns_410_when_run_id_does_not_match_active_runner` — install a runner with `run_id() == "fakerun123"`, call with `?run_id=otherid`. Assert `status == 410`.
-- `test_emits_event_stream_content_type` — happy path with `events()` yielding just a `done`. Assert `h.send_header.call_args_list` contains `("Content-Type", "text/event-stream; charset=utf-8")`.
-- `test_sends_retry_zero_header_frame` — happy path. Assert the bytes written start with `b"retry: 0\n\n"`.
-- `test_frames_turn_event_correctly` — `events()` yields `[{"event":"turn","data":{"turn":1,"stage":"action_pending"}}, {"event":"done","data":{...}}]`. Assert the written bytes contain `b"event: turn\ndata: " + json.dumps({"turn":1,"stage":"action_pending"}).encode() + b"\n\n"`.
-- `test_frames_finding_event_correctly` — `events()` yields `[{"event":"finding","data":{"turn":1,"kind":"candidate","type":"idor"}}, {"event":"done","data":{...}}]`. Assert the written bytes contain the matching `event: finding\ndata: {...}\n\n` frame.
-- `test_closes_response_after_done` — `events()` yields `[{"event":"done","data":{...}}, {"event":"turn","data":{...}}]`. Assert the response body contains the `done` frame but NOT the subsequent `turn` frame (the route returned after `done`).
-- `test_closes_response_after_probe_error` — same shape with `probe_error` instead of `done`. Assert no later frames in the response body.
-- `test_keepalive_yields_comment_frame` — `events()` yields `[{"event":"_keepalive","data":{}}, {"event":"done","data":{...}}]`. Assert the written bytes contain `b":\n\n"`.
-- `test_client_disconnect_does_not_kill_runner` — configure the writer to raise `BrokenPipeError` on the second `wfile.write`. Use a real `_FakeRunner` whose `events()` yields two frames; assert the runner instance is still in `_PROBE_SLOT` after the handler returns (i.e. the disconnect did not call `stop()` or clear the slot).
+- `test_returns_404_when_no_probe_running` — leave `_PROBE_SLOT = None`. Assert `result.status == 404`.
+- `test_returns_410_when_run_id_does_not_match_active_runner` — install a runner with `run_id() == "fakerun123"`, call with `?run_id=otherid`. Assert `result.status == 410`.
+- `test_emits_event_stream_content_type` — happy path with `events()` yielding just a `done`. Assert `("Content-Type", "text/event-stream; charset=utf-8")` is in `result.handler.send_header.call_args_list`.
+- `test_sends_retry_zero_header_frame` — happy path. Assert `result.body.startswith(b"retry: 0\n\n")`.
+- `test_frames_turn_event_correctly` — `events()` yields `[{"event":"turn","data":{"turn":1,"stage":"action_pending"}}, {"event":"done","data":{...}}]`. Assert `result.body` contains `b"event: turn\ndata: " + json.dumps({"turn":1,"stage":"action_pending"}).encode() + b"\n\n"`.
+- `test_frames_finding_event_correctly` — `events()` yields `[{"event":"finding","data":{"turn":1,"kind":"candidate","type":"idor"}}, {"event":"done","data":{...}}]`. Assert `result.body` contains the matching `event: finding\ndata: {...}\n\n` frame.
+- `test_closes_response_after_done` — `events()` yields `[{"event":"done","data":{...}}, {"event":"turn","data":{...}}]`. Assert `result.body` contains the `done` frame but NOT the subsequent `turn` frame (the route returned after `done`).
+- `test_closes_response_after_probe_error` — same shape with `probe_error` instead of `done`. Assert no later frames in `result.body`.
+- `test_keepalive_yields_comment_frame` — `events()` yields `[{"event":"_keepalive","data":{}}, {"event":"done","data":{...}}]`. Assert `b":\n\n"` is in `result.body`.
+- `test_client_disconnect_does_not_kill_runner` — build a custom `wfile` subclass of `io.BytesIO` whose `write` raises `BrokenPipeError` on the second call; pass it via `_invoke_get(..., wfile=fake_wfile)`. Use a `_FakeRunner` whose `events()` yields two frames. Assert that after the handler returns, `server._PROBE_SLOT` is still the same runner instance (the disconnect did not call `stop()` or clear the slot).
 
 - [ ] **Step 6: Run the whole `TestStreamRoute` class — expect all PASS**
 

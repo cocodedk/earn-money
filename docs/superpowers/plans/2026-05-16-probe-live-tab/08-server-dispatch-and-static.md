@@ -4,8 +4,11 @@
 
 **Files:**
 - Modify: `src/earn_money/dashboard/server.py`
+- Modify: `tests/dashboard/test_probe_routes.py`
 
 The route methods exist (Tasks 6 and 7) but no HTTP request reaches them yet — the handler's `do_GET` doesn't know about `/api/probe/stream`, and there is no `do_POST` at all. This task wires both. Static assets for the new JS/CSS files are also registered so the existing read-once / cache pattern serves them.
+
+The Task 6/7 helpers call `_serve_probe_start` / `_serve_probe_stream` directly — they verify route behaviour but **not** the dispatcher. This task adds explicit `do_POST` / `do_GET` coverage so a future edit that breaks the dispatcher can't pass silently.
 
 - [ ] **Step 1: Extend `_STATIC_ROUTES`**
 
@@ -62,13 +65,104 @@ Inside `DashboardHandler`, immediately after `do_GET`:
 
 `traceback` is already imported at the top of the file (existing usage in `do_GET`). Confirm before merging.
 
-- [ ] **Step 4: Manual smoke (no automated test added in this task)**
+- [ ] **Step 4: Add the `_drive_dispatch` helper**
 
-The dispatcher wiring is verified end-to-end by the existing `TestStartRoute` / `TestStreamRoute` tests being reachable. Run them through `_invoke_get` / `_invoke_post` once more to confirm nothing in the wiring regressed:
+Append to `tests/dashboard/test_probe_routes.py`:
+
+```python
+def _drive_dispatch(handler_cls, method: str, path: str, *, raw_body: bytes = b""):
+    """Drive `do_POST` / `do_GET` (not the route methods directly) so
+    the dispatcher wiring is exercised. Returns (status, body, handler)."""
+    import io
+    from unittest.mock import MagicMock
+
+    wfile = io.BytesIO()
+    h = handler_cls.__new__(handler_cls)
+    h.rfile = io.BytesIO(raw_body)
+    h.wfile = wfile
+    h.command = method
+    h.path = path
+    h.request_version = "HTTP/1.1"
+    h.headers = MagicMock()
+    h.headers.get = lambda k, default=None: {
+        "Content-Length": str(len(raw_body)),
+        "Content-Type": "application/json",
+    }.get(k, default)
+    h.send_response = MagicMock()
+    h.send_header = MagicMock()
+    h.end_headers = MagicMock()
+    h.send_error = MagicMock()
+    # log_error is called from the do_POST exception path; stub it out
+    # so the test doesn't write to stderr.
+    h.log_error = MagicMock()
+
+    if method == "POST":
+        h.do_POST()
+    elif method == "GET":
+        h.do_GET()
+    else:
+        raise ValueError(method)
+
+    status = (
+        h.send_response.call_args.args[0]
+        if h.send_response.call_args
+        else h.send_error.call_args.args[0]
+    )
+    return status, wfile.getvalue(), h
+```
+
+- [ ] **Step 5: Write the failing test `test_do_post_dispatches_probe_start`**
+
+```python
+class TestDispatcher:
+    def test_do_post_dispatches_probe_start(self, handler_factory):
+        handler_cls, _paths = handler_factory
+        raw = json.dumps({"base_url": "https://target.example.com"}).encode("utf-8")
+        status, body, _h = _drive_dispatch(
+            handler_cls, "POST", "/api/probe/start", raw_body=raw,
+        )
+        assert status == 200
+        assert b"fakerun123" in body
+```
+
+Run; expect FAIL until `do_POST` is wired in Step 3.
+
+- [ ] **Step 6: Write the failing test `test_do_get_dispatches_probe_stream`**
+
+```python
+    def test_do_get_dispatches_probe_stream(self, handler_factory):
+        from earn_money.dashboard import server
+        handler_cls, _paths = handler_factory
+        server._PROBE_SLOT = _FakeRunner()
+        status, body, _h = _drive_dispatch(
+            handler_cls, "GET", "/api/probe/stream?run_id=fakerun123",
+        )
+        assert status == 200
+        assert b"event: done" in body
+```
+
+Run; expect FAIL until the `/api/probe/stream` elif is added in Step 2.
+
+- [ ] **Step 7: Write the failing test `test_do_post_unknown_path_returns_404`**
+
+```python
+    def test_do_post_unknown_path_returns_404(self, handler_factory):
+        handler_cls, _paths = handler_factory
+        status, _body, _h = _drive_dispatch(
+            handler_cls, "POST", "/api/does-not-exist", raw_body=b"{}",
+        )
+        assert status == 404
+```
+
+This pins the `do_POST` 404 path so a future edit can't introduce a route silently.
+
+- [ ] **Step 8: Run the three dispatcher tests — expect all PASS**
 
 ```bash
-uv run pytest tests/dashboard/test_probe_routes.py -v
+uv run pytest tests/dashboard/test_probe_routes.py::TestDispatcher -v
 ```
+
+(They pass because Steps 1–3 already wired the dispatcher. If any fails, the dispatcher edits are wrong — fix and re-run.)
 
 Optional manual smoke (requires a running server — skip in CI):
 
@@ -84,21 +178,21 @@ kill $SERVER_PID
 
 Expected: 200 + `{"run_id":"…"}` (the runner will fail almost immediately because there's no real LLM env config, but the dispatcher reached the route).
 
-- [ ] **Step 5: Run the dashboard test directory in full**
+- [ ] **Step 9: Run the dashboard test directory in full**
 
 ```bash
 uv run pytest tests/dashboard/ -v
 ```
 
-- [ ] **Step 6: Lint**
+- [ ] **Step 10: Lint**
 
 ```bash
-uv run ruff check src/earn_money/dashboard/server.py
+uv run ruff check src/earn_money/dashboard/server.py tests/dashboard/test_probe_routes.py
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add src/earn_money/dashboard/server.py
+git add src/earn_money/dashboard/server.py tests/dashboard/test_probe_routes.py
 git commit -m "feat(dashboard): wire do_GET/do_POST for probe routes + static assets"
 ```
