@@ -1,0 +1,283 @@
+"""ProbeRunner — the dashboard's threaded HackerLoop subclass.
+
+Overrides the six observation hooks added to `HackerLoop` and pushes
+structured events onto a `queue.Queue`. Selects a per-turn task profile
+from observation/action context, manages the loop thread, and clears
+the server's slot via an `on_finished` callback so there's no circular
+import.
+"""
+from __future__ import annotations
+
+import logging
+import queue
+import threading
+import uuid
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
+
+from earn_money import config
+from earn_money.agent import providers as providers_mod
+from earn_money.agent.budget import RequestBudget
+from earn_money.agent.finding_verifier import FindingVerifier
+from earn_money.agent.hacker_loop import _SYSTEM_PROMPT, HackerLoop
+from earn_money.agent.hacker_loop_cli import _seed_urls
+from earn_money.agent.hacker_session import HackerSession
+from earn_money.agent.http_tool import HttpTool
+from earn_money.agent.observations import ObservationWrapper
+from earn_money.agent.probe_actions import ReportCandidateAction
+from earn_money.agent.roe_policy import RoePolicy
+from earn_money.agent.roe_profile import RoeProfile, RoeSourceType, load_roe_profile
+from earn_money.agent.scope_policy import ScopePolicy
+from earn_money.agent.task_router import RouterUnconfigured, TaskType, resolve_model
+
+log = logging.getLogger(__name__)
+
+
+class AlreadyRunning(Exception):
+    pass
+
+
+class _StopRequested(Exception):
+    """Internal: raised to break out of the loop on operator-cancel."""
+
+
+class ProbeRunner(HackerLoop):
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        roe_path: Path | None,
+        paths: config.Paths,
+        platform: str | None = None,
+        program: str | None = None,
+        max_turns: int | None = None,
+        on_finished: Callable[[str], None] | None = None,
+    ) -> None:
+        profile = load_roe_profile(roe_path, RoeSourceType.MANUAL)
+        if max_turns is not None:
+            profile = _apply_max_turns(profile, max_turns)
+        roe_policy = RoePolicy(profile)
+        scope_policy = ScopePolicy(profile, base_url)
+        budget = RequestBudget(profile)
+        http_tool = HttpTool(base_url, roe_policy, scope_policy, budget)
+        session = HackerSession()
+        db_path = paths.program_db(platform or "local", program or "")
+        session.seed_urls(_seed_urls(db_path, base_url))
+        verifier = FindingVerifier(profile)
+        provider = providers_mod.from_env()
+
+        super().__init__(
+            profile, roe_policy, http_tool, budget, session, verifier, provider,
+        )
+
+        self._run_id: str = uuid.uuid4().hex
+        self._queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._next_task_hint: TaskType | None = None
+        self._closed = False
+        self._on_finished = on_finished
+
+    # ── task selection ────────────────────────────────────────────────────
+
+    def _pick_task(self) -> TaskType:
+        if self._next_task_hint is not None:
+            return self._next_task_hint
+        if not self.session.observations:
+            return TaskType.AGENT_PLANNING
+        last = self.session.observations[-1]
+        ctype = (last.headers.get("content-type") or "").lower()
+        body = last.body or ""
+        if "javascript" in ctype:
+            return TaskType.CODING_SECURITY
+        if "text/html" in ctype and "<script" in body.lower():
+            return TaskType.CODING_SECURITY
+        return TaskType.AGENT_PLANNING
+
+    # ── HackerLoop hook overrides ─────────────────────────────────────────
+
+    def _get_llm_response(self, prompt: str) -> str | None:
+        task = self._pick_task()
+        self._last_model_id = _resolve_model_safely(task)
+        # First attempt with response_format; on any provider failure,
+        # retry once without it. See HackerLoop._get_llm_response for
+        # the rationale — same logic, mirrored here because the runner
+        # overrides this method to pick `task` per turn.
+        try:
+            return self.provider.complete(  # type: ignore[no-any-return]
+                system=_SYSTEM_PROMPT, user=prompt, task=task,
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            log.warning("Provider rejected response_format; retrying without: %s", e)
+        try:
+            return self.provider.complete(  # type: ignore[no-any-return]
+                system=_SYSTEM_PROMPT, user=prompt, task=task,
+            )
+        except Exception as e:
+            log.error("Provider error after retry: %s", e)
+            return None
+
+    def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
+        self._emit("turn", {
+            "turn": turn, "stage": "action_pending",
+            "model": self._last_model_id,
+            "raw_excerpt": (raw or "")[:200],
+            "estimated_tokens": _est_tokens(raw),
+        })
+
+    def _on_action_parsed(self, turn: int, action: Any, parse_recovered: bool) -> None:
+        self._emit("turn", {
+            "turn": turn, "stage": "action_parsed",
+            "action": action.model_dump(),
+            "parse_recovered": parse_recovered,
+        })
+
+    def _on_policy_decision(self, turn: int, action: Any, decision: Any) -> None:
+        self._emit("turn", {
+            "turn": turn, "stage": "policy",
+            "action": action.model_dump(),
+            "policy": {"allowed": decision.allowed, "reason": decision.reason},
+        })
+
+    def _on_observation(self, turn: int, action: Any, obs: ObservationWrapper) -> None:
+        self._emit("turn", {
+            "turn": turn, "stage": "observation",
+            "obs": {
+                "status": obs.status,
+                "url": obs.final_url,
+                "body_excerpt": obs.body[:200],
+                "content_type": obs.headers.get("content-type", ""),
+            },
+        })
+
+    def _on_finding(self, turn: int, kind: str, finding: dict[str, Any]) -> None:
+        self._emit("finding", {**finding, "turn": turn, "kind": kind})
+
+    def _on_turn_complete(self, turn: int, action: Any, stage: str) -> None:
+        if isinstance(action, ReportCandidateAction):
+            self._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        elif self._next_task_hint is not None:
+            self._next_task_hint = None
+        self._emit("turn", {"turn": turn, "stage": "complete", "outcome": stage})
+        if self._stop_event.is_set():
+            raise _StopRequested()
+
+    # ── lifecycle ─────────────────────────────────────────────────────────
+
+    def start(self) -> str:
+        if self._thread is not None:
+            raise AlreadyRunning(self._run_id)
+        self._thread = threading.Thread(target=self._run_safe, daemon=True)
+        self._thread.start()
+        return self._run_id
+
+    def stop(self) -> None:
+        """Cooperative cancel. Sets a threading.Event flag; the override
+        of `_on_turn_complete` checks the flag and raises `_StopRequested`
+        at the END of the current iteration. That means stop() does NOT
+        interrupt an in-flight `provider.complete(...)` call or an
+        in-flight `http_tool.get/post(...)` call — those finish first.
+        Worst-case wait between calling stop() and the runner exiting:
+        one LLM round-trip plus (for get/post turns) one HTTP round-trip,
+        bounded by their respective timeouts. Acceptable for v1; a
+        stronger cancel would need explicit provider/http timeouts, not
+        thread killing (which Python doesn't safely support)."""
+        self._stop_event.set()
+
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def run_id(self) -> str:
+        return self._run_id
+
+    # SSE convention is a keep-alive every 15-30 s; 15 here so a slow
+    # LLM turn (≈10 s) doesn't trigger a keep-alive between real events,
+    # but a paused server doesn't hold an idle TCP connection silent
+    # past 30 s either.
+    _EVENTS_GET_TIMEOUT_SECONDS = 15.0
+
+    def events(self) -> Iterator[dict[str, Any]]:
+        while True:
+            try:
+                evt = self._queue.get(timeout=self._EVENTS_GET_TIMEOUT_SECONDS)
+            except queue.Empty:
+                if not self.is_running() and self._queue.empty():
+                    return
+                yield {"event": "_keepalive", "data": {}}
+                continue
+            yield evt
+            if evt.get("event") in ("done", "probe_error"):
+                return
+
+    # ── private helpers ──────────────────────────────────────────────────
+
+    def _emit(self, name: str, data: dict[str, Any]) -> None:
+        self._queue.put({"event": name, "data": data})
+
+    def _run_safe(self) -> None:
+        try:
+            result = self.run()
+            self._emit("done", _summarise(result))
+        except _StopRequested:
+            self._emit("done", {
+                "turns": self._current_turn,
+                "stop_reason": "operator_cancel",
+                "candidates_count": len(self.session.candidate_findings),
+                "verified_count":   len(self.session.verified_findings),
+                "denials_count":    len(self.session.policy_denials),
+            })
+        except Exception as e:
+            log.exception("ProbeRunner crashed")
+            self._emit("probe_error", {"message": str(e), "stage": "runtime"})
+        finally:
+            self._closed = True
+            # NOTE: we deliberately do NOT call _on_finished / clear the
+            # server's _PROBE_SLOT here. If we did, a fast run (e.g. an
+            # invalid-action exit on turn 1) could complete and clear the
+            # slot BEFORE the browser's EventSource connects — the
+            # stream route would then 404 and the operator never sees
+            # the done / probe_error event. Leaving the slot in place
+            # means:
+            #   - The slot acts as "the most recent runner" (running or done).
+            #   - The stream route still validates run_id, so a stale
+            #     slot can't serve events to a different probe's client.
+            #   - The next POST /api/probe/start overwrites the slot via
+            #     the existing fast-409 path: `is_running()` returns
+            #     False for a finished runner, so the new probe installs.
+            #   - At most one stale-but-finished runner sits in memory
+            #     at a time. Bounded; fine for a single-operator dashboard.
+            #
+            # `_on_finished` is kept on the constructor for future use
+            # (e.g. multi-probe history), but is NOT invoked here.
+
+
+def _apply_max_turns(profile: RoeProfile, max_turns: int) -> RoeProfile:
+    # TODO: share with hacker_loop_cli._apply_cli_limits once that helper
+    # is refactored to take a dict of overrides (out of scope for this PR).
+    effective = min(profile.max_turns, max_turns)
+    data = profile.model_dump(exclude={"source_type", "source_ref"})
+    data["max_turns"] = effective
+    return RoeProfile.from_dict(data, profile.source_type, profile.source_ref)
+
+
+def _resolve_model_safely(task: TaskType) -> str | None:
+    try:
+        return resolve_model(task)
+    except RouterUnconfigured:
+        return None
+
+
+def _est_tokens(text: str | None) -> int:
+    return (len(text) // 4) if text else 0
+
+
+def _summarise(result: Any) -> dict[str, Any]:
+    return {
+        "turns": result.turns,
+        "stop_reason": result.stop_reason,
+        "candidates_count": len(result.candidate_findings),
+        "verified_count":   len(result.verified_findings),
+        "denials_count":    len(result.policy_denials),
+    }
