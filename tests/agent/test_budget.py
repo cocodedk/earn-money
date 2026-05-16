@@ -1,7 +1,8 @@
 """Tests for RequestBudget."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from earn_money.agent.budget import BudgetExceeded, RequestBudget
 from earn_money.agent.roe_profile import RoeProfile, RoeSourceType
