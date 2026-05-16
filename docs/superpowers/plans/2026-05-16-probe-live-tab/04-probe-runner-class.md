@@ -21,20 +21,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from earn_money.agent.observations import ObservationWrapper
-from earn_money.agent.roe_profile import RoeProfile, RoeSourceType
-
-
-def _profile(**kwargs: object) -> RoeProfile:
-    defaults = dict(
-        name="test", source_type=RoeSourceType.MANUAL,
-        allowed_hosts=["target.example.com"],
-        max_requests=100, max_posts=20, max_turns=10,
-        max_runtime_seconds=60, max_response_bytes=5000,
-        delay_between_requests_ms=0,
-        allow_get=True, allow_post=True, allow_idor_checks=True,
-    )
-    defaults.update(kwargs)
-    return RoeProfile(**defaults)  # type: ignore[arg-type]
+from earn_money.agent.task_router import TaskType
 
 
 def _runner_with_session(observations: list[ObservationWrapper] | None = None):
