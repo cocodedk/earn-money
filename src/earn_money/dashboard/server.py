@@ -18,17 +18,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
-from earn_money import config
+from earn_money import config, flags
 from earn_money.dashboard import aggregator
+from earn_money.dashboard.probe_runner import ProbeRunner
 
-if TYPE_CHECKING:
-    from earn_money.dashboard.probe_runner import ProbeRunner
+log = logging.getLogger(__name__)
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _STATIC = _TEMPLATES / "static"
@@ -55,7 +56,7 @@ _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
 # `probe_error` event. The slot is replaced when the next start
 # overwrites it (see Task 6). See 04-probe-runner-class.md §"_run_safe"
 # for the rationale.
-_PROBE_SLOT: "ProbeRunner | None" = None  # noqa: UP037
+_PROBE_SLOT: ProbeRunner | None = None
 _PROBE_SLOT_LOCK = threading.Lock()
 
 
@@ -158,6 +159,179 @@ def _make_handler(
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _read_body(self) -> bytes:
+            length = int(self.headers.get("Content-Length") or "0")
+            return self.rfile.read(length) if length > 0 else b""
+
+        def _send_json(self, status: int, payload: dict) -> None:  # type: ignore[type-arg]
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _serve_probe_start(self) -> None:
+            # `global` must be declared before ANY use of the name in the
+            # function body. The fast-409 check below reads _PROBE_SLOT, so
+            # this declaration must come first — otherwise Python emits a
+            # SyntaxWarning ("used prior to global declaration") and the
+            # name is treated as local at the read sites.
+            global _PROBE_SLOT
+
+            try:
+                body = json.loads(self._read_body() or b"{}")
+            except json.JSONDecodeError:
+                return self._send_json(400, {"error": "invalid JSON body"})
+
+            base_url = body.get("base_url")
+            if not isinstance(base_url, str) or not base_url.strip():
+                return self._send_json(400, {"error": "base_url required"})
+            base_url = base_url.strip().rstrip("/")
+            parsed = urlparse(base_url)
+            if parsed.scheme not in ("http", "https"):
+                return self._send_json(400, {"error":
+                    f"base_url scheme must be http or https, got {parsed.scheme!r}"})
+            if parsed.username or parsed.password:
+                return self._send_json(400, {"error":
+                    "base_url must not contain userinfo (user:pass@)"})
+            if not parsed.hostname:
+                return self._send_json(400, {"error": "base_url missing host"})
+
+            # Defence-in-depth fast-fail for obvious SSRF / internal
+            # targets. The authoritative enforcement lives in
+            # ScopePolicy._check_host (agent/scope_policy.py) — it
+            # rejects loopback / private / link-local / IMDS / multicast
+            # IPs at HTTP-request time, and the safe-default RoE has
+            # allowed_hosts=[] so every host is denied unless explicitly
+            # listed. This early guard just gives the operator a 400
+            # before any probe machinery is built. Hosts allowed by an
+            # explicit RoE profile (e.g. a lab pointing at `localhost`)
+            # still get rejected here — for true local-lab work, use a
+            # hostname like `target.cocode.dk` mapped via /etc/hosts.
+            host_lower = parsed.hostname.lower()
+            if host_lower in ("localhost", "0.0.0.0", "::", "::1"):
+                return self._send_json(400, {"error":
+                    f"base_url host {parsed.hostname!r} is loopback/unspecified"})
+            try:
+                import ipaddress
+                addr = ipaddress.ip_address(host_lower)
+                for net_cidr in ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
+                                 "192.168.0.0/16", "169.254.0.0/16",
+                                 "224.0.0.0/4", "::1/128", "fc00::/7", "fe80::/10"):
+                    if addr in ipaddress.ip_network(net_cidr):
+                        return self._send_json(400, {"error":
+                            f"base_url host {parsed.hostname!r} is private/reserved"})
+            except ValueError:
+                pass  # hostname (not an IP literal) — fine, let runtime ScopePolicy enforce
+
+            # target_kind is required and explicit — removes the prior
+            # ambiguity where omitting `program` silently skipped FROZEN.
+            target_kind = body.get("target_kind")
+            if target_kind not in ("local_lab", "registered_program"):
+                return self._send_json(400, {"error":
+                    "target_kind must be 'local_lab' or 'registered_program'"})
+
+            platform = body.get("platform", "local")
+            program = body.get("program")
+            if platform in ("", None):
+                platform = "local"
+            if program == "":
+                program = None
+            if not isinstance(platform, str):
+                return self._send_json(400, {"error": "platform must be a string"})
+            if program is not None and not isinstance(program, str):
+                return self._send_json(400, {"error": "program must be a string"})
+
+            # registered_program REQUIRES program (the FROZEN gate
+            # depends on it). local_lab MAY omit program — FROZEN is
+            # skipped for local-lab targets by design, but RoE /
+            # ScopePolicy still enforce allowed_hosts at request time.
+            if target_kind == "registered_program" and not program:
+                return self._send_json(400, {"error":
+                    "program required when target_kind=registered_program"})
+
+            roe_raw = body.get("roe_profile")
+            roe_path: Path | None
+            if isinstance(roe_raw, str) and roe_raw.strip():
+                _rp = Path(roe_raw.strip())
+                roe_path = _rp if _rp.is_absolute() else self._paths.root / _rp
+            else:
+                roe_path = None
+
+            max_turns = body.get("max_turns")
+            # `type(x) is int` rejects bool (which is a subclass of
+            # int — `isinstance(True, int)` is True, and
+            # `1 <= True <= 50` is True too, so isinstance would
+            # silently accept max_turns=true).
+            if max_turns is not None and (
+                type(max_turns) is not int or not (1 <= max_turns <= 50)
+            ):
+                return self._send_json(400, {"error":
+                    "max_turns must be an int between 1 and 50"})
+
+            if roe_path is not None and not roe_path.exists():
+                return self._send_json(400, {"error":
+                    f"RoE profile not found: {roe_path}"})
+
+            try:
+                flags.require_recon_enabled(self._paths)
+                # FROZEN check is gated on target_kind — local_lab targets
+                # are off-platform and have no FROZEN flag to check.
+                if target_kind == "registered_program":
+                    flags.require_program_not_frozen(self._paths, platform, program)  # type: ignore[arg-type]
+            except flags.ReconDisabled as e:
+                return self._send_json(403, {"error": str(e)})
+            except flags.ProgramFrozen as e:
+                return self._send_json(403, {"error": str(e)})
+
+            # Fast 409 — fail before doing any construction work.
+            with _PROBE_SLOT_LOCK:
+                if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
+                    return self._send_json(409, {
+                        "error": "another probe is running",
+                        "run_id": _PROBE_SLOT.run_id(),
+                    })
+
+            # Build the runner OUTSIDE the lock. ProbeRunner.__init__ does
+            # file I/O (load_roe_profile), SQLite I/O (_seed_urls), and
+            # provider construction (providers_mod.from_env()) — none of
+            # which should pin the global slot lock across slow operations.
+            try:
+                runner = ProbeRunner(
+                    base_url=base_url, roe_path=roe_path, paths=self._paths,
+                    platform=platform, program=program, max_turns=max_turns,
+                    # NOTE: deliberately no on_finished=. The slot is
+                    # NOT cleared when the runner exits — that would
+                    # race a fast run against the browser's EventSource
+                    # connect (operator never sees the done event).
+                    # The slot is replaced by the next start instead.
+                )
+            except Exception:
+                log.exception("ProbeRunner init failed")
+                return self._send_json(500, {"error": "runner init failed"})
+
+            # Re-check + install under the lock. A racing handler may have
+            # installed its own slot while we were constructing — discard
+            # ours in that case (it never started; nothing to stop).
+            with _PROBE_SLOT_LOCK:
+                if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
+                    return self._send_json(409, {
+                        "error": "another probe is running",
+                        "run_id": _PROBE_SLOT.run_id(),
+                    })
+                # Install the slot BEFORE starting the thread — otherwise a
+                # fast runner can finish (and fire on_finished, finding no
+                # slot to clear) before this handler reaches the assignment.
+                _PROBE_SLOT = runner
+                try:
+                    run_id = runner.start()
+                except Exception:
+                    _PROBE_SLOT = None
+                    raise
+
+            self._send_json(200, {"run_id": run_id})
 
     return DashboardHandler
 
