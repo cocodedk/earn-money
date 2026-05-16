@@ -43,9 +43,13 @@ _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
     "/static/tokens.css":       (_STATIC / "tokens.css",       _CSS),
     "/static/dashboard.css":    (_STATIC / "dashboard.css",    _CSS),
     "/static/panels.css":       (_STATIC / "panels.css",       _CSS),
+    "/static/probe.css":        (_STATIC / "probe.css",        _CSS),
     "/static/render.js":        (_STATIC / "render.js",        _JS),
     "/static/render_panels.js": (_STATIC / "render_panels.js", _JS),
     "/static/dashboard.js":     (_STATIC / "dashboard.js",     _JS),
+    "/static/tabs.js":          (_STATIC / "tabs.js",          _JS),
+    "/static/probe.js":         (_STATIC / "probe.js",         _JS),
+    "/static/probe-render.js":  (_STATIC / "probe-render.js",  _JS),
 }
 
 # One-at-a-time probe runner — module-level slot under a lock so two
@@ -134,6 +138,8 @@ def _make_handler(
                 path = self.path.split("?", 1)[0]
                 if path == "/api/status":
                     self._serve_status()
+                elif path == "/api/probe/stream":
+                    self._serve_probe_stream()
                 elif path == "/":
                     self._serve_index()
                 elif path in static_assets:
@@ -143,6 +149,17 @@ def _make_handler(
             except Exception:
                 # `log_message` is silenced above but `log_error` is not,
                 # so unexpected failures still surface to stderr.
+                self.log_error("%s", traceback.format_exc())
+                self.send_error(500, "Internal Server Error")
+
+        def do_POST(self) -> None:
+            try:
+                path = self.path.split("?", 1)[0]
+                if path == "/api/probe/start":
+                    self._serve_probe_start()
+                else:
+                    self.send_error(404, "Not Found")
+            except Exception:
                 self.log_error("%s", traceback.format_exc())
                 self.send_error(500, "Internal Server Error")
 

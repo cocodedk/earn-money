@@ -126,6 +126,45 @@ def _invoke_post(handler_cls, path: str, body: dict) -> tuple[int, dict]:
     )
 
 
+def _drive_dispatch(
+    handler_cls, method: str, path: str, *, raw_body: bytes = b""
+) -> tuple[int, bytes, object]:
+    """Drive do_GET or do_POST dispatcher directly (not route methods).
+
+    Returns (status, body, handler) so tests can inspect handler state.
+    Stubs send_response, send_header, end_headers, send_error, log_error."""
+    wfile = io.BytesIO()
+    h = handler_cls.__new__(handler_cls)
+    h.rfile = io.BytesIO(raw_body)
+    h.wfile = wfile
+    h.command = method
+    h.path = path
+    h.request_version = "HTTP/1.1"
+    h.headers = MagicMock()
+    h.headers.get = lambda k, default=None: {
+        "Content-Length": str(len(raw_body)),
+        "Content-Type": "application/json",
+    }.get(k, default)
+    h.send_response = MagicMock()
+    h.send_header = MagicMock()
+    h.end_headers = MagicMock()
+    h.send_error = MagicMock()
+    h.log_error = MagicMock()
+    if method == "GET":
+        h.do_GET()
+    elif method == "POST":
+        h.do_POST()
+    else:
+        raise ValueError(f"unknown method {method}")
+    status = (
+        h.send_response.call_args.args[0]
+        if h.send_response.call_args
+        else (h.send_error.call_args.args[0] if h.send_error.call_args else 0)
+    )
+    body_bytes = wfile.getvalue()
+    return status, body_bytes, h
+
+
 def _invoke_post_raw(handler_cls, path: str, raw: bytes) -> tuple[int, dict]:
     """Convenience: drive POST with arbitrary bytes (malformed-JSON tests)."""
     return _drive(handler_cls, "POST", path, raw_body=raw)
@@ -808,3 +847,36 @@ class TestStreamRoute:
         _invoke_get(handler_cls, "/api/probe/stream?run_id=fakerun123",
                     wfile=fake_wfile)
         assert server._PROBE_SLOT is runner
+
+
+class TestDispatcher:
+    """Test that do_GET and do_POST correctly dispatch to route handlers."""
+
+    def test_do_post_dispatches_probe_start(self, handler_factory):
+        handler_cls, _paths = handler_factory
+        body = json.dumps({
+            "base_url": "https://target.example.com",
+            "target_kind": "local_lab",
+        }).encode("utf-8")
+        status, response_body, _h = _drive_dispatch(
+            handler_cls, "POST", "/api/probe/start", raw_body=body
+        )
+        assert status == 200
+        assert b"fakerun123" in response_body
+
+    def test_do_get_dispatches_probe_stream(self, handler_factory):
+        from earn_money.dashboard import server
+        handler_cls, _paths = handler_factory
+        server._PROBE_SLOT = _FakeRunner()
+        status, response_body, _h = _drive_dispatch(
+            handler_cls, "GET", "/api/probe/stream?run_id=fakerun123"
+        )
+        assert status == 200
+        assert b"event: done" in response_body
+
+    def test_do_post_unknown_path_returns_404(self, handler_factory):
+        handler_cls, _paths = handler_factory
+        status, _response_body, _h = _drive_dispatch(
+            handler_cls, "POST", "/api/does-not-exist", raw_body=b"{}"
+        )
+        assert status == 404
