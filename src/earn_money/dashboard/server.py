@@ -18,12 +18,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import threading
 import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from earn_money import config
 from earn_money.dashboard import aggregator
+
+if TYPE_CHECKING:
+    from earn_money.dashboard.probe_runner import ProbeRunner
 
 _TEMPLATES = Path(__file__).parent / "templates"
 _STATIC = _TEMPLATES / "static"
@@ -41,6 +46,32 @@ _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
     "/static/render_panels.js": (_STATIC / "render_panels.js", _JS),
     "/static/dashboard.js":     (_STATIC / "dashboard.js",     _JS),
 }
+
+# One-at-a-time probe runner — module-level slot under a lock so two
+# near-simultaneous POST /api/probe/start handler threads race safely.
+# IMPORTANT: the slot is NOT auto-cleared when a runner finishes. The
+# slot acts as "the most recent runner" (running or done) so a late-
+# arriving EventSource can still drain the terminal `done` /
+# `probe_error` event. The slot is replaced when the next start
+# overwrites it (see Task 6). See 04-probe-runner-class.md §"_run_safe"
+# for the rationale.
+_PROBE_SLOT: "ProbeRunner | None" = None  # noqa: UP037
+_PROBE_SLOT_LOCK = threading.Lock()
+
+
+def _clear_probe_slot(run_id: str) -> None:
+    """Manual/test-only cleanup helper. NOT wired to ProbeRunner via
+    on_finished — the runner deliberately keeps the slot populated
+    after exit so the stream route can still serve the terminal event.
+    This helper exists so tests can reset module state between cases
+    (the `_reset_probe_slot` autouse fixture in
+    tests/dashboard/test_probe_routes.py just sets `_PROBE_SLOT = None`
+    directly, but the named helper is available for explicit-run-id
+    cleanup if a future iteration needs it)."""
+    global _PROBE_SLOT
+    with _PROBE_SLOT_LOCK:
+        if _PROBE_SLOT is not None and _PROBE_SLOT.run_id() == run_id:
+            _PROBE_SLOT = None
 
 
 def build(
@@ -80,6 +111,11 @@ def _make_handler(
     """
 
     class DashboardHandler(BaseHTTPRequestHandler):
+        # Bake `paths` onto the class so new route methods can read
+        # self._paths.root for relative-path resolution. The existing
+        # _serve_status keeps reading the closure variable.
+        _paths = paths
+
         # Prevent stuck client connections from pinning threads forever.
         timeout = 5.0
 
