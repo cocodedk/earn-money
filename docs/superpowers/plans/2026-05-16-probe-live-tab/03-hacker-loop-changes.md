@@ -296,6 +296,22 @@ class TestResponseFormatPassthrough:
         loop.run()
         kwargs = loop.provider.complete.call_args.kwargs
         assert kwargs.get("response_format") == {"type": "json_object"}
+
+    def test_retries_without_response_format_when_first_provider_call_fails(self):
+        import json
+        # First provider.complete raises (model rejects response_format);
+        # second call must omit response_format and succeed.
+        loop = _loop([])  # _loop wires provider.complete.side_effect manually
+        loop.provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            json.dumps({"tool": "stop", "category": "stop", "args": {"reason": "done"}}),
+        ]
+        result = loop.run()
+        assert result.stop_reason == "done"
+        calls = loop.provider.complete.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs.get("response_format") == {"type": "json_object"}
+        assert "response_format" not in calls[1].kwargs
 ```
 
 - [ ] **Step 11: Run the full hacker_loop test file — expect all PASS, no regressions**

@@ -604,6 +604,25 @@ class TestEventEmission:
         assert evt["event"] == "finding"
         assert evt["data"]["turn"] == 7
         assert evt["data"]["kind"] == "candidate"
+
+    def test_retries_without_response_format_when_first_provider_call_fails(
+        self, make_runner,
+    ):
+        """Pin the response_format retry behaviour: first call sends
+        `response_format={"type": "json_object"}`; if the provider
+        raises, the second call must omit the kwarg and succeed. One
+        bad model must not kill the whole run."""
+        runner = make_runner(replies=[])  # we wire side_effect manually below
+        runner.provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        result = runner.run()
+        assert result.stop_reason == "done"
+        calls = runner.provider.complete.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs.get("response_format") == {"type": "json_object"}
+        assert "response_format" not in calls[1].kwargs
 ```
 
 - [ ] **Step 12: Add `TestStop` and `TestEvents` (queue draining)**

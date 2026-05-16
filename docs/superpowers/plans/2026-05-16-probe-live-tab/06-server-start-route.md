@@ -366,7 +366,7 @@ Implement each test below as a method on `TestStartRoute`. Each one must contain
 - `test_returns_409_when_another_probe_is_running` — POST once (succeeds with 200), POST again. Assert second call `status == 409` and `body["error"] == "another probe is running"`.
 - `test_409_payload_includes_existing_run_id` — same flow as above. Assert `body["run_id"] == "fakerun123"` (the first runner's id).
 - `test_returns_500_when_runner_construction_raises` — patch `server.ProbeRunner` to raise on `__init__`. POST. Assert `status == 500` and `"runner init failed" in body["error"]`.
-- `test_slot_clears_after_runner_finishes_via_callback` — POST (succeeds). Then call `server._clear_probe_slot(server._PROBE_SLOT.run_id())`. Assert `server._PROBE_SLOT is None`.
+- `test_clear_probe_slot_clears_matching_finished_runner_when_called_directly` — POST (succeeds), then call `server._clear_probe_slot(server._PROBE_SLOT.run_id())` directly. Assert `server._PROBE_SLOT is None`. This pins the helper's behaviour as a test/manual utility — note that `_clear_probe_slot` is NOT auto-invoked by `ProbeRunner._run_safe()` (the slot must outlive the runner so the stream route can serve the terminal event); the helper exists only for explicit cleanup paths.
 
 - [ ] **Step 6: Run the whole `TestStartRoute` class — expect all PASS**
 

@@ -127,6 +127,6 @@ The PROBE tab now ships:
 - Defensive action parsing with markdown-fence recovery.
 - Full gate / scope / budget enforcement matching the CLI.
 - `textContent`-only rendering, `location.hash` tab state, `run_id`-scoped streams, single-active-probe guard.
-- File-size discipline (every file under the project cap).
+- Readable file boundaries; split only when responsibilities become mixed.
 
 Hand the branch to the operator for review and merge.

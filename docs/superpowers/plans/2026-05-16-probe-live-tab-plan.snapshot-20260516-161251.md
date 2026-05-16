@@ -1,3 +1,10 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-161251)
+
+Snapshot taken: 2026-05-16T16:12:51+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+Rolling companion: `2026-05-16-probe-live-tab-plan.consolidated.md`
+
+State at 20260516-161251 — _clear_probe_slot reframed as manual/test-only helper, final-pass file-cap wording dropped, response_format retry pinned with regression tests in both HackerLoop and ProbeRunner. **FROZEN-without-program scope decision still open with the operator** — see commit body and reply.
 
 
 <!-- ====================================================================== -->

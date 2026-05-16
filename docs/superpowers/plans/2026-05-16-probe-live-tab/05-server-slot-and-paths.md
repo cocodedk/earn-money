@@ -37,14 +37,25 @@ Insert after the existing `_STATIC_ROUTES` block (this is module state, not impo
 ```python
 # One-at-a-time probe runner — module-level slot under a lock so two
 # near-simultaneous POST /api/probe/start handler threads race safely.
+# IMPORTANT: the slot is NOT auto-cleared when a runner finishes. The
+# slot acts as "the most recent runner" (running or done) so a late-
+# arriving EventSource can still drain the terminal `done` /
+# `probe_error` event. The slot is replaced when the next start
+# overwrites it (see Task 6). See 04-probe-runner-class.md §"_run_safe"
+# for the rationale.
 _PROBE_SLOT: "ProbeRunner | None" = None
 _PROBE_SLOT_LOCK = threading.Lock()
 
 
 def _clear_probe_slot(run_id: str) -> None:
-    """Callback handed to ProbeRunner; clears the module slot in the
-    runner's `finally`. Lives in server.py because that's where the slot
-    is — the runner never imports from server.py."""
+    """Manual/test-only cleanup helper. NOT wired to ProbeRunner via
+    on_finished — the runner deliberately keeps the slot populated
+    after exit so the stream route can still serve the terminal event.
+    This helper exists so tests can reset module state between cases
+    (the `_reset_probe_slot` autouse fixture in
+    tests/dashboard/test_probe_routes.py just sets `_PROBE_SLOT = None`
+    directly, but the named helper is available for explicit-run-id
+    cleanup if a future iteration needs it)."""
     global _PROBE_SLOT
     with _PROBE_SLOT_LOCK:
         if _PROBE_SLOT is not None and _PROBE_SLOT.run_id() == run_id:
