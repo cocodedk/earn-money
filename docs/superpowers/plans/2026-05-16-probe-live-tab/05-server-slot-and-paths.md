@@ -15,17 +15,26 @@ Skim `src/earn_money/dashboard/server.py`. Identify:
 - `_make_handler` factory (lines ~70–126)
 - `DashboardHandler` class body (lines ~82–125)
 
-- [ ] **Step 2: Add module-level state above `build()`**
+- [ ] **Step 2: Extend the top-level import block**
 
-Insert after the existing `_STATIC_ROUTES` block:
+Add these to the existing import block at the top of `src/earn_money/dashboard/server.py` (alongside `import json`, `import argparse`, etc.). Ruff `E402` will flag any module-level import below the first top-level statement, so these must live with the other imports — **not** further down beside `_STATIC_ROUTES`:
 
 ```python
-import threading  # if not already imported at top — verify and move up if so
+import threading
 from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlparse
 
 if TYPE_CHECKING:
     from earn_money.dashboard.probe_runner import ProbeRunner
+```
 
+`TYPE_CHECKING` keeps the `ProbeRunner` import out of the runtime import graph (no cycle) while still letting `mypy --strict` see the real type. The `urlparse`/`parse_qs` imports are used by Tasks 6 and 7; staging them here keeps the diff for those tasks minimal.
+
+- [ ] **Step 3: Add module-level slot + lock + clear-callback above `build()`**
+
+Insert after the existing `_STATIC_ROUTES` block (this is module state, not imports, so it lives in the body of the module):
+
+```python
 # One-at-a-time probe runner — module-level slot under a lock so two
 # near-simultaneous POST /api/probe/start handler threads race safely.
 _PROBE_SLOT: "ProbeRunner | None" = None
@@ -42,9 +51,9 @@ def _clear_probe_slot(run_id: str) -> None:
             _PROBE_SLOT = None
 ```
 
-`TYPE_CHECKING` keeps the `ProbeRunner` import out of the runtime import graph (no cycle) while still letting `mypy --strict` see the real type. The forward-ref string `"ProbeRunner | None"` is the type the slot holds.
+The forward-ref string `"ProbeRunner | None"` is the type the slot holds; mypy reads it through the `TYPE_CHECKING` guard added in Step 2.
 
-- [ ] **Step 3: Add `_paths` class attribute on the handler**
+- [ ] **Step 4: Add `_paths` class attribute on the handler**
 
 Inside `_make_handler`, immediately before the existing `timeout = 5.0` line, add:
 
@@ -64,17 +73,6 @@ The factory's class body now begins:
         # … rest unchanged
 ```
 
-- [ ] **Step 4: Confirm imports**
-
-At the top of `server.py`, ensure both of these are present (add if missing):
-
-```python
-import threading
-from urllib.parse import parse_qs, urlparse
-```
-
-(The `urlparse`/`parse_qs` imports will be used by the next task; including them here keeps the diff for Task 6 minimal.)
-
 - [ ] **Step 5: Run the existing dashboard tests to confirm no regression**
 
 ```bash
@@ -88,6 +86,8 @@ Expected: all existing dashboard tests still pass. No new test fails because the
 ```bash
 uv run ruff check src/earn_money/dashboard/server.py
 ```
+
+Expected: clean. If ruff flags `E402: module level import not at top of file`, an import slipped below `_STATIC_ROUTES`; move it back to the import block at the top per Step 2.
 
 - [ ] **Step 7: Commit**
 

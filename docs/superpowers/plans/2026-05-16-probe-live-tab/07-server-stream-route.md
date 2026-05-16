@@ -91,10 +91,17 @@ Inside `DashboardHandler` (next to `_serve_probe_start`):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
-            self.wfile.write(b"retry: 0\n\n")
-            self.wfile.flush()
 
+            # Wrap EVERY wfile write — including the very first `retry: 0`
+            # frame — so a client that disconnects between end_headers()
+            # and the first byte doesn't escape as an uncaught
+            # BrokenPipeError. The loop thread is independent of this
+            # handler thread, so an early disconnect must not stop or
+            # clear the runner.
             try:
+                self.wfile.write(b"retry: 0\n\n")
+                self.wfile.flush()
+
                 for evt in runner.events():
                     name = evt.get("event", "")
                     data = evt.get("data", {})
@@ -126,14 +133,15 @@ Implement each test below as a method on `TestStreamRoute`. **Never commit a tes
 
 - `test_returns_404_when_no_probe_running` — leave `_PROBE_SLOT = None`. Assert `result.status == 404`.
 - `test_returns_410_when_run_id_does_not_match_active_runner` — install a runner with `run_id() == "fakerun123"`, call with `?run_id=otherid`. Assert `result.status == 410`.
-- `test_emits_event_stream_content_type` — happy path with `events()` yielding just a `done`. Assert `("Content-Type", "text/event-stream; charset=utf-8")` is in `result.handler.send_header.call_args_list`.
+- `test_emits_event_stream_content_type` — happy path with `events()` yielding just a `done`. Extract `.args` from each `call()` in `send_header.call_args_list` before checking membership: `headers = [c.args for c in result.handler.send_header.call_args_list]; assert ("Content-Type", "text/event-stream; charset=utf-8") in headers`. (`call_args_list` items are `_Call` objects, not bare tuples — comparing the tuple directly to `_Call` will mis-match.)
 - `test_sends_retry_zero_header_frame` — happy path. Assert `result.body.startswith(b"retry: 0\n\n")`.
 - `test_frames_turn_event_correctly` — `events()` yields `[{"event":"turn","data":{"turn":1,"stage":"action_pending"}}, {"event":"done","data":{...}}]`. Assert `result.body` contains `b"event: turn\ndata: " + json.dumps({"turn":1,"stage":"action_pending"}).encode() + b"\n\n"`.
 - `test_frames_finding_event_correctly` — `events()` yields `[{"event":"finding","data":{"turn":1,"kind":"candidate","type":"idor"}}, {"event":"done","data":{...}}]`. Assert `result.body` contains the matching `event: finding\ndata: {...}\n\n` frame.
 - `test_closes_response_after_done` — `events()` yields `[{"event":"done","data":{...}}, {"event":"turn","data":{...}}]`. Assert `result.body` contains the `done` frame but NOT the subsequent `turn` frame (the route returned after `done`).
 - `test_closes_response_after_probe_error` — same shape with `probe_error` instead of `done`. Assert no later frames in `result.body`.
 - `test_keepalive_yields_comment_frame` — `events()` yields `[{"event":"_keepalive","data":{}}, {"event":"done","data":{...}}]`. Assert `b":\n\n"` is in `result.body`.
-- `test_client_disconnect_does_not_kill_runner` — build a custom `wfile` subclass of `io.BytesIO` whose `write` raises `BrokenPipeError` on the second call; pass it via `_invoke_get(..., wfile=fake_wfile)`. Use a `_FakeRunner` whose `events()` yields two frames. Assert that after the handler returns, `server._PROBE_SLOT` is still the same runner instance (the disconnect did not call `stop()` or clear the slot).
+- `test_client_disconnect_mid_stream_does_not_kill_runner` — build a `BytesIO` subclass whose `write` raises `BrokenPipeError` on the SECOND call (the first write is the `retry: 0` frame, the second is the event); pass via `_invoke_get(..., wfile=fake_wfile)`. Use a `_FakeRunner` whose `events()` yields two frames. Assert `server._PROBE_SLOT` is still the same runner instance after the handler returns.
+- `test_client_disconnect_on_first_write_does_not_kill_runner` — same shape, but configure `write` to raise on the FIRST call (the `retry: 0` frame, before any event is read from `events()`). This pins the requirement that the route's `try` block must cover the initial write, not just the per-event writes. Assert `server._PROBE_SLOT` is still the same runner instance after the handler returns.
 
 - [ ] **Step 6: Run the whole `TestStreamRoute` class — expect all PASS**
 

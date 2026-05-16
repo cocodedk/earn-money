@@ -1,3 +1,10 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-155516)
+
+Snapshot taken: 2026-05-16T15:55:16+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+Rolling companion: `2026-05-16-probe-live-tab-plan.consolidated.md`
+
+State at 20260516-155516 — header-assertion shape fixed, SSE try-block expanded to cover the initial retry:0 write (with a new first-write disconnect test), Task 5 imports hoisted to the top-level block to avoid ruff E402.
 
 
 <!-- ====================================================================== -->
