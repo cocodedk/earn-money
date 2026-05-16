@@ -24,6 +24,7 @@ class TaskType(StrEnum):
     REPORT_WRITING = "report_writing"
     STRUCTURED_EXTRACTION = "structured_extraction"
     DEEP_REASONING = "deep_reasoning"
+    AGENT_PLANNING = "agent_planning"
 
 
 _PROFILE_ENV: dict[TaskType, str] = {
@@ -32,6 +33,7 @@ _PROFILE_ENV: dict[TaskType, str] = {
     TaskType.REPORT_WRITING:        "OPENROUTER_MODEL_REPORT_WRITING",
     TaskType.STRUCTURED_EXTRACTION: "OPENROUTER_MODEL_STRUCTURED_EXTRACTION",
     TaskType.DEEP_REASONING:        "OPENROUTER_MODEL_DEEP_REASONING",
+    TaskType.AGENT_PLANNING:        "OPENROUTER_MODEL_AGENT_PLANNING",
 }
 
 _GLOBAL_DEFAULT_ENV = "OPENROUTER_DEFAULT_MODEL"

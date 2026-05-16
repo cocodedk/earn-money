@@ -22,6 +22,7 @@ def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "OPENROUTER_MODEL_REPORT_WRITING",
         "OPENROUTER_MODEL_STRUCTURED_EXTRACTION",
         "OPENROUTER_MODEL_DEEP_REASONING",
+        "OPENROUTER_MODEL_AGENT_PLANNING",
     ):
         monkeypatch.delenv(var, raising=False)
 
@@ -83,3 +84,21 @@ def test_resolve_model_profile_specific_wins_over_global(
     monkeypatch.setenv("OPENROUTER_DEFAULT_MODEL", "global-default")
     monkeypatch.setenv("OPENROUTER_MODEL_DEEP_REASONING", "deepseek/deepseek-r1")
     assert resolve_model("deep_reasoning") == "deepseek/deepseek-r1"
+
+
+def test_coerce_task_agent_planning() -> None:
+    assert coerce_task("agent_planning") == TaskType.AGENT_PLANNING
+
+
+def test_resolve_model_reads_agent_planning_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_MODEL_AGENT_PLANNING", "qwen/qwen3-235b-a22b")
+    assert resolve_model("agent_planning") == "qwen/qwen3-235b-a22b"
+
+
+def test_resolve_model_agent_planning_falls_back_to_global_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_DEFAULT_MODEL", "mistralai/mistral-small")
+    assert resolve_model("agent_planning") == "mistralai/mistral-small"
