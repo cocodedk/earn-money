@@ -1921,7 +1921,12 @@ These are non-negotiable. Failing any of them is a stop-the-world bug.
 
 - When the form supplies `program`, `POST /api/probe/start` calls `flags.require_program_not_frozen(self._paths, platform, program)`. On `ProgramFrozen`, returns `403`.
 - When `program` is empty (ad-hoc probe against a non-registered URL like `target.cocode.dk` for a local lab), the FROZEN gate is *not* applicable — there's no per-program flag to check.
-- **Known limitation** (resolves second-reviewer #8): an operator who *types* the URL of an asset belonging to a frozen registered program — but leaves `program` blank — currently bypasses the FROZEN gate. This matches the CLI's behaviour today (`hacker_loop_cli` also skips FROZEN when `--program` is empty). The clean long-term fix is URL-to-program resolution at gate time; tracked as a follow-up in [13-out-of-scope.md](13-out-of-scope.md) §N. For v1, operators using the dashboard against frozen programs must supply `program` explicitly so the gate fires.
+- **`target_kind` makes the gate explicit** (final-reviewer pass): the `POST /api/probe/start` route requires a `target_kind` field with value `local_lab` or `registered_program`. Rules:
+  - `target_kind=registered_program` → `program` is required; FROZEN check is enforced.
+  - `target_kind=local_lab` → `program` may be omitted; FROZEN check is skipped (no per-program flag to check against). `RoE` / `ScopePolicy` still enforce `allowed_hosts` at request time.
+  - Missing or invalid `target_kind` → 400.
+  This removes the prior ambiguity where omitting `program` silently bypassed FROZEN. The UI defaults the field to `local_lab` (the v1 target) but the server requires it explicitly so JSON API callers can't rely on an implicit bypass.
+- **Still deferred**: URL→program auto-resolution (parse `base_url`, walk `programs/<platform>/<slug>/scope.md`, find the program that owns the host). With `target_kind` in place the operator declares intent rather than the server guessing, so the URL→program walk is no longer needed for safety — it would only save the operator a click. Tracked in [13-out-of-scope.md](13-out-of-scope.md) §N as a UX nice-to-have, not a safety blocker.
 
 ### 3. RoE / scope / budget enforcement is unchanged
 
@@ -2309,10 +2314,10 @@ These were considered and intentionally deferred. Listed here so the next iterat
 
 ### N. URL → program auto-resolution for FROZEN gate
 
-- Today the FROZEN gate fires only when the operator supplies `program` to `POST /api/probe/start`. A user who types a URL belonging to a frozen registered program but leaves `program` blank bypasses the gate (matches CLI parity — see [11-safety-gates.md](11-safety-gates.md) §2 known limitation).
-- Right fix: at gate time, parse `base_url`, walk `programs/<platform>/<slug>/scope.md` to find a program whose scope covers this host, and apply FROZEN against that resolved program automatically. The operator can override with an explicit `program` (e.g. for cross-program triage) but the default is "look it up."
-- Lift: ~40 lines (scope-reader + host-match loop) plus tests. Not architectural; just hadn't landed.
-- When to revisit: before the dashboard sees its first real H1 program. For local-lab use today the gap is harmless.
+- **Status updated**: v1 now requires an explicit `target_kind` field (`local_lab` / `registered_program`) on the start route. With the operator declaring intent up front, the FROZEN-bypass safety concern this item originally addressed is gone — see [11-safety-gates.md](11-safety-gates.md) §2.
+- The remaining value of URL→program auto-resolution is purely UX: the dashboard could pre-fill the `program` field when the operator types a URL that matches a registered program's `scope.md`, saving a click. The safety gate doesn't depend on it.
+- Lift: ~40 lines (scope-reader + host-match loop) plus tests.
+- When to revisit: when the operator runs probes against multiple registered programs often enough that typing the `program` name becomes annoying.
 
 ## Explicitly rejected (won't do)
 

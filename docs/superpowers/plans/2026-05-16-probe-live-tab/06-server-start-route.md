@@ -133,6 +133,7 @@ class TestStartRoute:
         handler_cls, _paths = handler_factory
         status, body = _invoke_post(handler_cls, "/api/probe/start", {
             "base_url": "https://target.example.com",
+            "target_kind": "local_lab",
         })
         assert status == 200
         assert body == {"run_id": "fakerun123"}
@@ -225,6 +226,13 @@ Add helper methods inside `DashboardHandler`:
             except ValueError:
                 pass  # hostname (not an IP literal) — fine, let runtime ScopePolicy enforce
 
+            # target_kind is required and explicit — removes the prior
+            # ambiguity where omitting `program` silently skipped FROZEN.
+            target_kind = body.get("target_kind")
+            if target_kind not in ("local_lab", "registered_program"):
+                return self._send_json(400, {"error":
+                    "target_kind must be 'local_lab' or 'registered_program'"})
+
             platform = body.get("platform", "local")
             program = body.get("program")
             if platform in ("", None):
@@ -235,6 +243,14 @@ Add helper methods inside `DashboardHandler`:
                 return self._send_json(400, {"error": "platform must be a string"})
             if program is not None and not isinstance(program, str):
                 return self._send_json(400, {"error": "program must be a string"})
+
+            # registered_program REQUIRES program (the FROZEN gate
+            # depends on it). local_lab MAY omit program — FROZEN is
+            # skipped for local-lab targets by design, but RoE /
+            # ScopePolicy still enforce allowed_hosts at request time.
+            if target_kind == "registered_program" and not program:
+                return self._send_json(400, {"error":
+                    "program required when target_kind=registered_program"})
 
             roe_raw = body.get("roe_profile")
             if isinstance(roe_raw, str) and roe_raw.strip():
@@ -260,7 +276,9 @@ Add helper methods inside `DashboardHandler`:
 
             try:
                 flags.require_recon_enabled(self._paths)
-                if program:
+                # FROZEN check is gated on target_kind — local_lab targets
+                # are off-platform and have no FROZEN flag to check.
+                if target_kind == "registered_program":
                     flags.require_program_not_frozen(self._paths, platform, program)
             except flags.ReconDisabled as e:
                 return self._send_json(403, {"error": str(e)})
@@ -331,7 +349,11 @@ uv run pytest tests/dashboard/test_probe_routes.py::TestStartRoute::test_returns
 
 - [ ] **Step 5: Add the validation-edge tests (one at a time, TDD)**
 
-Implement each test below as a method on `TestStartRoute`. Each one must contain real assertions — **never commit a test body that is only `pass` or `...`**, since both silently pass. The autouse `_reset_probe_slot` fixture clears `_PROBE_SLOT` between tests, so the 409 case must explicitly install a runner. The malformed-JSON case uses `_invoke_post_raw(handler_cls, "/api/probe/start", b"{not-json")`. Names taken verbatim from spec 12-tests.md; behaviour spec next to each name:
+Implement each test below as a method on `TestStartRoute`. Each one must contain real assertions — **never commit a test body that is only `pass` or `...`**, since both silently pass. The autouse `_reset_probe_slot` fixture clears `_PROBE_SLOT` between tests, so the 409 case must explicitly install a runner. The malformed-JSON case uses `_invoke_post_raw(handler_cls, "/api/probe/start", b"{not-json")`.
+
+**Convention for this list**: every `POST {base_url, ...}` request body must include `target_kind: "local_lab"` (the v1 default) unless the test is specifically exercising `target_kind` validation. Without it the route rightly returns 400 before reaching the behaviour you're testing. The descriptions below omit `target_kind` for brevity, but the actual JSON body must carry it.
+
+Names taken verbatim from spec 12-tests.md; behaviour spec next to each name:
 
 - `test_returns_400_when_base_url_missing` — POST `{}`. Assert `status == 400` and `"base_url required" in body["error"]`.
 - `test_returns_400_when_body_is_invalid_json` — call `_invoke_post_raw(handler_cls, "/api/probe/start", b"{not-json")`. Assert `status == 400` and `"invalid JSON body" in body["error"]`.
@@ -361,8 +383,12 @@ Implement each test below as a method on `TestStartRoute`. Each one must contain
 - `test_returns_400_when_program_is_list` — POST `{base_url, program: []}`. Assert `status == 400` and `"program must be a string" in body["error"]`.
 - `test_returns_400_when_program_is_false` — POST `{base_url, program: False}`. Assert `status == 400` and `"program must be a string" in body["error"]`.
 - `test_returns_403_when_recon_enabled_absent` — use `tmp_path` (no `RECON_ENABLED` touched). Build a fresh handler via `_make_handler` and POST. Assert `status == 403` and `"RECON_ENABLED" in body["error"]`.
-- `test_returns_403_when_program_frozen` — `flags.freeze_program(_paths, "local", "frozen-prog", reason="test")`, then POST `{base_url, program: "frozen-prog"}`. Assert `status == 403` and `"frozen" in body["error"]`.
-- `test_skips_frozen_check_when_no_program_supplied` — freeze a program, but POST without `program`. Assert `status == 200`.
+- `test_requires_target_kind` — POST `{base_url}` (no `target_kind`). Assert `status == 400` and `"target_kind" in body["error"]`.
+- `test_returns_400_when_target_kind_invalid` — POST `{base_url, target_kind: "production"}`. Assert `status == 400` and `"target_kind" in body["error"]`.
+- `test_allows_missing_program_for_local_lab` — POST `{base_url, target_kind: "local_lab"}` (no `program`). Assert `status == 200`. FROZEN check must not fire (no program to check against).
+- `test_requires_program_for_registered_program` — POST `{base_url, target_kind: "registered_program"}` (no `program`). Assert `status == 400` and `"program required" in body["error"]`.
+- `test_returns_403_when_registered_program_frozen` — `flags.freeze_program(_paths, "local", "frozen-prog", reason="test")`, then POST `{base_url, target_kind: "registered_program", program: "frozen-prog"}`. Assert `status == 403` and `"frozen" in body["error"]`.
+- `test_does_not_check_frozen_for_local_lab` — same setup as above (a program IS frozen), but POST `{base_url, target_kind: "local_lab"}` (or `{..., target_kind: "local_lab", program: "frozen-prog"}` — `program` is ignored for FROZEN when target_kind=local_lab). Assert `status == 200`. The FROZEN gate must not fire for local-lab targets.
 - `test_returns_409_when_another_probe_is_running` — POST once (succeeds with 200), POST again. Assert second call `status == 409` and `body["error"] == "another probe is running"`.
 - `test_409_payload_includes_existing_run_id` — same flow as above. Assert `body["run_id"] == "fakerun123"` (the first runner's id).
 - `test_returns_500_when_runner_construction_raises` — patch `server.ProbeRunner` to raise on `__init__`. POST. Assert `status == 500` and `"runner init failed" in body["error"]`.

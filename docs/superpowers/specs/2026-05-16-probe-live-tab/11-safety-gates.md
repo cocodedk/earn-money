@@ -14,7 +14,12 @@ These are non-negotiable. Failing any of them is a stop-the-world bug.
 
 - When the form supplies `program`, `POST /api/probe/start` calls `flags.require_program_not_frozen(self._paths, platform, program)`. On `ProgramFrozen`, returns `403`.
 - When `program` is empty (ad-hoc probe against a non-registered URL like `target.cocode.dk` for a local lab), the FROZEN gate is *not* applicable — there's no per-program flag to check.
-- **Known limitation** (resolves second-reviewer #8): an operator who *types* the URL of an asset belonging to a frozen registered program — but leaves `program` blank — currently bypasses the FROZEN gate. This matches the CLI's behaviour today (`hacker_loop_cli` also skips FROZEN when `--program` is empty). The clean long-term fix is URL-to-program resolution at gate time; tracked as a follow-up in [13-out-of-scope.md](13-out-of-scope.md) §N. For v1, operators using the dashboard against frozen programs must supply `program` explicitly so the gate fires.
+- **`target_kind` makes the gate explicit** (final-reviewer pass): the `POST /api/probe/start` route requires a `target_kind` field with value `local_lab` or `registered_program`. Rules:
+  - `target_kind=registered_program` → `program` is required; FROZEN check is enforced.
+  - `target_kind=local_lab` → `program` may be omitted; FROZEN check is skipped (no per-program flag to check against). `RoE` / `ScopePolicy` still enforce `allowed_hosts` at request time.
+  - Missing or invalid `target_kind` → 400.
+  This removes the prior ambiguity where omitting `program` silently bypassed FROZEN. The UI defaults the field to `local_lab` (the v1 target) but the server requires it explicitly so JSON API callers can't rely on an implicit bypass.
+- **Still deferred**: URL→program auto-resolution (parse `base_url`, walk `programs/<platform>/<slug>/scope.md`, find the program that owns the host). With `target_kind` in place the operator declares intent rather than the server guessing, so the URL→program walk is no longer needed for safety — it would only save the operator a click. Tracked in [13-out-of-scope.md](13-out-of-scope.md) §N as a UX nice-to-have, not a safety blocker.
 
 ### 3. RoE / scope / budget enforcement is unchanged
 

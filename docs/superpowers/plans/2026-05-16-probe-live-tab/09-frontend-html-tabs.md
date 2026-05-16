@@ -43,12 +43,19 @@ After the existing `<section id="programs">…</section>` block (the §04 PROGRA
   <section id="probe-launcher">
     <form id="probe-form" autocomplete="off">
       <label>Base URL <input name="base_url" type="url" required></label>
+      <label>Target kind
+        <select name="target_kind" required>
+          <option value="local_lab" selected>Local lab</option>
+          <option value="registered_program">Registered program</option>
+        </select>
+        <small class="hint">Local lab: program optional, FROZEN check skipped. Registered program: program required, FROZEN check enforced.</small>
+      </label>
       <label>RoE profile <input name="roe_profile" type="text" placeholder="roe/local-lab.yaml"></label>
       <label>Max turns <input name="max_turns" type="number" min="1" max="50" value="10"></label>
       <label>Platform <input name="platform" type="text" placeholder="local"></label>
       <label>Program
-        <input name="program" type="text" placeholder="(optional — leave empty for local/ad-hoc lab targets)">
-        <small class="hint">Required when probing live registered programs so the FROZEN gate fires; leave empty only for local/ad-hoc lab targets.</small>
+        <input name="program" type="text" placeholder="(required when target_kind=registered_program)">
+        <small class="hint">Required when target_kind is "Registered program" so the FROZEN gate fires; may be empty when target_kind is "Local lab".</small>
       </label>
       <button type="submit" id="probe-run">RUN</button>
     </form>

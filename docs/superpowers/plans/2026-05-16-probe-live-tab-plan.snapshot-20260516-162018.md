@@ -1,3 +1,9 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-162018)
+
+Snapshot taken: 2026-05-16T16:20:18+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+
+State at 20260516-162018 — `target_kind` field landed in route + form; FROZEN bypass closed; three reviewer cleanups done. **No open blockers.**
 
 
 <!-- ====================================================================== -->
