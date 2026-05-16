@@ -184,3 +184,66 @@ class TestHackerLoop:
         loop.run()
         assert captured
         assert "RoE Profile" in captured[0]
+
+
+class TestHooks:
+    def test_on_action_parsed_fires_after_parsing(self):
+        import json
+
+        from earn_money.agent.probe_actions import StopAction
+        # Reuse the existing _loop fixture defined at module scope.
+        loop = _loop([json.dumps(
+            {"tool": "stop", "category": "stop", "args": {"reason": "done"}}
+        )])
+        seen: list[tuple[int, object, bool]] = []
+        loop._on_action_parsed = (  # type: ignore[method-assign]
+            lambda turn, action, parse_recovered: seen.append(
+                (turn, action.__class__, parse_recovered)
+            )
+        )
+        loop.run()
+        assert seen and seen[0][1] is StopAction
+        assert seen[0][2] is False
+
+    def test_hook_ordering_pending_then_parsed_then_policy(self):
+        import json
+        loop = _loop([json.dumps(
+            {"tool": "get", "category": "http_get", "args": {"path": "/api/users"}}
+        ), json.dumps(
+            {"tool": "stop", "category": "stop", "args": {"reason": "done"}}
+        )])
+        sequence: list[str] = []
+        loop._on_llm_response    = lambda *_a, **_k: sequence.append("llm")        # type: ignore[method-assign]
+        loop._on_action_parsed   = lambda *_a, **_k: sequence.append("parsed")     # type: ignore[method-assign]
+        loop._on_policy_decision = lambda *_a, **_k: sequence.append("policy")     # type: ignore[method-assign]
+        loop._on_observation     = lambda *_a, **_k: sequence.append("obs")        # type: ignore[method-assign]
+        loop._on_turn_complete   = lambda *_a, **_k: sequence.append("complete")   # type: ignore[method-assign]
+        loop.run()
+        assert sequence[:5] == ["llm", "parsed", "policy", "obs", "complete"]
+
+
+class TestResponseFormatPassthrough:
+    def test_passes_json_object_response_format_to_provider(self):
+        import json
+        loop = _loop([json.dumps(
+            {"tool": "stop", "category": "stop", "args": {"reason": "done"}}
+        )])
+        loop.run()
+        kwargs = loop.provider.complete.call_args.kwargs
+        assert kwargs.get("response_format") == {"type": "json_object"}
+
+    def test_retries_without_response_format_when_first_provider_call_fails(self):
+        import json
+        # First provider.complete raises (model rejects response_format);
+        # second call must omit response_format and succeed.
+        loop = _loop([])  # _loop wires provider.complete.side_effect manually
+        loop.provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            json.dumps({"tool": "stop", "category": "stop", "args": {"reason": "done"}}),
+        ]
+        result = loop.run()
+        assert result.stop_reason == "done"
+        calls = loop.provider.complete.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs.get("response_format") == {"type": "json_object"}
+        assert "response_format" not in calls[1].kwargs
