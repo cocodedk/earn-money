@@ -188,8 +188,6 @@ class TestHackerLoop:
 
 class TestHooks:
     def test_on_action_parsed_fires_after_parsing(self):
-        import json
-
         from earn_money.agent.probe_actions import StopAction
         # Reuse the existing _loop fixture defined at module scope.
         loop = _loop([json.dumps(
@@ -206,7 +204,6 @@ class TestHooks:
         assert seen[0][2] is False
 
     def test_hook_ordering_pending_then_parsed_then_policy(self):
-        import json
         loop = _loop([json.dumps(
             {"tool": "get", "category": "http_get", "args": {"path": "/api/users"}}
         ), json.dumps(
@@ -224,7 +221,6 @@ class TestHooks:
 
 class TestResponseFormatPassthrough:
     def test_passes_json_object_response_format_to_provider(self):
-        import json
         loop = _loop([json.dumps(
             {"tool": "stop", "category": "stop", "args": {"reason": "done"}}
         )])
@@ -233,7 +229,6 @@ class TestResponseFormatPassthrough:
         assert kwargs.get("response_format") == {"type": "json_object"}
 
     def test_retries_without_response_format_when_first_provider_call_fails(self):
-        import json
         # First provider.complete raises (model rejects response_format);
         # second call must omit response_format and succeed.
         loop = _loop([])  # _loop wires provider.complete.side_effect manually
