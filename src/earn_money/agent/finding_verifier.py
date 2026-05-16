@@ -67,33 +67,23 @@ class FindingVerifier:
         obs: ObservationWrapper,
         session: HackerSession,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        if action.get("tool") != "get" or obs.status != 200:
+            return [], []
         path = action.get("args", {}).get("path", "")
-        if action.get("tool") != "get":
-            return [], []
-        if obs.status != 200:
-            return [], []
-        if not _NUMERIC_ID.search(path):
-            return [], []
-        if not _USER_FIELDS.search(obs.body):
+        requested_id = _NUMERIC_ID.search(path)
+        if requested_id is None or not _USER_FIELDS.search(obs.body):
             return [], []
 
         candidate = {"type": "idor", "path": path, "status": obs.status}
-
-        # Promote to verified when we have enough evidence
         active_id = session.ids.get("user_id") or session.ids.get("active_user_id")
-        requested_id = _NUMERIC_ID.search(path)
         if (
             self._p.allow_idor_checks
-            and active_id
-            and requested_id
-            and requested_id.group().lstrip("/") != active_id
-            and _USER_FIELDS.search(obs.body)
             and self._p.require_replay_steps
+            and active_id
+            and requested_id.group().lstrip("/") != active_id
         ):
             replay = f"GET {path} while authenticated as user {active_id}"
-            verified = {**candidate, "confirmed": True, "replay": replay}
-            return [], [verified]
-
+            return [], [{**candidate, "confirmed": True, "replay": replay}]
         return [candidate], []
 
     def _check_debug_endpoint(

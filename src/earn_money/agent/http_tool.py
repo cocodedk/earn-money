@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
+from types import TracebackType
 from typing import Any
 
 import httpx
@@ -17,6 +18,8 @@ from earn_money.agent.scope_policy import ScopePolicy
 log = logging.getLogger(__name__)
 
 _ALLOWED_HEADERS = frozenset(["authorization", "cookie", "x-api-key", "content-type"])
+_HTTP_TIMEOUT = 8.0
+_USER_AGENT = "earn-money-hacker-loop/1.0 (bb@cocode.dk)"
 
 
 @dataclass
@@ -40,6 +43,7 @@ class HttpTool:
         self.scope_policy = scope_policy
         self.budget = budget
         self.session_headers: dict[str, str] = {}
+        self._client: httpx.Client | None = None
 
     # ── public API ────────────────────────────────────────────────────────────
 
@@ -87,7 +91,32 @@ class HttpTool:
         except Exception as e:
             raise ValueError(f"Invalid JWT: {e}") from e
 
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    def __enter__(self) -> HttpTool:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
     # ── private ───────────────────────────────────────────────────────────────
+
+    def _get_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(
+                timeout=_HTTP_TIMEOUT,
+                follow_redirects=False,
+                headers={"User-Agent": _USER_AGENT},
+            )
+        return self._client
 
     def _send(
         self,
@@ -98,35 +127,35 @@ class HttpTool:
         data: dict[str, str] | None = None,
     ) -> HttpResult:
         headers = {**self.session_headers}
-        with httpx.Client(follow_redirects=False) as client:
-            resp = client.request(
-                method,
-                url,
-                params=params,
-                json=json_body,
-                data=data,
-                headers=headers,
+        client = self._get_client()
+        resp = client.request(
+            method, url,
+            params=params, json=json_body, data=data, headers=headers,
+        )
+
+        # Manual redirect validation — second hop is budget-recorded.
+        if resp.is_redirect:
+            loc = resp.headers.get("location", "")
+            final_url = self.scope_policy.check_redirect(loc, url)
+            self.budget.check_request(method)
+            resp2 = client.request(
+                method, final_url,
+                params=params, json=json_body, data=data, headers=headers,
             )
-            final_url = str(resp.url)
-
-            # Manual redirect validation
-            if resp.is_redirect:
-                loc = resp.headers.get("location", "")
-                final_url = self.scope_policy.check_redirect(loc, url)
-                resp2 = client.request(method, final_url, headers=headers)
-                return HttpResult(
-                    status=resp2.status_code,
-                    body=self.budget.truncate_body(resp2.text),
-                    headers=dict(resp2.headers),
-                    final_url=str(resp2.url),
-                )
-
+            self.budget.record_request(method)
             return HttpResult(
-                status=resp.status_code,
-                body=self.budget.truncate_body(resp.text),
-                headers=dict(resp.headers),
-                final_url=final_url,
+                status=resp2.status_code,
+                body=self.budget.truncate_body(resp2.text),
+                headers=dict(resp2.headers),
+                final_url=str(resp2.url),
             )
+
+        return HttpResult(
+            status=resp.status_code,
+            body=self.budget.truncate_body(resp.text),
+            headers=dict(resp.headers),
+            final_url=str(resp.url),
+        )
 
     def _wrap(self, result: HttpResult) -> ObservationWrapper:
         return ObservationWrapper.from_response(

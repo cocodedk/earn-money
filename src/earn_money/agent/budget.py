@@ -63,6 +63,10 @@ class RequestBudget:
     # ── readonly properties for tests ────────────────────────────────────────
 
     @property
+    def max_turns(self) -> int:
+        return self._max_turns
+
+    @property
     def request_count(self) -> int:
         return self._requests
 

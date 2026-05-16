@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _ALWAYS_DENIED = ["localhost", "127.0.0.1", "169.254.169.254"]
 
@@ -31,7 +31,7 @@ class RoeProfile(BaseModel):
     source_ref: str | None = None
 
     allowed_hosts: list[str]
-    denied_hosts: list[str] = []
+    denied_hosts: list[str] = Field(default_factory=list)
 
     max_requests: int = 100
     max_posts: int = 20
@@ -150,12 +150,16 @@ class RoeProfile(BaseModel):
         return cls.from_dict(_flatten(raw), source_type, source_ref)
 
 
+_NESTED_SECTIONS: frozenset[str] = frozenset(
+    ("scope", "traffic", "methods", "testing", "evidence")
+)
+
+
 def _flatten(data: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested scope/traffic/methods/testing/evidence sections if present."""
     result: dict[str, Any] = {}
     for key, value in data.items():
-        _NESTED = ("scope", "traffic", "methods", "testing", "evidence")
-        if key in _NESTED and isinstance(value, dict):
+        if key in _NESTED_SECTIONS and isinstance(value, dict):
             result.update(value)
         else:
             result[key] = value

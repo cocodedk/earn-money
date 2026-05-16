@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 from earn_money.agent.roe_profile import RoeProfile
 
@@ -25,6 +26,8 @@ ActionCategory = Literal[
     "stop",
 ]
 
+_KNOWN_CATEGORIES: frozenset[str] = frozenset(get_args(ActionCategory))
+
 
 @dataclass(frozen=True)
 class PolicyDecision:
@@ -32,14 +35,24 @@ class PolicyDecision:
     reason: str
 
 
-_KNOWN_CATEGORIES: frozenset[str] = frozenset(
-    [
-        "recon", "http_get", "http_post", "auth", "idor_check",
-        "graphql_introspection", "openapi_probe", "rate_limit_test",
-        "bruteforce", "xss_probe", "sqli_probe", "file_upload_test",
-        "exploit_chain", "destructive", "report_candidate", "store_memory", "stop",
-    ]
-)
+# Gated categories: category → (RoE-profile attr getter, human label).
+# Categories not in this table are always allowed once they pass the
+# _KNOWN_CATEGORIES guard (recon, report_candidate, store_memory, stop).
+_GATED: dict[str, tuple[Callable[[RoeProfile], bool], str]] = {
+    "http_get": (lambda p: p.allow_get, "GET"),
+    "http_post": (lambda p: p.allow_post, "POST"),
+    "auth": (lambda p: p.allow_authenticated_testing, "authenticated testing"),
+    "idor_check": (lambda p: p.allow_idor_checks, "IDOR checks"),
+    "graphql_introspection": (lambda p: p.allow_graphql_introspection, "GraphQL introspection"),
+    "openapi_probe": (lambda p: p.allow_openapi_probing, "OpenAPI probing"),
+    "rate_limit_test": (lambda p: p.allow_rate_limit_testing, "rate-limit testing"),
+    "bruteforce": (lambda p: p.allow_bruteforce, "brute force"),
+    "xss_probe": (lambda p: p.allow_xss_probe_payloads, "XSS probe payloads"),
+    "sqli_probe": (lambda p: p.allow_sqli_probe_payloads, "SQLi probe payloads"),
+    "file_upload_test": (lambda p: p.allow_file_upload_tests, "file upload tests"),
+    "exploit_chain": (lambda p: p.allow_exploit_chains, "exploit chains"),
+    "destructive": (lambda p: p.allow_destructive_actions, "destructive actions"),
+}
 
 
 class RoePolicy:
@@ -50,72 +63,11 @@ class RoePolicy:
         if category not in _KNOWN_CATEGORIES:
             return PolicyDecision(False, f"Unknown action category: {category!r}")
 
-        p = self._p
+        gated = _GATED.get(category)
+        if gated is None:
+            return PolicyDecision(True, f"{category} allowed")
 
-        if category == "http_get":
-            if not p.allow_get:
-                return PolicyDecision(False, "GET not allowed by RoE profile")
-            return PolicyDecision(True, "GET allowed")
-
-        if category == "http_post":
-            if not p.allow_post:
-                return PolicyDecision(False, "POST not allowed by RoE profile")
-            return PolicyDecision(True, "POST allowed")
-
-        if category == "auth":
-            if not p.allow_authenticated_testing:
-                return PolicyDecision(False, "authenticated testing not allowed by RoE profile")
-            return PolicyDecision(True, "auth allowed")
-
-        if category == "idor_check":
-            if not p.allow_idor_checks:
-                return PolicyDecision(False, "IDOR checks not allowed by RoE profile")
-            return PolicyDecision(True, "IDOR check allowed")
-
-        if category == "graphql_introspection":
-            if not p.allow_graphql_introspection:
-                return PolicyDecision(False, "GraphQL introspection not allowed by RoE profile")
-            return PolicyDecision(True, "GraphQL introspection allowed")
-
-        if category == "openapi_probe":
-            if not p.allow_openapi_probing:
-                return PolicyDecision(False, "OpenAPI probing not allowed by RoE profile")
-            return PolicyDecision(True, "OpenAPI probing allowed")
-
-        if category == "rate_limit_test":
-            if not p.allow_rate_limit_testing:
-                return PolicyDecision(False, "rate-limit testing not allowed by RoE profile")
-            return PolicyDecision(True, "rate-limit test allowed")
-
-        if category == "bruteforce":
-            if not p.allow_bruteforce:
-                return PolicyDecision(False, "brute force not allowed by RoE profile")
-            return PolicyDecision(True, "brute force allowed")
-
-        if category == "xss_probe":
-            if not p.allow_xss_probe_payloads:
-                return PolicyDecision(False, "XSS probe payloads not allowed by RoE profile")
-            return PolicyDecision(True, "XSS probe allowed")
-
-        if category == "sqli_probe":
-            if not p.allow_sqli_probe_payloads:
-                return PolicyDecision(False, "SQLi probe payloads not allowed by RoE profile")
-            return PolicyDecision(True, "SQLi probe allowed")
-
-        if category == "file_upload_test":
-            if not p.allow_file_upload_tests:
-                return PolicyDecision(False, "file upload tests not allowed by RoE profile")
-            return PolicyDecision(True, "file upload test allowed")
-
-        if category == "exploit_chain":
-            if not p.allow_exploit_chains:
-                return PolicyDecision(False, "exploit chains not allowed by RoE profile")
-            return PolicyDecision(True, "exploit chain allowed")
-
-        if category == "destructive":
-            if not p.allow_destructive_actions:
-                return PolicyDecision(False, "destructive actions not allowed by RoE profile")
-            return PolicyDecision(True, "destructive action allowed")
-
-        # Always-allowed non-network categories
-        return PolicyDecision(True, f"{category} allowed")
+        allow_fn, label = gated
+        if not allow_fn(self._p):
+            return PolicyDecision(False, f"{label} not allowed by RoE profile")
+        return PolicyDecision(True, f"{label} allowed")

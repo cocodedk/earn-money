@@ -55,7 +55,7 @@ class TestHttpTool:
     def test_get_returns_observation_wrapper(self):
         tool = _tool()
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response()
             result = tool.get("/api/users")
         assert isinstance(result, ObservationWrapper)
@@ -63,7 +63,7 @@ class TestHttpTool:
     def test_post_sends_json_body_returns_observation_wrapper(self):
         tool = _tool()
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response()
             result = tool.post("/login", json_body={"email": "a@b.com"})
         assert isinstance(result, ObservationWrapper)
@@ -96,15 +96,31 @@ class TestHttpTool:
     def test_response_body_is_truncated(self):
         tool = _tool(max_response_bytes=5)
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response(text="hello world this is long")
             result = tool.get("/api/users")
         assert len(result.body.encode()) <= 5
 
+    def test_redirect_payload_is_replayed_and_counted(self):
+        tool = _tool()
+        with patch("httpx.Client") as mock_cls:
+            mock_client = mock_cls.return_value
+            redirect = _mock_response(
+                status=302, text="",
+                headers={"location": "/api/v2"}, is_redirect=True,
+            )
+            target = _mock_response(status=200, text="ok")
+            mock_client.request.side_effect = [redirect, target]
+            tool.post("/api", json_body={"k": "v"})
+            assert mock_client.request.call_count == 2
+            assert mock_client.request.call_args_list[1].kwargs["json"] == {"k": "v"}
+        assert tool.budget.request_count == 2
+        assert tool.budget.post_count == 2
+
     def test_request_count_is_recorded(self):
         tool = _tool()
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response()
             tool.get("/api/users")
         assert tool.budget.request_count == 1
@@ -112,7 +128,7 @@ class TestHttpTool:
     def test_post_count_is_recorded(self):
         tool = _tool()
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response()
             tool.post("/login", json_body={})
         assert tool.budget.post_count == 1
@@ -138,7 +154,7 @@ class TestHttpTool:
     def test_observation_wrapper_has_correct_fields(self):
         tool = _tool()
         with patch("httpx.Client") as mock_cls:
-            mock_client = mock_cls.return_value.__enter__.return_value
+            mock_client = mock_cls.return_value
             mock_client.request.return_value = _mock_response(status=201, text="created")
             result = tool.get("/api/items")
         assert result.status == 201

@@ -12,6 +12,7 @@ from earn_money.agent.budget import BudgetExceeded, RequestBudget
 from earn_money.agent.finding_verifier import FindingVerifier
 from earn_money.agent.hacker_session import HackerSession
 from earn_money.agent.http_tool import HttpTool
+from earn_money.agent.observations import ObservationWrapper
 from earn_money.agent.probe_actions import (
     ActionParseError,
     GetAction,
@@ -75,7 +76,7 @@ class HackerLoop:
         turn = 0
         consecutive_denials = 0
 
-        while turn < self.budget._max_turns:
+        while turn < self.budget.max_turns:
             turn += 1
             try:
                 self.budget.check_turn(turn)
@@ -108,38 +109,8 @@ class HackerLoop:
                 continue
             consecutive_denials = 0
 
-            # Execute
             try:
-                if isinstance(action, (GetAction, PostAction)):
-                    if isinstance(action, GetAction):
-                        obs = self.http_tool.get(action.args.path, action.args.params)
-                    else:
-                        obs = self.http_tool.post(
-                            action.args.path,
-                            json_body=action.args.json_body,
-                            data=action.args.data,
-                        )
-                    self.session.add_observation(obs)
-                    candidates, verified = self.verifier.evaluate(
-                        action.model_dump(), obs, self.session
-                    )
-                    for c in candidates:
-                        self.session.add_candidate_finding(c)
-                    for v in verified:
-                        self.session.add_verified_finding(v)
-
-                elif isinstance(action, SetHeaderAction):
-                    self.http_tool.set_header(action.args.name, action.args.value)
-
-                elif isinstance(action, StoreAction):
-                    if action.args.kind == "token":
-                        self.session.store_token(action.args.key, action.args.value)
-                    else:
-                        self.session.store_id(action.args.key, action.args.value)
-
-                elif isinstance(action, ReportCandidateAction):
-                    self.session.add_candidate_finding(action.args.model_dump())
-
+                self._execute_action(action)
             except BudgetExceeded as e:
                 return self._result(turn, f"budget_exceeded: {e}")
             except ScopeDenied as e:
@@ -149,7 +120,39 @@ class HackerLoop:
 
         return self._result(turn, "max_turns")
 
-    # ── private ───────────────────────────────────────────────────────────────
+    def _execute_action(
+        self,
+        action: GetAction | PostAction | SetHeaderAction | StoreAction | ReportCandidateAction,
+    ) -> None:
+        if isinstance(action, GetAction):
+            obs = self.http_tool.get(action.args.path, action.args.params)
+            self._record_observation(action, obs)
+        elif isinstance(action, PostAction):
+            obs = self.http_tool.post(
+                action.args.path,
+                json_body=action.args.json_body,
+                data=action.args.data,
+            )
+            self._record_observation(action, obs)
+        elif isinstance(action, SetHeaderAction):
+            self.http_tool.set_header(action.args.name, action.args.value)
+        elif isinstance(action, StoreAction):
+            if action.args.kind == "token":
+                self.session.store_token(action.args.key, action.args.value)
+            else:
+                self.session.store_id(action.args.key, action.args.value)
+        elif isinstance(action, ReportCandidateAction):
+            self.session.add_candidate_finding(action.args.model_dump())
+
+    def _record_observation(
+        self, action: GetAction | PostAction, obs: ObservationWrapper,
+    ) -> None:
+        self.session.add_observation(obs)
+        candidates, verified = self.verifier.evaluate(action.model_dump(), obs, self.session)
+        for c in candidates:
+            self.session.add_candidate_finding(c)
+        for v in verified:
+            self.session.add_verified_finding(v)
 
     def _build_prompt(self) -> str:
         roe_summary = self.profile.to_prompt_summary()

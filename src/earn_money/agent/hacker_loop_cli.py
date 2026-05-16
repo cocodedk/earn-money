@@ -10,7 +10,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from earn_money import config
+from earn_money import config, flags
 from earn_money.agent import providers as providers_mod
 from earn_money.agent.budget import RequestBudget
 from earn_money.agent.finding_verifier import FindingVerifier
@@ -80,12 +80,17 @@ def main(argv: list[str] | None = None) -> int:
     profile = load_roe_profile(args.roe_profile, RoeSourceType.MANUAL)
     profile = _apply_cli_limits(profile, args)
 
-    # Gate checks
     paths = config.Paths.from_root(args.root)
-    recon_flag = args.root / "RECON_ENABLED"
-    if not recon_flag.exists():
-        print("probe-target: RECON_ENABLED not present — pipeline halted", file=sys.stderr)
+    try:
+        flags.require_recon_enabled(paths)
+        if args.program:
+            flags.require_program_not_frozen(paths, args.platform, args.program)
+    except flags.ReconDisabled as e:
+        print(f"probe-target: {e}", file=sys.stderr)
         return 1
+    except flags.ProgramFrozen as e:
+        print(f"probe-target: {e}", file=sys.stderr)
+        return 3
 
     base_url: str = args.base_url
     db_path = paths.program_db(args.platform, args.program)
