@@ -6,7 +6,7 @@
 - Create: `src/earn_money/dashboard/probe_runner.py`
 - Create: `tests/dashboard/test_probe_runner.py`
 
-The runner inherits `HackerLoop`, overrides the six hooks added in Task 3 to push structured events onto a `queue.Queue`, picks the task per turn, manages the loop thread, and clears the server's slot via the `on_finished` callback.
+The runner inherits `HackerLoop`, overrides the six hooks added in Task 3 to push structured events onto a `queue.Queue`, picks the task per turn, manages the loop thread, and **leaves the server slot populated after exit** so a late-arriving `EventSource` can still drain the terminal `done` / `probe_error` event. The slot is replaced by the next probe's start, not cleared by the runner. (See §"_run_safe" for the rationale.)
 
 Readability guidance only: if `probe_runner.py` ends up tangled or mixes too many concerns, split helpers into `probe_runner_events.py` / `probe_runner_select.py` (the spec calls them out by name). Line count is not a merge blocker — see 00-overview §"File size".
 

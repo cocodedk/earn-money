@@ -117,7 +117,10 @@ def _drive_dispatch(handler_cls, method: str, path: str, *, raw_body: bytes = b"
 class TestDispatcher:
     def test_do_post_dispatches_probe_start(self, handler_factory):
         handler_cls, _paths = handler_factory
-        raw = json.dumps({"base_url": "https://target.example.com"}).encode("utf-8")
+        raw = json.dumps({
+            "base_url": "https://target.example.com",
+            "target_kind": "local_lab",
+        }).encode("utf-8")
         status, body, _h = _drive_dispatch(
             handler_cls, "POST", "/api/probe/start", raw_body=raw,
         )
@@ -171,7 +174,7 @@ touch RECON_ENABLED
 uv run python -m earn_money.dashboard.server --root . &
 SERVER_PID=$!
 curl -s -X POST -H "Content-Type: application/json" \
-  -d '{"base_url":"https://nonexistent.example.com"}' \
+  -d '{"base_url":"https://nonexistent.example.com","target_kind":"local_lab"}' \
   http://127.0.0.1:8080/api/probe/start
 kill $SERVER_PID
 ```

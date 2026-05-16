@@ -1,3 +1,9 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-162605)
+
+Snapshot taken: 2026-05-16T16:26:05+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+
+State at 20260516-162605 — final review pass. Task 8 dispatcher test and manual smoke now include target_kind:"local_lab"; Task 4 intro rewritten so it no longer contradicts the no-auto-clear lifecycle. **Plan frozen for implementation.**
 
 
 <!-- ====================================================================== -->
