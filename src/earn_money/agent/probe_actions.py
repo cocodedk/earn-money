@@ -166,7 +166,7 @@ def parse_action_with_recovery(raw: str) -> tuple[_ParsedAction, bool]:
         action = cls.model_validate(data)
     except Exception as e:
         raise ActionParseError(str(e)) from e
-    return action, recovered  # type: ignore[return-value]
+    return action, recovered  # type: ignore[return-value]  # cls.model_validate returns _StrictBase, not the concrete subclass
 
 
 def parse_action(raw: str) -> _ParsedAction:

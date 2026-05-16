@@ -13,6 +13,7 @@ from earn_money.agent.probe_actions import (
     StopAction,
     StoreAction,
     parse_action,
+    parse_action_with_recovery,
 )
 
 
@@ -107,50 +108,28 @@ class TestParseAction:
 
 class TestParseActionRecovery:
     def test_strips_json_fence(self):
-        from earn_money.agent.probe_actions import (
-            StopAction,
-            parse_action_with_recovery,
-        )
         raw = "```json\n{\"tool\":\"stop\",\"category\":\"stop\",\"args\":{}}\n```"
         action, recovered = parse_action_with_recovery(raw)
         assert isinstance(action, StopAction)
         assert recovered is True
 
     def test_strips_plain_fence_without_language_tag(self):
-        from earn_money.agent.probe_actions import (
-            StopAction,
-            parse_action_with_recovery,
-        )
         raw = "```\n{\"tool\":\"stop\",\"category\":\"stop\",\"args\":{}}\n```"
         action, recovered = parse_action_with_recovery(raw)
         assert isinstance(action, StopAction)
         assert recovered is True
 
     def test_extracts_json_from_prose_wrapping(self):
-        from earn_money.agent.probe_actions import (
-            StopAction,
-            parse_action_with_recovery,
-        )
         raw = 'Here is the action: {"tool":"stop","category":"stop","args":{}} done.'
         action, recovered = parse_action_with_recovery(raw)
         assert isinstance(action, StopAction)
         assert recovered is True
 
     def test_raises_when_no_json_object_present(self):
-        import pytest
-
-        from earn_money.agent.probe_actions import (
-            ActionParseError,
-            parse_action_with_recovery,
-        )
         with pytest.raises(ActionParseError):
             parse_action_with_recovery("there is no json here at all")
 
     def test_recovered_flag_false_on_happy_path(self):
-        from earn_money.agent.probe_actions import (
-            StopAction,
-            parse_action_with_recovery,
-        )
         action, recovered = parse_action_with_recovery(
             '{"tool":"stop","category":"stop","args":{}}'
         )
@@ -160,12 +139,10 @@ class TestParseActionRecovery:
 
 class TestParseActionBackwardCompat:
     def test_parse_action_still_returns_single_value(self):
-        from earn_money.agent.probe_actions import StopAction, parse_action
         a = parse_action('{"tool":"stop","category":"stop","args":{}}')
         assert isinstance(a, StopAction)
 
     def test_parse_action_propagates_recovery_silently(self):
-        from earn_money.agent.probe_actions import StopAction, parse_action
         raw = "```json\n{\"tool\":\"stop\",\"category\":\"stop\",\"args\":{}}\n```"
         a = parse_action(raw)
         assert isinstance(a, StopAction)
