@@ -66,7 +66,7 @@ uv run ruff check \
 
 Expected: clean. Fix any ruff complaints surgically (no broad reformatting).
 
-- [ ] **Step 5: Verify the file-size cap on every file the plan touched**
+- [ ] **Step 5: Skim every file the plan touched and ask if any one feels tangled**
 
 ```bash
 wc -l \
@@ -84,7 +84,7 @@ wc -l \
   tests/dashboard/test_probe_routes.py
 ```
 
-Expected: every Python source/test file ≤200 lines; every JS/CSS file ≤150. If any is over, split before merging.
+No fixed cap — line count is informational. The question is whether any single file mixes responsibilities or has grown harder to reason about than its individual pieces. If yes, split for readability (the spec already calls out logical seams, e.g. `probe_runner_events.py`, `probe_runner_select.py`, `probe-stream.js`). If no, leave them.
 
 - [ ] **Step 6: Manual smoke against a local target (optional)**
 

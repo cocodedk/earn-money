@@ -1,3 +1,10 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-160839)
+
+Snapshot taken: 2026-05-16T16:08:39+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+Rolling companion: `2026-05-16-probe-live-tab-plan.consolidated.md`
+
+State at 20260516-160839 — terminal-event race fixed (slot persists until overwrite), bool-as-int rejected, SSRF defence-in-depth at start route, SSE event-name allowlist, response_format retry-without fallback, generic 500 message, cooperative-stop note, hard line-cap downgraded to readability guidance.
 
 
 <!-- ====================================================================== -->

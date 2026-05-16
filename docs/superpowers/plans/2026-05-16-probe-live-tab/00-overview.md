@@ -66,4 +66,4 @@ Before starting Task 1, the engineer should confirm:
 3. **Never `--no-verify`** — pre-commit hooks are the floor.
 4. **No invented scope** — every line of code in a step is either copied verbatim from the source spec or derived directly from a spec snippet. If a step needs something the spec doesn't describe, stop and ask.
 5. **Surgical changes** — modify only the lines a task targets. Match existing style; don't re-format adjacent code.
-6. **File size cap** — 200 lines for Python source/tests, 150 for JS/CSS. If a file approaches the cap, split before merging.
+6. **File size — readability guidance, not a merge blocker.** Keep files readable. Split when a file becomes hard to understand or mixes unrelated responsibilities. Line count alone is not a gate. (The earlier draft of this plan had a hard 200/150 cap; downgraded to guidance after reviewer feedback that some prescribed code legitimately runs past the cap and that splitting just to hit a number degrades clarity.)

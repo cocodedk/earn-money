@@ -133,13 +133,13 @@ Create `src/earn_money/dashboard/templates/static/probe.css` with the spec's exa
 .timeline-banner.error { color: var(--warn); }
 ```
 
-- [ ] **Step 4: Verify file size**
+- [ ] **Step 4: Glance at the file for shape**
 
 ```bash
 wc -l src/earn_money/dashboard/templates/static/probe.css
 ```
 
-Expected: ≤150 lines.
+No fixed cap. If the file has grown past what fits in one mental model, consider splitting along the existing sectioned comments (`/* tabs */`, `/* timeline / turn cards */`, `/* findings */`, `/* terminal banners */`).
 
 - [ ] **Step 5: Existing server tests still pass**
 

@@ -198,6 +198,33 @@ Add helper methods inside `DashboardHandler`:
             if not parsed.hostname:
                 return self._send_json(400, {"error": "base_url missing host"})
 
+            # Defence-in-depth fast-fail for obvious SSRF / internal
+            # targets. The authoritative enforcement lives in
+            # ScopePolicy._check_host (agent/scope_policy.py) — it
+            # rejects loopback / private / link-local / IMDS / multicast
+            # IPs at HTTP-request time, and the safe-default RoE has
+            # allowed_hosts=[] so every host is denied unless explicitly
+            # listed. This early guard just gives the operator a 400
+            # before any probe machinery is built. Hosts allowed by an
+            # explicit RoE profile (e.g. a lab pointing at `localhost`)
+            # still get rejected here — for true local-lab work, use a
+            # hostname like `target.cocode.dk` mapped via /etc/hosts.
+            host_lower = parsed.hostname.lower()
+            if host_lower in ("localhost", "0.0.0.0", "::", "::1"):
+                return self._send_json(400, {"error":
+                    f"base_url host {parsed.hostname!r} is loopback/unspecified"})
+            try:
+                import ipaddress
+                addr = ipaddress.ip_address(host_lower)
+                for net_cidr in ("127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12",
+                                 "192.168.0.0/16", "169.254.0.0/16",
+                                 "224.0.0.0/4", "::1/128", "fc00::/7", "fe80::/10"):
+                    if addr in ipaddress.ip_network(net_cidr):
+                        return self._send_json(400, {"error":
+                            f"base_url host {parsed.hostname!r} is private/reserved"})
+            except ValueError:
+                pass  # hostname (not an IP literal) — fine, let runtime ScopePolicy enforce
+
             platform = body.get("platform", "local")
             program = body.get("program")
             if platform in ("", None):
@@ -219,7 +246,11 @@ Add helper methods inside `DashboardHandler`:
 
             max_turns = body.get("max_turns")
             if max_turns is not None:
-                if not isinstance(max_turns, int) or not (1 <= max_turns <= 50):
+                # `type(x) is int` rejects bool (which is a subclass of
+                # int — `isinstance(True, int)` is True, and
+                # `1 <= True <= 50` is True too, so isinstance would
+                # silently accept max_turns=true).
+                if type(max_turns) is not int or not (1 <= max_turns <= 50):
                     return self._send_json(400, {"error":
                         "max_turns must be an int between 1 and 50"})
 
@@ -252,10 +283,15 @@ Add helper methods inside `DashboardHandler`:
                 runner = ProbeRunner(
                     base_url=base_url, roe_path=roe_path, paths=self._paths,
                     platform=platform, program=program, max_turns=max_turns,
-                    on_finished=_clear_probe_slot,
+                    # NOTE: deliberately no on_finished=. The slot is
+                    # NOT cleared when the runner exits — that would
+                    # race a fast run against the browser's EventSource
+                    # connect (operator never sees the done event).
+                    # The slot is replaced by the next start instead.
                 )
-            except Exception as e:
-                return self._send_json(500, {"error": f"runner init failed: {e}"})
+            except Exception:
+                log.exception("ProbeRunner init failed")
+                return self._send_json(500, {"error": "runner init failed"})
 
             # Re-check + install under the lock. A racing handler may have
             # installed its own slot while we were constructing — discard
@@ -303,7 +339,17 @@ Implement each test below as a method on `TestStartRoute`. Each one must contain
 - `test_returns_400_when_base_url_scheme_not_http` — POST `{base_url: "ftp://x.com"}`. Assert `status == 400` and `"scheme" in body["error"]`.
 - `test_returns_400_when_base_url_has_userinfo` — POST `{base_url: "https://u:p@x.com"}`. Assert `status == 400` and `"userinfo" in body["error"]`.
 - `test_returns_400_when_base_url_missing_host` — POST `{base_url: "https://"}`. Assert `status == 400` and `"missing host" in body["error"]`.
+- `test_returns_400_when_base_url_is_localhost` — POST `{base_url: "http://localhost"}`. Assert `status == 400` and `"loopback" in body["error"]` (or the matching word from the message).
+- `test_returns_400_when_base_url_is_loopback_ip` — POST `{base_url: "http://127.0.0.1"}`. Assert `status == 400` and `"private/reserved" in body["error"]`. Repeat with `::1`.
+- `test_returns_400_when_base_url_is_imds` — POST `{base_url: "http://169.254.169.254"}`. Assert `status == 400` and `"private/reserved" in body["error"]`.
+- `test_returns_400_when_base_url_is_private_v4` — for each of `10.0.0.5`, `172.16.0.1`, `192.168.1.1`: POST `{base_url: "http://<ip>"}`. Assert `status == 400` each time.
+- `test_returns_400_when_base_url_is_unspecified` — POST `{base_url: "http://0.0.0.0"}`. Assert `status == 400`.
+- `test_hostname_that_resolves_locally_passes_route_check` — POST `{base_url: "http://target.cocode.dk"}` (a hostname literal, not an IP). Assert `status == 200`. (The hostname isn't an IP literal, so the start-route guard lets it through; runtime `ScopePolicy` will enforce per-RoE.)
 - `test_returns_400_when_max_turns_out_of_range` — POST `{base_url, max_turns: 0}`. Assert `status == 400` and `"max_turns" in body["error"]`. Repeat with `max_turns: 51`.
+- `test_returns_400_when_max_turns_is_true` — POST `{base_url, max_turns: True}`. Assert `status == 400` (bool must be rejected even though `isinstance(True, int)` is `True`).
+- `test_returns_400_when_max_turns_is_false` — POST `{base_url, max_turns: False}`. Assert `status == 400`.
+- `test_returns_400_when_max_turns_is_string` — POST `{base_url, max_turns: "10"}`. Assert `status == 400`.
+- `test_returns_400_when_max_turns_is_float` — POST `{base_url, max_turns: 10.5}`. Assert `status == 400`.
 - `test_empty_string_roe_profile_treated_as_null` — POST `{base_url, roe_profile: ""}`. Assert `status == 200` (treated as null; safe-default profile is used).
 - `test_relative_roe_path_resolved_against_root` — create `tmp_root/roe/test.yaml`, POST `{base_url, roe_profile: "roe/test.yaml"}`. Assert `status == 200`. (Confirms the path was resolved against `--root`, not cwd.)
 - `test_empty_platform_defaults_to_local` — POST `{base_url, platform: ""}`. Assert `status == 200`.

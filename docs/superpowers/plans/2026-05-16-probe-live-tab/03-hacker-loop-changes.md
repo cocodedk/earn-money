@@ -227,6 +227,15 @@ Change `_get_llm_response` to:
 ```python
     def _get_llm_response(self, prompt: str) -> str | None:
         from earn_money.agent.task_router import TaskType
+        # First attempt: pass response_format. Most OpenRouter models
+        # honour `{"type": "json_object"}`; the ones that don't may
+        # 400 the entire request. On any provider failure, retry ONCE
+        # without response_format — the system prompt already says
+        # "Return exactly one JSON action. No prose. No markdown. No
+        # code blocks." which carries most of the work, and
+        # parse_action_with_recovery handles fenced/prose-wrapped
+        # output. Only if BOTH attempts fail do we return None and
+        # surface llm_error to the loop.
         try:
             return self.provider.complete(  # type: ignore[no-any-return]
                 system=_SYSTEM_PROMPT,
@@ -235,7 +244,15 @@ Change `_get_llm_response` to:
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            log.error("Provider error: %s", e)
+            log.warning("Provider rejected response_format; retrying without: %s", e)
+        try:
+            return self.provider.complete(  # type: ignore[no-any-return]
+                system=_SYSTEM_PROMPT,
+                user=prompt,
+                task=TaskType.AGENT_PLANNING,
+            )
+        except Exception as e:
+            log.error("Provider error after retry: %s", e)
             return None
 ```
 

@@ -8,7 +8,7 @@
 
 The runner inherits `HackerLoop`, overrides the six hooks added in Task 3 to push structured events onto a `queue.Queue`, picks the task per turn, manages the loop thread, and clears the server's slot via the `on_finished` callback.
 
-Target: ≤200 lines. If approaching the cap, split helpers into `probe_runner_events.py` / `probe_runner_select.py` per the spec.
+Readability guidance only: if `probe_runner.py` ends up tangled or mixes too many concerns, split helpers into `probe_runner_events.py` / `probe_runner_select.py` (the spec calls them out by name). Line count is not a merge blocker — see 00-overview §"File size".
 
 - [ ] **Step 1: Create the test file scaffold + first `_pick_task` test**
 
@@ -236,13 +236,23 @@ In `probe_runner.py`, inside `ProbeRunner`, add:
     def _get_llm_response(self, prompt: str) -> str | None:
         task = self._pick_task()
         self._last_model_id = _resolve_model_safely(task)
+        # First attempt with response_format; on any provider failure,
+        # retry once without it. See HackerLoop._get_llm_response for
+        # the rationale — same logic, mirrored here because the runner
+        # overrides this method to pick `task` per turn.
         try:
             return self.provider.complete(  # type: ignore[no-any-return]
                 system=_SYSTEM_PROMPT, user=prompt, task=task,
                 response_format={"type": "json_object"},
             )
         except Exception as e:
-            log.error("Provider error: %s", e)
+            log.warning("Provider rejected response_format; retrying without: %s", e)
+        try:
+            return self.provider.complete(  # type: ignore[no-any-return]
+                system=_SYSTEM_PROMPT, user=prompt, task=task,
+            )
+        except Exception as e:
+            log.error("Provider error after retry: %s", e)
             return None
 
     def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
@@ -304,6 +314,16 @@ Append to `ProbeRunner`:
         return self._run_id
 
     def stop(self) -> None:
+        """Cooperative cancel. Sets a threading.Event flag; the override
+        of `_on_turn_complete` checks the flag and raises `_StopRequested`
+        at the END of the current iteration. That means stop() does NOT
+        interrupt an in-flight `provider.complete(...)` call or an
+        in-flight `http_tool.get/post(...)` call — those finish first.
+        Worst-case wait between calling stop() and the runner exiting:
+        one LLM round-trip plus (for get/post turns) one HTTP round-trip,
+        bounded by their respective timeouts. Acceptable for v1; a
+        stronger cancel would need explicit provider/http timeouts, not
+        thread killing (which Python doesn't safely support)."""
         self._stop_event.set()
 
     def is_running(self) -> bool:
@@ -353,11 +373,24 @@ Append to `ProbeRunner`:
             self._emit("probe_error", {"message": str(e), "stage": "runtime"})
         finally:
             self._closed = True
-            if self._on_finished is not None:
-                try:
-                    self._on_finished(self._run_id)
-                except Exception:
-                    log.exception("on_finished callback raised")
+            # NOTE: we deliberately do NOT call _on_finished / clear the
+            # server's _PROBE_SLOT here. If we did, a fast run (e.g. an
+            # invalid-action exit on turn 1) could complete and clear the
+            # slot BEFORE the browser's EventSource connects — the
+            # stream route would then 404 and the operator never sees
+            # the done / probe_error event. Leaving the slot in place
+            # means:
+            #   - The slot acts as "the most recent runner" (running or done).
+            #   - The stream route still validates run_id, so a stale
+            #     slot can't serve events to a different probe's client.
+            #   - The next POST /api/probe/start overwrites the slot via
+            #     the existing fast-409 path: `is_running()` returns
+            #     False for a finished runner, so the new probe installs.
+            #   - At most one stale-but-finished runner sits in memory
+            #     at a time. Bounded; fine for a single-operator dashboard.
+            #
+            # `_on_finished` is kept on the constructor for future use
+            # (e.g. multi-probe history), but is NOT invoked here.
 ```
 
 Add the summary helper at module level:
@@ -373,13 +406,13 @@ def _summarise(result: Any) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 8: Verify file size is under 200 lines**
+- [ ] **Step 8: Read the file once and decide if it's still readable**
 
 ```bash
 wc -l src/earn_money/dashboard/probe_runner.py
 ```
 
-Expected: ≤200. If over, split helpers into `probe_runner_events.py` (`_emit`, `_summarise`) and re-run.
+There is no hard cap — open the file and ask whether it mixes concerns or has grown harder to reason about than its individual pieces deserve. If yes, split (e.g. lift `_emit` / `_summarise` into `probe_runner_events.py`, lift `_pick_task` into `probe_runner_select.py`). If no, leave it.
 
 - [ ] **Step 9: Add a shared fixture for ProbeRunner construction**
 
@@ -470,12 +503,29 @@ class TestLifecycle:
         if runner._thread is not None:
             runner._thread.join(timeout=2.0)
 
-    def test_calls_on_finished_callback_after_natural_exit(self, make_runner):
+    def test_run_safe_does_not_call_on_finished(self, make_runner):
+        """Regression: a fast run must NOT clear the server slot in
+        `finally`. The slot has to outlive the runner thread so a
+        late-arriving EventSource can still drain the terminal event.
+        Verify by asserting on_finished is never invoked."""
         seen: list[str] = []
         runner = make_runner([_j(tool="stop", category="stop", args={})])
         runner._on_finished = lambda run_id: seen.append(run_id)
         runner._run_safe()
-        assert seen == [runner.run_id()]
+        assert seen == [], "_on_finished must not be called from _run_safe"
+
+    def test_terminal_event_survives_after_thread_exit(self, make_runner):
+        """Regression: emit a `done` from within _run_safe (synchronous,
+        on the test thread). Then drain events() — the `done` must still
+        be available even though is_running() is False."""
+        runner = make_runner([_j(tool="stop", category="stop", args={"reason": "done"})])
+        runner._run_safe()
+        # _run_safe has returned; thread (had there been one) would be dead.
+        runner._thread = None  # mimic post-thread-exit state
+        runner._EVENTS_GET_TIMEOUT_SECONDS = 0.01
+        drained = list(runner.events())
+        # events() must yield the buffered done before returning.
+        assert any(e["event"] == "done" for e in drained)
 ```
 
 - [ ] **Step 11: Add `TestEventEmission` with concrete bodies**

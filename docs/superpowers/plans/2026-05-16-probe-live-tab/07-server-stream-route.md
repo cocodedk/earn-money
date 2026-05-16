@@ -92,6 +92,14 @@ Inside `DashboardHandler` (next to `_serve_probe_start`):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
+            # Defence-in-depth: only known event names ever reach the
+            # wire. SSE event names must be a single line of ASCII; an
+            # accidental newline or non-ASCII byte from a future emitter
+            # would crash `name.encode("ascii")` outside the protocol.
+            _ALLOWED_SSE_EVENTS = {
+                "turn", "finding", "done", "probe_error", "_keepalive",
+            }
+
             # Wrap EVERY wfile write — including the very first `retry: 0`
             # frame — so a client that disconnects between end_headers()
             # and the first byte doesn't escape as an uncaught
@@ -105,6 +113,11 @@ Inside `DashboardHandler` (next to `_serve_probe_start`):
                 for evt in runner.events():
                     name = evt.get("event", "")
                     data = evt.get("data", {})
+                    if name not in _ALLOWED_SSE_EVENTS:
+                        # Coerce an unknown name into a probe_error frame
+                        # rather than crash on .encode("ascii").
+                        name = "probe_error"
+                        data = {"message": "invalid event type", "stage": "stream"}
                     if name == "_keepalive":
                         self.wfile.write(b":\n\n")
                     else:

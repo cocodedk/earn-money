@@ -190,13 +190,13 @@ Create `src/earn_money/dashboard/templates/static/probe.js` with the spec's exac
 })();
 ```
 
-- [ ] **Step 3: Verify file sizes**
+- [ ] **Step 3: Read each file once and check readability**
 
 ```bash
 wc -l src/earn_money/dashboard/templates/static/probe.js src/earn_money/dashboard/templates/static/probe-render.js
 ```
 
-Expected: each ≤150 lines.
+Readability guidance, not a cap. If either file mixes too many concerns to scan in one read, split — `probe.js` could lose the EventSource-state machine into a separate `probe-stream.js`, or `probe-render.js` could split per-event renderer. Otherwise leave them.
 
 - [ ] **Step 4: Existing server tests still pass (no logic change reached)**
 

@@ -107,13 +107,13 @@ Create `src/earn_money/dashboard/templates/static/tabs.js`:
 })();
 ```
 
-- [ ] **Step 6: Verify file sizes**
+- [ ] **Step 6: Read each file once**
 
 ```bash
 wc -l src/earn_money/dashboard/templates/index.html src/earn_money/dashboard/templates/static/tabs.js
 ```
 
-Expected: `index.html` under 200; `tabs.js` under 150.
+No fixed cap. `index.html` should still scan as one document; `tabs.js` should still fit one mental model. Split only if either fails that check.
 
 - [ ] **Step 7: Existing server tests still pass (the new tab structure shouldn't break them)**
 
