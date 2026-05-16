@@ -172,6 +172,13 @@ Add helper methods inside `DashboardHandler`:
             self.wfile.write(body)
 
         def _serve_probe_start(self) -> None:
+            # `global` must be declared before ANY use of the name in the
+            # function body. The fast-409 check below reads _PROBE_SLOT, so
+            # this declaration must come first — otherwise Python emits a
+            # SyntaxWarning ("used prior to global declaration") and the
+            # name is treated as local at the read sites.
+            global _PROBE_SLOT
+
             try:
                 body = json.loads(self._read_body() or b"{}")
             except json.JSONDecodeError:
@@ -253,7 +260,6 @@ Add helper methods inside `DashboardHandler`:
             # Re-check + install under the lock. A racing handler may have
             # installed its own slot while we were constructing — discard
             # ours in that case (it never started; nothing to stop).
-            global _PROBE_SLOT
             with _PROBE_SLOT_LOCK:
                 if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
                     return self._send_json(409, {

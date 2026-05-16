@@ -603,6 +603,8 @@ class TestEvents:
 
 - [ ] **Step 13: Add `_pick_task` consume-after-use test**
 
+Add this method under `class TestPickTask:` (the class defined back in Step 1):
+
 ```python
     def test_hint_is_consumed_after_one_use(self, make_runner):
         runner = make_runner([_j(tool="stop", category="stop", args={})])
