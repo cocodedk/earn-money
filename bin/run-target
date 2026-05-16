@@ -1,0 +1,44 @@
+#!/bin/sh
+# Run the active pipeline against a target URL from the VPS.
+#
+# Usage: bin/run-target <url> [active-tick flags...]
+# Example: bin/run-target https://target.cocode.dk/#/
+#          bin/run-target https://target.cocode.dk/#/ --intelligent
+#
+# Resolves the URL hostname to a registered program via scope.md lookup,
+# then SSHes to VPS_HOST and runs active-tick there.
+#
+# Env overrides:
+#   VPS_HOST=recon-vps   SSH host alias from ~/.ssh/config
+#   VPS_PATH=/opt/earn-money
+
+set -eu
+
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_PATH="${VPS_PATH:-/opt/earn-money}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ $# -lt 1 ]; then
+    echo "usage: run-target <url> [--intelligent] [--max-targets N]" >&2
+    exit 1
+fi
+
+URL="$1"; shift
+
+if [ ! -x "$ROOT/.venv/bin/python" ]; then
+    echo "run-target: .venv not found — run 'make install-dev' first" >&2
+    exit 1
+fi
+
+MATCH=$("$ROOT/.venv/bin/python" -m earn_money.runners.resolve_target_cli \
+    --root "$ROOT" "$URL") || exit $?
+
+PLATFORM=$(printf '%s' "$MATCH" | cut -d' ' -f1)
+PROGRAM=$(printf '%s' "$MATCH"  | cut -d' ' -f2)
+
+echo "run-target: $URL → $PLATFORM/$PROGRAM"
+echo "run-target: running active pipeline on $VPS_HOST"
+
+exec ssh "$VPS_HOST" \
+    "cd '$VPS_PATH' && .venv/bin/python -m earn_money.engine.active_tick_cli \
+     --root . --platform '$PLATFORM' --program '$PROGRAM' $(printf '%s ' "$@")"
