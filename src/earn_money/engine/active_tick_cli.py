@@ -98,7 +98,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--intelligent", action="store_true",
                         help="use the LLM agent decider (env-configured provider) "
                              "instead of the fixed sequential pipeline")
+    parser.add_argument("--hack", metavar="BASE_URL", default=None,
+                        help="run the RoE-controlled LLM probe loop against BASE_URL")
+    parser.add_argument("--roe-profile", default=None,
+                        help="path to YAML RoE profile for the LLM probe loop")
     args = parser.parse_args(argv)
+
+    if args.hack:
+        from earn_money.agent import hacker_loop_cli
+
+        cli_args = [
+            "--platform", args.platform or "local",
+            "--program", args.program or "",
+            "--base-url", args.hack,
+            "--root", str(args.root),
+        ]
+        if args.roe_profile:
+            cli_args.extend(["--roe-profile", args.roe_profile])
+        return hacker_loop_cli.main(cli_args)
 
     paths = config.Paths.from_root(args.root)
     targets = list(iter_registered_programs(paths))
