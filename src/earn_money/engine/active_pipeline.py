@@ -20,7 +20,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from earn_money import config, flags, policy, roe, scope
+from earn_money import config, db, flags, policy, roe, scope
+from earn_money.recon import runs
 from earn_money.runners import (
     active,
     auth_bypass_probe,
@@ -116,6 +117,12 @@ def run_program_pipeline(
         return PipelineResult(
             platform=platform, slug=slug, steps=(), aborted_reason=abort,
         )
+
+    conn = db.open_db(paths.program_db(platform, slug))
+    try:
+        runs.cleanup_stale_runs(conn, platform=platform, slug=slug)
+    finally:
+        conn.close()
 
     steps: list[StepResult] = []
     pending = [name for name, _ in _PIPELINE]
