@@ -17,6 +17,7 @@ recon/outputs/
 # Local environment overrides
 .env
 .env.*
+!.env.example
 .envrc
 
 # Claude Code / MCP — per-session config containing absolute paths and
