@@ -73,70 +73,59 @@ def handler_factory(tmp_root: Path):
         yield server._make_handler(paths, index_html, static), paths
 
 
-def _invoke_post_raw(handler_cls, path: str, raw: bytes) -> tuple[int, dict]:
-    """Drive _serve_probe_start with arbitrary request bytes. Use this
-    for the malformed-JSON test where the body intentionally isn't a
-    serialisable dict."""
+def _drive(handler_cls, method: str, path: str, *, raw_body: bytes = b"") -> tuple[int, dict]:
+    """Drive a route method on the handler class without sockets.
+
+    `_serve_probe_start` reads exactly `Content-Length` bytes from
+    `self.rfile`. The rfile here therefore contains **only the body
+    bytes** — not a full HTTP request line + headers. (An earlier
+    version of this shim prepended fake request headers; that put the
+    handler's read at byte 0 of the header line and silently 400'd
+    every test.)"""
     import io
-    from unittest.mock import MagicMock
     wfile = io.BytesIO()
     h = handler_cls.__new__(handler_cls)
-    h.rfile = io.BytesIO(raw)
+    h.rfile = io.BytesIO(raw_body)
     h.wfile = wfile
-    h.command = "POST"
+    h.command = method
     h.path = path
     h.request_version = "HTTP/1.1"
     h.headers = MagicMock()
     h.headers.get = lambda k, default=None: {
-        "Content-Length": str(len(raw)),
+        "Content-Length": str(len(raw_body)),
         "Content-Type": "application/json",
     }.get(k, default)
     h.send_response = MagicMock()
     h.send_header = MagicMock()
     h.end_headers = MagicMock()
-    h._serve_probe_start()
-    status = h.send_response.call_args.args[0] if h.send_response.call_args else 0
+    h.send_error = MagicMock()
+    if method == "POST" and path == "/api/probe/start":
+        h._serve_probe_start()
+    elif method == "GET" and path.split("?", 1)[0] == "/api/probe/stream":
+        h._serve_probe_stream()
+    else:
+        raise ValueError(f"shim doesn't know route {method} {path}")
+    status = (
+        h.send_response.call_args.args[0]
+        if h.send_response.call_args
+        else (h.send_error.call_args.args[0] if h.send_error.call_args else 0)
+    )
     body_bytes = wfile.getvalue()
-    body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
+    try:
+        body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
+    except json.JSONDecodeError:
+        body_json = {"_raw": body_bytes.decode("utf-8", errors="replace")}
     return status, body_json
 
 
 def _invoke_post(handler_cls, path: str, body: dict) -> tuple[int, dict]:
-    """Drive the BaseHTTPRequestHandler without sockets using a synthetic
-    wfile/rfile, then parse the response status and JSON body."""
-    import io
-    raw = json.dumps(body).encode("utf-8")
-    rfile = io.BytesIO(
-        f"POST {path} HTTP/1.1\r\nContent-Length: {len(raw)}\r\nContent-Type: application/json\r\n\r\n".encode()
-        + raw
-    )
-    wfile = io.BytesIO()
+    """Convenience: JSON-encode `body` and drive POST."""
+    return _drive(handler_cls, "POST", path, raw_body=json.dumps(body).encode("utf-8"))
 
-    class _Req:
-        rfile = rfile
-        wfile = wfile
-        server = MagicMock()
-        client_address = ("127.0.0.1", 0)
-    h = handler_cls.__new__(handler_cls)
-    h.rfile = rfile
-    h.wfile = wfile
-    h.command = "POST"
-    h.path = path
-    h.request_version = "HTTP/1.1"
-    h.headers = MagicMock()
-    h.headers.get = lambda k, default=None: {
-        "Content-Length": str(len(raw)),
-        "Content-Type": "application/json",
-    }.get(k, default)
-    # We bypass send_response's logging by stubbing it out.
-    h.send_response = MagicMock()
-    h.send_header = MagicMock()
-    h.end_headers = MagicMock()
-    h._serve_probe_start()
-    status = h.send_response.call_args.args[0] if h.send_response.call_args else 0
-    body_bytes = wfile.getvalue()
-    body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
-    return status, body_json
+
+def _invoke_post_raw(handler_cls, path: str, raw: bytes) -> tuple[int, dict]:
+    """Convenience: drive POST with arbitrary bytes (malformed-JSON tests)."""
+    return _drive(handler_cls, "POST", path, raw_body=raw)
 
 
 class TestStartRoute:
@@ -240,6 +229,30 @@ Add helper methods inside `DashboardHandler`:
             except flags.ProgramFrozen as e:
                 return self._send_json(403, {"error": str(e)})
 
+            # Fast 409 — fail before doing any construction work.
+            with _PROBE_SLOT_LOCK:
+                if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
+                    return self._send_json(409, {
+                        "error": "another probe is running",
+                        "run_id": _PROBE_SLOT.run_id(),
+                    })
+
+            # Build the runner OUTSIDE the lock. ProbeRunner.__init__ does
+            # file I/O (load_roe_profile), SQLite I/O (_seed_urls), and
+            # provider construction (providers_mod.from_env()) — none of
+            # which should pin the global slot lock across slow operations.
+            try:
+                runner = ProbeRunner(
+                    base_url=base_url, roe_path=roe_path, paths=self._paths,
+                    platform=platform, program=program, max_turns=max_turns,
+                    on_finished=_clear_probe_slot,
+                )
+            except Exception as e:
+                return self._send_json(500, {"error": f"runner init failed: {e}"})
+
+            # Re-check + install under the lock. A racing handler may have
+            # installed its own slot while we were constructing — discard
+            # ours in that case (it never started; nothing to stop).
             global _PROBE_SLOT
             with _PROBE_SLOT_LOCK:
                 if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
@@ -247,15 +260,9 @@ Add helper methods inside `DashboardHandler`:
                         "error": "another probe is running",
                         "run_id": _PROBE_SLOT.run_id(),
                     })
-                try:
-                    runner = ProbeRunner(
-                        base_url=base_url, roe_path=roe_path, paths=self._paths,
-                        platform=platform, program=program, max_turns=max_turns,
-                        on_finished=_clear_probe_slot,
-                    )
-                except Exception as e:
-                    return self._send_json(500, {"error": f"runner init failed: {e}"})
-
+                # Install the slot BEFORE starting the thread — otherwise a
+                # fast runner can finish (and fire on_finished, finding no
+                # slot to clear) before this handler reaches the assignment.
                 _PROBE_SLOT = runner
                 try:
                     run_id = runner.start()

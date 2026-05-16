@@ -241,12 +241,13 @@ def _try_load(raw: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def parse_action_with_recovery(
-    raw: str,
-) -> tuple[
-    GetAction | PostAction | SetHeaderAction | StoreAction | ReportCandidateAction | StopAction,
-    bool,
-]:
+_ParsedAction = (
+    GetAction | PostAction | SetHeaderAction
+    | StoreAction | ReportCandidateAction | StopAction
+)
+
+
+def parse_action_with_recovery(raw: str) -> tuple[_ParsedAction, bool]:
     """Parse `raw` into a typed action. Returns `(action, parse_recovered)`
     where `parse_recovered` is True when the happy-path `json.loads` failed
     and one of the recovery layers had to fire."""
@@ -275,9 +276,7 @@ def parse_action_with_recovery(
     return action, recovered  # type: ignore[return-value]
 
 
-def parse_action(
-    raw: str,
-) -> GetAction | PostAction | SetHeaderAction | StoreAction | ReportCandidateAction | StopAction:
+def parse_action(raw: str) -> _ParsedAction:
     """Existing API — preserved unchanged. Drops the recovery flag."""
     action, _ = parse_action_with_recovery(raw)
     return action
@@ -596,17 +595,20 @@ Change `_get_llm_response` to:
 
 ```python
     def _get_llm_response(self, prompt: str) -> str | None:
+        from earn_money.agent.task_router import TaskType
         try:
             return self.provider.complete(  # type: ignore[no-any-return]
                 system=_SYSTEM_PROMPT,
                 user=prompt,
-                task="agent_planning",
+                task=TaskType.AGENT_PLANNING,
                 response_format={"type": "json_object"},
             )
         except Exception as e:
             log.error("Provider error: %s", e)
             return None
 ```
+
+(Note: the `TaskType` import is added at the top of `hacker_loop.py` alongside the existing agent imports — the inline import shown above is illustrative of where `TaskType` is referenced, not where to put the import statement.)
 
 - [ ] **Step 8: Run the new hook test — expect PASS**
 
@@ -734,7 +736,7 @@ def _runner_with_session(observations: list[ObservationWrapper] | None = None):
 class TestPickTask:
     def test_no_observations_picks_agent_planning(self):
         r = _runner_with_session([])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 ```
 
 - [ ] **Step 2: Run — expect FAIL (ImportError: probe_runner not found)**
@@ -778,7 +780,7 @@ from earn_money.agent.probe_actions import ReportCandidateAction
 from earn_money.agent.roe_policy import RoePolicy
 from earn_money.agent.roe_profile import RoeProfile, RoeSourceType, load_roe_profile
 from earn_money.agent.scope_policy import ScopePolicy
-from earn_money.agent.task_router import RouterUnconfigured, resolve_model
+from earn_money.agent.task_router import RouterUnconfigured, TaskType, resolve_model
 
 log = logging.getLogger(__name__)
 
@@ -824,61 +826,46 @@ class ProbeRunner(HackerLoop):
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
-        self._next_task_hint: str | None = None
+        self._next_task_hint: TaskType | None = None
         self._closed = False
         self._on_finished = on_finished
 
     # ── HackerLoop hook overrides ─────────────────────────────────────────
 
-    def _pick_task(self) -> str:
-        if self._next_task_hint:
+    def _pick_task(self) -> TaskType:
+        if self._next_task_hint is not None:
             return self._next_task_hint
         if not self.session.observations:
-            return "agent_planning"
+            return TaskType.AGENT_PLANNING
         last = self.session.observations[-1]
         ctype = (last.headers.get("content-type") or "").lower()
         body = last.body or ""
         if "javascript" in ctype:
-            return "coding_security"
+            return TaskType.CODING_SECURITY
         if "text/html" in ctype and "<script" in body.lower():
-            return "coding_security"
-        return "agent_planning"
+            return TaskType.CODING_SECURITY
+        return TaskType.AGENT_PLANNING
 ```
 
-Add the helper functions at module level (the spec calls them out by name):
+Reuse `_seed_urls` from the existing CLI rather than redefining it (it's already in `src/earn_money/agent/hacker_loop_cli.py`). Add this import alongside the others at the top of `probe_runner.py`:
 
 ```python
-_SEED_SQL = """
-SELECT DISTINCT target
-FROM signals
-WHERE tool IN ('katana', 'swagger')
-LIMIT 100
-"""
+from earn_money.agent.hacker_loop_cli import _seed_urls
+```
 
+`_apply_max_turns` is the runner-side single-knob clamp. The CLI's `_apply_cli_limits` does the same thing for four knobs but takes an `argparse.Namespace`; a proper extraction would refactor `_apply_cli_limits` to take a plain dict and live in a shared module. **Deferred** — out of plan scope; left as a TODO note here. For v1, `probe_runner` carries this small helper:
 
-def _seed_urls(db_path: Path, base_url: str) -> list[str]:
-    """Same SQL as hacker_loop_cli._seed_urls."""
-    import sqlite3
-    if not db_path.exists():
-        return [base_url]
-    try:
-        with sqlite3.connect(db_path) as conn:
-            rows = conn.execute(_SEED_SQL).fetchall()
-        urls = [row[0] for row in rows if row[0]]
-        return urls or [base_url]
-    except Exception:
-        return [base_url]
-
-
+```python
 def _apply_max_turns(profile: RoeProfile, max_turns: int) -> RoeProfile:
-    """Single-knob clamp for max_turns (mirrors hacker_loop_cli._apply_cli_limits)."""
+    # TODO: share with hacker_loop_cli._apply_cli_limits once that helper
+    # is refactored to take a dict of overrides (out of scope for this PR).
     effective = min(profile.max_turns, max_turns)
     data = profile.model_dump(exclude={"source_type", "source_ref"})
     data["max_turns"] = effective
     return RoeProfile.from_dict(data, profile.source_type, profile.source_ref)
 
 
-def _resolve_model_safely(task: str) -> str | None:
+def _resolve_model_safely(task: TaskType) -> str | None:
     try:
         return resolve_model(task)
     except RouterUnconfigured:
@@ -904,7 +891,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "application/javascript"}, "var x=1;",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "coding_security"
+        assert r._pick_task() == TaskType.CODING_SECURITY
 
     def test_html_with_script_picks_coding_security(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -912,7 +899,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "text/html"}, "<html><script>1</script></html>",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "coding_security"
+        assert r._pick_task() == TaskType.CODING_SECURITY
 
     def test_html_without_script_picks_agent_planning(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -920,7 +907,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "text/html"}, "<html><body>hi</body></html>",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 
     def test_json_content_type_picks_agent_planning(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -928,12 +915,12 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "application/json"}, "{}",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 
     def test_report_candidate_hint_picks_structured_extraction(self):
         r = _runner_with_session([])
-        r._next_task_hint = "structured_extraction"
-        assert r._pick_task() == "structured_extraction"
+        r._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        assert r._pick_task() == TaskType.STRUCTURED_EXTRACTION
 ```
 
 - [ ] **Step 6: Add hook overrides + `_get_llm_response` override**
@@ -991,8 +978,8 @@ In `probe_runner.py`, inside `ProbeRunner`, add:
 
     def _on_turn_complete(self, turn: int, action: Any, stage: str) -> None:
         if isinstance(action, ReportCandidateAction):
-            self._next_task_hint = "structured_extraction"
-        elif self._next_task_hint == "structured_extraction":
+            self._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        elif self._next_task_hint is not None:
             self._next_task_hint = None
         self._emit("turn", {"turn": turn, "stage": "complete", "outcome": stage})
         if self._stop_event.is_set():
@@ -1020,10 +1007,16 @@ Append to `ProbeRunner`:
     def run_id(self) -> str:
         return self._run_id
 
+    # SSE convention is a keep-alive every 15-30 s; 15 here so a slow
+    # LLM turn (≈10 s) doesn't trigger a keep-alive between real events,
+    # but a paused server doesn't hold an idle TCP connection silent
+    # past 30 s either.
+    _EVENTS_GET_TIMEOUT_SECONDS = 15.0
+
     def events(self) -> Iterator[dict[str, Any]]:
         while True:
             try:
-                evt = self._queue.get(timeout=1.0)
+                evt = self._queue.get(timeout=self._EVENTS_GET_TIMEOUT_SECONDS)
             except queue.Empty:
                 if not self.is_running() and self._queue.empty():
                     return
@@ -1306,33 +1299,29 @@ class TestEvents:
     def test_hint_is_consumed_after_one_use(self, make_runner):
         runner = make_runner([_j(tool="stop", category="stop", args={})])
         # Simulate a ReportCandidateAction having just been processed.
-        runner._next_task_hint = "structured_extraction"
-        assert runner._pick_task() == "structured_extraction"
+        runner._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        assert runner._pick_task() == TaskType.STRUCTURED_EXTRACTION
         # Trigger the _on_turn_complete branch that clears the hint.
         from earn_money.agent.probe_actions import StopAction
         runner._on_turn_complete(2, StopAction(tool="stop", category="stop"), "completed")
         assert runner._next_task_hint is None
 ```
 
-- [ ] **Step 14: Run the full probe_runner test file — expect PASS**
-
-```bash
-uv run pytest tests/dashboard/test_probe_runner.py -v
-```
-
-- [ ] **Step 15: Run the full test suite to confirm no regression**
+- [ ] **Step 14: Run the full test suite — covers the new probe_runner tests and confirms no regression**
 
 ```bash
 uv run pytest -q
 ```
 
-- [ ] **Step 16: Lint**
+(One sweep is enough — the file-level run that an earlier draft had here was redundant with the full sweep.)
+
+- [ ] **Step 15: Lint**
 
 ```bash
 uv run ruff check src/earn_money/dashboard/probe_runner.py tests/dashboard/test_probe_runner.py
 ```
 
-- [ ] **Step 17: Commit**
+- [ ] **Step 16: Commit**
 
 ```bash
 git add src/earn_money/dashboard/probe_runner.py tests/dashboard/test_probe_runner.py
@@ -1367,10 +1356,14 @@ Insert after the existing `_STATIC_ROUTES` block:
 
 ```python
 import threading  # if not already imported at top — verify and move up if so
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from earn_money.dashboard.probe_runner import ProbeRunner
 
 # One-at-a-time probe runner — module-level slot under a lock so two
 # near-simultaneous POST /api/probe/start handler threads race safely.
-_PROBE_SLOT: object | None = None     # ProbeRunner | None; object to avoid import cycle
+_PROBE_SLOT: "ProbeRunner | None" = None
 _PROBE_SLOT_LOCK = threading.Lock()
 
 
@@ -1384,7 +1377,7 @@ def _clear_probe_slot(run_id: str) -> None:
             _PROBE_SLOT = None
 ```
 
-Note: keep the `_PROBE_SLOT` type as `object | None` to avoid importing `ProbeRunner` at module-import time (which would create a cycle as soon as `ProbeRunner` imports `config`). The actual typing is asserted at use site.
+`TYPE_CHECKING` keeps the `ProbeRunner` import out of the runtime import graph (no cycle) while still letting `mypy --strict` see the real type. The forward-ref string `"ProbeRunner | None"` is the type the slot holds.
 
 - [ ] **Step 3: Add `_paths` class attribute on the handler**
 
@@ -1518,70 +1511,59 @@ def handler_factory(tmp_root: Path):
         yield server._make_handler(paths, index_html, static), paths
 
 
-def _invoke_post_raw(handler_cls, path: str, raw: bytes) -> tuple[int, dict]:
-    """Drive _serve_probe_start with arbitrary request bytes. Use this
-    for the malformed-JSON test where the body intentionally isn't a
-    serialisable dict."""
+def _drive(handler_cls, method: str, path: str, *, raw_body: bytes = b"") -> tuple[int, dict]:
+    """Drive a route method on the handler class without sockets.
+
+    `_serve_probe_start` reads exactly `Content-Length` bytes from
+    `self.rfile`. The rfile here therefore contains **only the body
+    bytes** — not a full HTTP request line + headers. (An earlier
+    version of this shim prepended fake request headers; that put the
+    handler's read at byte 0 of the header line and silently 400'd
+    every test.)"""
     import io
-    from unittest.mock import MagicMock
     wfile = io.BytesIO()
     h = handler_cls.__new__(handler_cls)
-    h.rfile = io.BytesIO(raw)
+    h.rfile = io.BytesIO(raw_body)
     h.wfile = wfile
-    h.command = "POST"
+    h.command = method
     h.path = path
     h.request_version = "HTTP/1.1"
     h.headers = MagicMock()
     h.headers.get = lambda k, default=None: {
-        "Content-Length": str(len(raw)),
+        "Content-Length": str(len(raw_body)),
         "Content-Type": "application/json",
     }.get(k, default)
     h.send_response = MagicMock()
     h.send_header = MagicMock()
     h.end_headers = MagicMock()
-    h._serve_probe_start()
-    status = h.send_response.call_args.args[0] if h.send_response.call_args else 0
+    h.send_error = MagicMock()
+    if method == "POST" and path == "/api/probe/start":
+        h._serve_probe_start()
+    elif method == "GET" and path.split("?", 1)[0] == "/api/probe/stream":
+        h._serve_probe_stream()
+    else:
+        raise ValueError(f"shim doesn't know route {method} {path}")
+    status = (
+        h.send_response.call_args.args[0]
+        if h.send_response.call_args
+        else (h.send_error.call_args.args[0] if h.send_error.call_args else 0)
+    )
     body_bytes = wfile.getvalue()
-    body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
+    try:
+        body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
+    except json.JSONDecodeError:
+        body_json = {"_raw": body_bytes.decode("utf-8", errors="replace")}
     return status, body_json
 
 
 def _invoke_post(handler_cls, path: str, body: dict) -> tuple[int, dict]:
-    """Drive the BaseHTTPRequestHandler without sockets using a synthetic
-    wfile/rfile, then parse the response status and JSON body."""
-    import io
-    raw = json.dumps(body).encode("utf-8")
-    rfile = io.BytesIO(
-        f"POST {path} HTTP/1.1\r\nContent-Length: {len(raw)}\r\nContent-Type: application/json\r\n\r\n".encode()
-        + raw
-    )
-    wfile = io.BytesIO()
+    """Convenience: JSON-encode `body` and drive POST."""
+    return _drive(handler_cls, "POST", path, raw_body=json.dumps(body).encode("utf-8"))
 
-    class _Req:
-        rfile = rfile
-        wfile = wfile
-        server = MagicMock()
-        client_address = ("127.0.0.1", 0)
-    h = handler_cls.__new__(handler_cls)
-    h.rfile = rfile
-    h.wfile = wfile
-    h.command = "POST"
-    h.path = path
-    h.request_version = "HTTP/1.1"
-    h.headers = MagicMock()
-    h.headers.get = lambda k, default=None: {
-        "Content-Length": str(len(raw)),
-        "Content-Type": "application/json",
-    }.get(k, default)
-    # We bypass send_response's logging by stubbing it out.
-    h.send_response = MagicMock()
-    h.send_header = MagicMock()
-    h.end_headers = MagicMock()
-    h._serve_probe_start()
-    status = h.send_response.call_args.args[0] if h.send_response.call_args else 0
-    body_bytes = wfile.getvalue()
-    body_json = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1] or b"{}")
-    return status, body_json
+
+def _invoke_post_raw(handler_cls, path: str, raw: bytes) -> tuple[int, dict]:
+    """Convenience: drive POST with arbitrary bytes (malformed-JSON tests)."""
+    return _drive(handler_cls, "POST", path, raw_body=raw)
 
 
 class TestStartRoute:
@@ -1685,6 +1667,30 @@ Add helper methods inside `DashboardHandler`:
             except flags.ProgramFrozen as e:
                 return self._send_json(403, {"error": str(e)})
 
+            # Fast 409 — fail before doing any construction work.
+            with _PROBE_SLOT_LOCK:
+                if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
+                    return self._send_json(409, {
+                        "error": "another probe is running",
+                        "run_id": _PROBE_SLOT.run_id(),
+                    })
+
+            # Build the runner OUTSIDE the lock. ProbeRunner.__init__ does
+            # file I/O (load_roe_profile), SQLite I/O (_seed_urls), and
+            # provider construction (providers_mod.from_env()) — none of
+            # which should pin the global slot lock across slow operations.
+            try:
+                runner = ProbeRunner(
+                    base_url=base_url, roe_path=roe_path, paths=self._paths,
+                    platform=platform, program=program, max_turns=max_turns,
+                    on_finished=_clear_probe_slot,
+                )
+            except Exception as e:
+                return self._send_json(500, {"error": f"runner init failed: {e}"})
+
+            # Re-check + install under the lock. A racing handler may have
+            # installed its own slot while we were constructing — discard
+            # ours in that case (it never started; nothing to stop).
             global _PROBE_SLOT
             with _PROBE_SLOT_LOCK:
                 if _PROBE_SLOT is not None and _PROBE_SLOT.is_running():
@@ -1692,15 +1698,9 @@ Add helper methods inside `DashboardHandler`:
                         "error": "another probe is running",
                         "run_id": _PROBE_SLOT.run_id(),
                     })
-                try:
-                    runner = ProbeRunner(
-                        base_url=base_url, roe_path=roe_path, paths=self._paths,
-                        platform=platform, program=program, max_turns=max_turns,
-                        on_finished=_clear_probe_slot,
-                    )
-                except Exception as e:
-                    return self._send_json(500, {"error": f"runner init failed: {e}"})
-
+                # Install the slot BEFORE starting the thread — otherwise a
+                # fast runner can finish (and fire on_finished, finding no
+                # slot to clear) before this handler reaches the assignment.
                 _PROBE_SLOT = runner
                 try:
                     run_id = runner.start()
@@ -1800,12 +1800,16 @@ Append to `tests/dashboard/test_probe_routes.py`:
 
 ```python
 def _invoke_get(handler_cls, path: str) -> tuple[int, bytes]:
+    """Convenience: drive GET on the stream route through the shared
+    `_drive` helper defined in tests/dashboard/test_probe_routes.py
+    (Task 6 introduces it). Returns (status, raw_wfile_bytes) — the
+    stream route writes SSE frames, not JSON, so callers inspect bytes
+    directly rather than the parsed-body dict."""
     import io
     from unittest.mock import MagicMock
-    rfile = io.BytesIO(f"GET {path} HTTP/1.1\r\n\r\n".encode())
     wfile = io.BytesIO()
     h = handler_cls.__new__(handler_cls)
-    h.rfile = rfile
+    h.rfile = io.BytesIO(b"")
     h.wfile = wfile
     h.command = "GET"
     h.path = path

@@ -54,7 +54,7 @@ def _runner_with_session(observations: list[ObservationWrapper] | None = None):
 class TestPickTask:
     def test_no_observations_picks_agent_planning(self):
         r = _runner_with_session([])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 ```
 
 - [ ] **Step 2: Run — expect FAIL (ImportError: probe_runner not found)**
@@ -98,7 +98,7 @@ from earn_money.agent.probe_actions import ReportCandidateAction
 from earn_money.agent.roe_policy import RoePolicy
 from earn_money.agent.roe_profile import RoeProfile, RoeSourceType, load_roe_profile
 from earn_money.agent.scope_policy import ScopePolicy
-from earn_money.agent.task_router import RouterUnconfigured, resolve_model
+from earn_money.agent.task_router import RouterUnconfigured, TaskType, resolve_model
 
 log = logging.getLogger(__name__)
 
@@ -144,61 +144,46 @@ class ProbeRunner(HackerLoop):
         self._queue: queue.Queue[dict[str, Any]] = queue.Queue()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
-        self._next_task_hint: str | None = None
+        self._next_task_hint: TaskType | None = None
         self._closed = False
         self._on_finished = on_finished
 
     # ── HackerLoop hook overrides ─────────────────────────────────────────
 
-    def _pick_task(self) -> str:
-        if self._next_task_hint:
+    def _pick_task(self) -> TaskType:
+        if self._next_task_hint is not None:
             return self._next_task_hint
         if not self.session.observations:
-            return "agent_planning"
+            return TaskType.AGENT_PLANNING
         last = self.session.observations[-1]
         ctype = (last.headers.get("content-type") or "").lower()
         body = last.body or ""
         if "javascript" in ctype:
-            return "coding_security"
+            return TaskType.CODING_SECURITY
         if "text/html" in ctype and "<script" in body.lower():
-            return "coding_security"
-        return "agent_planning"
+            return TaskType.CODING_SECURITY
+        return TaskType.AGENT_PLANNING
 ```
 
-Add the helper functions at module level (the spec calls them out by name):
+Reuse `_seed_urls` from the existing CLI rather than redefining it (it's already in `src/earn_money/agent/hacker_loop_cli.py`). Add this import alongside the others at the top of `probe_runner.py`:
 
 ```python
-_SEED_SQL = """
-SELECT DISTINCT target
-FROM signals
-WHERE tool IN ('katana', 'swagger')
-LIMIT 100
-"""
+from earn_money.agent.hacker_loop_cli import _seed_urls
+```
 
+`_apply_max_turns` is the runner-side single-knob clamp. The CLI's `_apply_cli_limits` does the same thing for four knobs but takes an `argparse.Namespace`; a proper extraction would refactor `_apply_cli_limits` to take a plain dict and live in a shared module. **Deferred** — out of plan scope; left as a TODO note here. For v1, `probe_runner` carries this small helper:
 
-def _seed_urls(db_path: Path, base_url: str) -> list[str]:
-    """Same SQL as hacker_loop_cli._seed_urls."""
-    import sqlite3
-    if not db_path.exists():
-        return [base_url]
-    try:
-        with sqlite3.connect(db_path) as conn:
-            rows = conn.execute(_SEED_SQL).fetchall()
-        urls = [row[0] for row in rows if row[0]]
-        return urls or [base_url]
-    except Exception:
-        return [base_url]
-
-
+```python
 def _apply_max_turns(profile: RoeProfile, max_turns: int) -> RoeProfile:
-    """Single-knob clamp for max_turns (mirrors hacker_loop_cli._apply_cli_limits)."""
+    # TODO: share with hacker_loop_cli._apply_cli_limits once that helper
+    # is refactored to take a dict of overrides (out of scope for this PR).
     effective = min(profile.max_turns, max_turns)
     data = profile.model_dump(exclude={"source_type", "source_ref"})
     data["max_turns"] = effective
     return RoeProfile.from_dict(data, profile.source_type, profile.source_ref)
 
 
-def _resolve_model_safely(task: str) -> str | None:
+def _resolve_model_safely(task: TaskType) -> str | None:
     try:
         return resolve_model(task)
     except RouterUnconfigured:
@@ -224,7 +209,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "application/javascript"}, "var x=1;",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "coding_security"
+        assert r._pick_task() == TaskType.CODING_SECURITY
 
     def test_html_with_script_picks_coding_security(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -232,7 +217,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "text/html"}, "<html><script>1</script></html>",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "coding_security"
+        assert r._pick_task() == TaskType.CODING_SECURITY
 
     def test_html_without_script_picks_agent_planning(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -240,7 +225,7 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "text/html"}, "<html><body>hi</body></html>",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 
     def test_json_content_type_picks_agent_planning(self):
         from earn_money.agent.observations import ObservationWrapper
@@ -248,12 +233,12 @@ uv run pytest tests/dashboard/test_probe_runner.py::TestPickTask -v
             200, "https://t/x", {"content-type": "application/json"}, "{}",
         )
         r = _runner_with_session([obs])
-        assert r._pick_task() == "agent_planning"
+        assert r._pick_task() == TaskType.AGENT_PLANNING
 
     def test_report_candidate_hint_picks_structured_extraction(self):
         r = _runner_with_session([])
-        r._next_task_hint = "structured_extraction"
-        assert r._pick_task() == "structured_extraction"
+        r._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        assert r._pick_task() == TaskType.STRUCTURED_EXTRACTION
 ```
 
 - [ ] **Step 6: Add hook overrides + `_get_llm_response` override**
@@ -311,8 +296,8 @@ In `probe_runner.py`, inside `ProbeRunner`, add:
 
     def _on_turn_complete(self, turn: int, action: Any, stage: str) -> None:
         if isinstance(action, ReportCandidateAction):
-            self._next_task_hint = "structured_extraction"
-        elif self._next_task_hint == "structured_extraction":
+            self._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        elif self._next_task_hint is not None:
             self._next_task_hint = None
         self._emit("turn", {"turn": turn, "stage": "complete", "outcome": stage})
         if self._stop_event.is_set():
@@ -340,10 +325,16 @@ Append to `ProbeRunner`:
     def run_id(self) -> str:
         return self._run_id
 
+    # SSE convention is a keep-alive every 15-30 s; 15 here so a slow
+    # LLM turn (≈10 s) doesn't trigger a keep-alive between real events,
+    # but a paused server doesn't hold an idle TCP connection silent
+    # past 30 s either.
+    _EVENTS_GET_TIMEOUT_SECONDS = 15.0
+
     def events(self) -> Iterator[dict[str, Any]]:
         while True:
             try:
-                evt = self._queue.get(timeout=1.0)
+                evt = self._queue.get(timeout=self._EVENTS_GET_TIMEOUT_SECONDS)
             except queue.Empty:
                 if not self.is_running() and self._queue.empty():
                     return
@@ -626,33 +617,29 @@ class TestEvents:
     def test_hint_is_consumed_after_one_use(self, make_runner):
         runner = make_runner([_j(tool="stop", category="stop", args={})])
         # Simulate a ReportCandidateAction having just been processed.
-        runner._next_task_hint = "structured_extraction"
-        assert runner._pick_task() == "structured_extraction"
+        runner._next_task_hint = TaskType.STRUCTURED_EXTRACTION
+        assert runner._pick_task() == TaskType.STRUCTURED_EXTRACTION
         # Trigger the _on_turn_complete branch that clears the hint.
         from earn_money.agent.probe_actions import StopAction
         runner._on_turn_complete(2, StopAction(tool="stop", category="stop"), "completed")
         assert runner._next_task_hint is None
 ```
 
-- [ ] **Step 14: Run the full probe_runner test file — expect PASS**
-
-```bash
-uv run pytest tests/dashboard/test_probe_runner.py -v
-```
-
-- [ ] **Step 15: Run the full test suite to confirm no regression**
+- [ ] **Step 14: Run the full test suite — covers the new probe_runner tests and confirms no regression**
 
 ```bash
 uv run pytest -q
 ```
 
-- [ ] **Step 16: Lint**
+(One sweep is enough — the file-level run that an earlier draft had here was redundant with the full sweep.)
+
+- [ ] **Step 15: Lint**
 
 ```bash
 uv run ruff check src/earn_money/dashboard/probe_runner.py tests/dashboard/test_probe_runner.py
 ```
 
-- [ ] **Step 17: Commit**
+- [ ] **Step 16: Commit**
 
 ```bash
 git add src/earn_money/dashboard/probe_runner.py tests/dashboard/test_probe_runner.py

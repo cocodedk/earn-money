@@ -21,10 +21,14 @@ Insert after the existing `_STATIC_ROUTES` block:
 
 ```python
 import threading  # if not already imported at top — verify and move up if so
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from earn_money.dashboard.probe_runner import ProbeRunner
 
 # One-at-a-time probe runner — module-level slot under a lock so two
 # near-simultaneous POST /api/probe/start handler threads race safely.
-_PROBE_SLOT: object | None = None     # ProbeRunner | None; object to avoid import cycle
+_PROBE_SLOT: "ProbeRunner | None" = None
 _PROBE_SLOT_LOCK = threading.Lock()
 
 
@@ -38,7 +42,7 @@ def _clear_probe_slot(run_id: str) -> None:
             _PROBE_SLOT = None
 ```
 
-Note: keep the `_PROBE_SLOT` type as `object | None` to avoid importing `ProbeRunner` at module-import time (which would create a cycle as soon as `ProbeRunner` imports `config`). The actual typing is asserted at use site.
+`TYPE_CHECKING` keeps the `ProbeRunner` import out of the runtime import graph (no cycle) while still letting `mypy --strict` see the real type. The forward-ref string `"ProbeRunner | None"` is the type the slot holds.
 
 - [ ] **Step 3: Add `_paths` class attribute on the handler**
 

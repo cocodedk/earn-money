@@ -54,12 +54,13 @@ def _try_load(raw: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def parse_action_with_recovery(
-    raw: str,
-) -> tuple[
-    GetAction | PostAction | SetHeaderAction | StoreAction | ReportCandidateAction | StopAction,
-    bool,
-]:
+_ParsedAction = (
+    GetAction | PostAction | SetHeaderAction
+    | StoreAction | ReportCandidateAction | StopAction
+)
+
+
+def parse_action_with_recovery(raw: str) -> tuple[_ParsedAction, bool]:
     """Parse `raw` into a typed action. Returns `(action, parse_recovered)`
     where `parse_recovered` is True when the happy-path `json.loads` failed
     and one of the recovery layers had to fire."""
@@ -88,9 +89,7 @@ def parse_action_with_recovery(
     return action, recovered  # type: ignore[return-value]
 
 
-def parse_action(
-    raw: str,
-) -> GetAction | PostAction | SetHeaderAction | StoreAction | ReportCandidateAction | StopAction:
+def parse_action(raw: str) -> _ParsedAction:
     """Existing API — preserved unchanged. Drops the recovery flag."""
     action, _ = parse_action_with_recovery(raw)
     return action

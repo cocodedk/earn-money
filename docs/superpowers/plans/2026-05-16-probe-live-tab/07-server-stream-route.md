@@ -14,12 +14,16 @@ Append to `tests/dashboard/test_probe_routes.py`:
 
 ```python
 def _invoke_get(handler_cls, path: str) -> tuple[int, bytes]:
+    """Convenience: drive GET on the stream route through the shared
+    `_drive` helper defined in tests/dashboard/test_probe_routes.py
+    (Task 6 introduces it). Returns (status, raw_wfile_bytes) — the
+    stream route writes SSE frames, not JSON, so callers inspect bytes
+    directly rather than the parsed-body dict."""
     import io
     from unittest.mock import MagicMock
-    rfile = io.BytesIO(f"GET {path} HTTP/1.1\r\n\r\n".encode())
     wfile = io.BytesIO()
     h = handler_cls.__new__(handler_cls)
-    h.rfile = rfile
+    h.rfile = io.BytesIO(b"")
     h.wfile = wfile
     h.command = "GET"
     h.path = path

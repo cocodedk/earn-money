@@ -226,17 +226,20 @@ Change `_get_llm_response` to:
 
 ```python
     def _get_llm_response(self, prompt: str) -> str | None:
+        from earn_money.agent.task_router import TaskType
         try:
             return self.provider.complete(  # type: ignore[no-any-return]
                 system=_SYSTEM_PROMPT,
                 user=prompt,
-                task="agent_planning",
+                task=TaskType.AGENT_PLANNING,
                 response_format={"type": "json_object"},
             )
         except Exception as e:
             log.error("Provider error: %s", e)
             return None
 ```
+
+(Note: the `TaskType` import is added at the top of `hacker_loop.py` alongside the existing agent imports — the inline import shown above is illustrative of where `TaskType` is referenced, not where to put the import statement.)
 
 - [ ] **Step 8: Run the new hook test — expect PASS**
 
