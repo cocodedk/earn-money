@@ -93,7 +93,9 @@ Layer rules: runners never read from `findings/`; report drafter never writes to
 
 ### File size
 
-**200-line maximum per file.** Extract a class, function, or module when approaching the limit. Spec and plan files under `docs/superpowers/` are exempt — they are reference documents, not source.
+**200-line maximum per file** for code, tests, HTML, CSS, JS, and config. Extract a class, function, or module when approaching the limit.
+
+Spec and plan files under `docs/superpowers/specs/` and `docs/superpowers/plans/` are not bound to a fixed line count — but the spirit of the cap still applies. Write specs and plans as a **subfolder of short focused files**, one concern per file (e.g. `docs/superpowers/specs/YYYY-MM-DD-<topic>/00-overview.md`, `01-architecture.md`, `02-contracts.md`, …). A single long spec doc is wrong; a folder of short focused docs is right. Existing examples to follow: `docs/superpowers/plans/LLM-LOOP/01-INTELLIGENT-PENTEST-ENGINE/` and `02-INTELLIGENT-PENTEST-ENGINE/`.
 
 ### DRY · SOLID · KISS · YAGNI
 
