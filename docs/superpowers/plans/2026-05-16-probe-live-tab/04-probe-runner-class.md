@@ -589,6 +589,9 @@ class TestEvents:
 
     def test_events_yields_keepalive_on_queue_idle(self, make_runner):
         runner = make_runner([_j(tool="stop", category="stop", args={})])
+        # Shrink the get-timeout so this test doesn't wait the full
+        # production 15 s for the first _keepalive frame.
+        runner._EVENTS_GET_TIMEOUT_SECONDS = 0.01
         # Mark the runner as "still running" so the queue-empty branch
         # yields _keepalive instead of returning.
         runner._thread = MagicMock()

@@ -1,3 +1,10 @@
+# Probe Live Tab — Implementation Plan (snapshot 20260516-154018)
+
+Snapshot taken: 2026-05-16T15:40:18+02:00
+Source folder: `docs/superpowers/plans/2026-05-16-probe-live-tab/`
+Rolling companion: `2026-05-16-probe-live-tab-plan.consolidated.md`
+
+State at 20260516-154018 — after the keepalive-test timeout-override fix. Plan frozen for implementation.
 
 
 <!-- ====================================================================== -->
