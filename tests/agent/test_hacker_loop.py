@@ -443,12 +443,11 @@ class TestStopValidation:
         assert ActionClass.DISCOVERY_GET in loop.session.tried_action_classes
         assert result.stop_reason == "done"
 
-    def test_prompt_includes_action_class_status_block(self):
+    def test_prompt_includes_coverage_block_in_plain_english(self):
         loop = _loop([_j(tool="stop", category="stop", args={})])
         prompt = loop._build_prompt()
-        assert "=== Action class status ===" in prompt
-        assert "discovery_get" in prompt
-        assert "tried" in prompt or "untried_applicable" in prompt
+        assert "=== Coverage status ===" in prompt
+        assert "Already tried:" in prompt or "Still useful if allowed:" in prompt
 
     def test_rejected_stop_surfaced_in_next_prompt(self):
         """After a STOP rejection, the next prompt includes the rejection
@@ -508,6 +507,50 @@ class TestBuildPrompt:
         loop.run()
         full = seen[0]["system"] + "\n\n" + seen[0]["prompt"]
         assert full.count("You are an authorized vulnerability scanning agent.") == 1
+
+
+class TestPromptTaxonomyHygiene:
+    """The prompt must not expose ActionClass enum values to the model.
+
+    A2 bench 2026-05-17: both mistral-3.2 and deepseek-v4-pro returned
+    `{"tool": "auth_discovery", ...}` after seeing the class names in
+    the system prompt. The class taxonomy is an internal coverage ID;
+    the only valid tool dispatch identifiers are the six listed in the
+    "Available actions" block.
+    """
+
+    def test_no_raw_enum_values_leak_into_full_prompt(self):
+        from earn_money.agent.action_classes import ActionClass
+        loop = _loop([_j(tool="stop", category="stop", args={})], presolved=False)
+        full = _SYSTEM_PROMPT + "\n\n" + loop._build_prompt()
+        for cls in ActionClass:
+            assert cls.value not in full, (
+                f"Raw enum value {cls.value!r} leaked into the prompt — "
+                "LLMs conflate this with tool names."
+            )
+
+    def test_tool_list_precedes_coverage_block(self):
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        prompt = loop._build_prompt()
+        tools_idx = prompt.index("=== Available actions ===")
+        coverage_idx = prompt.index("=== Coverage status ===")
+        assert tools_idx < coverage_idx, (
+            "Strict tool schema must appear before coverage hints "
+            "so the model anchors on it before reading taxonomy."
+        )
+
+    def test_coverage_block_uses_plain_english_for_auth_boundary(self):
+        """When AUTH_DISCOVERY is untried+applicable, the prompt should
+        describe the technique in human language, never as 'auth_discovery'."""
+        loop = _loop([_j(tool="stop", category="stop", args={})], presolved=False)
+        prompt = loop._build_prompt()
+        assert "authentication boundary" in prompt
+        assert "auth_discovery" not in prompt
+
+    def test_prompt_states_strict_valid_tool_values(self):
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        full = _SYSTEM_PROMPT + "\n\n" + loop._build_prompt()
+        assert "get, post, set_header, store, report_candidate, stop" in full
 
 
 class TestPromptHook:
