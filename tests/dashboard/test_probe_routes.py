@@ -306,7 +306,7 @@ class TestStartRoute:
 
     def test_returns_400_when_max_turns_out_of_range(self, handler_factory):
         handler_cls, _paths = handler_factory
-        for bad in (0, 51):
+        for bad in (0, 10001):
             status, body = _invoke_post(
                 handler_cls,
                 "/api/probe/start",

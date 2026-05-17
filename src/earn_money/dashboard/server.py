@@ -284,13 +284,19 @@ def _make_handler(
             max_turns = body.get("max_turns")
             # `type(x) is int` rejects bool (which is a subclass of
             # int — `isinstance(True, int)` is True, and
-            # `1 <= True <= 50` is True too, so isinstance would
+            # `1 <= True <= 10000` is True too, so isinstance would
             # silently accept max_turns=true).
+            #
+            # The form-level cap is high (10000) so the RoE profile's
+            # own max_turns is the real ceiling — ProbeRunner applies
+            # min(profile.max_turns, max_turns) so an unrestricted PoC
+            # RoE (e.g. juice-shop) can use higher values while
+            # tight-budgeted RoEs stay tight.
             if max_turns is not None and (
-                type(max_turns) is not int or not (1 <= max_turns <= 50)
+                type(max_turns) is not int or not (1 <= max_turns <= 10000)
             ):
                 return self._send_json(400, {"error":
-                    "max_turns must be an int between 1 and 50"})
+                    "max_turns must be an int between 1 and 10000"})
 
             if roe_path is not None and not roe_path.exists():
                 return self._send_json(400, {"error":
