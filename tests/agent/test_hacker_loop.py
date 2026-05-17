@@ -403,6 +403,22 @@ class TestPromptHook:
         assert seen[0]["attempt"] == 1
         assert seen[0]["used_response_format"] is False
 
+    def test_llm_error_when_first_call_returns_none(self):
+        # Both helper calls raise → helper returns (None, False) → run() returns llm_error.
+        loop = _loop([])
+        loop.provider.complete.side_effect = [RuntimeError("a"), RuntimeError("b")]
+        result = loop.run()
+        assert result.stop_reason == "llm_error"
+
+    def test_llm_error_when_retry_call_returns_none(self):
+        # First call: garbage triggers parse-retry. Retry call (rf off) raises
+        # → helper returns (None, False) → run() exits with llm_error from the
+        # second `if raw is None` branch.
+        loop = _loop([])
+        loop.provider.complete.side_effect = ["{", RuntimeError("retry failed")]
+        result = loop.run()
+        assert result.stop_reason == "llm_error"
+
 
 class TestProviderHelper:
     def test_returns_used_response_format_true_when_rf_succeeds(self):
