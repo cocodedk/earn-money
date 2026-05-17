@@ -318,6 +318,7 @@ def _make_handler(
             try:
                 runner = ProbeRunner(
                     base_url=base_url, roe_path=roe_path, paths=self._paths,
+                    target_kind=target_kind,
                     platform=platform, program=program, max_turns=max_turns,
                     # NOTE: deliberately no on_finished=. The slot is
                     # NOT cleared when the runner exits — that would

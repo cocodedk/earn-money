@@ -74,6 +74,30 @@ class TestPickTask:
         assert runner._next_task_hint is None
 
 
+class TestBaseHostAugmentation:
+    def test_local_lab_without_roe_adds_base_host(self):
+        from earn_money.agent.roe_profile import RoeProfile, RoeSourceType
+        from earn_money.dashboard.probe_runner import _augment_with_base_host
+
+        profile = RoeProfile.safe_default()
+        assert profile.allowed_hosts == []
+        augmented = _augment_with_base_host(profile, "https://target.example.com:8443/x")
+        assert augmented.allowed_hosts == ["target.example.com"]
+        # source_type/ref preserved from safe_default
+        assert augmented.source_type == RoeSourceType.MANUAL
+
+    def test_augmentation_is_noop_when_host_already_present(self):
+        from earn_money.agent.roe_profile import RoeProfile, RoeSourceType
+        from earn_money.dashboard.probe_runner import _augment_with_base_host
+
+        profile = RoeProfile(
+            name="p", source_type=RoeSourceType.MANUAL,
+            allowed_hosts=["target.example.com"],
+        )
+        out = _augment_with_base_host(profile, "https://target.example.com/")
+        assert out is profile  # short-circuit, no rebuild
+
+
 @pytest.fixture()
 def make_runner(tmp_path, monkeypatch):
     """Build a real ProbeRunner instance without starting its thread.
@@ -112,6 +136,7 @@ def make_runner(tmp_path, monkeypatch):
             base_url="https://target.example.com",
             roe_path=roe_yaml,
             paths=paths,
+            target_kind="local_lab",
         )
 
     return _factory

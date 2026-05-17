@@ -15,6 +15,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from earn_money import config
 from earn_money.agent import providers as providers_mod
@@ -53,12 +54,19 @@ class ProbeRunner(HackerLoop):
         base_url: str,
         roe_path: Path | None,
         paths: config.Paths,
+        target_kind: str,
         platform: str | None = None,
         program: str | None = None,
         max_turns: int | None = None,
         on_finished: Callable[[str], None] | None = None,
     ) -> None:
         profile = load_roe_profile(roe_path, RoeSourceType.MANUAL)
+        # For target_kind=local_lab without an RoE file, the operator's
+        # submission of the base_url through the form IS the scope
+        # authorization — add its host to allowed_hosts so the LLM
+        # doesn't immediately stop on "Allowed hosts: (empty)".
+        if target_kind == "local_lab" and roe_path is None:
+            profile = _augment_with_base_host(profile, base_url)
         if max_turns is not None:
             profile = _apply_max_turns(profile, max_turns)
         roe_policy = RoePolicy(profile)
@@ -245,6 +253,15 @@ class ProbeRunner(HackerLoop):
             #
             # `_on_finished` is kept on the constructor for future use
             # (e.g. multi-probe history), but is NOT invoked here.
+
+
+def _augment_with_base_host(profile: RoeProfile, base_url: str) -> RoeProfile:
+    host = urlparse(base_url).hostname
+    if not host or host in profile.allowed_hosts:
+        return profile
+    data = profile.model_dump(exclude={"source_type", "source_ref"})
+    data["allowed_hosts"] = [*profile.allowed_hosts, host]
+    return RoeProfile.from_dict(data, profile.source_type, profile.source_ref)
 
 
 def _apply_max_turns(profile: RoeProfile, max_turns: int) -> RoeProfile:
