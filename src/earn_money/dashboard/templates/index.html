@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/static/dashboard.css">
 <link rel="stylesheet" href="/static/panels.css">
 <link rel="stylesheet" href="/static/probe.css">
+<link rel="stylesheet" href="/static/probe-detail.css">
 </head>
 <body>
 <main>
@@ -65,7 +66,10 @@
     </section>
 
     <h2 class="rule"><span>§ 02 — LIVE TIMELINE</span></h2>
-    <section id="probe-timeline" aria-live="polite"></section>
+    <div class="probe-body">
+      <section id="probe-timeline" aria-live="polite"></section>
+      <aside id="probe-detail" aria-label="prompt & response detail"></aside>
+    </div>
   </div>
 
   <footer>
@@ -77,7 +81,10 @@
 <script src="/static/render_panels.js"></script>
 <script src="/static/dashboard.js"></script>
 <script src="/static/tabs.js"></script>
+<script src="/static/probe-status.js"></script>
+<script src="/static/probe-state.js"></script>
 <script src="/static/probe-render.js"></script>
+<script src="/static/probe-detail.js"></script>
 <script src="/static/probe.js"></script>
 </body>
 </html>
