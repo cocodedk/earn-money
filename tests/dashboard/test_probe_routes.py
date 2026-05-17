@@ -29,7 +29,7 @@ class _FakeRunner:
     def is_running(self) -> bool:
         return self._running
 
-    def events(self):
+    def events(self, last_event_id: int = 0):
         yield {
             "event": "done",
             "data": {
@@ -39,6 +39,7 @@ class _FakeRunner:
                 "verified_count": 0,
                 "denials_count": 0,
             },
+            "seq": 1,
         }
 
 
@@ -689,7 +690,7 @@ class TestStreamRoute:
         done_data = {"turns": 1, "stop_reason": "done",
                      "candidates_count": 0, "verified_count": 0, "denials_count": 0}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "turn", "data": turn_data}
             yield {"event": "done", "data": done_data}
 
@@ -711,7 +712,7 @@ class TestStreamRoute:
         done_data = {"turns": 1, "stop_reason": "done",
                      "candidates_count": 1, "verified_count": 0, "denials_count": 0}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "finding", "data": finding_data}
             yield {"event": "done", "data": done_data}
 
@@ -733,7 +734,7 @@ class TestStreamRoute:
                      "candidates_count": 0, "verified_count": 0, "denials_count": 0}
         turn_data = {"turn": 1, "stage": "action_pending"}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "done", "data": done_data}
             yield {"event": "turn", "data": turn_data}
 
@@ -756,7 +757,7 @@ class TestStreamRoute:
         error_data = {"message": "something bad", "stage": "action"}
         turn_data = {"turn": 1, "stage": "action_pending"}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "probe_error", "data": error_data}
             yield {"event": "turn", "data": turn_data}
 
@@ -781,7 +782,7 @@ class TestStreamRoute:
         done_data = {"turns": 0, "stop_reason": "done",
                      "candidates_count": 0, "verified_count": 0, "denials_count": 0}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "_keepalive", "data": {}}
             yield {"event": "done", "data": done_data}
 
@@ -799,7 +800,7 @@ class TestStreamRoute:
         done_data = {"turns": 0, "stop_reason": "done",
                      "candidates_count": 0, "verified_count": 0, "denials_count": 0}
 
-        def events():
+        def events(last_event_id: int = 0):
             yield {"event": "turn", "data": {"turn": 1}}
             yield {"event": "done", "data": done_data}
 

@@ -376,6 +376,17 @@ def _make_handler(
             if runner.run_id() != run_id:
                 return self.send_error(410, "run_id does not match the active probe")
 
+            # Browser reconnect carries `Last-Event-ID: <seq>`. The
+            # EventHistory replays everything with seq > last_event_id,
+            # then tails new appends — so a page reload sees the trace
+            # it would otherwise have lost. A malformed header falls
+            # back to a fresh-subscriber replay; never crash the stream.
+            last_event_id_raw = self.headers.get("Last-Event-ID")
+            try:
+                last_event_id = int(last_event_id_raw) if last_event_id_raw else 0
+            except (TypeError, ValueError):
+                last_event_id = 0
+
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
             self.send_header("Cache-Control", "no-cache")
@@ -400,9 +411,10 @@ def _make_handler(
                 self.wfile.write(b"retry: 0\n\n")
                 self.wfile.flush()
 
-                for evt in runner.events():
+                for evt in runner.events(last_event_id=last_event_id):
                     name = evt.get("event", "")
                     data = evt.get("data", {})
+                    seq = evt.get("seq")
                     if name not in _ALLOWED_SSE_EVENTS:
                         # Coerce an unknown name into a probe_error frame
                         # rather than crash on .encode("ascii").
@@ -412,7 +424,10 @@ def _make_handler(
                         self.wfile.write(b":\n\n")
                     else:
                         payload = json.dumps(data, default=str).encode("utf-8")
-                        frame = (
+                        frame = b""
+                        if isinstance(seq, int):
+                            frame += b"id: " + str(seq).encode("ascii") + b"\n"
+                        frame += (
                             b"event: " + name.encode("ascii")
                             + b"\ndata: " + payload + b"\n\n"
                         )

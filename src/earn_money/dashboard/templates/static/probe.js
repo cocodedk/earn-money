@@ -45,8 +45,35 @@
     }
     const { run_id } = await res.json();
     local.run_id = run_id;
+    _writeRunIdToHash(run_id);
     openStream(run_id);
   });
+
+  // Page-reload survival. The dashboard process keeps a per-run event
+  // history; a reload that lands here with `#run=<id>` reopens the SSE
+  // stream and the server replays the full trace from seq 0. EventSource
+  // also sets `Last-Event-ID` on subsequent reconnects, so dropped
+  // connections resume without duplicating events.
+  function _readRunIdFromHash() {
+    const m = (location.hash || "").match(/(?:^|&)run=([0-9a-fA-F]{32})\b/);
+    return m ? m[1] : null;
+  }
+  function _writeRunIdToHash(run_id) {
+    const tail = "run=" + run_id;
+    if (!location.hash) { location.hash = tail; return; }
+    if (location.hash.indexOf("run=") >= 0) {
+      location.hash = location.hash.replace(/run=[0-9a-fA-F]+/, tail);
+    } else {
+      location.hash = location.hash + "&" + tail;
+    }
+  }
+  const _bootRunId = _readRunIdFromHash();
+  if (_bootRunId) {
+    local.run_id = _bootRunId;
+    window.probeReducer({ stage: "probe_start" });
+    runBtn.disabled = true;
+    openStream(_bootRunId);
+  }
 
   function openStream(run_id) {
     const es = new EventSource("/api/probe/stream?run_id=" + encodeURIComponent(run_id));

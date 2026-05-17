@@ -9,7 +9,6 @@ import.
 from __future__ import annotations
 
 import logging
-import queue
 import threading
 import uuid
 from collections.abc import Callable, Iterator
@@ -35,6 +34,7 @@ from earn_money.agent.roe_policy import RoePolicy
 from earn_money.agent.roe_profile import RoeProfile, RoeSourceType, load_roe_profile
 from earn_money.agent.scope_policy import ScopePolicy
 from earn_money.agent.task_router import RouterUnconfigured, TaskType, resolve_model
+from earn_money.dashboard.probe_history import EventHistory
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class ProbeRunner(HackerLoop):
         )
 
         self._run_id: str = uuid.uuid4().hex
-        self._queue: queue.Queue[dict[str, Any]] = queue.Queue()
+        self._history = EventHistory()
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._next_task_hint: TaskType | None = None
@@ -215,23 +215,19 @@ class ProbeRunner(HackerLoop):
     # past 30 s either.
     _EVENTS_GET_TIMEOUT_SECONDS = 15.0
 
-    def events(self) -> Iterator[dict[str, Any]]:
-        while True:
-            try:
-                evt = self._queue.get(timeout=self._EVENTS_GET_TIMEOUT_SECONDS)
-            except queue.Empty:
-                if not self.is_running() and self._queue.empty():
-                    return
-                yield {"event": "_keepalive", "data": {}}
-                continue
-            yield evt
-            if evt.get("event") in ("done", "probe_error"):
-                return
+    def events(self, last_event_id: int = 0) -> Iterator[dict[str, Any]]:
+        """Yield SSE events from the per-run history. `last_event_id`
+        comes from the browser's SSE `Last-Event-ID` header on reconnect;
+        a fresh subscriber passes 0 (the default) to receive the full
+        replay."""
+        yield from self._history.iter_since(
+            last_event_id, keepalive_interval=self._EVENTS_GET_TIMEOUT_SECONDS,
+        )
 
     # ── private helpers ──────────────────────────────────────────────────
 
     def _emit(self, name: str, data: dict[str, Any]) -> None:
-        self._queue.put({"event": name, "data": data})
+        self._history.append(name, data)
 
     def _run_safe(self) -> None:
         try:

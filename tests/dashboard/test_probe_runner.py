@@ -150,10 +150,20 @@ def make_runner(tmp_path, monkeypatch):
 
 
 def _events_from(runner) -> list[dict]:
-    """Drain runner._queue synchronously and return events as a list."""
+    """Drain the runner's history synchronously and return events.
+
+    Equivalent to the old queue-drain helper, but reads through the
+    EventHistory replay buffer so tests still see every emitted event
+    after _run_safe() returns. Strips the seq id to keep assertions
+    backward-compatible.
+    """
     out: list[dict] = []
-    while not runner._queue.empty():
-        out.append(runner._queue.get_nowait())
+    for evt in runner._history.iter_since(0, keepalive_interval=0.01):
+        if evt.get("event") == "_keepalive":
+            break
+        out.append({"event": evt["event"], "data": evt["data"]})
+        if evt["event"] in ("done", "probe_error"):
+            break
     return out
 
 
@@ -327,18 +337,18 @@ class TestEvents:
                 break  # guard against infinite loop
         assert produced[-1]["event"] == "done"
 
-    def test_events_yields_keepalive_on_queue_idle(self, make_runner):
+    def test_events_yields_keepalive_when_idle(self, make_runner):
         runner = make_runner([_j(tool="stop", category="stop", args={})])
-        # Shrink the get-timeout so this test doesn't wait the full
-        # production 15 s for the first _keepalive frame.
+        # Shrink the keepalive interval so this test doesn't wait the
+        # full production 15 s for the first _keepalive frame. The
+        # runner hasn't been started so the history is empty AND not
+        # marked completed — exactly the "live but quiet" state SSE
+        # needs to keep alive.
         runner._EVENTS_GET_TIMEOUT_SECONDS = 0.01
-        # Mark the runner as "still running" so the queue-empty branch
-        # yields _keepalive instead of returning.
-        runner._thread = MagicMock()
-        runner._thread.is_alive = lambda: True
         gen = runner.events()
         evt = next(gen)
-        assert evt == {"event": "_keepalive", "data": {}}
+        assert evt["event"] == "_keepalive"
+        assert evt["data"] == {}
 
 
 class TestPromptInSseEvent:
