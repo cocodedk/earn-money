@@ -154,3 +154,30 @@ test("followLatest auto-selects new turn when enabled", () => {
   window.probeReducer(pending1(2));
   assert.equal(window.probeState.selectedTurn, 2);
 });
+
+// ── maxTurn cached invariant (perf fix in commit 6732f3b) ─────────────
+
+test("maxTurn starts at 0 in fresh state", () => {
+  assert.equal(window.probeState.maxTurn, 0);
+});
+
+test("maxTurn tracks the highest turn number seen on action_pending", () => {
+  window.probeReducer(pending1(1));
+  assert.equal(window.probeState.maxTurn, 1);
+  window.probeReducer(pending1(3));
+  assert.equal(window.probeState.maxTurn, 3);
+  window.probeReducer(pending1(2));   // out-of-order event must NOT decrease maxTurn
+  assert.equal(window.probeState.maxTurn, 3);
+});
+
+test("probe_start resets maxTurn to 0", () => {
+  window.probeReducer(pending1(5));
+  assert.equal(window.probeState.maxTurn, 5);
+  window.probeReducer({ stage: "probe_start" });
+  assert.equal(window.probeState.maxTurn, 0);
+});
+
+test("setFollowLatest(true) before any turn is a no-op on selectedTurn", () => {
+  window.setFollowLatest(true);
+  assert.equal(window.probeState.selectedTurn, null);
+});
