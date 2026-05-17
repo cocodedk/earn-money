@@ -43,6 +43,8 @@ rsync -az --delete \
     --exclude='*.sqlite' \
     --exclude='RECON_ENABLED' \
     --exclude='identity/platforms.md' \
+    --exclude='.env' \
+    --exclude='.env.bak.*' \
     ./ "${VPS_HOST}:${VPS_PATH}"
 
 log "restart → systemd ${SERVICE}"
