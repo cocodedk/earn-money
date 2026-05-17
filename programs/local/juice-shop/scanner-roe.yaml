@@ -1,0 +1,77 @@
+# Scanner RoE profile — local/juice-shop
+#
+# Mirrors the technique-level authorization in `roe.md` (operator-owned
+# OWASP Juice Shop at target.cocode.dk, full HTTP technique
+# authorization on the designated test environment) into the flags the
+# scanner's RoePolicy gates on.
+#
+# Submit this file via the dashboard form's "RoE profile" field when
+# probing target.cocode.dk:
+#
+#   RoE profile: programs/local/juice-shop/scanner-roe.yaml
+#
+# Do NOT change `safe_default`. This file is the explicit lab-mode RoE;
+# it grants what the operator authorized, nothing else. Drop-in usage
+# is per-run; the safe_default stays the conservative floor for any
+# target where this YAML isn't supplied.
+
+name: juice-shop-local-lab
+allowed_hosts:
+  - target.cocode.dk
+
+# Turn / request budget — sized for a "useful benchmark" run. The
+# engine has room to chain login → token → IDOR → exfil over many
+# turns without hitting the budget cliff.
+max_turns: 200
+max_requests: 1000
+max_posts: 200
+max_response_bytes: 50000
+max_runtime_seconds: 1800
+
+# 10 req/sec ceiling from the technique RoE.
+delay_between_requests_ms: 100
+
+# HTTP methods (technique RoE: mutation_testing_authorized: true).
+allow_get: true
+allow_post: true
+allow_put: true
+allow_patch: true
+allow_delete: true
+
+# Auth / header testing (technique RoE: auth_testing_authorized: true).
+# This is what unblocks the set_header action class — required for the
+# engine to escalate past a 401/403 with a crafted Authorization header
+# or session cookie.
+allow_authenticated_testing: true
+
+# IDOR + injection probes (technique RoE: injection_testing_authorized:
+# true; "full HTTP technique authorization on the designated test
+# environment").
+allow_idor_checks: true
+allow_sqli_probe_payloads: true
+allow_xss_probe_payloads: true
+
+# Exploit chaining — needed for Juice Shop where many challenges require
+# stitching evidence across turns. Operator's "full HTTP technique
+# authorization" covers this.
+allow_exploit_chains: true
+
+# Discovery surfaces.
+allow_graphql_introspection: true
+allow_openapi_probing: true
+
+# Evidence capture from synthetic data is fine; pii_handling in the
+# technique RoE is `synthetic_data_only` — Juice Shop seeds are not
+# real users.
+allow_sensitive_data_capture: true
+
+# Hard NO's from the technique RoE (dos_authorized: false,
+# destructive_payloads_authorized: false). Left as defaults
+# (False) since the scanner RoE's default for these is already False;
+# called out here for clarity.
+allow_bruteforce: false
+allow_rate_limit_testing: false
+allow_password_spraying: false
+allow_credential_stuffing: false
+allow_destructive_actions: false
+allow_file_upload_tests: false
