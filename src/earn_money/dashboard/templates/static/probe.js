@@ -56,16 +56,15 @@
       if (local.closed) return;
       window.probeReducer(JSON.parse(e.data));
     });
-    es.addEventListener("finding", (e) => {
-      if (local.closed) return;
-      // v1 doesn't render findings in the detail panel; reducer ignores
-      // unknown stages so forwarding is harmless.
-      window.probeReducer({ stage: "finding", ...JSON.parse(e.data) });
-    });
-    es.addEventListener("done", (e) => {
+    // `finding` events: v1 doesn't render findings in the detail panel;
+    // each turn's preceding `turn/complete` event already triggered the
+    // final render via the reducer. No listener wired.
+    es.addEventListener("done", () => {
       if (local.closed) return;
       local.closed = true;
-      window.probeReducer({ stage: "done", ...JSON.parse(e.data) });
+      // The preceding `turn/complete` reducer event already updated the
+      // final turn and fired onChange. `done` is a stream-lifecycle
+      // signal only — close the EventSource + re-enable the form.
       es.close();
       local.es = null;
       runBtn.disabled = false;
