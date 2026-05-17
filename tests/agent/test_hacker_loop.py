@@ -313,6 +313,40 @@ class TestAttemptIdentity:
         loop.run()
         assert seen == [2]
 
+    def test_on_action_parse_failed_called_with_attempt_1_when_first_attempt_fails(self):
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{",
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        seen: list[tuple[int, str]] = []
+        loop._on_action_parse_failed = (  # type: ignore[method-assign]
+            lambda turn, attempt, error: seen.append((attempt, error))
+        )
+        loop.run()
+        assert len(seen) == 1
+        assert seen[0][0] == 1
+        assert seen[0][1]
+
+    def test_on_action_parse_failed_called_twice_when_both_attempts_fail(self):
+        loop = _loop([])
+        loop.provider.complete.side_effect = ["{", "still garbage"]
+        seen: list[int] = []
+        loop._on_action_parse_failed = (  # type: ignore[method-assign]
+            lambda turn, attempt, error: seen.append(attempt)
+        )
+        loop.run()
+        assert seen == [1, 2]
+
+    def test_no_action_parse_failed_on_happy_path(self):
+        loop = _loop([_j(tool="stop", category="stop", args={"reason": "done"})])
+        seen: list[int] = []
+        loop._on_action_parse_failed = (  # type: ignore[method-assign]
+            lambda turn, attempt, error: seen.append(attempt)
+        )
+        loop.run()
+        assert seen == []
+
 
 class TestPromptHook:
     def test_called_with_prompt_and_system_on_first_call(self):

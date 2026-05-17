@@ -96,6 +96,10 @@ class HackerLoop:
         """Called after `parse_action_with_recovery` returns. `attempt`
         identifies which call's `raw` actually parsed."""
 
+    def _on_action_parse_failed(self, turn: int, attempt: int, error: str) -> None:
+        """Called from inside the `except ActionParseError` block in `run()`.
+        Fires once per failed parse attempt."""
+
     def _on_policy_decision(self, turn: int, action: object, decision: PolicyDecision) -> None:
         """Called after `roe_policy.decide(action.category)`."""
 
@@ -136,6 +140,7 @@ class HackerLoop:
                 action, parse_recovered = parse_action_with_recovery(raw)
                 attempt = 1
             except ActionParseError as first_err:
+                self._on_action_parse_failed(turn, 1, str(first_err))
                 # Skip the retry if response_format wasn't actually used
                 # on the call that produced this garbage — same kwargs
                 # would just return the same garbage.
@@ -158,6 +163,7 @@ class HackerLoop:
                     action, parse_recovered = parse_action_with_recovery(raw)
                     attempt = 2
                 except ActionParseError as second_err:
+                    self._on_action_parse_failed(turn, 2, str(second_err))
                     log.warning("Invalid action from LLM after retry: %s", second_err)
                     return self._result(turn, "invalid_action")
             self._on_action_parsed(turn, action, parse_recovered, attempt=attempt)
