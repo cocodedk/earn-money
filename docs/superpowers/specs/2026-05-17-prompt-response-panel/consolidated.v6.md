@@ -785,7 +785,7 @@ def test_index_html_loads_probe_detail_css():
 def test_index_html_loads_probe_scripts_in_dependency_order():
     """probe-status.js must load before probe-state.js, before the renderers, before probe.js."""
     html = _INDEX.read_text(encoding="utf-8")
-    found = re.findall(r'<script[^>]+src="(/static/probe[^"]+\.js)"', html)
+    found = re.findall(r'<script[^>]+src="(/static/probe[^"]*\.js)"', html)
     assert found == _EXPECTED_SCRIPT_ORDER, (
         f"index.html script order must be {_EXPECTED_SCRIPT_ORDER}, got {found}"
     )
