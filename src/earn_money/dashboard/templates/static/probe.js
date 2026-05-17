@@ -129,9 +129,12 @@
   }
 
   function _populateFormFromMeta(meta) {
-    // Write each field if the input exists and is empty (so an operator
-    // mid-edit isn't clobbered). Empty/null values from the server are
-    // skipped — keep the placeholder visible.
+    // The meta event is authoritative state for the currently-watched
+    // run. Overwrite every field for which the server has a value;
+    // null/empty payload values keep the placeholder visible. The
+    // event fires once right after stream connect — well before the
+    // operator has had time to type into the form — so there is no
+    // realistic clobbering risk.
     const map = {
       base_url:    meta.base_url,
       target_kind: meta.target_kind,
@@ -144,8 +147,7 @@
       const v = map[name];
       if (v === null || v === undefined || v === "") continue;
       const el = form.elements[name];
-      if (!el) continue;
-      if (!el.value) el.value = v;
+      if (el) el.value = v;
     }
   }
 
