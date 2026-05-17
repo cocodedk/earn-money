@@ -90,8 +90,11 @@ class HackerLoop:
         """Called once per (turn, attempt) after the LLM call returns, BEFORE parsing.
         `raw` may be None when the provider raised."""
 
-    def _on_action_parsed(self, turn: int, action: object, parse_recovered: bool) -> None:
-        """Called after `parse_action_with_recovery` returns."""
+    def _on_action_parsed(
+        self, turn: int, action: object, parse_recovered: bool, *, attempt: int,
+    ) -> None:
+        """Called after `parse_action_with_recovery` returns. `attempt`
+        identifies which call's `raw` actually parsed."""
 
     def _on_policy_decision(self, turn: int, action: object, decision: PolicyDecision) -> None:
         """Called after `roe_policy.decide(action.category)`."""
@@ -131,6 +134,7 @@ class HackerLoop:
 
             try:
                 action, parse_recovered = parse_action_with_recovery(raw)
+                attempt = 1
             except ActionParseError as first_err:
                 # Skip the retry if response_format wasn't actually used
                 # on the call that produced this garbage — same kwargs
@@ -152,10 +156,11 @@ class HackerLoop:
                     return self._result(turn, "llm_error")
                 try:
                     action, parse_recovered = parse_action_with_recovery(raw)
+                    attempt = 2
                 except ActionParseError as second_err:
                     log.warning("Invalid action from LLM after retry: %s", second_err)
                     return self._result(turn, "invalid_action")
-            self._on_action_parsed(turn, action, parse_recovered)
+            self._on_action_parsed(turn, action, parse_recovered, attempt=attempt)
 
             if isinstance(action, StopAction):
                 self._on_turn_complete(turn, action, "completed")

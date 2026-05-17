@@ -199,7 +199,7 @@ class TestHooks:
         )])
         seen: list[tuple[int, object, bool]] = []
         loop._on_action_parsed = (  # type: ignore[method-assign]
-            lambda turn, action, parse_recovered: seen.append(
+            lambda turn, action, parse_recovered, **_k: seen.append(
                 (turn, action.__class__, parse_recovered)
             )
         )
@@ -288,6 +288,30 @@ class TestResponseFormatPassthrough:
         result = loop.run()
         assert result.stop_reason == "invalid_action"
         assert len(loop.provider.complete.call_args_list) == 2
+
+
+class TestAttemptIdentity:
+    def test_action_parsed_carries_attempt_1_when_first_call_parses(self):
+        loop = _loop([_j(tool="stop", category="stop", args={"reason": "done"})])
+        seen: list[int] = []
+        loop._on_action_parsed = (  # type: ignore[method-assign]
+            lambda turn, action, parse_recovered, **kw: seen.append(kw["attempt"])
+        )
+        loop.run()
+        assert seen == [1]
+
+    def test_action_parsed_carries_attempt_2_when_retry_recovers(self):
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{",
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        seen: list[int] = []
+        loop._on_action_parsed = (  # type: ignore[method-assign]
+            lambda turn, action, parse_recovered, **kw: seen.append(kw["attempt"])
+        )
+        loop.run()
+        assert seen == [2]
 
 
 class TestPromptHook:

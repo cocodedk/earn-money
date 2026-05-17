@@ -133,7 +133,12 @@ class ProbeRunner(HackerLoop):
             "estimated_tokens": _est_tokens(raw),
         })
 
-    def _on_action_parsed(self, turn: int, action: Any, parse_recovered: bool) -> None:
+    def _on_action_parsed(
+        self, turn: int, action: Any, parse_recovered: bool, *, attempt: int,
+    ) -> None:
+        # B8 will emit `attempt`; for now match the base signature so the
+        # loop call site doesn't crash.
+        _ = attempt
         self._emit("turn", {
             "turn": turn, "stage": "action_parsed",
             "action": action.model_dump(),
