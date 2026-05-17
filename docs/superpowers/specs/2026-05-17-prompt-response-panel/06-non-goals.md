@@ -52,6 +52,14 @@ No fade-ins, no slide animations, no skeleton loaders. The panel updates instant
 
 **Reason:** SSE events arrive at human-readable cadence (one per LLM round-trip). Animations would obscure rather than aid comprehension. Consistent with the rest of the dashboard's no-animation style.
 
+## Findings display in the detail panel
+
+The detail panel surfaces prompt / response / parse status per turn. Candidate + verified findings (the `finding` SSE event) are NOT rendered in the panel; `probe.js` does not even register a listener for the event.
+
+**Reason:** Findings have their own future home (the recon tab + ledger). v1's debugging goal is the LLM exchange — adding findings to the detail panel would conflate two different observability layers. The legacy `ProbeRender.appendFinding` slot that lived in `probe-render.js` pre-v1 is gone; nothing renders findings client-side today.
+
+**Reconsider when:** Findings overlap meaningfully with the per-turn LLM exchange (e.g., the LLM reasoning would benefit from inline finding context).
+
 ## Copy / "copy to clipboard" buttons
 
 No "copy prompt", "copy response", or "copy this turn as JSON" affordances. The user copies via browser selection (`Ctrl+A` inside the scrollable `<pre>`, or click-drag).
