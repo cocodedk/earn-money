@@ -283,12 +283,21 @@ _DEFAULT_DISABLE_RF_MODELS = "qwen/qwen3-235b-a22b"
 
 
 def _disabled_rf_models() -> set[str]:
-    """Models known to mishandle `response_format={"type":"json_object"}`
-    badly enough that the first call is reliably wasted. Read per-call so
-    tests can monkeypatch the env var. Comma-separated.
+    """Per-model compatibility list for `response_format={"type":"json_object"}`.
 
-    Default skiplist: `qwen/qwen3-235b-a22b` — observed 100% garbage rate
-    on attempt-1-with-rf during the 2026-05-17 juice-shop probe walk.
+    Some OpenRouter model adapters currently produce less reliable JSON
+    when `response_format=json_object` is sent. For exact model IDs in
+    this set we omit the kwarg entirely and rely on prompt phrasing +
+    application-side validation (`parse_action_with_recovery` and the
+    pydantic action schemas).
+
+    Read per-call so tests can monkeypatch the env var. Matching is
+    exact-string (no prefix / substring); add suffix variants like
+    `:free` explicitly if their adapter has the same issue.
+
+    Comma-separated. Default: `qwen/qwen3-235b-a22b` based on a
+    2026-05-17 juice-shop probe walk where attempt-1-with-rf produced
+    garbage on every observed turn.
     """
     raw = os.environ.get(
         "LLM_DISABLE_RESPONSE_FORMAT_MODELS", _DEFAULT_DISABLE_RF_MODELS,
@@ -308,16 +317,20 @@ def _call_provider_with_rf_fallback(
     OMITTED on retries (not passed as None) since some OpenAI-compat
     providers treat None and omit differently.
 
-    Models in `LLM_DISABLE_RESPONSE_FORMAT_MODELS` skip the response_format
-    call entirely — saves the wasted first round-trip on providers that
-    return garbage instead of honoring the kwarg.
+    Models listed in `LLM_DISABLE_RESPONSE_FORMAT_MODELS` (see
+    `_disabled_rf_models`) skip the response_format call entirely.
     """
     if with_response_format:
         try:
-            if resolve_model(task) in _disabled_rf_models():
-                with_response_format = False
+            model = resolve_model(task)
         except RouterUnconfigured:
-            pass  # No model configured — fall through to normal rf-on path.
+            model = None
+        if model is not None and model in _disabled_rf_models():
+            log.info(
+                "model=%s response_format=disabled reason=model_skiplist",
+                model,
+            )
+            with_response_format = False
 
     if with_response_format:
         try:
