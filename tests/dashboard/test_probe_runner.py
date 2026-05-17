@@ -332,3 +332,51 @@ class TestEvents:
         gen = runner.events()
         evt = next(gen)
         assert evt == {"event": "_keepalive", "data": {}}
+
+
+class TestPromptInSseEvent:
+    def test_action_pending_event_includes_full_prompt_system_and_long_raw(self, make_runner):
+        full_raw = '{"tool":"stop","category":"stop","args":{"reason":"' + "x" * 250 + '"}}'
+        runner = make_runner([full_raw])
+        runner.run()
+        d = next(e["data"] for e in _events_from(runner)
+                 if e["data"].get("stage") == "action_pending")
+        assert d["prompt"]
+        assert d["system"]
+        assert d["raw"] == full_raw
+        assert d["raw_excerpt"] == full_raw[:200]
+        assert len(d["raw"]) > len(d["raw_excerpt"])
+        assert d["attempt"] == 1
+        assert d["used_response_format"] is True
+
+    def test_action_pending_event_emitted_twice_when_retry_fires(self, make_runner):
+        runner = make_runner(["{", _j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        pending = [e["data"] for e in _events_from(runner)
+                   if e["data"].get("stage") == "action_pending"]
+        assert len(pending) == 2
+        assert pending[0]["attempt"] == 1
+        assert pending[0]["used_response_format"] is True
+        assert pending[1]["attempt"] == 2
+        assert pending[1]["used_response_format"] is False
+
+    def test_action_pending_carries_used_rf_false_when_provider_rejects_rf(self, make_runner):
+        runner = make_runner(replies=[])
+        runner.provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        runner.run()
+        pending = [e["data"] for e in _events_from(runner)
+                   if e["data"].get("stage") == "action_pending"]
+        assert len(pending) == 1
+        assert pending[0]["attempt"] == 1
+        assert pending[0]["used_response_format"] is False
+
+    def test_raw_excerpt_still_present_for_backcompat(self, make_runner):
+        runner = make_runner([_j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        d = next(e["data"] for e in _events_from(runner)
+                 if e["data"].get("stage") == "action_pending")
+        assert "raw_excerpt" in d
+        assert len(d["raw_excerpt"]) <= 200
