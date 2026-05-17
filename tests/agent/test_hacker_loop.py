@@ -288,3 +288,45 @@ class TestResponseFormatPassthrough:
         result = loop.run()
         assert result.stop_reason == "invalid_action"
         assert len(loop.provider.complete.call_args_list) == 2
+
+
+class TestProviderHelper:
+    def test_returns_used_response_format_true_when_rf_succeeds(self):
+        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
+        from earn_money.agent.task_router import TaskType
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert raw.startswith("{")
+        assert used_rf is True
+        assert provider.complete.call_args.kwargs.get("response_format") == {"type": "json_object"}
+
+    def test_returns_used_response_format_false_when_caller_passes_false(self):
+        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
+        from earn_money.agent.task_router import TaskType
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        _raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=False,
+        )
+        assert used_rf is False
+        assert "response_format" not in provider.complete.call_args.kwargs
+
+    def test_returns_used_response_format_false_when_rf_call_raises(self):
+        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
+        from earn_money.agent.task_router import TaskType
+        provider = MagicMock()
+        provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            _j(tool="stop", category="stop", args={}),
+        ]
+        raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert used_rf is False
+        assert raw is not None
