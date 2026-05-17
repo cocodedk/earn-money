@@ -1,84 +1,80 @@
+// Timeline renderer (left column). Read-only over window.probeState.
+// Calls window.getTurnStatus() + window.formatTurnStatus() for badge
+// text. Does NOT mutate state. All event-handling logic lives in
+// probe-state.js (the reducer).
+
 (function () {
-  function $card(timeline, turn) {
-    let card = timeline.querySelector(`[data-turn="${turn}"]`);
-    if (card) return card;
-    card = document.createElement("article");
-    card.className = "turn-card";
-    card.dataset.turn = String(turn);
-    card.append(
-      buildHeader(turn),
-      buildSlot("action"),
-      buildSlot("policy"),
-      buildSlot("obs"),
-      buildSlot("findings"),
-    );
-    timeline.append(card);
+  function _el(tag, className, text) {
+    const e = document.createElement(tag);
+    if (className) e.className = className;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function _renderTurnCard(turnNum, turn) {
+    const card = _el("article", "turn-card");
+    card.dataset.turn = String(turnNum);
+    if (turn.complete) card.classList.add("complete");
+
+    const lastAttempt = turn.attempts[turn.attempts.length - 1] || {};
+    const status = window.getTurnStatus(turn);
+    const statusText = window.formatTurnStatus(status);
+
+    const header = _el("header");
+    header.appendChild(_el("span", "turn-num", "TURN " + turnNum));
+    header.appendChild(_el("span", "model-id", lastAttempt.model || "?"));
+    header.appendChild(_el("span", "status status-" + status, statusText));
+    if (turn.attempts.length > 1) {
+      header.appendChild(_el("span", "retry-badge", "↻"));
+    }
+    card.appendChild(header);
+
+    if (lastAttempt.raw) {
+      card.appendChild(_el("div", "slot slot-action",
+        (lastAttempt.raw || "").slice(0, 200)));
+    }
+    if (turn.policyDecision) {
+      const cls = turn.policyDecision.allowed ? "policy-ok" : "policy-deny";
+      const txt = (turn.policyDecision.allowed ? "✓ " : "✗ ") +
+        (turn.policyDecision.reason || "");
+      card.appendChild(_el("div", "slot slot-policy " + cls, txt));
+    }
+    if (turn.observation) {
+      const obs = turn.observation;
+      card.appendChild(_el("div", "slot slot-obs",
+        obs.status + " " + (obs.content_type || "") + "  " + (obs.url || "") +
+        "\n" + (obs.body_excerpt || "")));
+    }
     return card;
   }
 
-  function buildSlot(name) {
-    const el = document.createElement("div");
-    el.className = "slot slot-" + name;
-    return el;
+  function _clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
   }
 
-  function buildHeader(turn) {
-    const h = document.createElement("header");
-    const num = document.createElement("span");
-    num.className = "turn-num";
-    num.textContent = "TURN " + turn;
-    const model = document.createElement("span");
-    model.className = "model-id";
-    const tokens = document.createElement("span");
-    tokens.className = "tokens";
-    h.append(num, model, tokens);
-    return h;
-  }
+  // Build the timeline DOM from the current state. Click handler attaches
+  // here so probe.js doesn't need to thread it through.
+  window.renderTimeline = function renderTimeline() {
+    const timeline = document.getElementById("probe-timeline");
+    if (!timeline) return;
+    _clear(timeline);
 
-  function appendOrUpdateTurnCard(timeline, data) {
-    const card = $card(timeline, data.turn);
-    const header = card.querySelector("header");
-    if (data.stage === "action_pending") {
-      header.querySelector(".model-id").textContent = data.model || "?";
-      header.querySelector(".tokens").textContent = "~" + (data.estimated_tokens || 0) + "t";
-      card.querySelector(".slot-action").textContent = data.raw_excerpt || "";
-    } else if (data.stage === "action_parsed") {
-      const slot = card.querySelector(".slot-action");
-      slot.textContent = JSON.stringify(data.action);
-      if (data.parse_recovered) slot.dataset.recovered = "true";
-    } else if (data.stage === "policy") {
-      const slot = card.querySelector(".slot-policy");
-      slot.textContent = (data.policy.allowed ? "✓ " : "✗ ") + data.policy.reason;
-      slot.className = "slot slot-policy " + (data.policy.allowed ? "policy-ok" : "policy-deny");
-    } else if (data.stage === "observation") {
-      const slot = card.querySelector(".slot-obs");
-      slot.textContent = `${data.obs.status} ${data.obs.content_type}  ${data.obs.url}\n${data.obs.body_excerpt}`;
-    } else if (data.stage === "complete") {
-      card.classList.add("complete", "outcome-" + data.outcome);
+    const turnNums = Object.keys(window.probeState.turns)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    for (const n of turnNums) {
+      const card = _renderTurnCard(n, window.probeState.turns[n]);
+      if (window.probeState.selectedTurn === n) {
+        card.classList.add("is-selected");
+      }
+      card.addEventListener("click", () => window.setSelectedTurn(n));
+      timeline.appendChild(card);
     }
-  }
 
-  function appendFinding(timeline, data) {
-    const card = $card(timeline, data.turn);
-    const row = document.createElement("div");
-    row.className = "finding-row finding-" + data.kind;
-    row.textContent = `[${data.kind}:${data.type}] ${data.path || data.target || "?"}`;
-    card.querySelector(".slot-findings").append(row);
-  }
-
-  function markComplete(timeline, data) {
-    const banner = document.createElement("div");
-    banner.className = "timeline-banner";
-    banner.textContent = `done · ${data.turns} turns · stop=${data.stop_reason} · candidates=${data.candidates_count} verified=${data.verified_count}`;
-    timeline.append(banner);
-  }
-
-  function showError(timeline, data) {
-    const banner = document.createElement("div");
-    banner.className = "timeline-banner error";
-    banner.textContent = "error · " + (data.message || "unknown");
-    timeline.append(banner);
-  }
-
-  window.ProbeRender = { appendOrUpdateTurnCard, appendFinding, markComplete, showError };
+    if (window.probeState.runError) {
+      timeline.appendChild(_el("div", "timeline-banner error",
+        "error · " + window.probeState.runError));
+    }
+  };
 })();
