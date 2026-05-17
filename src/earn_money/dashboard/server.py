@@ -398,7 +398,7 @@ def _make_handler(
             # accidental newline or non-ASCII byte from a future emitter
             # would crash `name.encode("ascii")` outside the protocol.
             _ALLOWED_SSE_EVENTS = {
-                "turn", "finding", "done", "probe_error", "_keepalive",
+                "turn", "finding", "done", "probe_error", "_keepalive", "meta",
             }
 
             # Wrap EVERY wfile write — including the very first `retry: 0`

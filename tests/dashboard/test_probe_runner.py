@@ -25,6 +25,52 @@ def _runner_with_session(observations: list[ObservationWrapper] | None = None):
     return runner
 
 
+def _grab_meta(runner) -> dict | None:
+    """Snapshot the runner's history for the first `meta` event without
+    blocking on a non-completed run. `iter_since` would otherwise hang
+    until either a terminal event arrives or a keepalive fires."""
+    for evt in runner._history.iter_since(0, keepalive_interval=0.01):
+        if evt.get("event") == "_keepalive":
+            return None
+        if evt.get("event") == "meta":
+            return evt
+    return None
+
+
+class TestRunMetadata:
+    """The dashboard needs to display run config (base_url, target_kind,
+    roe_path, max_turns, platform, program) so a page reload + replay
+    shows the operator what's actually running. ProbeRunner emits a
+    `meta` SSE event as the very first history entry at construction
+    time — deterministically seq=1, replayed to every subscriber."""
+
+    def test_meta_event_is_seq_1(self, make_runner):
+        runner = make_runner([])
+        snapshot = runner._history.snapshot_seqs()
+        assert snapshot, "no events in history — meta was not emitted"
+        assert snapshot[0] == 1
+
+    def test_meta_event_carries_base_url_and_target_kind(self, make_runner):
+        runner = make_runner([])
+        meta = _grab_meta(runner)
+        assert meta is not None
+        assert meta["data"]["base_url"] == "https://target.example.com"
+        assert meta["data"]["target_kind"] == "local_lab"
+
+    def test_meta_event_carries_run_id_and_max_turns(self, make_runner):
+        runner = make_runner([])
+        meta = _grab_meta(runner)
+        assert meta["data"]["run_id"] == runner.run_id()
+        # max_turns is whatever the loaded profile says; the test RoE
+        # fixture sets it to 10.
+        assert meta["data"]["max_turns"] == 10
+
+    def test_meta_event_carries_roe_profile_path(self, make_runner):
+        runner = make_runner([])
+        meta = _grab_meta(runner)
+        assert meta["data"]["roe_profile"].endswith("test.yaml")
+
+
 class TestPickTask:
     def test_no_observations_picks_agent_planning(self):
         r = _runner_with_session([])
@@ -153,14 +199,16 @@ def _events_from(runner) -> list[dict]:
     """Drain the runner's history synchronously and return events.
 
     Equivalent to the old queue-drain helper, but reads through the
-    EventHistory replay buffer so tests still see every emitted event
-    after _run_safe() returns. Strips the seq id to keep assertions
-    backward-compatible.
+    EventHistory replay buffer. Skips the constructor-time `meta` event
+    (seq=1) so per-turn assertions stay index-stable, and strips the
+    seq id for backward-compat.
     """
     out: list[dict] = []
     for evt in runner._history.iter_since(0, keepalive_interval=0.01):
         if evt.get("event") == "_keepalive":
             break
+        if evt.get("event") == "meta":
+            continue
         out.append({"event": evt["event"], "data": evt["data"]})
         if evt["event"] in ("done", "probe_error"):
             break
@@ -341,11 +389,12 @@ class TestEvents:
         runner = make_runner([_j(tool="stop", category="stop", args={})])
         # Shrink the keepalive interval so this test doesn't wait the
         # full production 15 s for the first _keepalive frame. The
-        # runner hasn't been started so the history is empty AND not
-        # marked completed — exactly the "live but quiet" state SSE
-        # needs to keep alive.
+        # runner hasn't been started — after the constructor's `meta`
+        # event drains, the iterator should sit idle and emit
+        # _keepalive within the configured interval.
         runner._EVENTS_GET_TIMEOUT_SECONDS = 0.01
-        gen = runner.events()
+        # Drain the meta event first; the *next* yield is the keepalive.
+        gen = runner.events(last_event_id=runner._history.snapshot_seqs()[-1])
         evt = next(gen)
         assert evt["event"] == "_keepalive"
         assert evt["data"] == {}

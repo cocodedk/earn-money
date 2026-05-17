@@ -91,6 +91,20 @@ class ProbeRunner(HackerLoop):
         self._closed = False
         self._on_finished = on_finished
 
+        # Emit run metadata as the very first history entry (seq=1).
+        # A page-reload / second-tab subscriber gets this on replay and
+        # can pre-fill the form fields so the operator sees what's
+        # actually running.
+        self._emit("meta", {
+            "run_id": self._run_id,
+            "base_url": base_url,
+            "target_kind": target_kind,
+            "platform": platform,
+            "program": program,
+            "roe_profile": str(roe_path) if roe_path is not None else "",
+            "max_turns": profile.max_turns,
+        })
+
     # ── task selection ────────────────────────────────────────────────────
 
     def _pick_task(self) -> TaskType:

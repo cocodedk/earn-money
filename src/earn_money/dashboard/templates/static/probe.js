@@ -87,6 +87,16 @@
       if (local.closed) return;
       window.probeReducer(JSON.parse(e.data));
     });
+    // `meta` carries run config (base_url, target_kind, roe_profile,
+    // platform, program, max_turns). The runner emits it as the
+    // first history entry so replay always lands one even after
+    // page reload, letting the form mirror what's actually running.
+    es.addEventListener("meta", (e) => {
+      if (local.closed) return;
+      let meta;
+      try { meta = JSON.parse(e.data); } catch (_) { return; }
+      _populateFormFromMeta(meta);
+    });
     // `finding` events: v1 doesn't render findings in the detail panel;
     // each turn's preceding `turn/complete` event already triggered the
     // final render via the reducer. No listener wired.
@@ -116,6 +126,27 @@
       local.es = null;
       runBtn.disabled = false;
     };
+  }
+
+  function _populateFormFromMeta(meta) {
+    // Write each field if the input exists and is empty (so an operator
+    // mid-edit isn't clobbered). Empty/null values from the server are
+    // skipped — keep the placeholder visible.
+    const map = {
+      base_url:    meta.base_url,
+      target_kind: meta.target_kind,
+      roe_profile: meta.roe_profile,
+      max_turns:   meta.max_turns,
+      platform:    meta.platform,
+      program:     meta.program,
+    };
+    for (const name of Object.keys(map)) {
+      const v = map[name];
+      if (v === null || v === undefined || v === "") continue;
+      const el = form.elements[name];
+      if (!el) continue;
+      if (!el.value) el.value = v;
+    }
   }
 
   function serialiseForm(form) {
