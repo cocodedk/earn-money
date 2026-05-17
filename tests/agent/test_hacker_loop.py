@@ -493,3 +493,69 @@ class TestProviderHelper:
         )
         assert used_rf is False
         assert raw is not None
+
+
+class TestResponseFormatSkiplist:
+    """Some models (notably qwen/qwen3-235b-a22b) emit JSON garbage when
+    `response_format` is on. The skiplist lets the helper save the wasted
+    first call entirely; the retry-on-failure path still applies for
+    every other model."""
+
+    def test_skiplisted_model_skips_response_format_on_first_call(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_MODEL_AGENT_PLANNING", "qwen/qwen3-235b-a22b")
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        _raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert used_rf is False
+        assert len(provider.complete.call_args_list) == 1
+        assert "response_format" not in provider.complete.call_args.kwargs
+
+    def test_non_skiplisted_model_still_tries_response_format_first(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_MODEL_AGENT_PLANNING", "anthropic/claude-3-5-sonnet")
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        _raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert used_rf is True
+        assert provider.complete.call_args.kwargs.get("response_format") == {"type": "json_object"}
+
+    def test_skiplist_is_env_overridable(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_MODEL_AGENT_PLANNING", "anthropic/claude-3-5-sonnet")
+        monkeypatch.setenv("LLM_DISABLE_RESPONSE_FORMAT_MODELS", "anthropic/claude-3-5-sonnet")
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        _raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert used_rf is False
+
+    def test_unconfigured_router_does_not_break_skiplist_check(self, monkeypatch):
+        """Most tests use a MagicMock provider with no env-configured model.
+        resolve_model() raises RouterUnconfigured; the skiplist check must
+        swallow it gracefully and fall through to normal rf-on behavior."""
+        monkeypatch.delenv("OPENROUTER_MODEL_AGENT_PLANNING", raising=False)
+        monkeypatch.delenv("LLM_DEFAULT_MODEL", raising=False)
+        provider = MagicMock()
+        provider.complete.return_value = _j(tool="stop", category="stop", args={})
+        _raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert used_rf is True
+
+    def test_skiplisted_garbage_returns_invalid_action_no_retry(self, monkeypatch):
+        """Integration: model is skiplisted → with_response_format forced
+        to False → first call returns garbage → run() sees used_rf=False,
+        skips the parse-retry, exits invalid_action. Exactly one provider
+        call (not two)."""
+        monkeypatch.setenv("OPENROUTER_MODEL_AGENT_PLANNING", "qwen/qwen3-235b-a22b")
+        loop = _loop(["{"])
+        result = loop.run()
+        assert result.stop_reason == "invalid_action"
+        assert len(loop.provider.complete.call_args_list) == 1

@@ -5,6 +5,7 @@ think → validate → act → observe → verify
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,7 +27,7 @@ from earn_money.agent.probe_actions import (
 from earn_money.agent.roe_policy import PolicyDecision, RoePolicy
 from earn_money.agent.roe_profile import RoeProfile
 from earn_money.agent.scope_policy import ScopeDenied
-from earn_money.agent.task_router import TaskType
+from earn_money.agent.task_router import RouterUnconfigured, TaskType, resolve_model
 
 log = logging.getLogger(__name__)
 
@@ -278,6 +279,23 @@ class HackerLoop:
         )
 
 
+_DEFAULT_DISABLE_RF_MODELS = "qwen/qwen3-235b-a22b"
+
+
+def _disabled_rf_models() -> set[str]:
+    """Models known to mishandle `response_format={"type":"json_object"}`
+    badly enough that the first call is reliably wasted. Read per-call so
+    tests can monkeypatch the env var. Comma-separated.
+
+    Default skiplist: `qwen/qwen3-235b-a22b` — observed 100% garbage rate
+    on attempt-1-with-rf during the 2026-05-17 juice-shop probe walk.
+    """
+    raw = os.environ.get(
+        "LLM_DISABLE_RESPONSE_FORMAT_MODELS", _DEFAULT_DISABLE_RF_MODELS,
+    )
+    return {m.strip() for m in raw.split(",") if m.strip()}
+
+
 def _call_provider_with_rf_fallback(
     provider: Any, *, system: str, user: str, task: TaskType,
     with_response_format: bool,
@@ -289,7 +307,18 @@ def _call_provider_with_rf_fallback(
     When False, makes a single call without the kwarg. The kwarg is
     OMITTED on retries (not passed as None) since some OpenAI-compat
     providers treat None and omit differently.
+
+    Models in `LLM_DISABLE_RESPONSE_FORMAT_MODELS` skip the response_format
+    call entirely — saves the wasted first round-trip on providers that
+    return garbage instead of honoring the kwarg.
     """
+    if with_response_format:
+        try:
+            if resolve_model(task) in _disabled_rf_models():
+                with_response_format = False
+        except RouterUnconfigured:
+            pass  # No model configured — fall through to normal rf-on path.
+
     if with_response_format:
         try:
             raw = provider.complete(
