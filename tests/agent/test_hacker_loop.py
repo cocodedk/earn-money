@@ -5,13 +5,14 @@ from unittest.mock import MagicMock
 
 from earn_money.agent.budget import RequestBudget
 from earn_money.agent.finding_verifier import FindingVerifier
-from earn_money.agent.hacker_loop import HackerLoop
+from earn_money.agent.hacker_loop import HackerLoop, _call_provider_with_rf_fallback
 from earn_money.agent.hacker_session import HackerSession
 from earn_money.agent.http_tool import HttpTool
 from earn_money.agent.observations import ObservationWrapper
 from earn_money.agent.roe_policy import RoePolicy
 from earn_money.agent.roe_profile import RoeProfile, RoeSourceType
 from earn_money.agent.scope_policy import ScopePolicy
+from earn_money.agent.task_router import TaskType
 
 
 def _profile(**kwargs: object) -> RoeProfile:
@@ -422,8 +423,6 @@ class TestPromptHook:
 
 class TestProviderHelper:
     def test_returns_used_response_format_true_when_rf_succeeds(self):
-        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
-        from earn_money.agent.task_router import TaskType
         provider = MagicMock()
         provider.complete.return_value = _j(tool="stop", category="stop", args={})
         raw, used_rf = _call_provider_with_rf_fallback(
@@ -435,8 +434,6 @@ class TestProviderHelper:
         assert provider.complete.call_args.kwargs.get("response_format") == {"type": "json_object"}
 
     def test_returns_used_response_format_false_when_caller_passes_false(self):
-        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
-        from earn_money.agent.task_router import TaskType
         provider = MagicMock()
         provider.complete.return_value = _j(tool="stop", category="stop", args={})
         _raw, used_rf = _call_provider_with_rf_fallback(
@@ -447,8 +444,6 @@ class TestProviderHelper:
         assert "response_format" not in provider.complete.call_args.kwargs
 
     def test_returns_used_response_format_false_when_rf_call_raises(self):
-        from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
-        from earn_money.agent.task_router import TaskType
         provider = MagicMock()
         provider.complete.side_effect = [
             RuntimeError("response_format unsupported"),
