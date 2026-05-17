@@ -126,6 +126,50 @@ def test_static_panels_css_is_served(
     assert ".sigtype" in r.text
 
 
+def test_static_probe_status_js_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/probe-status.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    assert "getTurnStatus" in r.text and "formatTurnStatus" in r.text
+
+
+def test_static_probe_state_js_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/probe-state.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    assert "probeReducer" in r.text and "probeState" in r.text
+
+
+def test_static_probe_detail_css_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/probe-detail.css", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/css")
+    assert ".probe-body" in r.text
+
+
+def test_static_probe_detail_js_is_served(
+    running_server: tuple[ThreadingHTTPServer, str],
+) -> None:
+    _, base = running_server
+    with httpx.Client() as c:
+        r = c.get(f"{base}/static/probe-detail.js", timeout=2)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/javascript")
+    assert "renderDetailPanel" in r.text
+
+
 def test_unknown_path_returns_404(
     running_server: tuple[ThreadingHTTPServer, str],
 ) -> None:

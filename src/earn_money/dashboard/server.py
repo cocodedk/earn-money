@@ -50,6 +50,10 @@ _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
     "/static/tabs.js":          (_STATIC / "tabs.js",          _JS),
     "/static/probe.js":         (_STATIC / "probe.js",         _JS),
     "/static/probe-render.js":  (_STATIC / "probe-render.js",  _JS),
+    "/static/probe-status.js":  (_STATIC / "probe-status.js",  _JS),
+    "/static/probe-state.js":   (_STATIC / "probe-state.js",   _JS),
+    "/static/probe-detail.css": (_STATIC / "probe-detail.css", _CSS),
+    "/static/probe-detail.js":  (_STATIC / "probe-detail.js",  _JS),
 }
 
 # One-at-a-time probe runner — module-level slot under a lock so two
