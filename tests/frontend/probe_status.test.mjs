@@ -59,3 +59,12 @@ test("formatTurnStatus maps every enum value", () => {
   assert.equal(window.formatTurnStatus("policy_blocked"), "policy_blocked");
   assert.equal(window.formatTurnStatus("in_progress"), "in_progress");
 });
+
+test("formatTurnStatus falls through unknown status unchanged", () => {
+  assert.equal(window.formatTurnStatus("nope"), "nope");
+});
+
+test("getTurnStatus with empty attempts array returns in_progress", () => {
+  const t = { attempts: [], complete: true };
+  assert.equal(window.getTurnStatus(t), "in_progress");
+});
