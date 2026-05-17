@@ -106,8 +106,9 @@ def make_runner(tmp_path, monkeypatch):
     and optional profile overrides. The factory bypasses the real
     OpenRouter provider and resolves RoE paths under tmp_path/roe."""
 
-    def _factory(replies: list[str | None], **profile_overrides):
+    def _factory(replies: list[str | None], *, presolved: bool = True, **profile_overrides):
         from earn_money import config
+        from earn_money.agent.action_classes import ActionClass
         from earn_money.dashboard import probe_runner as pr
 
         (tmp_path / "RECON_ENABLED").touch()
@@ -132,12 +133,18 @@ def make_runner(tmp_path, monkeypatch):
         )
 
         paths = config.Paths.from_root(tmp_path)
-        return pr.ProbeRunner(
+        runner = pr.ProbeRunner(
             base_url="https://target.example.com",
             roe_path=roe_yaml,
             paths=paths,
             target_kind="local_lab",
         )
+        if presolved:
+            # Pre-mark all probe classes as tried so single-STOP fixtures
+            # are still valid under the new STOP-validation rule. Tests
+            # that exercise STOP escalation pass `presolved=False`.
+            runner.session.tried_action_classes = set(ActionClass)
+        return runner
 
     return _factory
 

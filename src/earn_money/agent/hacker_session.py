@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from earn_money.agent.action_classes import ActionClass
 from earn_money.agent.observations import ObservationWrapper
 
 
@@ -22,6 +23,7 @@ class HackerSession:
     verified_findings: list[dict[str, Any]] = field(default_factory=list)
     turn_log: list[str] = field(default_factory=list)
     policy_denials: list[str] = field(default_factory=list)
+    tried_action_classes: set[ActionClass] = field(default_factory=set)
 
     # ── mutations ─────────────────────────────────────────────────────────────
 
@@ -56,6 +58,10 @@ class HackerSession:
 
     def log_turn(self, action: dict[str, Any], result: str) -> None:
         self.turn_log.append(f"action={action!r} result={result!r}")
+
+    def record_action_class(self, cls: ActionClass | None) -> None:
+        if cls is not None:
+            self.tried_action_classes.add(cls)
 
     # ── read-only views ───────────────────────────────────────────────────────
 
