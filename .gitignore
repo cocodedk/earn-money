@@ -69,3 +69,6 @@ dist/
 *.egg-info/
 .venv/
 demo_coderabbit.py
+
+# Brainstorming visual companion sessions
+.superpowers/
