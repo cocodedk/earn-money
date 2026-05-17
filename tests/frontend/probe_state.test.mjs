@@ -166,7 +166,9 @@ test("maxTurn tracks the highest turn number seen on action_pending", () => {
   assert.equal(window.probeState.maxTurn, 1);
   window.probeReducer(pending1(3));
   assert.equal(window.probeState.maxTurn, 3);
-  window.probeReducer(pending1(2));   // out-of-order event must NOT decrease maxTurn
+  // SSE arrives in order, but the implementation guards with `>` (not `=`)
+  // so a future refactor can't accidentally let a smaller turn lower the max.
+  window.probeReducer(pending1(2));
   assert.equal(window.probeState.maxTurn, 3);
 });
 
