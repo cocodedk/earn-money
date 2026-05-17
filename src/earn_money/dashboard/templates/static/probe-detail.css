@@ -1,0 +1,151 @@
+/* Right-side detail panel for the Probe Live Tab.
+   Wraps timeline + aside in a 2-column grid; collapses to single column
+   below ~960px. Panel-specific rules override base probe.css colors. */
+
+.probe-body {
+  display: grid;
+  grid-template-columns: minmax(360px, 2fr) minmax(480px, 3fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+@media (max-width: 960px) {
+  .probe-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+#probe-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-border, #2c3340);
+  border-radius: 6px;
+  background: var(--color-surface, #1a1f2a);
+  padding: 12px;
+  overflow: hidden;
+}
+
+.probe-detail-runerror {
+  background: var(--color-warning, #d97706);
+  color: #000;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.probe-detail-header {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.probe-detail-retry-badge {
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+.probe-detail-follow-latest {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--color-border, #2c3340);
+  color: var(--color-fg, #e7ecef);
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.probe-detail-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.probe-detail-tab {
+  background: transparent;
+  border: 1px solid var(--color-border, #2c3340);
+  color: var(--color-fg, #e7ecef);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border-radius: 3px;
+}
+
+.probe-detail-tab.is-active {
+  background: var(--color-accent, #3b82f6);
+  color: #fff;
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.probe-detail-prompt {
+  background: var(--color-bg, #0d1117);
+  border: 1px solid var(--color-border, #2c3340);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  max-height: 40vh;
+  margin-bottom: 12px;
+}
+
+.probe-detail-delta-label {
+  font-size: 0.75rem;
+  color: var(--color-fg-muted, #8b949e);
+  margin-bottom: 4px;
+}
+
+.probe-detail-attempts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.probe-attempt-card {
+  border: 1px solid var(--color-border, #2c3340);
+  border-radius: 4px;
+  padding: 8px;
+  background: var(--color-bg, #0d1117);
+}
+
+.probe-attempt-card.is-failed {
+  border-color: var(--color-warning, #d97706);
+}
+
+.probe-attempt-card-header {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted, #8b949e);
+  margin-bottom: 4px;
+}
+
+.probe-attempt-card-response {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  background: rgba(0,0,0,0.2);
+  padding: 6px;
+  border-radius: 3px;
+  max-height: 20vh;
+  overflow-y: auto;
+}
+
+.probe-attempt-card-status {
+  font-size: 0.75rem;
+  margin-top: 4px;
+}
+
+.probe-attempt-card.is-failed .probe-attempt-card-status {
+  color: var(--color-warning, #d97706);
+}
