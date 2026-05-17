@@ -80,7 +80,6 @@ class HackerLoop:
         self.provider = provider
         self._current_turn: int = 0
         self._last_model_id: str | None = None
-        self._last_used_response_format: bool = False
 
     # ── observation hooks (no-op defaults, override in subclasses) ────────────
 
@@ -118,7 +117,7 @@ class HackerLoop:
                 return self._result(turn, f"budget_exceeded: {e}")
 
             prompt = self._build_prompt()
-            raw = self._get_llm_response(prompt)
+            raw, used_rf = self._get_llm_response(prompt)
             self._on_llm_response(turn, raw, self._last_model_id)
             if raw is None:
                 return self._result(turn, "llm_error")
@@ -129,14 +128,14 @@ class HackerLoop:
                 # Skip the retry if response_format wasn't actually used
                 # on the call that produced this garbage — same kwargs
                 # would just return the same garbage.
-                if not self._last_used_response_format:
+                if not used_rf:
                     log.warning("Invalid action from LLM: %s", first_err)
                     return self._result(turn, "invalid_action")
                 log.warning(
                     "Parse failed with response_format; retrying without: %s",
                     first_err,
                 )
-                raw = self._get_llm_response(prompt, with_response_format=False)
+                raw, used_rf = self._get_llm_response(prompt, with_response_format=False)
                 self._on_llm_response(turn, raw, self._last_model_id)
                 if raw is None:
                     return self._result(turn, "llm_error")
@@ -238,14 +237,12 @@ class HackerLoop:
 
     def _get_llm_response(
         self, prompt: str, *, with_response_format: bool = True,
-    ) -> str | None:
-        raw, used_rf = _call_provider_with_rf_fallback(
+    ) -> tuple[str | None, bool]:
+        return _call_provider_with_rf_fallback(
             self.provider, system=_SYSTEM_PROMPT, user=prompt,
             task=TaskType.AGENT_PLANNING,
             with_response_format=with_response_format,
         )
-        self._last_used_response_format = used_rf
-        return raw
 
     def _result(self, turn: int, stop_reason: str) -> LoopResult:
         return LoopResult(

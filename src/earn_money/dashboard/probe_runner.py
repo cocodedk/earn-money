@@ -111,15 +111,13 @@ class ProbeRunner(HackerLoop):
 
     def _get_llm_response(
         self, prompt: str, *, with_response_format: bool = True,
-    ) -> str | None:
+    ) -> tuple[str | None, bool]:
         task = self._pick_task()
         self._last_model_id = _resolve_model_safely(task)
-        raw, used_rf = _call_provider_with_rf_fallback(
+        return _call_provider_with_rf_fallback(
             self.provider, system=_SYSTEM_PROMPT, user=prompt, task=task,
             with_response_format=with_response_format,
         )
-        self._last_used_response_format = used_rf
-        return raw
 
     def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
         self._emit("turn", {
