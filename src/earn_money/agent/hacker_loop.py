@@ -236,10 +236,12 @@ class HackerLoop:
             self.session.add_verified_finding(v)
 
     def _build_prompt(self) -> str:
+        # The system framing rides the `system=` kwarg to provider.complete()
+        # in `_get_llm_response`; do NOT also prepend it here, or qwen sees it
+        # twice and we waste ~500 tokens per turn.
         roe_summary = self.profile.to_prompt_summary()
         session_view = self.session.prompt_view()
         return (
-            f"{_SYSTEM_PROMPT}\n\n"
             f"=== Rules of Engagement ===\n{roe_summary}\n\n"
             f"=== Session State ===\n{session_view}\n\n"
             f"=== Available actions ===\n"

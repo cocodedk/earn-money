@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 from earn_money.agent.budget import RequestBudget
 from earn_money.agent.finding_verifier import FindingVerifier
-from earn_money.agent.hacker_loop import HackerLoop, _call_provider_with_rf_fallback
+from earn_money.agent.hacker_loop import (
+    _SYSTEM_PROMPT,
+    HackerLoop,
+    _call_provider_with_rf_fallback,
+)
 from earn_money.agent.hacker_session import HackerSession
 from earn_money.agent.http_tool import HttpTool
 from earn_money.agent.observations import ObservationWrapper
@@ -347,6 +351,40 @@ class TestAttemptIdentity:
         )
         loop.run()
         assert seen == []
+
+
+class TestBuildPrompt:
+    """Prompt hygiene: `_build_prompt()` returns ONLY the user portion
+    (RoE + Session State + actions). The system framing rides the
+    `system=` kwarg to `provider.complete()` and must NOT also appear
+    at the top of the user message — see `02-sse-event-shape.md`."""
+
+    def test_build_prompt_does_not_contain_system_framing(self):
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        prompt = loop._build_prompt()
+        assert _SYSTEM_PROMPT not in prompt
+        assert "You are assisting with authorized security testing." not in prompt
+
+    def test_build_prompt_starts_with_roe_heading(self):
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        assert loop._build_prompt().startswith("=== Rules of Engagement ===")
+
+    def test_provider_complete_still_receives_system_kwarg(self):
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        loop.run()
+        assert loop.provider.complete.call_args.kwargs["system"] == _SYSTEM_PROMPT
+
+    def test_full_tab_concatenation_has_no_duplicated_system(self):
+        """Full tab in the dashboard renders `system + "\\n\\n" + prompt`.
+        Locks the contract that the result contains the framing exactly once."""
+        loop = _loop([_j(tool="stop", category="stop", args={})])
+        seen: list[dict] = []
+        loop._on_llm_response = (  # type: ignore[method-assign]
+            lambda turn, raw, model_id, **kw: seen.append(kw)
+        )
+        loop.run()
+        full = seen[0]["system"] + "\n\n" + seen[0]["prompt"]
+        assert full.count("You are assisting with authorized security testing.") == 1
 
 
 class TestPromptHook:
