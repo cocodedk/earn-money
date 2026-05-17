@@ -138,13 +138,17 @@ class ProbeRunner(HackerLoop):
     def _on_action_parsed(
         self, turn: int, action: Any, parse_recovered: bool, *, attempt: int,
     ) -> None:
-        # B8 will emit `attempt`; for now match the base signature so the
-        # loop call site doesn't crash.
-        _ = attempt
         self._emit("turn", {
             "turn": turn, "stage": "action_parsed",
+            "attempt": attempt,
             "action": action.model_dump(),
             "parse_recovered": parse_recovered,
+        })
+
+    def _on_action_parse_failed(self, turn: int, attempt: int, error: str) -> None:
+        self._emit("turn", {
+            "turn": turn, "stage": "action_parse_failed",
+            "attempt": attempt, "error": error,
         })
 
     def _on_policy_decision(self, turn: int, action: Any, decision: Any) -> None:

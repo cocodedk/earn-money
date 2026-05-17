@@ -380,3 +380,34 @@ class TestPromptInSseEvent:
                  if e["data"].get("stage") == "action_pending")
         assert "raw_excerpt" in d
         assert len(d["raw_excerpt"]) <= 200
+
+
+class TestAttemptIdentityInSseEvent:
+    def test_action_parsed_event_carries_attempt(self, make_runner):
+        runner = make_runner([_j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        e = next(ev for ev in _events_from(runner)
+                 if ev["data"].get("stage") == "action_parsed")
+        assert e["data"]["attempt"] == 1
+
+    def test_action_parsed_event_carries_attempt_2_after_retry(self, make_runner):
+        runner = make_runner(["{", _j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        e = next(ev for ev in _events_from(runner)
+                 if ev["data"].get("stage") == "action_parsed")
+        assert e["data"]["attempt"] == 2
+
+    def test_action_parse_failed_event_emitted_on_first_failure(self, make_runner):
+        runner = make_runner(["{", _j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        f = next(ev for ev in _events_from(runner)
+                 if ev["data"].get("stage") == "action_parse_failed")
+        assert f["data"]["attempt"] == 1
+        assert f["data"]["error"]
+        assert f["data"]["turn"] == 1
+
+    def test_action_parse_failed_event_not_emitted_on_happy_path(self, make_runner):
+        runner = make_runner([_j(tool="stop", category="stop", args={"reason": "done"})])
+        runner.run()
+        assert not any(ev["data"].get("stage") == "action_parse_failed"
+                       for ev in _events_from(runner))
