@@ -119,7 +119,13 @@ class ProbeRunner(HackerLoop):
             with_response_format=with_response_format,
         )
 
-    def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
+    def _on_llm_response(
+        self, turn: int, raw: str | None, model_id: str | None,
+        *, system: str, prompt: str, attempt: int, used_response_format: bool,
+    ) -> None:
+        # B6 will use system/prompt/attempt/used_response_format; for now
+        # match the base signature so the loop call site doesn't crash.
+        _ = (system, prompt, attempt, used_response_format)
         self._emit("turn", {
             "turn": turn, "stage": "action_pending",
             "model": self._last_model_id,

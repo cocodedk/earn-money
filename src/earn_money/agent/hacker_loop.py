@@ -83,8 +83,11 @@ class HackerLoop:
 
     # ── observation hooks (no-op defaults, override in subclasses) ────────────
 
-    def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
-        """Called once per turn after the LLM call returns, BEFORE parsing.
+    def _on_llm_response(
+        self, turn: int, raw: str | None, model_id: str | None,
+        *, system: str, prompt: str, attempt: int, used_response_format: bool,
+    ) -> None:
+        """Called once per (turn, attempt) after the LLM call returns, BEFORE parsing.
         `raw` may be None when the provider raised."""
 
     def _on_action_parsed(self, turn: int, action: object, parse_recovered: bool) -> None:
@@ -118,7 +121,11 @@ class HackerLoop:
 
             prompt = self._build_prompt()
             raw, used_rf = self._get_llm_response(prompt)
-            self._on_llm_response(turn, raw, self._last_model_id)
+            self._on_llm_response(
+                turn, raw, self._last_model_id,
+                system=_SYSTEM_PROMPT, prompt=prompt,
+                attempt=1, used_response_format=used_rf,
+            )
             if raw is None:
                 return self._result(turn, "llm_error")
 
@@ -136,7 +143,11 @@ class HackerLoop:
                     first_err,
                 )
                 raw, used_rf = self._get_llm_response(prompt, with_response_format=False)
-                self._on_llm_response(turn, raw, self._last_model_id)
+                self._on_llm_response(
+                    turn, raw, self._last_model_id,
+                    system=_SYSTEM_PROMPT, prompt=prompt,
+                    attempt=2, used_response_format=used_rf,
+                )
                 if raw is None:
                     return self._result(turn, "llm_error")
                 try:

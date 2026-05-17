@@ -290,6 +290,62 @@ class TestResponseFormatPassthrough:
         assert len(loop.provider.complete.call_args_list) == 2
 
 
+class TestPromptHook:
+    def test_called_with_prompt_and_system_on_first_call(self):
+        loop = _loop([_j(tool="stop", category="stop", args={"reason": "done"})])
+        seen: list[dict] = []
+        loop._on_llm_response = (  # type: ignore[method-assign]
+            lambda turn, raw, model_id, **kw: seen.append(kw)
+        )
+        loop.run()
+        assert len(seen) == 1
+        kw = seen[0]
+        assert kw["attempt"] == 1
+        assert kw["used_response_format"] is True
+        assert "=== Rules of Engagement ===" in kw["prompt"]
+        assert kw["system"].startswith("You are assisting with authorized security testing.")
+
+    def test_called_twice_on_parse_retry(self):
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            "{",
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        seen: list[dict] = []
+        loop._on_llm_response = (  # type: ignore[method-assign]
+            lambda turn, raw, model_id, **kw: seen.append(kw)
+        )
+        loop.run()
+        assert [s["attempt"] for s in seen] == [1, 2]
+        assert [s["used_response_format"] for s in seen] == [True, False]
+        assert seen[0]["prompt"] == seen[1]["prompt"]
+        assert seen[0]["system"] == seen[1]["system"]
+
+    def test_attempt_2_only_when_retry_fires(self):
+        loop = _loop([_j(tool="stop", category="stop", args={"reason": "done"})])
+        seen: list[dict] = []
+        loop._on_llm_response = (  # type: ignore[method-assign]
+            lambda turn, raw, model_id, **kw: seen.append(kw)
+        )
+        loop.run()
+        assert [s["attempt"] for s in seen] == [1]
+
+    def test_attempt_1_used_response_format_false_when_provider_rejects_rf(self):
+        loop = _loop([])
+        loop.provider.complete.side_effect = [
+            RuntimeError("response_format unsupported"),
+            _j(tool="stop", category="stop", args={"reason": "done"}),
+        ]
+        seen: list[dict] = []
+        loop._on_llm_response = (  # type: ignore[method-assign]
+            lambda turn, raw, model_id, **kw: seen.append(kw)
+        )
+        loop.run()
+        assert len(seen) == 1
+        assert seen[0]["attempt"] == 1
+        assert seen[0]["used_response_format"] is False
+
+
 class TestProviderHelper:
     def test_returns_used_response_format_true_when_rf_succeeds(self):
         from earn_money.agent.hacker_loop import _call_provider_with_rf_fallback
