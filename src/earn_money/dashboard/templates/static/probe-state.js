@@ -10,6 +10,7 @@
   function _emptyState() {
     return {
       turns: {},
+      maxTurn: 0,         // tracked during action_pending; avoids O(N) scans
       selectedTurn: null,
       followLatest: true,
       activeTab: "delta",
@@ -52,6 +53,7 @@
       parseOutcome: "pending",
       parseError: null,
     });
+    if (e.turn > window.probeState.maxTurn) window.probeState.maxTurn = e.turn;
     if (window.probeState.followLatest) {
       window.probeState.selectedTurn = e.turn;
     }
@@ -130,11 +132,8 @@
 
   window.setFollowLatest = function setFollowLatest(on) {
     window.probeState.followLatest = !!on;
-    if (on) {
-      const turns = Object.keys(window.probeState.turns).map(Number);
-      if (turns.length) {
-        window.probeState.selectedTurn = Math.max(...turns);
-      }
+    if (on && window.probeState.maxTurn > 0) {
+      window.probeState.selectedTurn = window.probeState.maxTurn;
     }
     _notify();
   };
