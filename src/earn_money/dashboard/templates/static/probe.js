@@ -58,11 +58,8 @@
     });
     es.addEventListener("finding", (e) => {
       if (local.closed) return;
-      // findings ride their own event; reducer ignores unknown stages.
-      // For now we don't surface findings in the new panel; the legacy
-      // ProbeRender slot model captured them via DOM, but the v1 spec
-      // doesn't require findings in the per-turn detail panel.
-      // Forward as a no-op event so the cadence/render trigger fires.
+      // v1 doesn't render findings in the detail panel; reducer ignores
+      // unknown stages so forwarding is harmless.
       window.probeReducer({ stage: "finding", ...JSON.parse(e.data) });
     });
     es.addEventListener("done", (e) => {
