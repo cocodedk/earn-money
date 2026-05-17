@@ -72,6 +72,10 @@
     local.run_id = _bootRunId;
     window.probeReducer({ stage: "probe_start" });
     runBtn.disabled = true;
+    // Force-switch to the Probe tab. Without this a URL like
+    // `#run=<id>` (no `tab=probe`) reattaches the stream but the
+    // panel stays hidden behind the default Recon tab.
+    document.querySelector('button.tab[data-tab="probe"]')?.click();
     openStream(_bootRunId);
   }
 
