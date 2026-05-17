@@ -91,11 +91,11 @@ class ProbeRunner(HackerLoop):
         self._closed = False
         self._on_finished = on_finished
 
-        # Emit run metadata as the very first history entry (seq=1).
-        # A page-reload / second-tab subscriber gets this on replay and
-        # can pre-fill the form fields so the operator sees what's
-        # actually running.
-        self._emit("meta", {
+        # Static run metadata — emitted once as the seq=1 history entry
+        # (so SSE subscribers see it on replay) AND exposed via
+        # `metadata()` so the `/api/probe/current` endpoint can answer
+        # "what is currently running?" without parsing the history.
+        self._static_meta: dict[str, Any] = {
             "run_id": self._run_id,
             "base_url": base_url,
             "target_kind": target_kind,
@@ -103,7 +103,12 @@ class ProbeRunner(HackerLoop):
             "program": program,
             "roe_profile": str(roe_path) if roe_path is not None else "",
             "max_turns": profile.max_turns,
-        })
+        }
+        self._emit("meta", self._static_meta)
+
+    def metadata(self) -> dict[str, Any]:
+        """Static run metadata plus dynamic `is_running` flag."""
+        return {**self._static_meta, "is_running": self.is_running()}
 
     # ── task selection ────────────────────────────────────────────────────
 

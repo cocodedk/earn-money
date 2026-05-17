@@ -32,6 +32,7 @@ _EXPECTED_SCRIPT_ORDER = [
     "/static/probe-render.js",
     "/static/probe-detail.js",
     "/static/probe.js",
+    "/static/probe-pill.js",
 ]
 
 

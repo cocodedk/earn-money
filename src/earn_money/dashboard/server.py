@@ -54,6 +54,7 @@ _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
     "/static/probe-state.js":   (_STATIC / "probe-state.js",   _JS),
     "/static/probe-detail.css": (_STATIC / "probe-detail.css", _CSS),
     "/static/probe-detail.js":  (_STATIC / "probe-detail.js",  _JS),
+    "/static/probe-pill.js":    (_STATIC / "probe-pill.js",    _JS),
 }
 
 # One-at-a-time probe runner — module-level slot under a lock so two
@@ -144,6 +145,8 @@ def _make_handler(
                     self._serve_status()
                 elif path == "/api/probe/stream":
                     self._serve_probe_stream()
+                elif path == "/api/probe/current":
+                    self._serve_probe_current()
                 elif path == "/":
                     self._serve_index()
                 elif path in static_assets:
@@ -360,6 +363,26 @@ def _make_handler(
                     raise
 
             self._send_json(200, {"run_id": run_id})
+
+        def _serve_probe_current(self) -> None:
+            """Discovery endpoint. Lets the dashboard answer "is anything
+            running right now?" without the operator knowing the run_id.
+
+            Returns 404 when the slot is empty. Returns 200 with the
+            runner's metadata (plus `is_running`) when populated — even
+            for a finished run, so a late subscriber can still find and
+            replay its history.
+            """
+            with _PROBE_SLOT_LOCK:
+                runner = _PROBE_SLOT
+            if runner is None:
+                return self.send_error(404, "no probe slot")
+            try:
+                payload = runner.metadata()
+            except Exception:
+                self.log_error("%s", traceback.format_exc())
+                return self.send_error(500, "metadata unavailable")
+            return self._send_json(200, payload)
 
         def _serve_probe_stream(self) -> None:
             qs = urlparse(self.path).query

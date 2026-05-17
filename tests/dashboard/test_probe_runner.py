@@ -25,6 +25,25 @@ def _runner_with_session(observations: list[ObservationWrapper] | None = None):
     return runner
 
 
+class TestMetadataApi:
+    """`runner.metadata()` exposes the same payload that the SSE `meta`
+    event carries, so the `/api/probe/current` endpoint can answer
+    "what is currently running?" without re-parsing the history."""
+
+    def test_metadata_returns_meta_event_payload(self, make_runner):
+        runner = make_runner([])
+        m = runner.metadata()
+        assert m["run_id"] == runner.run_id()
+        assert m["base_url"] == "https://target.example.com"
+        assert m["target_kind"] == "local_lab"
+        assert m["max_turns"] == 10
+
+    def test_metadata_includes_is_running_false_before_start(self, make_runner):
+        runner = make_runner([])
+        m = runner.metadata()
+        assert m["is_running"] is False
+
+
 def _grab_meta(runner) -> dict | None:
     """Snapshot the runner's history for the first `meta` event without
     blocking on a non-completed run. `iter_since` would otherwise hang

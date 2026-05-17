@@ -67,17 +67,38 @@
       location.hash = location.hash + "&" + tail;
     }
   }
-  const _bootRunId = _readRunIdFromHash();
-  if (_bootRunId) {
-    local.run_id = _bootRunId;
+  // Boot sequence — async so we can discover an active run via the
+  // `/api/probe/current` endpoint when the URL hash doesn't already
+  // carry one. Three paths:
+  //   1. `#run=<id>` in hash → attach to that run, force Probe tab
+  //   2. `#tab=probe` only   → discover + attach if a probe is running
+  //   3. neither              → no-op; the header pill (probe-pill.js)
+  //      still shows the operator there's something to click
+  async function _boot() {
+    let runId = _readRunIdFromHash();
+    let forceTab = !!runId;
+    if (!runId && /(?:^#|&)tab=probe(?:&|$)/.test(location.hash || "")) {
+      runId = await _discoverActiveRun();
+    }
+    if (!runId) return;
+    local.run_id = runId;
     window.probeReducer({ stage: "probe_start" });
     runBtn.disabled = true;
-    // Force-switch to the Probe tab. Without this a URL like
-    // `#run=<id>` (no `tab=probe`) reattaches the stream but the
-    // panel stays hidden behind the default Recon tab.
-    document.querySelector('button.tab[data-tab="probe"]')?.click();
-    openStream(_bootRunId);
+    if (forceTab) {
+      document.querySelector('button.tab[data-tab="probe"]')?.click();
+    }
+    openStream(runId);
   }
+
+  async function _discoverActiveRun() {
+    try {
+      const res = await fetch("/api/probe/current");
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data && data.run_id ? data.run_id : null;
+    } catch (_) { return null; }
+  }
+  _boot();
 
   function openStream(run_id) {
     const es = new EventSource("/api/probe/stream?run_id=" + encodeURIComponent(run_id));

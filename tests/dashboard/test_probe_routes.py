@@ -881,3 +881,68 @@ class TestDispatcher:
             handler_cls, "POST", "/api/does-not-exist", raw_body=b"{}"
         )
         assert status == 404
+
+
+class TestProbeCurrentRoute:
+    """`GET /api/probe/current` lets the dashboard discover an active
+    probe without the operator knowing the run_id. Returns 404 when
+    there is no slot, 200 with metadata when there is."""
+
+    class _CurrentFake:
+        def __init__(self, *, running: bool = True) -> None:
+            self._running = running
+
+        def run_id(self) -> str:
+            return "currentfake1"
+
+        def is_running(self) -> bool:
+            return self._running
+
+        def metadata(self) -> dict:
+            return {
+                "run_id": "currentfake1",
+                "base_url": "https://target.example.com",
+                "target_kind": "local_lab",
+                "platform": "local",
+                "program": None,
+                "roe_profile": "/tmp/test.yaml",
+                "max_turns": 75,
+                "is_running": self._running,
+            }
+
+    def test_returns_404_when_no_slot(self, handler_factory):
+        handler_cls, _ = handler_factory
+        from earn_money.dashboard import server
+        server._PROBE_SLOT = None
+        status, _body, _h = _drive_dispatch(
+            handler_cls, "GET", "/api/probe/current",
+        )
+        assert status == 404
+
+    def test_returns_200_with_metadata_when_running(self, handler_factory):
+        handler_cls, _ = handler_factory
+        from earn_money.dashboard import server
+        server._PROBE_SLOT = self._CurrentFake(running=True)
+        status, body_bytes, _h = _drive_dispatch(
+            handler_cls, "GET", "/api/probe/current",
+        )
+        assert status == 200
+        payload = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1])
+        assert payload["run_id"] == "currentfake1"
+        assert payload["base_url"] == "https://target.example.com"
+        assert payload["is_running"] is True
+        assert payload["max_turns"] == 75
+
+    def test_returns_200_for_completed_slot(self, handler_factory):
+        """Slot persists after the run finishes so a late subscriber
+        can still replay the trace; the endpoint reports is_running
+        false in that case."""
+        handler_cls, _ = handler_factory
+        from earn_money.dashboard import server
+        server._PROBE_SLOT = self._CurrentFake(running=False)
+        status, body_bytes, _h = _drive_dispatch(
+            handler_cls, "GET", "/api/probe/current",
+        )
+        assert status == 200
+        payload = json.loads(body_bytes.split(b"\r\n\r\n", 1)[-1])
+        assert payload["is_running"] is False
