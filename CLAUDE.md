@@ -2,11 +2,11 @@
 
 ## Project overview
 
-Private operational repository for a continuous bug-bounty pipeline built around `clawpwn`. The full design is in [`docs/superpowers/specs/2026-05-12-earn-money-design.md`](docs/superpowers/specs/2026-05-12-earn-money-design.md) — read it before any non-trivial work.
+Public operational repository for a continuous bug-bounty pipeline built around `clawpwn`. The full design is in [`docs/superpowers/specs/2026-05-12-earn-money-design.md`](docs/superpowers/specs/2026-05-12-earn-money-design.md) — read it before any non-trivial work.
 
 - **Language / Runtime**: Python 3.12+ for runners and orchestration; shell for installers and CLIs; SQLite for per-program state.
 - **Owner**: Babak Bandpey ([cocode.dk](https://cocode.dk))
-- **Visibility**: private — never push to a non-cocodedk remote.
+- **Visibility**: public — the pre-push hook still refuses pushes to non-cocodedk remotes (see `.githooks/pre-push`); keep all work on `github.com/cocodedk/earn-money`.
 
 ## Required skills — ALWAYS invoke these
 
