@@ -38,7 +38,7 @@ The grid collapses to a single column on narrow viewports as a graceful-fail saf
 
 We rely entirely on `node.textContent = value` to neutralise LLM-controlled strings in the DOM. We do NOT add HTML escaping libraries, content-security-policy headers, or sanitization wrappers.
 
-**Reason:** `textContent` is the correct primitive. Adding a sanitizer would be defence-in-depth against an `innerHTML` bug we don't have; the existing code follows the same rule. A code-review check + the `grep` in `05-test-plan.md` is the discipline.
+**Reason:** `textContent` is the correct primitive. Adding a sanitizer would be defence-in-depth against an `innerHTML` bug we don't have. The automated grep test (`test_probe_static_assets.py`) is the discipline.
 
 ## Prompt editing / replay
 
@@ -51,3 +51,21 @@ The panel is read-only. We do NOT add "edit this prompt and send it to the model
 No fade-ins, no slide animations, no skeleton loaders. The panel updates instantly on event arrival.
 
 **Reason:** SSE events arrive at human-readable cadence (one per LLM round-trip). Animations would obscure rather than aid comprehension. Consistent with the rest of the dashboard's no-animation style.
+
+## Copy / "copy to clipboard" buttons
+
+No "copy prompt", "copy response", or "copy this turn as JSON" affordances. The user copies via browser selection (`Ctrl+A` inside the scrollable `<pre>`, or click-drag).
+
+**Reason:** Clipboard APIs introduce permission prompts, browser-version edge cases, and accidental-secret-exposure surface (one wrong button-target binding and you've copied the wrong attempt). The selection-and-copy fallback works today and costs nothing. Revisit if operators report friction.
+
+## Hard truncation of `prompt`, `system`, or `raw`
+
+The server never truncates these fields. If a misbehaving model produces a 250-KB `raw`, the full 250 KB ships over SSE and lives in browser memory.
+
+**Reason:** Observability is the entire point of this feature. Hard truncation defeats the goal — the operator would see "(truncated)" exactly when the model is misbehaving most interestingly. The right escape hatch (if size ever becomes a real problem in practice) is a UI affordance like "this field is 250 KB, click to expand" with the full value preserved in memory — not a server-side cap. That escape hatch is deferred to a future revision and is gated on observing a real performance issue.
+
+## Server-side `request` metadata object
+
+No `temperature`, `max_tokens`, `response_format_type`, or other provider kwargs in the SSE payload. The operator currently needs to know "did `response_format` go out, yes/no?" — and `used_response_format: bool` answers that.
+
+**Reason:** Gold-plating. The current debugging goal is concrete (the qwen `response_format` retry pattern); adding a `request: {…}` object now means designing what goes in it across providers we don't yet support. Defer until a debugging task forces it.

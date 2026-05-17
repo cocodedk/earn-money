@@ -28,7 +28,7 @@ TURN 2 · qwen/qwen3-235b-a22b · invalid_action → recovered
 Fields:
 - Turn number from the selected turn
 - Model from the most recent attempt
-- Outcome from `state.turns[N].complete` if known, else "in progress"
+- Status text: renderer calls `window.getTurnStatus(turn)` to get the enum, then `window.formatTurnStatus(status)` to get the display string. Both helpers live in `probe-status.js`. Neither renderer maps the enum to display text locally. Run-level errors (probe crash) render as a banner above the whole panel, not inside the per-turn header.
 - Retry indicator (`↻ retried` badge) if `attempts.length > 1`
 
 If no turn is selected (initial state, no events yet), header shows `"Waiting for first turn…"` and tabs are disabled.
@@ -39,42 +39,59 @@ Two buttons: **Delta** (default) and **Full**. Selecting a tab persists across t
 
 ### Delta tab
 
-Splits both the previous turn's prompt and the current turn's prompt on `\n=== ` boundaries. The result is a list of sections (system intro, `=== Rules of Engagement ===`, `=== Session State ===`, `=== Available actions ===`). For each section name, if the bodies differ, render the **current** turn's section. If they're identical, omit.
+Splits both the previous turn's prompt and the current turn's prompt by scanning for a **fixed whitelist** of known prompt headings, in expected order:
 
-In practice this is always just the Session State block — RoE doesn't change mid-run, action menu is constant, system prompt is constant. The Delta tab is therefore a tight, scrollable "what's new this turn" view.
+```
+=== Rules of Engagement ===
+=== Session State ===
+=== Available actions ===
+```
+
+Anything before the first match is the system intro section. Lines that happen to start with `===` but are NOT in the whitelist (e.g. target-controlled response bytes that include `=== Welcome ===`) stay inside the current section — they are not treated as section boundaries. This is important because the prompt embeds HTTP response bodies in the Session State block, and a malicious or just unusual target could echo our heading format.
+
+For each whitelisted heading, if the bodies of that section differ between previous and current turn, render the current turn's section. If identical, omit. In practice this is always just the Session State block — RoE doesn't change mid-run, action menu is constant, system intro is constant.
 
 If the selected turn is turn 1, Delta shows the entire prompt (no previous turn to diff against) with a small label "first turn — no delta".
+
+**Fallback for prompt format drift:** if either prompt cannot be split into the expected sections (zero whitelisted headings matched), Delta renders the entire current prompt with a small label "could not compute delta". This protects against a future prompt-format change leaving Delta silently empty.
 
 ### Full tab
 
 Renders the prompt verbatim in a `<pre>` block with monospace font, soft-wrap on, scrollable. No syntax highlighting.
 
-## Retry stacking
+## Panel body — two sections
 
-Both Delta and Full tabs render the **per-attempt** cards below the prompt section. One card per element of `state.turns[selectedTurn].attempts`, in order.
+The panel body has **two stacked sections**:
+
+### 1. Prompt section (rendered ONCE per turn)
+
+The Delta/Full tab toggle controls what shows here. This section displays the `prompt` (and on the Full tab, also `system`) for the selected turn — **not** per-attempt. In current code the retry sends the exact same `user=prompt` kwarg, so duplicating the multi-KB prompt across attempt cards would just make the panel longer to scroll without adding information.
+
+(If a future code change makes the second attempt send a different prompt — which would be a non-trivial design change — the spec at that point should specify how to show the diff. For v1 the prompt is always shared across all attempts in a turn.)
+
+### 2. Attempts section (one card per attempt)
 
 ```
 ┌─ Attempt #1 · with response_format ─────────────────┐
-│ Prompt:                                              │
-│ [prompt block — Delta or Full per tab]               │
 │ Response:                                            │
 │ "{"                                                  │
-│ ⚠ parse failed                                       │
+│ ⚠ parse failed: Expecting value: line 1 column 2    │
 └──────────────────────────────────────────────────────┘
 ┌─ Attempt #2 · without response_format ──────────────┐
-│ Prompt:                                              │
-│ [same prompt — repeated literally; second call sent  │
-│  the same `user=` arg, only `response_format` kwarg  │
-│  differs]                                            │
 │ Response:                                            │
 │ {"tool":"get","category":"http_get","args":{…}}      │
 │ ✓ parsed                                             │
 └──────────────────────────────────────────────────────┘
 ```
 
-Garbage / failed-parse responses get a warning border (CSS `--color-warning`). Successful parses get the default border. Status (✓ / ⚠) is derived from whether a matching `turn/action_parsed` event arrived for the same `turn` after this `action_pending`.
+Each card shows:
+- Header chip: `Attempt #N · with response_format` or `· without response_format` (from `used_response_format`)
+- Response body in a scrollable `<pre>` (LLM-controlled, rendered via `textContent`)
+- Status row: `✓ parsed` (with default border + check icon) or `⚠ parse failed: <error>` (with warning border + warning icon)
 
-For the common case where the same prompt is sent to both attempts, the Prompt block in the second card may collapse to "(same prompt as attempt #1)" to avoid scrolling past a duplicate — implementation may include a small expand toggle. Keep simple for v1: render both verbatim; revisit if it's annoying.
+Status comes from `attempts[i].parseOutcome`, which **`probe-state.js` (the reducer)** sets when `turn/action_parsed` (`"ok"`) or `turn/action_parse_failed` (`"failed"`) arrives — matched by `(turn, attempt)`, never inferred from event order. The error string in `⚠ parse failed: <error>` comes from `attempts[i].parseError`, populated from the `action_parse_failed.error` field; it is `null` for `"ok"` and `"pending"` attempts. The detail panel renderer is strictly read-only over this state — see `01-architecture.md` boundary discipline.
+
+Styling: warning attempts use `border-color: var(--color-warning)` AND a `⚠` glyph in the status row. Successful attempts use the default border AND a `✓` glyph. The two are distinguishable without color — accessibility requirement, not optional.
 
 ## Selection & follow-latest
 
@@ -93,4 +110,4 @@ This matches the standard pattern from streaming-log viewers: follow until the u
 
 ## Security
 
-All four LLM-controlled fields (`prompt`, `raw`, `raw_excerpt`, `model`) render via `node.textContent = value` — never `innerHTML`, never `insertAdjacentHTML`. This is the same rule the existing `probe-render.js` follows for the timeline; the detail panel follows the same convention.
+LLM-controlled fields render via `textContent` only. Canonical rule + enforcement: see `02-sse-event-shape.md § Security` and `05-test-plan.md::test_probe_detail_js_uses_no_html_sinks`.

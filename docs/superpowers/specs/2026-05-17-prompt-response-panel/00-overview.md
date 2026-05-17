@@ -17,7 +17,7 @@ In scope:
 - New right-side detail panel in the Probe tab, side-by-side with the existing timeline.
 - SSE event carries full `prompt` and full `raw` per LLM call (both attempts when retry-without-`response_format` fires).
 - Two sub-tabs in the panel: **Delta** (per-turn changes only) and **Full** (verbatim prompt).
-- Retry attempts shown stacked, labelled, colour-coded.
+- Retry attempts shown stacked, labelled, with warning/default styling (icon + border, not color-alone — accessibility).
 
 Out of scope:
 - Persisting prompts/responses across page reloads. The transcript lives in browser memory for the run; refreshing the page loses it.
@@ -26,6 +26,20 @@ Out of scope:
 - Cost/token accounting beyond the existing per-turn `estimated_tokens`.
 
 See `06-non-goals.md` for the full exclusion list.
+
+## Acceptance Criteria
+
+Implementation is done when all of these hold:
+
+1. **Every parse outcome carries an attempt identity.** `turn/action_parsed` events include `attempt`; first-attempt parse failures emit a new `turn/action_parse_failed` event carrying `{turn, attempt, error}`. The UI never infers attempt identity from event ordering.
+2. **`used_response_format` reflects the actual provider call.** Whatever the helper returned — not a value derived from attempt number. A test covers the case where attempt 1 itself runs without `response_format`.
+3. **System prompt is visible.** The SSE event carries `system` and `prompt` as separate fields, matching how `provider.complete()` is invoked.
+4. **Status enum AND display text come from one helper each.** `window.getTurnStatus(turn) -> enum` (explicit priority order, five values) and `window.formatTurnStatus(status) -> string` (fixed lookup table) both live in `probe-status.js`. Both renderers call them — no local string mapping anywhere. JS-tested.
+5. **State is owned by one module.** `probe-state.js` is the single writer to all state fields, including reset via `probe_start` event. Both renderers are strictly read-only over `window.probeState`. `probe.js` neither reads nor writes state; render is triggered solely by the reducer's `onChange` callback. JS-tested (reducer suite).
+6. **Prompt rendered once per turn.** Attempt cards show only per-attempt metadata + response + parse status. Prompt is NOT duplicated across attempt cards (the retry uses the same prompt — duplication is pure noise).
+7. **`probe-detail.js` has no `innerHTML` or `insertAdjacentHTML`.** Enforced by an automated test, not just a manual grep.
+8. **`raw` and `prompt` are never truncated at the server.** The UI renders them in a scrollable `<pre>`. A test using a >200-char raw response proves the server keeps the full value (not just the 200-char excerpt).
+9. **`index.html` script + CSS loading is correct and asserted.** `probe-detail.css` is linked; JS files load in dependency order (`probe-status.js` → `probe-state.js` → `probe-render.js` → `probe-detail.js` → `probe.js`). An automated test parses `index.html` and asserts both.
 
 ## References
 
