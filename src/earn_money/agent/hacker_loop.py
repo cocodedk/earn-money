@@ -80,6 +80,7 @@ class HackerLoop:
         self.provider = provider
         self._current_turn: int = 0
         self._last_model_id: str | None = None
+        self._last_used_response_format: bool = False
 
     # ── observation hooks (no-op defaults, override in subclasses) ────────────
 
@@ -117,7 +118,6 @@ class HackerLoop:
                 return self._result(turn, f"budget_exceeded: {e}")
 
             prompt = self._build_prompt()
-            used_response_format = True  # default for the first call below
             raw = self._get_llm_response(prompt)
             self._on_llm_response(turn, raw, self._last_model_id)
             if raw is None:
@@ -126,30 +126,24 @@ class HackerLoop:
             try:
                 action, parse_recovered = parse_action_with_recovery(raw)
             except ActionParseError as first_err:
-                # If we used response_format on the first call, retry
-                # ONCE without it — some models return half-JSON / wrong
-                # tokens when the response_format hint is on. The
-                # `used_response_format` guard prevents infinite retries
-                # and prevents a second call when response_format was
-                # already disabled (e.g. by a future capability flag).
-                if used_response_format:
-                    log.warning(
-                        "LLM action parse failed with response_format; "
-                        "retrying once without response_format: %s",
-                        first_err,
-                    )
-                    raw = self._get_llm_response(prompt, force_no_response_format=True)
-                    used_response_format = False
-                    self._on_llm_response(turn, raw, self._last_model_id)
-                    if raw is None:
-                        return self._result(turn, "llm_error")
-                    try:
-                        action, parse_recovered = parse_action_with_recovery(raw)
-                    except ActionParseError as second_err:
-                        log.warning("Invalid action from LLM after retry: %s", second_err)
-                        return self._result(turn, "invalid_action")
-                else:
+                # Skip the retry if response_format wasn't actually used
+                # on the call that produced this garbage — same kwargs
+                # would just return the same garbage.
+                if not self._last_used_response_format:
                     log.warning("Invalid action from LLM: %s", first_err)
+                    return self._result(turn, "invalid_action")
+                log.warning(
+                    "Parse failed with response_format; retrying without: %s",
+                    first_err,
+                )
+                raw = self._get_llm_response(prompt, with_response_format=False)
+                self._on_llm_response(turn, raw, self._last_model_id)
+                if raw is None:
+                    return self._result(turn, "llm_error")
+                try:
+                    action, parse_recovered = parse_action_with_recovery(raw)
+                except ActionParseError as second_err:
+                    log.warning("Invalid action from LLM after retry: %s", second_err)
                     return self._result(turn, "invalid_action")
             self._on_action_parsed(turn, action, parse_recovered)
 
@@ -243,49 +237,15 @@ class HackerLoop:
         )
 
     def _get_llm_response(
-        self, prompt: str, *, force_no_response_format: bool = False,
+        self, prompt: str, *, with_response_format: bool = True,
     ) -> str | None:
-        # `force_no_response_format=True` is the caller's explicit ask to
-        # skip the JSON-object hint — used by run() on a parse-failure
-        # retry. We OMIT the kwarg entirely (rather than passing None);
-        # some OpenAI-compat providers treat None and omit differently.
-        if force_no_response_format:
-            try:
-                return self.provider.complete(  # type: ignore[no-any-return]
-                    system=_SYSTEM_PROMPT,
-                    user=prompt,
-                    task=TaskType.AGENT_PLANNING,
-                )
-            except Exception as e:
-                log.error("Provider error (force_no_response_format): %s", e)
-                return None
-        # First attempt: pass response_format. Most OpenRouter models
-        # honour `{"type": "json_object"}`; the ones that don't may
-        # 400 the entire request. On any provider failure, retry ONCE
-        # without response_format — the system prompt already says
-        # "Return exactly one JSON action. No prose. No markdown. No
-        # code blocks." which carries most of the work, and
-        # parse_action_with_recovery handles fenced/prose-wrapped
-        # output. Only if BOTH attempts fail do we return None and
-        # surface llm_error to the loop.
-        try:
-            return self.provider.complete(  # type: ignore[no-any-return]
-                system=_SYSTEM_PROMPT,
-                user=prompt,
-                task=TaskType.AGENT_PLANNING,
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            log.warning("Provider rejected response_format; retrying without: %s", e)
-        try:
-            return self.provider.complete(  # type: ignore[no-any-return]
-                system=_SYSTEM_PROMPT,
-                user=prompt,
-                task=TaskType.AGENT_PLANNING,
-            )
-        except Exception as e:
-            log.error("Provider error after retry: %s", e)
-            return None
+        raw, used_rf = _call_provider_with_rf_fallback(
+            self.provider, system=_SYSTEM_PROMPT, user=prompt,
+            task=TaskType.AGENT_PLANNING,
+            with_response_format=with_response_format,
+        )
+        self._last_used_response_format = used_rf
+        return raw
 
     def _result(self, turn: int, stop_reason: str) -> LoopResult:
         return LoopResult(
@@ -295,3 +255,31 @@ class HackerLoop:
             policy_denials=list(self.session.policy_denials),
             stop_reason=stop_reason,
         )
+
+
+def _call_provider_with_rf_fallback(
+    provider: Any, *, system: str, user: str, task: TaskType,
+    with_response_format: bool,
+) -> tuple[str | None, bool]:
+    """Call provider.complete, returning (raw, used_response_format).
+
+    When `with_response_format=True`, tries with `response_format={"type":
+    "json_object"}` first; on provider exception, retries without it.
+    When False, makes a single call without the kwarg. The kwarg is
+    OMITTED on retries (not passed as None) since some OpenAI-compat
+    providers treat None and omit differently.
+    """
+    if with_response_format:
+        try:
+            raw = provider.complete(
+                system=system, user=user, task=task,
+                response_format={"type": "json_object"},
+            )
+            return raw, True
+        except Exception as e:
+            log.warning("Provider rejected response_format; retrying without: %s", e)
+    try:
+        return provider.complete(system=system, user=user, task=task), False
+    except Exception as e:
+        log.error("Provider error: %s", e)
+        return None, False

@@ -275,15 +275,15 @@ class TestResponseFormatPassthrough:
         assert result.stop_reason == "invalid_action"
         assert len(loop.provider.complete.call_args_list) == 2
 
-    def test_parse_retry_never_makes_more_than_two_calls(self):
-        # Regression guard for the `used_response_format` flag: a parse
-        # failure must trigger AT MOST one retry, never an infinite
-        # retry loop. Three consecutive garbage responses must result in
-        # exactly two provider calls (one normal, one retry) then exit
-        # with invalid_action.
+    def test_no_parse_retry_when_response_format_was_already_off(self):
+        # If the first provider call raises and the in-method fallback
+        # (without response_format) returns garbage, the parse-retry
+        # path MUST skip — retrying with the same kwargs would just
+        # repeat the garbage. Exactly two calls.
         loop = _loop([])
         loop.provider.complete.side_effect = [
-            "{", "{", "{",
+            RuntimeError("response_format unsupported"),
+            "{still garbage",
         ]
         result = loop.run()
         assert result.stop_reason == "invalid_action"

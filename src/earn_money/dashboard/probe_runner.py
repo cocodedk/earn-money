@@ -20,7 +20,11 @@ from earn_money import config
 from earn_money.agent import providers as providers_mod
 from earn_money.agent.budget import RequestBudget
 from earn_money.agent.finding_verifier import FindingVerifier
-from earn_money.agent.hacker_loop import _SYSTEM_PROMPT, HackerLoop
+from earn_money.agent.hacker_loop import (
+    _SYSTEM_PROMPT,
+    HackerLoop,
+    _call_provider_with_rf_fallback,
+)
 from earn_money.agent.hacker_loop_cli import _seed_urls
 from earn_money.agent.hacker_session import HackerSession
 from earn_money.agent.http_tool import HttpTool
@@ -98,39 +102,16 @@ class ProbeRunner(HackerLoop):
     # ── HackerLoop hook overrides ─────────────────────────────────────────
 
     def _get_llm_response(
-        self, prompt: str, *, force_no_response_format: bool = False,
+        self, prompt: str, *, with_response_format: bool = True,
     ) -> str | None:
         task = self._pick_task()
         self._last_model_id = _resolve_model_safely(task)
-        # `force_no_response_format=True` is the parse-retry path from
-        # HackerLoop.run(). Omit the kwarg entirely — see the base
-        # class's _get_llm_response for the rationale.
-        if force_no_response_format:
-            try:
-                return self.provider.complete(  # type: ignore[no-any-return]
-                    system=_SYSTEM_PROMPT, user=prompt, task=task,
-                )
-            except Exception as e:
-                log.error("Provider error (force_no_response_format): %s", e)
-                return None
-        # First attempt with response_format; on any provider failure,
-        # retry once without it. See HackerLoop._get_llm_response for
-        # the rationale — same logic, mirrored here because the runner
-        # overrides this method to pick `task` per turn.
-        try:
-            return self.provider.complete(  # type: ignore[no-any-return]
-                system=_SYSTEM_PROMPT, user=prompt, task=task,
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            log.warning("Provider rejected response_format; retrying without: %s", e)
-        try:
-            return self.provider.complete(  # type: ignore[no-any-return]
-                system=_SYSTEM_PROMPT, user=prompt, task=task,
-            )
-        except Exception as e:
-            log.error("Provider error after retry: %s", e)
-            return None
+        raw, used_rf = _call_provider_with_rf_fallback(
+            self.provider, system=_SYSTEM_PROMPT, user=prompt, task=task,
+            with_response_format=with_response_format,
+        )
+        self._last_used_response_format = used_rf
+        return raw
 
     def _on_llm_response(self, turn: int, raw: str | None, model_id: str | None) -> None:
         self._emit("turn", {
