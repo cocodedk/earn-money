@@ -1,0 +1,25 @@
+# 5. Input validation and injection
+
+- SQL injection
+  - classic SQLi
+  - blind SQLi
+  - second-order SQLi
+  - ORM/query-builder injection
+- NoSQL injection
+  - Mongo-style operator injection
+  - JSON query manipulation
+- Command injection
+  - shell command execution through parameters
+  - unsafe system calls
+- Server-side template injection
+  - template expression injection
+  - sandbox escape risk
+- LDAP/XPath/XML injection
+  - directory query injection
+  - XML parser abuse
+- Header injection
+  - response splitting
+  - cache poisoning helpers
+- Email/template injection
+  - mail header injection
+  - notification template abuse

@@ -1,0 +1,27 @@
+# 6. Cross-site scripting
+
+- Reflected XSS
+  - query parameter reflection
+  - path reflection
+  - header reflection
+- Stored XSS
+  - comments
+  - profiles
+  - admin panels
+  - support tickets
+  - logs viewed in dashboard
+- DOM XSS
+  - unsafe JavaScript sinks
+  - URL fragment handling
+  - postMessage misuse
+- Context-specific XSS
+  - HTML body
+  - HTML attributes
+  - JavaScript strings
+  - template literals
+  - SVG
+- CSP weaknesses
+  - missing CSP
+  - unsafe-inline
+  - weak script sources
+  - JSONP or callback bypasses

@@ -1,0 +1,29 @@
+# 2. Authentication
+
+- Weak login behavior
+  - username enumeration
+  - weak password policy
+  - missing lockout
+  - weak rate limiting
+- Password reset
+  - predictable reset tokens
+  - token reuse
+  - weak expiry
+  - reset poisoning
+  - account takeover via email change
+- MFA
+  - bypass
+  - missing MFA on sensitive flows
+  - weak recovery codes
+  - MFA reset abuse
+- OAuth / SSO
+  - redirect URI issues
+  - state parameter missing
+  - token substitution
+  - account linking flaws
+  - login CSRF
+- Registration
+  - duplicate account confusion
+  - email verification bypass
+  - invitation abuse
+  - tenant/org join abuse

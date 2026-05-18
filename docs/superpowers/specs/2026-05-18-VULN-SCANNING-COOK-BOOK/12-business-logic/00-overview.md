@@ -1,0 +1,22 @@
+# 12. Business logic
+
+- Workflow bypass
+  - skipping required steps
+  - direct API calls out of order
+- Price/payment manipulation
+  - quantity tampering
+  - coupon abuse
+  - negative values
+  - currency mismatch
+- State confusion
+  - race between states
+  - invalid transitions
+- Approval bypass
+  - self-approval
+  - role confusion
+  - stale permissions
+- Abuse of limits
+  - trial abuse
+  - invitation abuse
+  - quota bypass
+  - refund/credit abuse
