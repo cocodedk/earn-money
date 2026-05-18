@@ -75,8 +75,14 @@ def test_static_dashboard_css_is_served_with_css_content_type(
         r = c.get(f"{base}/static/dashboard.css", timeout=2)
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/css")
-    # Layout-level selector lives in dashboard.css, not tokens.css.
-    assert "article.program" in r.text
+    # dashboard.css is a thin @import facade since the split; the actual
+    # `article.program` selector now lives in dashboard-programs.css.
+    assert '@import url("/static/dashboard-programs.css")' in r.text
+    with httpx.Client() as c:
+        r2 = c.get(f"{base}/static/dashboard-programs.css", timeout=2)
+    assert r2.status_code == 200
+    assert r2.headers["content-type"].startswith("text/css")
+    assert "article.program" in r2.text
 
 
 def test_static_dashboard_js_is_served_with_js_content_type(

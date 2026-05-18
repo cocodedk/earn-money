@@ -40,10 +40,14 @@ _DEFAULT_HOST = "127.0.0.1"
 _CSS = "text/css; charset=utf-8"
 _JS = "application/javascript; charset=utf-8"
 _STATIC_ROUTES: dict[str, tuple[Path, str]] = {
-    "/static/tokens.css":       (_STATIC / "tokens.css",       _CSS),
-    "/static/dashboard.css":    (_STATIC / "dashboard.css",    _CSS),
-    "/static/panels.css":       (_STATIC / "panels.css",       _CSS),
-    "/static/probe.css":        (_STATIC / "probe.css",        _CSS),
+    "/static/tokens.css":            (_STATIC / "tokens.css",            _CSS),
+    "/static/dashboard.css":         (_STATIC / "dashboard.css",         _CSS),
+    "/static/dashboard-base.css":    (_STATIC / "dashboard-base.css",    _CSS),
+    "/static/dashboard-header.css":  (_STATIC / "dashboard-header.css",  _CSS),
+    "/static/dashboard-programs.css":(_STATIC / "dashboard-programs.css",_CSS),
+    "/static/dashboard-footer.css":  (_STATIC / "dashboard-footer.css",  _CSS),
+    "/static/panels.css":            (_STATIC / "panels.css",            _CSS),
+    "/static/probe.css":             (_STATIC / "probe.css",             _CSS),
     "/static/render.js":        (_STATIC / "render.js",        _JS),
     "/static/render_panels.js": (_STATIC / "render_panels.js", _JS),
     "/static/dashboard.js":     (_STATIC / "dashboard.js",     _JS),

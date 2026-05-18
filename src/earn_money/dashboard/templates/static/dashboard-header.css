@@ -1,0 +1,73 @@
+/* HEADER — brand marque, live indicator, probe pill. Loaded via @import
+   from dashboard.css after dashboard-base.css. */
+header { display: grid; grid-template-columns: 1fr auto auto;
+         gap: 1rem; align-items: end; margin-bottom: 2.5rem; }
+.probe-pill {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.7rem; border: 1px solid var(--bad);
+  background: color-mix(in oklab, var(--bad) 8%, var(--paper-2));
+  color: var(--ink); font-size: 0.7rem; letter-spacing: 0.18em;
+  text-transform: uppercase; text-decoration: none; white-space: nowrap;
+}
+.probe-pill:hover { background: color-mix(in oklab, var(--bad) 16%, var(--paper-2)); }
+.probe-pill .pill-dot {
+  width: 0.45rem; height: 0.45rem; border-radius: 50%;
+  background: var(--bad); animation: pulse 2.4s ease-out infinite;
+}
+.probe-pill .pill-label { font-weight: 700; }
+.probe-pill .pill-target { color: var(--ink-2); letter-spacing: 0.04em;
+  text-transform: none; max-width: 18rem; overflow: hidden;
+  text-overflow: ellipsis; }
+.probe-pill .pill-turn { color: var(--mute); letter-spacing: 0.06em; }
+.probe-pill[data-state="done"] { border-color: var(--mute);
+  background: var(--paper-2); }
+.probe-pill[data-state="done"] .pill-dot { background: var(--mute);
+  animation: none; }
+.brand { line-height: 1; }
+.brand .marque {
+  margin: 0; font-size: clamp(2.5rem, 7vw, 4.5rem);
+  font-weight: 700; letter-spacing: -0.04em; color: var(--ink);
+}
+.brand .marque small {
+  display: inline-block; font-size: 0.18em; font-weight: 600;
+  letter-spacing: 0.28em; vertical-align: top; margin-left: 0.6em;
+  margin-top: 0.6em; color: var(--mute);
+}
+.brand .sub { margin-top: 0.6em; font-size: 0.78rem; color: var(--mute);
+              letter-spacing: 0.06em; }
+.live {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.35rem 0.6rem; border: 1px solid var(--rule);
+  background: var(--paper-2); font-size: 0.7rem;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-2);
+  white-space: nowrap;
+}
+.live .dot {
+  width: 0.45rem; height: 0.45rem; border-radius: 50%;
+  background: var(--good); box-shadow: 0 0 0 0 var(--good);
+  animation: pulse 2.4s ease-out infinite;
+}
+.live.busy .dot  { background: var(--mute); animation: none; }
+.live.stale .dot { background: var(--bad); animation: none; }
+.live.stale      { border-color: var(--bad); color: var(--bad); }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* METRICS */
+#across { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+.metric { padding: 1.5rem 1.25rem; border-right: 1px solid var(--rule);
+          display: flex; flex-direction: column; gap: 0.5rem; }
+.metric:last-child { border-right: none; }
+.metric .label { font-size: 0.65rem; letter-spacing: 0.28em;
+                 text-transform: uppercase; color: var(--mute); }
+.metric .value { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 700;
+                 line-height: 1; letter-spacing: -0.04em;
+                 font-variant-numeric: tabular-nums; }
+.metric .value.good { color: var(--good); }
+.metric .value.bad  { color: var(--bad); }
+.metric .unit { font-size: 0.55em; font-weight: 500;
+                color: var(--mute); margin-left: 0.25em; }

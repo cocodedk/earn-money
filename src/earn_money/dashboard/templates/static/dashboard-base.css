@@ -1,0 +1,33 @@
+/* Reset + body chrome + main layout. Loaded via @import from
+   dashboard.css; tokens.css must precede so var(--...) resolves. */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper); color: var(--ink);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono",
+               Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 14px; line-height: 1.55;
+  font-feature-settings: "tnum" 1, "zero" 1;
+  font-variant-numeric: tabular-nums;
+  text-rendering: geometricPrecision;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0,0,0,0.025) 0, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0,0,0,0.02)  0, transparent 50%);
+  mix-blend-mode: multiply;
+}
+main { position: relative; z-index: 1; max-width: 1280px; margin: 0 auto;
+       padding: clamp(1.5rem, 4vw, 3rem); }
+
+/* SECTION RULES */
+/* `.rule` is applied to <h2>, so `font-weight: inherit` cancels the
+   user-agent bold and lets the surrounding tracking carry the eyebrow. */
+.rule { display: flex; align-items: baseline; gap: 1rem;
+        margin: 2.5rem 0 1.25rem; color: var(--mute);
+        font-size: 0.7rem; font-weight: inherit;
+        letter-spacing: 0.32em; text-transform: uppercase; }
+.rule::before, .rule::after { content: ""; flex: 1 0 auto;
+                              border-top: 1px solid var(--rule); }
+.rule::before { flex: 0 0 clamp(1.5rem, 3vw, 3rem); }
