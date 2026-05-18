@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.targets",
     "apps.scans",
+    "apps.events",
     "apps.findings",
     "apps.evidence",
 ]

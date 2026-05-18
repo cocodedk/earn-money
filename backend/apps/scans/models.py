@@ -1,20 +1,22 @@
-"""Scan run state machine + event stream.
+"""Scan run state machine.
 
 Status values match the spec
 (docs/superpowers/specs/2026-05-18-DOCKERIZED-ENV/06-scan-control.md):
 queued → running → paused → stopping → stopped / failed / done.
 
 State transition VALIDATION (i.e. "you can't go done → running") lives
-in the API layer when it lands — the model just stores the current
-value. Choices enforce a closed set; transitions are not enforced here.
+in lifecycle methods that land alongside the API actions — the model
+just stores the current value. Choices enforce a closed set.
 
-ScanEvent is append-only by design (no updated_at). Use UUIDModel.
+Audit events for scan runs (started, paused, …) and per-step progress
+events live in the unified `apps.events.Event` log — see
+[[project-event-log-medium-done-well]].
 """
 from __future__ import annotations
 
 from django.db import models
 
-from apps.common.models import TimestampedUUIDModel, UUIDModel
+from apps.common.models import TimestampedUUIDModel
 from apps.projects.models import Project
 from apps.targets.models import ScanTarget
 
@@ -27,13 +29,6 @@ class RunStatus(models.TextChoices):
     STOPPED = "stopped", "Stopped"
     FAILED = "failed", "Failed"
     DONE = "done", "Done"
-
-
-class EventLevel(models.TextChoices):
-    DEBUG = "debug", "Debug"
-    INFO = "info", "Info"
-    WARNING = "warning", "Warning"
-    ERROR = "error", "Error"
 
 
 class ScanRun(TimestampedUUIDModel):
@@ -81,49 +76,3 @@ class ScanTargetRun(TimestampedUUIDModel):
 
     def __str__(self) -> str:
         return f"{self.target.host} in {self.scan_run_id} [{self.status}]"
-
-
-class ScanEvent(UUIDModel):
-    """Append-only event from a scan run.
-
-    Streamed to the frontend via SSE. No updated_at — corrections happen
-    by inserting a new row, never editing existing ones.
-    """
-
-    scan_run = models.ForeignKey(
-        ScanRun, on_delete=models.CASCADE, related_name="events"
-    )
-    target = models.ForeignKey(
-        ScanTarget,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="events",
-    )
-    level = models.CharField(
-        max_length=8, choices=EventLevel.choices, default=EventLevel.INFO
-    )
-    event_type = models.CharField(max_length=64)
-    message = models.TextField(blank=True)
-    data = models.JSONField(default=dict, blank=True)
-
-    class Meta:
-        ordering = ("created_at",)  # chronological for SSE
-        indexes = [
-            models.Index(fields=("scan_run", "created_at")),
-        ]
-
-    def save(self, *args: object, **kwargs: object) -> None:
-        if self.pk and ScanEvent.objects.filter(pk=self.pk).exists():
-            raise RuntimeError(
-                "ScanEvent is append-only — existing rows cannot be updated."
-            )
-        super().save(*args, **kwargs)
-
-    def delete(self, *args: object, **kwargs: object) -> None:
-        raise RuntimeError(
-            "ScanEvent is append-only — existing rows cannot be deleted."
-        )
-
-    def __str__(self) -> str:
-        return f"[{self.level}] {self.event_type}: {self.message[:60]}"
