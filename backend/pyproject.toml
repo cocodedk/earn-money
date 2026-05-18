@@ -9,19 +9,26 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--cov=apps",
+    "--cov=config",
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-fail-under=100",
 ]
 
 [tool.coverage.run]
-source = ["apps"]
+source = ["apps", "config"]
 branch = true
 omit = [
     "*/migrations/*",
     "*/apps.py",
     "*/admin.py",
     "*/__init__.py",
+    # Django/Celery boilerplate — no test value
+    "config/wsgi.py",
+    "config/asgi.py",
+    "config/settings.py",
+    "config/urls.py",
+    "config/celery.py",
 ]
 
 [tool.coverage.report]

@@ -146,3 +146,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --- Cookbook tree (read-only file source for the Stubs API) ---
 # Mounted into the backend container at /cookbook (see docker-compose.yml).
 COOKBOOK_ROOT = os.environ.get("COOKBOOK_ROOT", "/cookbook")
+
+
+# --- App version (surfaced by /api/health/) ---
+# Set in compose / deployment. Use git SHA or release tag in production.
+APP_VERSION = os.environ.get("APP_VERSION", "dev")
