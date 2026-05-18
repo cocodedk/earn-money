@@ -188,6 +188,52 @@ class StartActionEnqueuesTaskTests(TestCase):
 
 
 @patch("apps.scans.tasks.time.sleep")
+class StubRunnerDispatchTests(TestCase):
+    """When a runner is registered for the stub_slug, the task dispatches
+    to it (skipping the simulator sleep). When no runner is registered —
+    the typical pre-spec-approval state — the simulator fallback runs."""
+
+    def setUp(self) -> None:
+        from apps.stubs.runners import _clear_for_testing
+
+        _clear_for_testing()
+
+    def tearDown(self) -> None:
+        from apps.stubs.runners import _clear_for_testing
+
+        _clear_for_testing()
+
+    def test_dispatches_to_registered_runner(self, _sleep) -> None:
+        from apps.stubs.runners import register
+
+        from .tasks import _execute_scan
+
+        call_args: list = []
+
+        @register("1.1")
+        def runner(scan_run, target_run):
+            call_args.append((scan_run.id, target_run.id))
+
+        run = _make_run_with_targets(2)
+        _execute_scan(str(run.id))
+
+        # Runner invoked once per target.
+        assert len(call_args) == 2
+        for scan_run_id, _ in call_args:
+            assert scan_run_id == run.id
+
+    def test_unregistered_slug_falls_back_to_simulator(self, mock_sleep) -> None:
+        from .tasks import _execute_scan
+
+        run = _make_run_with_targets(2)
+        _execute_scan(str(run.id))
+
+        # Simulator path uses time.sleep — registered runners don't.
+        # Two targets → two simulator sleeps.
+        assert mock_sleep.call_count == 2
+
+
+@patch("apps.scans.tasks.time.sleep")
 class RunScanCeleryWrapperTests(TestCase):
     """The @shared_task wrapper just delegates to _execute_scan. Calling
     the task directly (not .delay) invokes the underlying function."""

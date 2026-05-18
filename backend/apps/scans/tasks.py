@@ -65,7 +65,21 @@ def _execute_scan(scan_run_id: str) -> None:
 
 
 def _process_target_run(run: ScanRun, tr: ScanTargetRun) -> None:
-    """Run one target through running → done with paired events."""
+    """Run one target through running → done with paired events.
+
+    Dispatch sequence:
+    1. Flip target_run to RUNNING + emit scan_target_run.started.
+    2. Dispatch to the registered runner for `run.stub_slug`. When no
+       runner is registered (typical for stubs whose spec is still
+       pending), fall back to the simulator: a brief sleep that proves
+       the control loop without doing any HTTP work.
+    3. Flip target_run to DONE + emit scan_target_run.done.
+
+    The start/done bracketing is platform-level — every runner gets the
+    same lifecycle events regardless of what it does in between.
+    """
+    from apps.stubs.runners import get as get_runner
+
     started_payload: dict[str, Any] = {
         "id": str(tr.id),
         "scan_run_id": str(run.id),
@@ -84,7 +98,11 @@ def _process_target_run(run: ScanRun, tr: ScanTargetRun) -> None:
             data=started_payload,
         )
 
-    time.sleep(SIMULATOR_STEP_DELAY)
+    runner = get_runner(run.stub_slug)
+    if runner is None:
+        time.sleep(SIMULATOR_STEP_DELAY)  # simulator fallback
+    else:
+        runner(run, tr)
 
     with transaction.atomic():
         tr.status = RunStatus.DONE
