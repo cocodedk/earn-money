@@ -1,10 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { ProjectsList } from "./ProjectsList";
+
+beforeEach(() => window.localStorage.clear());
 
 function withProjects(rows: unknown[]) {
   server.use(
@@ -86,5 +88,50 @@ describe("ProjectsList", () => {
     const link = await screen.findByTestId("page-header-create");
     expect(link).toHaveAttribute("href", "/projects/new");
     await userEvent.click(link);
+  });
+
+  it("shows a 'Set as current' button on each row, wiring it to useCurrentProject", async () => {
+    withProjects([
+      {
+        id: "u-1",
+        name: "Lab A",
+        description: "",
+        target_count: 0,
+        scan_run_count: 0,
+        created_at: "2026-05-18T20:00:00.000000Z",
+      },
+      {
+        id: "u-2",
+        name: "Lab B",
+        description: "",
+        target_count: 0,
+        scan_run_count: 0,
+        created_at: "2026-05-18T20:00:00.000000Z",
+      },
+    ]);
+    renderWithProviders(<ProjectsList />, { route: "/projects" });
+    await screen.findByText("Lab A");
+    const buttons = screen.getAllByRole("button", { name: /set as current/i });
+    expect(buttons).toHaveLength(2);
+    await userEvent.click(buttons[1]);
+    expect(window.localStorage.getItem("em.frontend.currentProjectId")).toBe(
+      "u-2",
+    );
+  });
+
+  it("marks the current row when localStorage matches", async () => {
+    window.localStorage.setItem("em.frontend.currentProjectId", "u-1");
+    withProjects([
+      {
+        id: "u-1",
+        name: "Lab A",
+        description: "",
+        target_count: 0,
+        scan_run_count: 0,
+        created_at: "2026-05-18T20:00:00.000000Z",
+      },
+    ]);
+    renderWithProviders(<ProjectsList />, { route: "/projects" });
+    expect(await screen.findByText("Current")).toBeInTheDocument();
   });
 });

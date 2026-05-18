@@ -1,24 +1,39 @@
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
-import { ButtonLink } from "../../components/Button";
+import { Button, ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { Callout } from "../../components/Callout";
 import { useProjectsQuery } from "./api";
+import { useCurrentProject } from "../../lib/useCurrentProject";
 import type { Project } from "../../types/api";
-
-const columns: TableColumn<Project>[] = [
-  { key: "name", header: "Name", cell: (r) => r.name },
-  { key: "description", header: "Description", cell: (r) => r.description },
-  { key: "target_count", header: "Target count", cell: (r) => r.target_count },
-  { key: "scan_run_count", header: "Scan run count", cell: (r) => r.scan_run_count },
-  { key: "created_at", header: "Created at", cell: (r) => r.created_at.slice(0, 10) },
-];
 
 export function ProjectsList() {
   const query = useProjectsQuery();
   const navigate = useNavigate();
+  const { id: currentId, setId } = useCurrentProject();
+
+  const columns: TableColumn<Project>[] = [
+    { key: "name", header: "Name", cell: (r) => r.name },
+    { key: "description", header: "Description", cell: (r) => r.description },
+    { key: "target_count", header: "Target count", cell: (r) => r.target_count },
+    { key: "scan_run_count", header: "Scan run count", cell: (r) => r.scan_run_count },
+    { key: "created_at", header: "Created at", cell: (r) => r.created_at.slice(0, 10) },
+    {
+      key: "actions",
+      header: "Actions",
+      cell: (r) =>
+        r.id === currentId ? (
+          <span className="text-sm font-medium text-blue-700">Current</span>
+        ) : (
+          <Button variant="secondary" onClick={() => setId(r.id)}>
+            Set as current
+          </Button>
+        ),
+    },
+  ];
+
   return (
     <>
       <PageHeader
