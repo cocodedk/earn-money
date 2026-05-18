@@ -20,6 +20,18 @@ class FindingStatus(models.TextChoices):
     STALE = "stale", "Stale"
 
 
+class Severity(models.TextChoices):
+    """CVSS-aligned severity vocabulary agreed with the frontend
+    (chat 2026-05-18). `info` is the default — findings that aren't
+    actual vulnerabilities (e.g. a tech-fingerprint detection)."""
+
+    INFO = "info", "Info"
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+    CRITICAL = "critical", "Critical"
+
+
 class Finding(TimestampedUUIDModel):
     scan_run = models.ForeignKey(
         ScanRun, on_delete=models.CASCADE, related_name="findings"
@@ -30,7 +42,9 @@ class Finding(TimestampedUUIDModel):
     stub_slug = models.CharField(max_length=64)
     title = models.CharField(max_length=255)
     category = models.CharField(max_length=64)
-    severity = models.CharField(max_length=16, blank=True, default="")
+    severity = models.CharField(
+        max_length=16, choices=Severity.choices, default=Severity.INFO
+    )
     confidence = models.CharField(max_length=16, blank=True, default="")
     status = models.CharField(
         max_length=16, choices=FindingStatus.choices, default=FindingStatus.CANDIDATE

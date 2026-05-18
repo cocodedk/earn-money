@@ -98,3 +98,77 @@ class FindingImmutabilityTests(_Fixtures):
         finding = Finding.objects.first()
         r = self.client.delete(reverse("finding-detail", args=[finding.id]))
         assert r.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+class FindingStatusActionTests(_Fixtures):
+    """PATCH /api/findings/<id>/status/  body {"status": "<value>"}.
+
+    Operator triage. Only the status field is updatable via this
+    endpoint — title/severity/data/etc. stay untouched through the API.
+    Emits `finding.status_changed` event with before/after.
+    """
+
+    def _patch(self, finding_id, body):
+        url = reverse("finding-status", args=[finding_id])
+        return self.client.patch(url, body, format="json")
+
+    def test_valid_status_flip_updates_and_logs_event(self) -> None:
+        from apps.events.models import Event
+        from apps.events.types import EventType
+
+        finding = Finding.objects.create(
+            scan_run=self.run, target=self.target,
+            stub_slug="1.1", title="new finding", category="runtime",
+        )
+        r = self._patch(finding.id, {"status": FindingStatus.CONFIRMED})
+        assert r.status_code == status.HTTP_200_OK
+        finding.refresh_from_db()
+        assert finding.status == FindingStatus.CONFIRMED
+        ev = Event.objects.get(type=EventType.FINDING_STATUS_CHANGED)
+        assert ev.data["before"] == "candidate"
+        assert ev.data["after"] == "confirmed"
+        assert ev.data["id"] == str(finding.id)
+
+    def test_invalid_status_returns_400(self) -> None:
+        finding = Finding.objects.create(
+            scan_run=self.run, target=self.target,
+            stub_slug="1.1", title="x", category="runtime",
+        )
+        r = self._patch(finding.id, {"status": "nonsense"})
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+        assert "status" in r.json()
+        finding.refresh_from_db()
+        assert finding.status == FindingStatus.CANDIDATE  # unchanged
+
+    def test_missing_status_returns_400(self) -> None:
+        finding = Finding.objects.create(
+            scan_run=self.run, target=self.target,
+            stub_slug="1.1", title="x", category="runtime",
+        )
+        r = self._patch(finding.id, {})
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_other_fields_in_body_are_ignored(self) -> None:
+        """Triage endpoint is status-only — other fields in body silently
+        dropped by the narrow serializer."""
+        finding = Finding.objects.create(
+            scan_run=self.run, target=self.target,
+            stub_slug="1.1", title="original", category="runtime",
+        )
+        r = self._patch(finding.id, {
+            "status": FindingStatus.REJECTED,
+            "title": "tampered",
+            "severity": "critical",
+        })
+        assert r.status_code == status.HTTP_200_OK
+        finding.refresh_from_db()
+        assert finding.status == FindingStatus.REJECTED
+        # Other fields unchanged.
+        assert finding.title == "original"
+        assert finding.severity == "info"  # default
+
+    def test_unknown_finding_returns_404(self) -> None:
+        import uuid as uuid_mod
+
+        r = self._patch(uuid_mod.uuid4(), {"status": "confirmed"})
+        assert r.status_code == status.HTTP_404_NOT_FOUND

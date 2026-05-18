@@ -22,7 +22,7 @@ class FindingCreationTests(TestCase):
         )
 
     def test_creates_with_required_fields(self) -> None:
-        from .models import Finding, FindingStatus
+        from .models import Finding, FindingStatus, Severity
 
         finding = Finding.objects.create(
             scan_run=self.run,
@@ -34,7 +34,9 @@ class FindingCreationTests(TestCase):
         assert finding.id is not None
         assert finding.status == FindingStatus.CANDIDATE
         assert finding.confidence == ""  # optional until set
-        assert finding.severity == ""
+        # Default severity is `info` — the lowest of the enum. Real findings
+        # set it explicitly when written by a runner.
+        assert finding.severity == Severity.INFO
         assert finding.data == {}
         assert finding.created_at is not None
         assert finding.updated_at is not None
@@ -78,3 +80,14 @@ class FindingStatusTests(TestCase):
         assert FindingStatus.CONFIRMED == "confirmed"
         assert FindingStatus.REJECTED == "rejected"
         assert FindingStatus.STALE == "stale"
+
+
+class FindingSeverityTests(TestCase):
+    def test_severity_enum_values_match_contract(self) -> None:
+        """The vocabulary agreed with agent-em-frontend on 2026-05-18:
+        info | low | medium | high | critical (CVSS-aligned)."""
+        from .models import Severity
+
+        assert {choice.value for choice in Severity} == {
+            "info", "low", "medium", "high", "critical",
+        }

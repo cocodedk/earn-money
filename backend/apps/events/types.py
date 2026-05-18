@@ -36,3 +36,5 @@ class EventType(models.TextChoices):
     SCAN_TARGET_RUN_STARTED = "scan_target_run.started", "Scan target run started"
     SCAN_TARGET_RUN_DONE = "scan_target_run.done", "Scan target run completed"
     SCAN_TARGET_RUN_STOPPED = "scan_target_run.stopped", "Scan target run stopped"
+    # Finding triage by the operator (candidate → confirmed/rejected/stale).
+    FINDING_STATUS_CHANGED = "finding.status_changed", "Finding status changed"
