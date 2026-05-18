@@ -177,4 +177,40 @@ describe("AddTarget", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add target" }));
     expect(await screen.findByText(/backend unreachable/i)).toBeInTheDocument();
   });
+
+  it("accepts typing into the Host and IP fields", async () => {
+    withProject();
+    let received: { host: string | null; ip: string | null } = {
+      host: null,
+      ip: null,
+    };
+    server.use(
+      msw.post("/api/targets/", async ({ request }) => {
+        const body = (await request.json()) as { host: string | null; ip: string | null };
+        received = body;
+        return HttpResponse.json(
+          {
+            id: "t-new",
+            project: "p1",
+            base_url: "https://x",
+            host: body.host,
+            ip: body.ip,
+            status: "active",
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<AddTarget />, { route: "/targets/new" });
+    await userEvent.type(
+      await screen.findByLabelText(/Base URL/),
+      "https://dvwa.cocode.dk",
+    );
+    await userEvent.type(screen.getByLabelText(/Host/), "dvwa.cocode.dk");
+    await userEvent.type(screen.getByLabelText(/^IP/), "127.0.0.1");
+    await userEvent.click(screen.getByRole("button", { name: "Add target" }));
+    await waitFor(() => expect(received.host).toBe("dvwa.cocode.dk"));
+    expect(received.ip).toBe("127.0.0.1");
+  });
 });
