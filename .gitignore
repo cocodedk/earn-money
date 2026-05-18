@@ -84,3 +84,4 @@ frontend/dist/
 
 # Brainstorming visual companion sessions
 .superpowers/
+**/.coverage
