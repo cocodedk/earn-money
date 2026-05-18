@@ -36,7 +36,7 @@ describe("Table", () => {
     expect(screen.getByTestId("table")).toBeInTheDocument();
   });
 
-  it("renders skeleton rows when isLoading", () => {
+  it("renders skeleton rows when isLoading, with the same header structure", () => {
     render(
       <Table<Row>
         columns={columns}
@@ -46,6 +46,9 @@ describe("Table", () => {
       />,
     );
     expect(screen.getAllByTestId("skeleton-row")).toHaveLength(5);
+    expect(
+      screen.getByRole("columnheader", { name: "Name" }),
+    ).toBeInTheDocument();
   });
 
   it("respects column.width when provided", () => {
@@ -62,12 +65,20 @@ describe("Table", () => {
 
 describe("TableSkeleton", () => {
   it("renders the requested number of rows", () => {
-    render(<TableSkeleton columnCount={2} rowCount={3} />);
+    render(
+      <table>
+        <TableSkeleton columnCount={2} rowCount={3} />
+      </table>,
+    );
     expect(screen.getAllByTestId("skeleton-row")).toHaveLength(3);
   });
 
   it("defaults to 5 rows", () => {
-    render(<TableSkeleton columnCount={2} />);
+    render(
+      <table>
+        <TableSkeleton columnCount={2} />
+      </table>,
+    );
     expect(screen.getAllByTestId("skeleton-row")).toHaveLength(5);
   });
 });

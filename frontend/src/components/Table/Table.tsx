@@ -24,10 +24,7 @@ export function Table<T>({
   isLoading,
   emptyState,
 }: TableProps<T>) {
-  if (isLoading) {
-    return <TableSkeleton columnCount={columns.length} rowCount={5} />;
-  }
-  if (rows.length === 0 && emptyState) {
+  if (!isLoading && rows.length === 0 && emptyState) {
     return emptyState;
   }
   return (
@@ -41,15 +38,19 @@ export function Table<T>({
           ))}
         </tr>
       </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={rowKey(row)}>
-            {columns.map((c) => (
-              <td key={c.key}>{c.cell(row)}</td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
+      {isLoading ? (
+        <TableSkeleton columnCount={columns.length} rowCount={5} />
+      ) : (
+        <tbody>
+          {rows.map((row) => (
+            <tr key={rowKey(row)}>
+              {columns.map((c) => (
+                <td key={c.key}>{c.cell(row)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      )}
     </table>
   );
 }
