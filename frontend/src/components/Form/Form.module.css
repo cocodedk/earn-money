@@ -1,0 +1,20 @@
+.field {
+  @apply flex flex-col gap-1.5;
+}
+.label {
+  @apply text-sm font-medium text-gray-900;
+}
+.input,
+.textarea {
+  @apply h-10 px-3 rounded border border-gray-300 bg-white text-sm;
+}
+.textarea {
+  @apply h-auto py-2 min-h-[80px] resize-y;
+}
+.input[data-invalid="true"],
+.textarea[data-invalid="true"] {
+  @apply border-red-500;
+}
+.error {
+  @apply text-sm text-red-700;
+}
