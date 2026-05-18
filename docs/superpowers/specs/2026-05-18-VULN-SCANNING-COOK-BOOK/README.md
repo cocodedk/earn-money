@@ -40,6 +40,21 @@ PortSwigger Web Security Academy.
 
 **Total:** 278 micro-spec stubs across 24 phases.
 
+## Progress
+
+Live status of every spec is in [`PROGRESS.md`](PROGRESS.md). It's a generated
+view of each stub's `**Status:**` and `**Fixture:**` lines — single source of
+truth lives in the stubs themselves; the rollup is a checked-in lockfile.
+
+Update flow:
+
+1. Edit the per-spec stub: set `**Status:** pending|in-progress|blocked|done`
+   and add a `**Fixture:** juice-shop|dvwa|webgoat|<name>` line when assigned.
+2. Run `python3 scripts/cookbook_progress.py` from the repo root.
+3. Commit the stub edits and the regenerated `PROGRESS.md` together.
+
+Never hand-edit `PROGRESS.md` — the next regen would clobber it.
+
 ## Implementation approach
 
 24 phases, one per top-level section above. Each phase is gated — phase N must
