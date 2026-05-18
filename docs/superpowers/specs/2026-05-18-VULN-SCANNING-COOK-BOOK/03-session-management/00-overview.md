@@ -1,0 +1,22 @@
+# 3. Session management
+
+- Cookie weaknesses
+  - missing `HttpOnly`
+  - missing `Secure`
+  - weak `SameSite`
+  - broad domain scope
+- Session lifecycle
+  - session fixation
+  - no rotation after login
+  - no invalidation after logout
+  - long-lived sessions
+- Token handling
+  - JWT algorithm confusion
+  - weak signing keys
+  - missing expiry
+  - token accepted after logout
+  - refresh token abuse
+- Cross-user session issues
+  - session mix-up
+  - cached private data
+  - concurrent session weakness

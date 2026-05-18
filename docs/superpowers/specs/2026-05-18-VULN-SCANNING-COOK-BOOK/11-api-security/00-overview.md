@@ -1,0 +1,24 @@
+# 11. API security
+
+- REST API issues
+  - missing auth
+  - broken object-level authorization
+  - over-broad responses
+  - mass assignment
+- GraphQL
+  - introspection exposure
+  - authorization gaps per resolver
+  - query depth abuse
+  - batching abuse
+  - alias-based rate limit bypass
+- WebSockets
+  - missing auth on socket connect
+  - message-level auth bugs
+  - cross-user message access
+- gRPC/internal APIs
+  - exposed debug endpoints
+  - reflection exposure
+  - weak service auth
+- Versioned APIs
+  - old vulnerable versions
+  - deprecated endpoints still active

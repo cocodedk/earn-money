@@ -1,0 +1,32 @@
+# 1. Information gathering
+
+- Technology fingerprinting
+  - framework detection
+  - server headers
+  - frontend framework
+  - backend hints
+  - package/version leaks
+- Content discovery
+  - hidden routes
+  - backup files
+  - exposed admin panels
+  - old endpoints
+  - debug pages
+- Public metadata
+  - robots.txt
+  - sitemap.xml
+  - security.txt
+  - source maps
+  - public JavaScript bundles
+- Error disclosure
+  - stack traces
+  - verbose API errors
+  - framework debug pages
+  - SQL/ORM errors
+- Sensitive files
+  - `.env`
+  - `.git`
+  - config files
+  - logs
+  - backup archives
+  - exported database files

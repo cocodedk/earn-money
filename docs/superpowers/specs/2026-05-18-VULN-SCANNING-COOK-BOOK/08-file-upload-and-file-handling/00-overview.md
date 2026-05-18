@@ -1,0 +1,22 @@
+# 8. File upload and file handling
+
+- Dangerous file types
+  - executable upload
+  - script upload
+  - SVG with script
+  - HTML upload
+- Content-type bypass
+  - MIME mismatch
+  - extension tricks
+  - polyglot files
+- Storage issues
+  - public upload paths
+  - predictable filenames
+  - overwrite attacks
+- Image/file processing
+  - parser crashes
+  - metadata leakage
+  - decompression bombs
+- Path handling
+  - path traversal in upload name
+  - arbitrary file write

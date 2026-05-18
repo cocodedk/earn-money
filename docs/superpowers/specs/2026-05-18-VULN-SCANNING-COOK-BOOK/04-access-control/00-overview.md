@@ -1,0 +1,22 @@
+# 4. Access control
+
+- Horizontal privilege escalation
+  - IDOR
+  - changing object IDs
+  - accessing another user's resources
+- Vertical privilege escalation
+  - user to admin
+  - hidden admin APIs
+  - role parameter tampering
+- Tenant isolation
+  - cross-tenant object access
+  - org ID tampering
+  - workspace switching bugs
+- Function-level access control
+  - hidden buttons but exposed APIs
+  - missing backend permission checks
+  - unsafe direct API calls
+- File/object access
+  - private file exposure
+  - predictable download URLs
+  - signed URL misuse

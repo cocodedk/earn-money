@@ -145,6 +145,19 @@ Local use (laptop's own DBs, default loopback bind):
 bin/dashboard                       # http://127.0.0.1:8080
 ```
 
+## Test fixtures
+
+Operator-owned vuln-app host (`target.cocode.dk`, `89.167.63.167`) — the integration target for the [vuln-scanning cookbook](docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/). Four endpoints behind Caddy, all on HTTPS:
+
+| URL | App | Default access |
+|-----|-----|----------------|
+| `https://target.cocode.dk/` | OWASP Juice Shop | "Mystery" blind target — no hostname/path leak; runners must fingerprint. |
+| `https://juiceshop.cocode.dk/` | OWASP Juice Shop | Same container, identifiable hostname (direct-test scenarios). |
+| `https://dvwa.cocode.dk/` | DVWA | Default creds `admin` / `password`. DB auto-created via MariaDB sidecar (`dvwa-db` on docker network `dvwa-net`). |
+| `https://webgoat.cocode.dk/` | WebGoat | Root redirects to `/WebGoat/login`. Self-service registration. |
+
+The Caddy reverse proxy lives at `/etc/caddy/Caddyfile` on the host. SSH as `root` with `~/.ssh/id_cocodedk`. Eight additional lab containers (clawpwn variants, JBoss/WebLogic CVE labs, extra Juice Shop replicas) are reachable only on `127.0.0.1:18xxx` from the host itself; add a Caddy block when a cookbook bullet needs one of them.
+
 ## Glossary
 
 Acronyms from four overlapping disciplines (engineering, security, tools, infrastructure) live in [`docs/glossary.md`](docs/glossary.md). Start there if a term is unfamiliar.
