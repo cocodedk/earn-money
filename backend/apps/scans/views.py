@@ -26,6 +26,7 @@ from apps.findings.serializers import FindingSerializer
 
 from .models import ScanRun
 from .serializers import ScanRunSerializer
+from .tasks import run_scan
 
 
 class ScanRunViewSet(
@@ -76,6 +77,11 @@ class ScanRunViewSet(
     def start(self, _request: Request, pk: str | None = None) -> Response:
         run = self.get_object()
         run.start()
+        # Enqueue the simulator only after the start transaction commits
+        # — otherwise the worker could pick up a row that's still
+        # mid-write. on_commit is a no-op in tests using TestCase unless
+        # `captureOnCommitCallbacks(execute=True)` wraps the call.
+        transaction.on_commit(lambda: run_scan.delay(str(run.id)))
         return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["post"])
@@ -88,6 +94,8 @@ class ScanRunViewSet(
     def resume(self, _request: Request, pk: str | None = None) -> Response:
         run = self.get_object()
         run.resume()
+        # Paused workers exit clean; resume re-enqueues the simulator.
+        transaction.on_commit(lambda: run_scan.delay(str(run.id)))
         return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["post"])

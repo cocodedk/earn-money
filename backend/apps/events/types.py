@@ -29,3 +29,10 @@ class EventType(models.TextChoices):
     SCAN_RUN_PAUSED = "scan_run.paused", "Scan run paused"
     SCAN_RUN_RESUMED = "scan_run.resumed", "Scan run resumed"
     SCAN_RUN_STOPPED = "scan_run.stopped", "Scan run stopped"
+    SCAN_RUN_STOPPED_FINAL = "scan_run.stopped_final", "Scan run finalised after stop"
+    SCAN_RUN_DONE = "scan_run.done", "Scan run completed"
+    # Per-target progress emitted by the worker simulator (will be reused
+    # by real stub runners once they land).
+    SCAN_TARGET_RUN_STARTED = "scan_target_run.started", "Scan target run started"
+    SCAN_TARGET_RUN_DONE = "scan_target_run.done", "Scan target run completed"
+    SCAN_TARGET_RUN_STOPPED = "scan_target_run.stopped", "Scan target run stopped"
