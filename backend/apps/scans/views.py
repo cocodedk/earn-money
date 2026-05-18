@@ -67,6 +67,9 @@ class ScanRunViewSet(
                     "status": scan_run.status,
                 },
             )
+        # Re-fetch via the annotated queryset so the 201 response carries
+        # `target_run_count` — same shape as a list row.
+        serializer.instance = self.get_queryset().get(pk=scan_run.pk)
 
     # --- Lifecycle actions ---
     # POST /api/scan-runs/<id>/<action>/  →  delegates to model method.

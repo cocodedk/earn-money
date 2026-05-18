@@ -41,6 +41,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "description": instance.description,
                 },
             )
+        # Re-fetch via the annotated queryset so the 201 response carries
+        # `target_count` + `scan_run_count` (both 0 on a fresh project)
+        # — same shape as a list row.
+        serializer.instance = self.get_queryset().get(pk=instance.pk)
 
     def perform_update(self, serializer: ProjectSerializer) -> None:  # type: ignore[override]
         before = {

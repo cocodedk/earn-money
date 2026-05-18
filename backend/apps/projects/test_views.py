@@ -94,6 +94,11 @@ class ProjectCreateTests(APITestCase):
         body = r.json()
         assert body["name"] == "acme"
         assert body["description"] == "bb 2026"
+        # Spec promise: every project row carries target_count +
+        # scan_run_count, regardless of route (list AND create).
+        # Both 0 on a freshly-created project.
+        assert body["target_count"] == 0
+        assert body["scan_run_count"] == 0
         assert Project.objects.count() == 1
         ev = Event.objects.get(type=EventType.PROJECT_CREATED)
         assert ev.subject_type == "project"

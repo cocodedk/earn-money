@@ -147,6 +147,8 @@ class ScanRunCreateTests(_CookbookFixtureMixin, APITestCase):
         assert r.status_code == status.HTTP_201_CREATED
         body = r.json()
         assert body["status"] == RunStatus.QUEUED
+        # Create response carries the denormalized count, same as list.
+        assert body["target_run_count"] == 2
         run = ScanRun.objects.get(pk=body["id"])
         assert run.target_runs.count() == 2
         ev = Event.objects.get(type=EventType.SCAN_RUN_CREATED)
