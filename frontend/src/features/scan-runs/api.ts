@@ -3,10 +3,13 @@ import { http } from "../../lib/http";
 import { PROJECTS_KEY } from "../projects/api";
 import type {
   CreateScanRunBody,
+  Evidence,
+  Finding,
   LifecycleAction,
   Paginated,
   ScanRun,
   ScanRunStatus,
+  TargetRun,
   Uuid,
 } from "../../types/api";
 
@@ -60,5 +63,30 @@ export function useScanRunLifecycleMutation(id: Uuid) {
       void client.invalidateQueries({ queryKey: [...SCAN_RUNS_KEY, id] });
       void client.invalidateQueries({ queryKey: SCAN_RUNS_KEY });
     },
+  });
+}
+
+export function useScanRunFindingsQuery(id: Uuid | null) {
+  return useQuery({
+    queryKey: [...SCAN_RUNS_KEY, id, "findings"] as const,
+    queryFn: () => http<Paginated<Finding>>(`/api/scan-runs/${id!}/findings/`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useScanRunEvidenceQuery(id: Uuid | null) {
+  return useQuery({
+    queryKey: [...SCAN_RUNS_KEY, id, "evidence"] as const,
+    queryFn: () => http<Paginated<Evidence>>(`/api/scan-runs/${id!}/evidence/`),
+    enabled: Boolean(id),
+  });
+}
+
+export function useScanRunTargetRunsQuery(id: Uuid | null) {
+  return useQuery({
+    queryKey: [...SCAN_RUNS_KEY, id, "target-runs"] as const,
+    queryFn: () =>
+      http<Paginated<TargetRun>>(`/api/scan-runs/${id!}/target-runs/`),
+    enabled: Boolean(id),
   });
 }

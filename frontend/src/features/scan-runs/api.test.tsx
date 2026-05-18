@@ -8,6 +8,9 @@ import {
   useScanRunDetailQuery,
   useCreateScanRunMutation,
   useScanRunLifecycleMutation,
+  useScanRunFindingsQuery,
+  useScanRunEvidenceQuery,
+  useScanRunTargetRunsQuery,
   SCAN_RUNS_KEY,
 } from "./api";
 
@@ -152,5 +155,74 @@ describe("useScanRunLifecycleMutation", () => {
     });
     expect(posted).toBe(true);
     expect(spy).toHaveBeenCalledWith({ queryKey: [...SCAN_RUNS_KEY, "r1"] });
+  });
+});
+
+describe("useScanRunFindingsQuery", () => {
+  it("fetches findings for a scan run", async () => {
+    server.use(
+      msw.get("/api/scan-runs/r1/findings/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunFindingsQuery("r1"), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.count).toBe(0));
+  });
+
+  it("stays disabled when id is null", () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunFindingsQuery(null), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.isFetching).toBe(false);
+  });
+});
+
+describe("useScanRunEvidenceQuery", () => {
+  it("fetches evidence for a scan run", async () => {
+    server.use(
+      msw.get("/api/scan-runs/r1/evidence/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunEvidenceQuery("r1"), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.count).toBe(0));
+  });
+
+  it("stays disabled when id is null", () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunEvidenceQuery(null), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.isFetching).toBe(false);
+  });
+});
+
+describe("useScanRunTargetRunsQuery", () => {
+  it("fetches target-runs for a scan run", async () => {
+    server.use(
+      msw.get("/api/scan-runs/r1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunTargetRunsQuery("r1"), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.count).toBe(0));
+  });
+
+  it("stays disabled when id is null", () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunTargetRunsQuery(null), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.isFetching).toBe(false);
   });
 });
