@@ -33,13 +33,19 @@ def extract_version(signature: Signature, bundle: EvidenceBundle) -> str | None:
 
 
 def _haystacks(signature: Signature, bundle: EvidenceBundle) -> list[str]:
+    """Return the non-empty strings to match against, per source.
+
+    Symmetric: an absent or empty html_body produces [] just like an
+    empty script_paths/asset_bodies, so downstream `if not haystacks:`
+    short-circuits before any pattern work."""
     source = signature["source"]
     if source == "html_body":
-        return [bundle.get("html_body", "")]
+        body = bundle.get("html_body") or ""
+        return [body] if body else []
     if source == "script_src_path":
-        return list(bundle.get("script_paths", []))
+        return [p for p in bundle.get("script_paths", []) if p]
     if source == "asset_body":
-        return list(bundle.get("asset_bodies", {}).values())
+        return [b for b in bundle.get("asset_bodies", {}).values() if b]
     return []  # pragma: no cover  # defense for an unknown source
 
 
@@ -50,11 +56,9 @@ def _matches(signature: Signature, bundle: EvidenceBundle) -> bool:
     match_type = signature["match_type"]
     pattern = signature["value_pattern"]
     if match_type == "contains":
-        return any(pattern in h for h in haystacks if h)
+        return any(pattern in h for h in haystacks)
     if match_type == "regex":
-        return any(re.search(pattern, h) is not None for h in haystacks if h)
+        return any(re.search(pattern, h) is not None for h in haystacks)
     if match_type == "contains_all":
-        return all(
-            any(p in h for h in haystacks if h) for p in pattern
-        )
+        return all(any(p in h for h in haystacks) for p in pattern)
     return False  # pragma: no cover  # defense for an unknown match_type
