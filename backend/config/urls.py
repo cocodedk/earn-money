@@ -11,6 +11,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.projects.views import ProjectViewSet
+from apps.scans.views import ScanRunViewSet
 from apps.stubs.views import StubViewSet
 from apps.targets.views import ScanTargetViewSet
 
@@ -21,6 +22,7 @@ router = DefaultRouter()
 router.register(r"projects", ProjectViewSet, basename="project")
 router.register(r"targets", ScanTargetViewSet, basename="target")
 router.register(r"stubs", StubViewSet, basename="stub")
+router.register(r"scan-runs", ScanRunViewSet, basename="scanrun")
 
 
 urlpatterns = [
