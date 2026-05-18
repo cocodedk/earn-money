@@ -10,6 +10,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.events.views import scan_run_event_stream
 from apps.evidence.views import EvidenceViewSet
 from apps.findings.views import FindingViewSet
 from apps.projects.views import ProjectViewSet
@@ -33,4 +34,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/", include(router.urls)),
+    path(
+        "sse/scan-runs/<uuid:scan_run_id>/events/",
+        scan_run_event_stream,
+        name="scanrun-event-stream",
+    ),
 ]
