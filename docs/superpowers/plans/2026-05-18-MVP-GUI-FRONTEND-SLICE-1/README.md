@@ -7,13 +7,15 @@
 **Architecture:** Feature-first folder layout under `frontend/src/`. React Router v6 owns navigation. TanStack Query v5 owns server state + cache invalidation. Tailwind v3 utilities compose into CSS-Module classes via `@apply` so JSX stays clean and styles stay scoped to each component file. MSW (Mock Service Worker) backs every test against the locked API shape; the same handlers also serve as a runtime fallback when the real backend is unreachable in dev. Strict TDD — every component, hook, and page lands behind a failing test; Vitest enforces 100% line + branch + function + statement coverage.
 
 **Tech Stack:**
-- React 18, Vite 5, TypeScript (strict, `noUnusedLocals`, `noUnusedParameters`)
+- React 18, Vite 8, TypeScript (strict, `noUnusedLocals`, `noUnusedParameters`)
 - React Router v6 (`react-router-dom`)
 - TanStack Query v5 (`@tanstack/react-query`)
 - Tailwind CSS v3 (`tailwindcss`, `postcss`, `autoprefixer`)
 - Self-hosted fonts: `@fontsource/inter` + `@fontsource/jetbrains-mono`
-- Vitest, `@vitest/coverage-v8`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`
+- Vitest 4, `@vitest/coverage-v8`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`
 - MSW v2 (`msw`) for network mocking
+
+(Vite + Vitest bumped from 5/2 to 8/4 mid-execution to clear the `esbuild` dev-server CORS advisory. React, Router, Tailwind, TS held at their original majors to keep slice-1 stable.)
 
 **Branch:** Commit on `refactor/archive-v1` (same branch peer is using). Do NOT merge to main until 1.1 framework-detection runs end-to-end against `target.cocode.dk` fixtures — slice 1 is just the dashboard chassis.
 
