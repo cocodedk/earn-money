@@ -11,6 +11,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.projects.views import ProjectViewSet
+from apps.stubs.views import StubViewSet
 from apps.targets.views import ScanTargetViewSet
 
 from .health import health
@@ -19,6 +20,7 @@ from .health import health
 router = DefaultRouter()
 router.register(r"projects", ProjectViewSet, basename="project")
 router.register(r"targets", ScanTargetViewSet, basename="target")
+router.register(r"stubs", StubViewSet, basename="stub")
 
 
 urlpatterns = [
