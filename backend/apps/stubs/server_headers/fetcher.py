@@ -56,7 +56,7 @@ def _should_fallback(head_resp: httpx.Response | None) -> bool:
         return True
     if head_resp.status_code in _FALLBACK_STATUS_CODES:
         return True
-    if not dict(head_resp.headers):
+    if not head_resp.headers:
         return True
     return False
 
