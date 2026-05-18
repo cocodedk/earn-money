@@ -1,0 +1,130 @@
+# Local dev stack for the cookbook scanner platform.
+# Spec: docs/superpowers/specs/2026-05-18-DOCKERIZED-ENV/
+#
+# One command brings everything up:
+#   docker compose up --build
+#
+# Then:
+#   http://localhost/            → frontend (Vite dev server)
+#   http://localhost/api/        → Django REST Framework API
+#   http://localhost/admin/      → Django admin
+#   http://localhost/sse/        → Server-Sent Events stream
+#
+# No service binds to a host port except nginx (80). Postgres and Redis
+# are reachable only on the internal `scanner-net` docker network.
+#
+# Persistence: postgres-data and redis-data are NAMED VOLUMES — they
+# survive `docker compose down`, `docker compose stop`, container
+# crashes, host reboots, and image rebuilds.
+#
+#   docker compose down       ← keeps volumes; restart resumes data
+#   docker compose down -v    ← DESTROYS volumes; postgres + redis wiped
+#
+# Inspect them: `docker volume ls | grep earn-money`. Back them up by
+# tarring the named volumes via a one-off container (docker docs).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [scanner-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks: [scanner-net]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: earnmoney-backend:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    volumes:
+      - ./backend:/app
+    networks: [scanner-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: earnmoney-backend:dev
+    command: celery -A config worker --loglevel=info
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+    volumes:
+      - ./backend:/app
+    networks: [scanner-net]
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    networks: [scanner-net]
+    environment:
+      VITE_API_BASE: /api
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [scanner-net]
+    depends_on:
+      - backend
+      - frontend
+
+networks:
+  scanner-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  frontend-node-modules:

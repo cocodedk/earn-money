@@ -77,5 +77,10 @@ dist/
 .venv/
 demo_coderabbit.py
 
+# Cookbook scanner platform (dockerized-env) — runtime/build outputs
+backend/staticfiles/
+backend/db.sqlite3
+frontend/dist/
+
 # Brainstorming visual companion sessions
 .superpowers/
