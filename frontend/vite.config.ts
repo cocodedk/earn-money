@@ -1,22 +1,31 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-// Vite dev server runs inside the `frontend` container on :5173.
-// nginx fronts it on :80. HMR over the websocket comes through nginx.
 export default defineConfig({
   plugins: [react()],
   server: {
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    // Allow nginx (any Host header) to reach the dev server.
     cors: true,
-    // HMR client connects to the host port nginx exposes.
-    hmr: {
-      protocol: "ws",
-      host: "localhost",
-      port: 80,
-      clientPort: 80,
+    hmr: { protocol: "ws", host: "localhost", port: 80, clientPort: 80 },
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test/setup.ts"],
+    css: { modules: { classNameStrategy: "non-scoped" } },
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/main.tsx",
+        "src/**/*.test.{ts,tsx}",
+        "src/test/**",
+        "src/**/*.d.ts",
+      ],
+      thresholds: { lines: 100, branches: 100, functions: 100, statements: 100 },
     },
   },
 });
