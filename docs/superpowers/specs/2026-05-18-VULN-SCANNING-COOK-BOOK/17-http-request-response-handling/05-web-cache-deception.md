@@ -12,6 +12,21 @@ fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 
 > Phase 17 — HTTP request/response handling
 
+<!--
+GPT-5.5: Enrichment zone — read before editing.
+
+PROTECTED — DO NOT MODIFY:
+  - YAML frontmatter (between `---` fences at top of file). Managed by the rollup script.
+  - The title heading (`# N.N <Bullet>`) and the blockquote breadcrumb above.
+  - The `##` section headings below. Keep them verbatim; the rollup script and the
+    matching plan both depend on the exact section names.
+
+EDITABLE — FILL THESE:
+  - The body under each `##` section heading. Replace the placeholder hint comments
+    (`<!-- ... -->`) with concrete content.
+  - Sub-headings (`###`), lists, code blocks, and tables welcome.
+-->
+
 ## Intent
 <!-- One short paragraph: what this technique detects and why a runner cares. -->
 

@@ -14,6 +14,19 @@ test_file: null
 
 > Spec: [`24-ai-llm-specific-webapp-vectors/09-model-output-trusted-as-policy-decision.md`](../../specs/2026-05-18-VULN-SCANNING-COOK-BOOK/24-ai-llm-specific-webapp-vectors/09-model-output-trusted-as-policy-decision.md)
 
+<!--
+Planner / GPT-5.5: Enrichment zone — read before editing.
+
+PROTECTED — DO NOT MODIFY:
+  - YAML frontmatter (between `---` fences at top of file). Managed by the rollup script.
+  - The title heading (`# Plan: N.N <Bullet>`) and the Spec-reference blockquote above.
+  - The `##` section headings below. Keep them verbatim.
+
+EDITABLE — FILL THESE:
+  - The body under each `##` section heading.
+  - TDD steps must be numbered; everything else freeform.
+-->
+
 ## Summary
 <!-- One short paragraph: what this plan ships. -->
 

@@ -73,6 +73,10 @@ Both spec and plan stubs open with a YAML frontmatter block fenced by `---`. **D
 
 `phase`, `spec`, and `slug` are file-identity — never change them. `spec_file`, `implementation_file`, and `test_file` (plan-only) are free-form path references.
 
+### Enrichment-zone marker
+
+Every stub also carries an inline **enrichment-zone marker** below the title and blockquote — an HTML comment block that spells out which lines are protected (frontmatter, title, blockquote, `##` headings) and which are editable (the body under each `##` section). GPT-5.5 reads this before enriching.
+
 ## Tooling boundary
 
 **AI is not the automation.** Default to deterministic tooling — nuclei templates, ffuf/feroxbuster, header parsers, regex matchers, schema diffs. Reach for AI only where no deterministic option fits the bullet's intent, and the spec's `## AI involvement` section names that boundary explicitly.
