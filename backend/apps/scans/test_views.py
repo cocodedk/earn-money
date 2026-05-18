@@ -221,3 +221,45 @@ class ScanRunImmutabilityTests(_CookbookFixtureMixin, APITestCase):
     def test_delete_returns_405(self) -> None:
         r = self.client.delete(reverse("scanrun-detail", args=[self.run.id]))
         assert r.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+class ScanRunLifecycleActionsApiTests(_CookbookFixtureMixin, APITestCase):
+    """Thin wire-up tests for the @action endpoints. Exhaustive transition
+    coverage lives in tests.py at the model layer; here we just verify
+    the HTTP plumbing routes correctly to the model methods."""
+
+    def setUp(self) -> None:
+        project = Project.objects.create(name="acme")
+        self.run = ScanRun.objects.create(project=project, stub_slug="1.1")
+
+    def _action_url(self, name: str) -> str:
+        return reverse(f"scanrun-{name}", args=[self.run.id])
+
+    def test_start_action_transitions_to_running(self) -> None:
+        r = self.client.post(self._action_url("start"))
+        assert r.status_code == status.HTTP_200_OK
+        assert r.json()["status"] == RunStatus.RUNNING
+
+    def test_start_action_invalid_state_returns_400(self) -> None:
+        self.run.status = RunStatus.DONE
+        self.run.save()
+        r = self.client.post(self._action_url("start"))
+        assert r.status_code == status.HTTP_400_BAD_REQUEST
+        assert "detail" in r.json()
+
+    def test_pause_action_after_start(self) -> None:
+        self.client.post(self._action_url("start"))
+        r = self.client.post(self._action_url("pause"))
+        assert r.status_code == status.HTTP_200_OK
+        assert r.json()["status"] == RunStatus.PAUSED
+
+    def test_resume_action_after_pause(self) -> None:
+        self.client.post(self._action_url("start"))
+        self.client.post(self._action_url("pause"))
+        r = self.client.post(self._action_url("resume"))
+        assert r.json()["status"] == RunStatus.RUNNING
+
+    def test_stop_action_from_running(self) -> None:
+        self.client.post(self._action_url("start"))
+        r = self.client.post(self._action_url("stop"))
+        assert r.json()["status"] == RunStatus.STOPPING

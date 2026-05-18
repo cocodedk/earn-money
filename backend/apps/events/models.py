@@ -15,6 +15,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
 from apps.common.models import UUIDModel
@@ -47,7 +48,10 @@ class Event(UUIDModel):
         max_length=8, choices=EventLevel.choices, default=EventLevel.INFO,
     )
     message = models.TextField(blank=True, default="")
-    data = models.JSONField(default=dict, blank=True)
+    # DjangoJSONEncoder so datetime / Decimal / UUID values in event
+    # payloads serialize as ISO-8601 / float / string (default json
+    # module can't handle them).
+    data = models.JSONField(default=dict, blank=True, encoder=DjangoJSONEncoder)
 
     class Meta:
         ordering = ("created_at",)

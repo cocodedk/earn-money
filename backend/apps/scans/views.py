@@ -1,8 +1,8 @@
-"""ScanRunViewSet — list / retrieve / create.
+"""ScanRunViewSet — list / retrieve / create + lifecycle actions.
 
-No update or destroy in MVP (scan runs are immutable after create;
-state transitions happen via lifecycle action endpoints landing in a
-later commit).
+Lifecycle endpoints delegate to model methods on `ScanRun`. The model
+owns the state machine and atomicity; the viewset is a thin wrapper
+that translates HTTP → method call → serialized response.
 
 Filters on list:
   ?project=<uuid>     scope to one project
@@ -14,6 +14,9 @@ from __future__ import annotations
 from django.db import transaction
 from django.db.models import Count
 from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.request import Request
+from rest_framework.response import Response
 
 from apps.events.models import Event
 from apps.events.types import EventType
@@ -60,3 +63,32 @@ class ScanRunViewSet(
                     "status": scan_run.status,
                 },
             )
+
+    # --- Lifecycle actions ---
+    # POST /api/scan-runs/<id>/<action>/  →  delegates to model method.
+    # The model raises InvalidTransition (DRF APIException) on illegal
+    # transitions, which auto-becomes 400 with {"detail": "..."}.
+
+    @action(detail=True, methods=["post"])
+    def start(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        run.start()
+        return Response(self.get_serializer(run).data)
+
+    @action(detail=True, methods=["post"])
+    def pause(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        run.pause()
+        return Response(self.get_serializer(run).data)
+
+    @action(detail=True, methods=["post"])
+    def resume(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        run.resume()
+        return Response(self.get_serializer(run).data)
+
+    @action(detail=True, methods=["post"])
+    def stop(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        run.stop()
+        return Response(self.get_serializer(run).data)

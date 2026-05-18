@@ -23,5 +23,9 @@ class EventType(models.TextChoices):
     TARGET_CREATED = "target.created", "Target created"
     TARGET_UPDATED = "target.updated", "Target updated"
     TARGET_DELETED = "target.deleted", "Target deleted"
-    # Scan-run lifecycle — creation here; start/pause/resume/stop land later.
+    # Scan-run lifecycle
     SCAN_RUN_CREATED = "scan_run.created", "Scan run created"
+    SCAN_RUN_STARTED = "scan_run.started", "Scan run started"
+    SCAN_RUN_PAUSED = "scan_run.paused", "Scan run paused"
+    SCAN_RUN_RESUMED = "scan_run.resumed", "Scan run resumed"
+    SCAN_RUN_STOPPED = "scan_run.stopped", "Scan run stopped"
