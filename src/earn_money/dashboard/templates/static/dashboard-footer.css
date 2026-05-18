@@ -1,0 +1,27 @@
+/* Footer + boot stagger animation. Loaded via direct `<link>` in
+   index.html after dashboard-programs.css. */
+footer { margin-top: 4rem; padding-top: 1.25rem;
+         border-top: 1px solid var(--rule); color: var(--mute);
+         font-size: 0.7rem; letter-spacing: 0.12em;
+         display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
+
+/* One-shot load animation. body.boot is set on first paint and removed by
+   dashboard.js after the first successful /api/status render so the
+   stagger doesn't replay on every 10s poll. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); }
+                    to   { opacity: 1; transform: translateY(0); } }
+  body.boot header, body.boot .rule, body.boot #across,
+  body.boot #programs > *, body.boot footer {
+    animation: rise 480ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  body.boot header                { animation-delay: 0ms;   }
+  body.boot .rule:nth-of-type(1)  { animation-delay: 100ms; }
+  body.boot #across               { animation-delay: 140ms; }
+  body.boot .rule:nth-of-type(2)  { animation-delay: 180ms; }
+  body.boot #programs > *         { animation-delay: calc(220ms + var(--i, 0) * 60ms); }
+  body.boot footer                { animation-delay: 460ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live .dot { animation: none; }
+}

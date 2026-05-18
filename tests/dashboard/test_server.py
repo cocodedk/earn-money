@@ -70,12 +70,15 @@ def test_static_tokens_css_is_served_with_css_content_type(
 def test_static_dashboard_css_is_served_with_css_content_type(
     running_server: tuple[ThreadingHTTPServer, str],
 ) -> None:
+    """index.html now `<link>`s the four dashboard partials directly
+    (parallel-loadable) — the @import-facade `dashboard.css` was removed
+    to avoid the render-blocking import waterfall. The `article.program`
+    selector lives in the programs partial."""
     _, base = running_server
     with httpx.Client() as c:
-        r = c.get(f"{base}/static/dashboard.css", timeout=2)
+        r = c.get(f"{base}/static/dashboard-programs.css", timeout=2)
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/css")
-    # Layout-level selector lives in dashboard.css, not tokens.css.
     assert "article.program" in r.text
 
 

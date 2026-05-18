@@ -17,82 +17,26 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from earn_money import config, db, flags, policy, roe, scope
+from earn_money import config, db, flags, roe
 from earn_money.recon import runs
-from earn_money.runners import (
-    active,
-    auth_bypass_probe,
-    graphql_probe,
-    httpx_probe,
-    katana_crawl,
-    nuclei_scan,
-    sourcemap_scan,
-    sqli_probe,
-    takeover_validate,
-    xss_probe,
-)
+
+from ._active_pipeline_registry import _PIPELINE, _PIPELINE_BY_NAME, _pick_next
+from ._active_pipeline_steps import PipelineResult, StepResult, ToolRun, _gate_check
 
 if TYPE_CHECKING:
     from earn_money.agent.decider import AgentDecider  # type-only; no runtime cycle
 
-ToolRun = Callable[[list[str]], active.ToolRunResult]
 
-
-@dataclass(frozen=True)
-class StepResult:
-    runner: str
-    status: str  # "ok" | "skipped" | "failed"
-    detail: str = ""
-    outputs_recorded: int = 0
-
-
-@dataclass(frozen=True)
-class PipelineResult:
-    platform: str
-    slug: str
-    steps: tuple[StepResult, ...]
-    aborted_reason: str | None = None
-
-
-def _gate_check(
-    paths: config.Paths, platform: str, slug: str,
-) -> str | None:
-    """Run the four pre-flight gates without launching any runner.
-
-    Returns a short reason string on first failure, or None to proceed.
-    """
-    try:
-        active.check_gates(paths, platform, slug, mode="active")
-    except flags.ReconDisabled:
-        return "kill_switch"
-    except flags.ProgramFrozen:
-        return "frozen"
-    except policy.PolicyViolation as exc:
-        return f"policy:{exc}"
-    except (scope.InvalidScope, roe.InvalidRoE) as exc:
-        return f"config:{type(exc).__name__}"
-    return None
-
-
-# Tuple-of-(name, run_program-callable) keeps step order explicit and
-# lets `run_program_pipeline` enumerate them without copy-paste.
-_PIPELINE: tuple[tuple[str, Callable[..., active.ActiveRunResult]], ...] = (
-    ("httpx-probe", httpx_probe.run_program),
-    ("nuclei-scan", nuclei_scan.run_program),
-    ("takeover-validate", takeover_validate.run_program),
-    ("sourcemap-scan", sourcemap_scan.run_program),
-    ("katana-crawl", katana_crawl.run_program),
-    ("graphql-probe", graphql_probe.run_program),
-    ("auth-bypass-probe", auth_bypass_probe.run_program),
-    ("sqli-probe", sqli_probe.run_program),
-    ("xss-probe", xss_probe.run_program),
-)
-
-
-_PIPELINE_BY_NAME = dict(_PIPELINE)
+# Re-export the public surface so existing importers
+# (`from earn_money.engine.active_pipeline import StepResult`) keep working.
+__all__ = [
+    "PipelineResult",
+    "StepResult",
+    "ToolRun",
+    "run_program_pipeline",
+]
 
 
 def run_program_pipeline(
@@ -176,31 +120,3 @@ def run_program_pipeline(
             outputs_recorded=result.outputs_recorded,
         ))
     return PipelineResult(platform=platform, slug=slug, steps=tuple(steps))
-
-
-def _pick_next(
-    pending: list[str],
-    completed: list[StepResult],
-    paths: config.Paths,
-    platform: str,
-    slug: str,
-    decider: AgentDecider | None,
-    default_max_targets: int | None,
-) -> tuple[str | None, int | None]:
-    """Return (step_name, max_targets) for the next runner, or (None, _)
-    to stop the pipeline. With `decider=None`, picks the first pending
-    step in fixed order."""
-    if not pending:
-        return None, None
-    if decider is None:
-        return pending[0], default_max_targets
-    decision = decider(
-        paths, platform, slug, completed_steps=tuple(completed),
-    )
-    if decision.next_step == "stop":
-        return None, None
-    if decision.next_step not in _PIPELINE_BY_NAME or decision.next_step not in pending:
-        # Decider returned an unknown or already-completed step — fall back to
-        # the next pending step rather than crashing or looping the pipeline.
-        return pending[0], default_max_targets
-    return decision.next_step, decision.max_targets or default_max_targets
