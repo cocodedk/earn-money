@@ -18,6 +18,7 @@ class StubsConfig(AppConfig):
     label = "stubs"
 
     def ready(self) -> None:
-        # Importing the package runs its __init__, which imports
-        # `runner.py` and applies `@register("1.1")`.
-        from . import framework_detection  # noqa: F401
+        # Each stub package's __init__ imports its runner and fires the
+        # @register("N.M") decorator at app-init time.
+        from . import framework_detection  # noqa: F401  registers "1.1"
+        from . import server_headers  # noqa: F401  registers "1.2"
