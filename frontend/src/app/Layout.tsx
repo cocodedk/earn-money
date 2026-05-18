@@ -13,7 +13,7 @@ export function Layout() {
           <ul className={styles.navList}>
             {navItems.map((item) => (
               <li key={item.to}>
-                <NavLink to={item.to} className={styles.navLink} end>
+                <NavLink to={item.to} className={styles.navLink}>
                   {({ isActive }) => (
                     <span data-active={isActive ? "true" : "false"}>
                       {item.label}

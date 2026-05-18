@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
@@ -23,7 +24,7 @@ export function ProjectsList() {
       <PageHeader
         title="Projects"
         action={
-          <ButtonLink to="/projects/new" data-testid="page-header-create">
+          <ButtonLink to={ROUTES.projectsNew} data-testid="page-header-create">
             Create project
           </ButtonLink>
         }
@@ -48,7 +49,7 @@ export function ProjectsList() {
                 message="No projects yet."
                 action={{
                   label: "Create project",
-                  onClick: () => navigate("/projects/new"),
+                  onClick: () => navigate(ROUTES.projectsNew),
                 }}
               />
             }

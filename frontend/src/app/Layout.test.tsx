@@ -12,6 +12,7 @@ function setup(initialRoute = "/projects") {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/projects" element={<div>projects body</div>} />
+        <Route path="/projects/new" element={<div>new project body</div>} />
         <Route path="/targets" element={<div>targets body</div>} />
       </Route>
     </Routes>,
@@ -61,5 +62,10 @@ describe("Layout", () => {
     await waitFor(() =>
       expect(screen.getByText("Targets")).toHaveAttribute("data-active", "true"),
     );
+  });
+
+  it("keeps the parent active on a child route", () => {
+    setup("/projects/new");
+    expect(screen.getByText("Projects")).toHaveAttribute("data-active", "true");
   });
 });

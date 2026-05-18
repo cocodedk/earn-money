@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { FormField, TextInput, Textarea } from "../../components/Form";
 import { Button } from "../../components/Button";
@@ -28,7 +29,7 @@ export function CreateProject() {
     setBannerError(null);
     try {
       await mutation.mutateAsync({ name, description });
-      navigate("/projects");
+      navigate(ROUTES.projects);
     } catch (err) {
       const parsed = await parseApiError(
         err instanceof HttpError ? err.response : err,
