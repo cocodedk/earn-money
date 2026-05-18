@@ -10,6 +10,8 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.evidence.views import EvidenceViewSet
+from apps.findings.views import FindingViewSet
 from apps.projects.views import ProjectViewSet
 from apps.scans.views import ScanRunViewSet
 from apps.stubs.views import StubViewSet
@@ -23,6 +25,8 @@ router.register(r"projects", ProjectViewSet, basename="project")
 router.register(r"targets", ScanTargetViewSet, basename="target")
 router.register(r"stubs", StubViewSet, basename="stub")
 router.register(r"scan-runs", ScanRunViewSet, basename="scanrun")
+router.register(r"findings", FindingViewSet, basename="finding")
+router.register(r"evidence", EvidenceViewSet, basename="evidence")
 
 
 urlpatterns = [

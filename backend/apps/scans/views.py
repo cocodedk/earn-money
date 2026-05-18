@@ -19,7 +19,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from apps.events.models import Event
+from apps.events.serializers import EventSerializer
 from apps.events.types import EventType
+from apps.evidence.serializers import EvidenceSerializer
+from apps.findings.serializers import FindingSerializer
 
 from .models import ScanRun
 from .serializers import ScanRunSerializer
@@ -92,3 +95,27 @@ class ScanRunViewSet(
         run = self.get_object()
         run.stop()
         return Response(self.get_serializer(run).data)
+
+    @action(detail=True, methods=["get"])
+    def events(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        qs = run.events.all().order_by("created_at")
+        page = self.paginate_queryset(qs)
+        serializer = EventSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def findings(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        qs = run.findings.all().order_by("-created_at")
+        page = self.paginate_queryset(qs)
+        serializer = FindingSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=True, methods=["get"])
+    def evidence(self, _request: Request, pk: str | None = None) -> Response:
+        run = self.get_object()
+        qs = run.evidence.all().order_by("-created_at")
+        page = self.paginate_queryset(qs)
+        serializer = EvidenceSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)

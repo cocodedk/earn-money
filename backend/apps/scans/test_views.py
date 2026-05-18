@@ -263,3 +263,96 @@ class ScanRunLifecycleActionsApiTests(_CookbookFixtureMixin, APITestCase):
         self.client.post(self._action_url("start"))
         r = self.client.post(self._action_url("stop"))
         assert r.json()["status"] == RunStatus.STOPPING
+
+
+class ScanRunEventsActionTests(_CookbookFixtureMixin, APITestCase):
+    """GET /api/scan-runs/<uuid>/events/ — chronological event stream
+    scoped to one run."""
+
+    def setUp(self) -> None:
+        from apps.events.types import EventType
+
+        project = Project.objects.create(name="acme")
+        self.run = ScanRun.objects.create(project=project, stub_slug="1.1")
+        self.other_run = ScanRun.objects.create(project=project, stub_slug="1.1")
+        # Emit a few events on each run.
+        Event.log(type=EventType.SYSTEM_TEST, scan_run=self.run, message="a")
+        Event.log(type=EventType.SYSTEM_TEST, scan_run=self.run, message="b")
+        Event.log(
+            type=EventType.SYSTEM_TEST, scan_run=self.other_run, message="other"
+        )
+
+    def test_returns_only_events_for_the_run(self) -> None:
+        url = reverse("scanrun-events", args=[self.run.id])
+        body = self.client.get(url).json()
+        assert body["count"] == 2
+        messages = [row["message"] for row in body["results"]]
+        assert messages == ["a", "b"]
+
+    def test_paginated_shape(self) -> None:
+        url = reverse("scanrun-events", args=[self.run.id])
+        body = self.client.get(url).json()
+        assert set(body.keys()) == {"count", "next", "previous", "results"}
+
+    def test_unknown_run_returns_404(self) -> None:
+        url = reverse("scanrun-events", args=[uuid.uuid4()])
+        r = self.client.get(url)
+        assert r.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_post_to_events_returns_405(self) -> None:
+        url = reverse("scanrun-events", args=[self.run.id])
+        r = self.client.post(url)
+        assert r.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+class ScanRunFindingsActionTests(_CookbookFixtureMixin, APITestCase):
+    def setUp(self) -> None:
+        from apps.findings.models import Finding
+
+        project = Project.objects.create(name="acme")
+        target = ScanTarget.objects.create(
+            project=project, base_url="https://dvwa.cocode.dk", host="dvwa.cocode.dk"
+        )
+        self.run = ScanRun.objects.create(project=project, stub_slug="1.1")
+        other_run = ScanRun.objects.create(project=project, stub_slug="1.2")
+        Finding.objects.create(
+            scan_run=self.run, target=target, stub_slug="1.1",
+            title="In-run finding", category="runtime",
+        )
+        Finding.objects.create(
+            scan_run=other_run, target=target, stub_slug="1.2",
+            title="Other run", category="runtime",
+        )
+
+    def test_returns_only_findings_for_the_run(self) -> None:
+        url = reverse("scanrun-findings", args=[self.run.id])
+        body = self.client.get(url).json()
+        assert body["count"] == 1
+        assert body["results"][0]["title"] == "In-run finding"
+
+
+class ScanRunEvidenceActionTests(_CookbookFixtureMixin, APITestCase):
+    def setUp(self) -> None:
+        from apps.evidence.models import Evidence
+
+        project = Project.objects.create(name="acme")
+        target = ScanTarget.objects.create(
+            project=project, base_url="https://dvwa.cocode.dk", host="dvwa.cocode.dk"
+        )
+        self.run = ScanRun.objects.create(project=project, stub_slug="1.1")
+        other_run = ScanRun.objects.create(project=project, stub_slug="1.2")
+        Evidence.objects.create(
+            scan_run=self.run, target=target, source="cookie",
+            url="https://dvwa.cocode.dk/", field="Set-Cookie",
+            matched_value="PHPSESSID", content_hash="sha256:a",
+        )
+        Evidence.objects.create(
+            scan_run=other_run, target=target, source="header",
+            url="https://dvwa.cocode.dk/", content_hash="sha256:b",
+        )
+
+    def test_returns_only_evidence_for_the_run(self) -> None:
+        url = reverse("scanrun-evidence", args=[self.run.id])
+        body = self.client.get(url).json()
+        assert body["count"] == 1
+        assert body["results"][0]["matched_value"] == "PHPSESSID"
