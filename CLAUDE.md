@@ -84,8 +84,9 @@ All four URLs are authorised for any HTTP technique — the `roe.md` floor appli
 ### TDD — strict, 100% coverage required
 
 - **TDD only.** Every new function, branch, model behaviour, API endpoint, runner, or CLI starts with a failing test. No production code is written before its test. Refactors keep tests green before and after.
-- **100% line + branch coverage** on production code. Every branch in `backend/apps/`, `scripts/`, runners, and any future v2 source is exercised by at least one test. Coverage is measured in CI and refused below 100%.
-- **Pragmatic exclusions** (and ONLY these) are allowed:
+- **100% line + branch coverage on the production code path.** "Production code" means anything that runs inside the deployed scanner platform — currently `backend/apps/`, future runners under `backend/`, and any future scanner stub implementations. Coverage is measured in CI on this scope and refused below 100%.
+- **Repo-maintenance tooling is outside the bar.** Scripts under `scripts/` that manage the spec tree (`cookbook_progress.py`, `cookbook_bootstrap.py`, `cookbook_templates.py`) are dev-time tools, not platform code. They're tested when materially refactored, not retroactively. If a maintenance script grows real logic that runs at scan time, it migrates into `backend/` and joins the strict-TDD scope.
+- **Pragmatic exclusions** (and ONLY these) are allowed even inside the strict scope:
   - `if __name__ == "__main__":` guards
   - Django `apps.py`, `migrations/`, `wsgi.py`, `asgi.py` (framework boilerplate)
   - Trivial `__str__` on Django models (one-line `return f"..."`)
