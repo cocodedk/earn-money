@@ -1,8 +1,0 @@
-/* Design tokens live in tokens.css. This file is layout + components,
-   loaded after tokens so var(--...) resolves. Split into partials to
-   keep each file under the project's 200-line cap; the @import chain
-   is processed by the browser before any rule fires. */
-@import url("/static/dashboard-base.css");
-@import url("/static/dashboard-header.css");
-@import url("/static/dashboard-programs.css");
-@import url("/static/dashboard-footer.css");

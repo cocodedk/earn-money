@@ -29,8 +29,8 @@ from earn_money.agent.task_router import TaskType
 from ._hacker_loop_hooks import HackerLoopHooksMixin
 from ._hacker_loop_turn import handle_stop, parse_or_retry
 from .hacker_loop_executor import execute_action
-from .hacker_loop_prompt import _COVERAGE_LABELS, _SYSTEM_PROMPT, build_prompt
-from .hacker_loop_provider import _call_provider_with_rf_fallback, _disabled_rf_models
+from .hacker_loop_prompt import _SYSTEM_PROMPT, build_prompt
+from .hacker_loop_provider import _call_provider_with_rf_fallback
 
 log = logging.getLogger(__name__)
 
@@ -38,12 +38,10 @@ log = logging.getLogger(__name__)
 # (`from earn_money.agent.hacker_loop import _SYSTEM_PROMPT,
 # _call_provider_with_rf_fallback`) keep working after the split.
 __all__ = [
-    "_COVERAGE_LABELS",
     "_SYSTEM_PROMPT",
     "HackerLoop",
     "LoopResult",
     "_call_provider_with_rf_fallback",
-    "_disabled_rf_models",
 ]
 
 

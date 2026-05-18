@@ -87,8 +87,10 @@ def _make_handler(
         slot_lock=_PROBE_SLOT_LOCK,
         get_slot=_get_slot,
         set_slot=_set_slot,
-        # Read at call time so patches stick.
-        runner_cls_getter=lambda: globals()["ProbeRunner"],
+        # Read at call time so `patch.object(server, "ProbeRunner", ...)`
+        # patches stick — the lambda re-resolves the module-level name
+        # each invocation.
+        runner_cls_getter=lambda: ProbeRunner,
     )
 
 

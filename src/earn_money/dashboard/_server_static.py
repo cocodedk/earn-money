@@ -17,7 +17,6 @@ _JS = "application/javascript; charset=utf-8"
 # URL → (filesystem path, Content-Type).
 STATIC_ROUTES: dict[str, tuple[Path, str]] = {
     "/static/tokens.css":            (_STATIC / "tokens.css",            _CSS),
-    "/static/dashboard.css":         (_STATIC / "dashboard.css",         _CSS),
     "/static/dashboard-base.css":    (_STATIC / "dashboard-base.css",    _CSS),
     "/static/dashboard-header.css":  (_STATIC / "dashboard-header.css",  _CSS),
     "/static/dashboard-programs.css":(_STATIC / "dashboard-programs.css",_CSS),
