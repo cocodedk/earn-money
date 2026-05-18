@@ -1,4 +1,3 @@
-// Mirrors docs/superpowers/specs/2026-05-18-MVP-GUI/11-api.md
 export type Iso8601 = string;
 export type Uuid = string;
 

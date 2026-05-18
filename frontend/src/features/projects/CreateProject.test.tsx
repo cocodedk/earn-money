@@ -1,10 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useLocation } from "react-router-dom";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { CreateProject } from "./CreateProject";
+
+function LocationProbe() {
+  return <span data-testid="loc">{useLocation().pathname}</span>;
+}
 
 describe("CreateProject", () => {
   it("validates required name field locally", async () => {
@@ -29,13 +34,18 @@ describe("CreateProject", () => {
         ),
       ),
     );
-    renderWithProviders(<CreateProject />, { route: "/projects/new" });
+    renderWithProviders(
+      <>
+        <CreateProject />
+        <LocationProbe />
+      </>,
+      { route: "/projects/new" },
+    );
     await userEvent.type(screen.getByLabelText(/Name/), "X");
     await userEvent.type(screen.getByLabelText(/Description/), "Y");
     await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-    expect(await screen.findByTestId("create-success")).toHaveAttribute(
-      "data-redirect",
-      "/projects",
+    await waitFor(() =>
+      expect(screen.getByTestId("loc").textContent).toBe("/projects"),
     );
   });
 

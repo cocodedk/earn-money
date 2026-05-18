@@ -25,10 +25,10 @@ export function useCurrentProject() {
       : null;
 
   useEffect(() => {
-    if (id && query.data && !project) {
+    if (id && query.data && !query.data.results.some((p) => p.id === id)) {
       setId(null);
     }
-  }, [id, query.data, project]);
+  }, [id, query.data]);
 
   return { id, setId, project };
 }

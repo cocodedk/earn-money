@@ -5,10 +5,8 @@ export type ApiError =
   | { kind: "server"; status: number }
   | { kind: "network" };
 
-export async function parseApiError(
-  input: Response | Error,
-): Promise<ApiError> {
-  if (input instanceof Error) {
+export async function parseApiError(input: unknown): Promise<ApiError> {
+  if (!(input instanceof Response)) {
     return { kind: "network" };
   }
   if (input.status >= 500) {

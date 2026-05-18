@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
@@ -22,13 +23,9 @@ export function ProjectsList() {
       <PageHeader
         title="Projects"
         action={
-          <Link
-            to="/projects/new"
-            data-testid="page-header-create"
-            className="inline-flex items-center h-10 px-4 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
-          >
+          <ButtonLink to="/projects/new" data-testid="page-header-create">
             Create project
-          </Link>
+          </ButtonLink>
         }
       />
       {query.isError ? (

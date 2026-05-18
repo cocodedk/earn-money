@@ -1,14 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { server } from "../../test/server";
+import { makeTestQueryClient } from "../../test/renderWithProviders";
 import { ConnectionPill } from "./ConnectionPill";
 
 function renderPill() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+  const client = makeTestQueryClient();
   return render(
     <QueryClientProvider client={client}>
       <ConnectionPill />

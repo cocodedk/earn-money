@@ -1,15 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode } from "react";
 import { server } from "../../test/server";
+import { makeTestQueryClient } from "../../test/renderWithProviders";
 import { useProjectsQuery, useCreateProjectMutation, PROJECTS_KEY } from "./api";
 
 function makeWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+  const client = makeTestQueryClient();
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   }

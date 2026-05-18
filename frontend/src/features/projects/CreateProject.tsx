@@ -14,7 +14,6 @@ export function CreateProject() {
   const [localNameError, setLocalNameError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const navigate = useNavigate();
   const mutation = useCreateProjectMutation();
 
@@ -29,13 +28,11 @@ export function CreateProject() {
     setBannerError(null);
     try {
       await mutation.mutateAsync({ name, description });
-      setRedirectTo("/projects");
       navigate("/projects");
     } catch (err) {
-      const parsed =
-        err instanceof HttpError
-          ? await parseApiError(err.response)
-          : await parseApiError(err as Error);
+      const parsed = await parseApiError(
+        err instanceof HttpError ? err.response : err,
+      );
       if (parsed.kind === "field") {
         setFieldErrors(parsed.errors);
       } else if (parsed.kind === "non_field") {
@@ -53,13 +50,6 @@ export function CreateProject() {
   return (
     <>
       <PageHeader title="Create project" />
-      {redirectTo && (
-        <div
-          data-testid="create-success"
-          data-redirect={redirectTo}
-          className="sr-only"
-        />
-      )}
       {bannerError && (
         <div className="mt-4">
           <Callout variant="error">{bannerError}</Callout>
@@ -89,11 +79,9 @@ export function CreateProject() {
             onChange={(e) => setDescription(e.target.value)}
           />
         </FormField>
-        <div>
-          <Button type="submit" loading={mutation.isPending}>
-            Create project
-          </Button>
-        </div>
+        <Button type="submit" loading={mutation.isPending}>
+          Create project
+        </Button>
       </form>
     </>
   );
