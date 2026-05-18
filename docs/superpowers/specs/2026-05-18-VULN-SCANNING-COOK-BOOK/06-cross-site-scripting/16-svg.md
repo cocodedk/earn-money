@@ -1,13 +1,31 @@
+---
+# Managed by scripts/cookbook_progress.py — keep the `---` fences and these
+# six lines intact. Values below the comments are yours to change.
+phase: 6
+spec: 16
+slug: svg
+status: pending     # pending | in-progress | blocked | done
+fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+---
+
 # 6.16 SVG
 
 > Phase 6 — Cross-site scripting · Category: Context-specific XSS
 
-**Status:** pending — full spec is written when phase 6 begins.
+## Intent
+<!-- One short paragraph: what this technique detects and why a runner cares. -->
 
-## To be defined at phase start
+## Detection technique
+<!-- Deterministic tool, query, payload, or signature. Name the exact CLI, header, or pattern. -->
 
-- **Detection technique** — deterministic tool, query, or payload
-- **Fixture** — Juice Shop / DVWA / WebGoat — or a new install if none cover this technique
-- **Pass/fail check** — what counts as a successful detection against the fixture
-- **Finding schema** — how a hit is recorded
-- **AI involvement** — none by default; if any, name the deterministic gap that justifies it
+## Fixture
+<!-- Which container exposes this bug, and how to reach it (URL, route, parameter). -->
+
+## Pass/fail check
+<!-- Exact assertion that proves the detection works against the fixture. -->
+
+## Persistence
+<!-- Shape of the finding when written to the backend (JSON keys / DB columns). -->
+
+## AI involvement
+<!-- Usually 'none'. If AI is needed, name the deterministic gap that justifies it. -->

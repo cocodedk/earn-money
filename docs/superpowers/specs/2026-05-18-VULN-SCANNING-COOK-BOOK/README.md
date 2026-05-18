@@ -40,46 +40,44 @@ PortSwigger Web Security Academy.
 
 **Total:** 278 micro-spec stubs across 24 phases.
 
+## Workflow
+
+Each leaf bullet flows through four stages: **spec → plan → implement → persist**.
+
+1. **Spec.** GPT-5.5 enriches the spec stub's body sections — Intent, Detection technique, Fixture, Pass/fail check, Persistence, AI involvement. The operator reviews; flips spec frontmatter `status:` to `in-progress` when picking it up, `done` once approved. Assigns `fixture:` to `juice-shop`/`dvwa`/`webgoat`/`<name>` when known.
+2. **Plan.** Every spec has a matching plan stub at the mirror path under [`docs/superpowers/plans/2026-05-18-VULN-SCANNING-COOKBOOK/`](../../plans/2026-05-18-VULN-SCANNING-COOKBOOK/). Once the spec is `done`, draft the plan body (Summary, Files to touch, TDD steps, Verification, Persistence wiring) and flip plan frontmatter `status:` to `drafted` → `approved` → `implemented` → `verified` as work progresses.
+3. **Implement.** TDD per the plan. Each runner is gated by passing tests against the assigned fixture URL before merging.
+4. **Persist.** Every runner writes findings into the cookbook backend. Schema is deferred — the cross-module pattern will be designed after the first 3–5 plans land, once we see what the result shapes have in common. AI involvement is layered on top of the populated result store, not the recon path.
+
+A phase ships only when **every** spec is `done` and **every** plan is `verified` for that phase. No partial coverage advances.
+
 ## Progress
 
-Live status of every spec is in [`PROGRESS.md`](PROGRESS.md). It's a generated
-view of each stub's `**Status:**` and `**Fixture:**` lines — single source of
-truth lives in the stubs themselves; the rollup is a checked-in lockfile.
+[`PROGRESS.md`](PROGRESS.md) is a generated view of every spec and plan's YAML frontmatter. Regenerate after editing a stub:
 
-Update flow:
+```bash
+.venv/bin/python scripts/cookbook_progress.py
+```
 
-1. Edit the per-spec stub: set `**Status:** pending|in-progress|blocked|done`
-   and add a `**Fixture:** juice-shop|dvwa|webgoat|<name>` line when assigned.
-2. Run `python3 scripts/cookbook_progress.py` from the repo root.
-3. Commit the stub edits and the regenerated `PROGRESS.md` together.
+The script reads two fields per spec (`status`, `fixture`) and one per plan (`status`), then writes a two-column rollup (`spec / plan`) at the cookbook root. Commit the frontmatter edits and the regenerated `PROGRESS.md` together. Never hand-edit `PROGRESS.md` — the next regen will clobber it.
 
-Never hand-edit `PROGRESS.md` — the next regen would clobber it.
+### Frontmatter — script-managed, do not delete
 
-## Implementation approach
+Both spec and plan stubs open with a YAML frontmatter block fenced by `---`. **Don't remove the fences or the lines inside them.** A comment at the top of each block marks it as managed. The body below the second `---` is yours and GPT-5.5's.
 
-24 phases, one per top-level section above. Each phase is gated — phase N must
-work end-to-end against `target.cocode.dk` before phase N+1 begins. No phase
-moves forward on partial coverage.
+| File | Field | Allowed values |
+|------|-------|----------------|
+| spec | `status` | `pending` · `in-progress` · `blocked` · `done` |
+| spec | `fixture` | `juice-shop` · `dvwa` · `webgoat` · any slug · `tbd` |
+| plan | `status` | `pending` · `drafted` · `approved` · `implemented` · `verified` |
 
-**AI is not the automation.** Default to deterministic tooling — nuclei
-templates, ffuf/feroxbuster, header parsers, regex matchers, schema diffs.
-Reach for AI only where no deterministic option fits the bullet's intent, and
-the spec names that boundary explicitly.
+`phase`, `spec`, and `slug` are file-identity — never change them. `spec_file`, `implementation_file`, and `test_file` (plan-only) are free-form path references.
 
-Per phase:
+## Tooling boundary
 
-1. **Fill specs.** Each phase folder ships with stubs (`NN-<slug>/01-…md` …)
-   plus an `00-overview.md` carrying the original bullet list. When the phase
-   starts, each stub is filled with detection technique, fixture, pass/fail
-   check, finding schema, and AI-involvement boundary.
-2. **Build.** Implement the runner per the filled spec.
-3. **Test.** Three vulnerable-app containers are already running on
-   `target.cocode.dk`: OWASP Juice Shop, DVWA, and WebGoat. Pick whichever
-   fixture exposes the technique most cleanly. If none of the three covers a
-   technique, install a new fixture container on `target.cocode.dk` first,
-   then write the test against it.
-4. **Gate.** A phase ships only when every bullet has a passing test against
-   its chosen fixture.
+**AI is not the automation.** Default to deterministic tooling — nuclei templates, ffuf/feroxbuster, header parsers, regex matchers, schema diffs. Reach for AI only where no deterministic option fits the bullet's intent, and the spec's `## AI involvement` section names that boundary explicitly.
+
+Three vulnerable-app containers are already running on `target.cocode.dk` (see [`../../../CLAUDE.md`](../../../CLAUDE.md) `## Test fixtures`): OWASP Juice Shop, DVWA, WebGoat. Pick whichever exposes the technique most cleanly. If none cover a bullet, install a new fixture container on `target.cocode.dk` first and document its slug in the spec's `fixture:` field.
 
 ## Provenance
 

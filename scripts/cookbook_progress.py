@@ -1,12 +1,15 @@
 """Regenerate PROGRESS.md for the vuln-scanning cookbook.
 
-Walks docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/, reads each
-per-bullet spec's `**Status:**` and `**Fixture:**` lines, and writes a grouped
-checklist at the cookbook root. Idempotent — re-run any time. Never hand-edit
-PROGRESS.md; update the per-spec stubs and regenerate.
+Walks the spec tree at docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/
+and the plan tree at docs/superpowers/plans/2026-05-18-VULN-SCANNING-COOKBOOK/,
+reads the YAML frontmatter of each spec and matching plan, and writes a grouped
+two-column checklist (`spec / plan`) at the cookbook root.
 
-Status values recognised: pending (default), in-progress, blocked, done.
-Anything else renders as [?] in the output.
+Idempotent — same inputs produce byte-identical output. Never hand-edit
+PROGRESS.md; update the frontmatter and re-run.
+
+Spec status values:  pending · in-progress · blocked · done
+Plan status values:  pending · drafted · approved · implemented · verified
 """
 from __future__ import annotations
 
@@ -14,114 +17,141 @@ import re
 import sys
 from pathlib import Path
 
-COOKBOOK = (
-    Path(__file__).resolve().parent.parent
-    / "docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK"
-)
-OUT = COOKBOOK / "PROGRESS.md"
+import frontmatter
+
+REPO = Path(__file__).resolve().parent.parent
+SPECS_ROOT = REPO / "docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK"
+PLANS_ROOT = REPO / "docs/superpowers/plans/2026-05-18-VULN-SCANNING-COOKBOOK"
+OUT = SPECS_ROOT / "PROGRESS.md"
 
 PHASE_DIR_RE = re.compile(r"^(\d{2})-(.+)$")
 SPEC_FILE_RE = re.compile(r"^(\d{2})-(.+)\.md$")
-STATUS_RE = re.compile(r"^\*\*Status:\*\*\s+([a-z-]+)", re.MULTILINE)
-FIXTURE_RE = re.compile(r"^\*\*Fixture:\*\*\s+([^\n]+)", re.MULTILINE)
 SPEC_TITLE_RE = re.compile(r"^# \d+\.\d+\s+(.+)$", re.MULTILINE)
 OVERVIEW_TITLE_RE = re.compile(r"^# \d+\.\s*(.+)$", re.MULTILINE)
 
-STATUS_BOX = {
-    "pending": "[ ]",
-    "in-progress": "[~]",
-    "blocked": "[!]",
-    "done": "[x]",
+SPEC_BOX = {
+    "pending": "[ ]", "in-progress": "[~]",
+    "blocked": "[!]", "done": "[x]",
+}
+PLAN_BOX = {
+    "pending": "[ ]", "drafted": "[d]", "approved": "[a]",
+    "implemented": "[i]", "verified": "[v]",
 }
 
 
-def parse_spec(path: Path) -> tuple[str, str, str]:
-    """Return (title, status, fixture) for a single spec file."""
-    text = path.read_text()
-    title_m = SPEC_TITLE_RE.search(text)
-    title = title_m.group(1).strip() if title_m else path.stem
-    status_m = STATUS_RE.search(text)
-    status = status_m.group(1) if status_m else "pending"
-    fixture_m = FIXTURE_RE.search(text)
-    fixture = fixture_m.group(1).strip() if fixture_m else "tbd"
-    return title, status, fixture
+def read_spec(path: Path) -> dict[str, object]:
+    post = frontmatter.load(path)
+    title_m = SPEC_TITLE_RE.search(post.content)
+    return {
+        "status": str(post.get("status", "pending")),
+        "fixture": str(post.get("fixture", "tbd")),
+        "title": title_m.group(1).strip() if title_m else path.stem,
+    }
+
+
+def read_plan(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {"status": "missing"}
+    post = frontmatter.load(path)
+    return {"status": str(post.get("status", "pending"))}
 
 
 def phase_title(phase_dir: Path, fallback: str) -> str:
     overview = phase_dir / "00-overview.md"
     if overview.exists():
-        m = OVERVIEW_TITLE_RE.search(overview.read_text())
+        m = OVERVIEW_TITLE_RE.search(overview.read_text(encoding="utf-8"))
         if m:
             return m.group(1).strip()
     return fallback.replace("-", " ")
 
 
 def main() -> int:
-    if not COOKBOOK.exists():
-        print(f"error: cookbook folder not found: {COOKBOOK}", file=sys.stderr)
+    if not SPECS_ROOT.exists():
+        print(f"error: specs folder not found: {SPECS_ROOT}", file=sys.stderr)
         return 1
 
-    phases: list[tuple[int, str, str, list[tuple[str, str, str, str, str]], int]] = []
-    total_done = 0
-    total_specs = 0
-    phases_shipped = 0
+    phases: list[dict[str, object]] = []
+    counts = {"specs_done": 0, "plans_verified": 0, "phases_shipped": 0, "total": 0}
 
-    for phase_dir in sorted(COOKBOOK.iterdir()):
+    for phase_dir in sorted(SPECS_ROOT.iterdir()):
         if not phase_dir.is_dir():
             continue
-        dir_match = PHASE_DIR_RE.match(phase_dir.name)
-        if not dir_match:
+        m = PHASE_DIR_RE.match(phase_dir.name)
+        if not m:
             continue
-        phase_n_str, phase_slug = dir_match.group(1), dir_match.group(2)
+        phase_n = int(m.group(1))
+        phase_slug = phase_dir.name
         title = phase_title(phase_dir, phase_slug)
 
-        specs: list[tuple[str, str, str, str, str]] = []
+        rows: list[dict[str, str]] = []
         for spec_path in sorted(phase_dir.glob("[0-9][0-9]-*.md")):
             if spec_path.name == "00-overview.md":
                 continue
             spec_match = SPEC_FILE_RE.match(spec_path.name)
             if not spec_match:
                 continue
-            spec_n, spec_slug = spec_match.group(1), spec_match.group(2)
-            spec_title, status, fixture = parse_spec(spec_path)
-            specs.append((spec_n, spec_slug, spec_title, status, fixture))
+            spec_n, slug = spec_match.group(1), spec_match.group(2)
+            spec = read_spec(spec_path)
+            plan = read_plan(PLANS_ROOT / phase_slug / spec_path.name)
+            rows.append({
+                "spec_n": spec_n, "slug": slug,
+                "title": str(spec["title"]), "fixture": str(spec["fixture"]),
+                "spec_status": str(spec["status"]), "plan_status": plan["status"],
+            })
 
-        done = sum(1 for entry in specs if entry[3] == "done")
-        total_done += done
-        total_specs += len(specs)
-        if specs and done == len(specs):
-            phases_shipped += 1
+        specs_done = sum(1 for r in rows if r["spec_status"] == "done")
+        plans_verified = sum(1 for r in rows if r["plan_status"] == "verified")
+        counts["specs_done"] += specs_done
+        counts["plans_verified"] += plans_verified
+        counts["total"] += len(rows)
+        if rows and specs_done == len(rows) and plans_verified == len(rows):
+            counts["phases_shipped"] += 1
 
-        phases.append((int(phase_n_str), phase_slug, title, specs, done))
+        phases.append({
+            "n": phase_n, "slug": phase_slug, "title": title, "rows": rows,
+            "specs_done": specs_done, "plans_verified": plans_verified,
+        })
 
-    out_lines: list[str] = [
+    out: list[str] = [
         "# Cookbook Progress",
         "",
         "Auto-generated by `scripts/cookbook_progress.py`. Do not hand-edit —",
-        "update the per-spec `**Status:**` and `**Fixture:**` lines instead,",
-        "then re-run the script.",
+        "update the YAML frontmatter in each spec / plan stub, then re-run.",
         "",
-        f"**Overall:** {total_done}/{total_specs} specs done · "
-        f"{phases_shipped}/{len(phases)} phases shipped.",
+        f"**Overall:** specs {counts['specs_done']}/{counts['total']} done · "
+        f"plans {counts['plans_verified']}/{counts['total']} verified · "
+        f"{counts['phases_shipped']}/{len(phases)} phases shipped.",
+        "",
+        "Each row shows `spec / plan`. "
+        "Spec: `[ ]` pending · `[~]` in-progress · `[!]` blocked · `[x]` done. "
+        "Plan: `[ ]` pending · `[d]` drafted · `[a]` approved · `[i]` implemented · `[v]` verified.",
         "",
     ]
 
-    for phase_n, phase_slug, title, specs, done in phases:
-        out_lines.append(f"## Phase {phase_n} — {title} ({done}/{len(specs)})")
-        out_lines.append("")
-        for spec_n, spec_slug, spec_title, status, fixture in specs:
-            box = STATUS_BOX.get(status, "[?]")
-            link = f"{phase_n:02d}-{phase_slug}/{spec_n}-{spec_slug}.md"
-            fix = f" — fixture: `{fixture}`" if fixture != "tbd" else ""
-            out_lines.append(
-                f"- {box} [`{spec_n}-{spec_slug}`]({link}) — {spec_title}{fix}"
+    for ph in phases:
+        rows = ph["rows"]  # type: ignore[index]
+        out.append(
+            f"## Phase {ph['n']} — {ph['title']} — "
+            f"specs {ph['specs_done']}/{len(rows)}, "  # type: ignore[arg-type]
+            f"plans {ph['plans_verified']}/{len(rows)}"  # type: ignore[arg-type]
+        )
+        out.append("")
+        for r in rows:  # type: ignore[union-attr]
+            sb = SPEC_BOX.get(r["spec_status"], "[?]")
+            pb = PLAN_BOX.get(r["plan_status"], "[?]")
+            link = f"{ph['slug']}/{r['spec_n']}-{r['slug']}.md"
+            fix = f" — fixture: `{r['fixture']}`" if r["fixture"] != "tbd" else ""
+            out.append(
+                f"- {sb} / {pb} [`{r['spec_n']}-{r['slug']}`]({link}) — {r['title']}{fix}"
             )
-        out_lines.append("")
+        out.append("")
 
-    OUT.write_text("\n".join(out_lines))
+    OUT.write_text("\n".join(out))
     print(
-        f"wrote PROGRESS.md: {total_specs} specs, {total_done} done, "
-        f"{phases_shipped}/{len(phases)} phases shipped"
+        f"wrote PROGRESS.md: {counts['total']} specs, "
+        f"{counts['specs_done']} specs done, "
+        f"{counts['plans_verified']} plans verified, "
+        f"{counts['phases_shipped']}/{len(phases)} phases shipped"
     )
     return 0
 
