@@ -1,14 +1,20 @@
-"""Scan-run simulator — proves the control loop without real scanner logic.
+"""Scan-run dispatcher — routes each target_run to its registered stub
+runner (apps.stubs.runners), with the simulator as fallback for stubs
+whose runner is not yet registered.
 
 Per docs/superpowers/specs/2026-05-18-DOCKERIZED-ENV/07-celery-task.md.
-Real scanner runners replace `_process_target_run` once stubs land;
-the surrounding control loop (status checks, event emit) stays.
+The control loop (status checks, paired started/done/failed events,
+cooperative pause/stop) is platform-level and stays the same regardless
+of what the runner does in between.
 
 Cooperative pause/stop:
 - /pause/ sets ScanRun.status=paused. Worker sees it at the next check
   and exits clean; /resume/ re-enqueues the task.
 - /stop/ sets ScanRun.status=stopping. Worker marks the current
   target_run as stopped and moves the run to stopped before exiting.
+- Runner exceptions are caught per-target — the target_run transitions
+  to FAILED and a scan_target_run.failed event is emitted; the scan_run
+  continues with the next target.
 """
 from __future__ import annotations
 
@@ -160,7 +166,7 @@ def _finalize_failed(
     run: ScanRun,
     tr: ScanTargetRun,
     started_payload: dict[str, Any],
-    exc: BaseException,
+    exc: Exception,
 ) -> None:
     with transaction.atomic():
         tr.status = RunStatus.FAILED
