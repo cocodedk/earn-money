@@ -73,3 +73,23 @@ export type CreateTargetBody = {
   ip?: string | null;
   status?: TargetStatus;
 };
+
+export type StubStatus = "pending" | "in_progress" | "done";
+
+export type Stub = {
+  slug: string;
+  phase: number;
+  spec: number;
+  title: string;
+  status: StubStatus;
+  fixture: string | null;
+  category: string;
+  phase_title: string;
+  phase_slug: string;
+  spec_slug: string;
+  path: string;
+};
+
+export type StubDetail = Stub & {
+  body: string;
+};
