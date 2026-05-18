@@ -35,6 +35,13 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    # Cookbook scanner platform apps
+    "apps.common",
+    "apps.projects",
+    "apps.targets",
+    "apps.scans",
+    "apps.findings",
+    "apps.evidence",
 ]
 
 

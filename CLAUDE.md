@@ -81,10 +81,17 @@ All four URLs are authorised for any HTTP technique — the `roe.md` floor appli
 - No features not yet needed.
 - Delete dead code immediately.
 
-### TDD
-- Failing test first → minimal pass → refactor.
-- Test names describe behaviour: `"refuses_active_recon_when_policy_manual_only"`.
-- Recon runners get integration tests against a mock target before any real asset.
+### TDD — strict, 100% coverage required
+
+- **TDD only.** Every new function, branch, model behaviour, API endpoint, runner, or CLI starts with a failing test. No production code is written before its test. Refactors keep tests green before and after.
+- **100% line + branch coverage** on production code. Every branch in `backend/apps/`, `scripts/`, runners, and any future v2 source is exercised by at least one test. Coverage is measured in CI and refused below 100%.
+- **Pragmatic exclusions** (and ONLY these) are allowed:
+  - `if __name__ == "__main__":` guards
+  - Django `apps.py`, `migrations/`, `wsgi.py`, `asgi.py` (framework boilerplate)
+  - Trivial `__str__` on Django models (one-line `return f"..."`)
+  - Any `# pragma: no cover` line must justify itself in a comment on the same line
+- **Test names describe behaviour**: `test_refuses_active_recon_when_policy_manual_only`, not `test_recon`.
+- **Recon runners get integration tests against a mock target before any real asset** — never point a runner at a live target before the test exists.
 
 ### Commit hygiene
 - Conventional Commits enforced by the `commit-msg` hook.
