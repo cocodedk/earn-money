@@ -1,5 +1,5 @@
 /* PROGRAMS — header, finding-state strip, queue table, recent-runs strip.
-   Loaded via @import from dashboard.css after dashboard-header.css. */
+   Loaded via direct `<link>` in index.html after dashboard-header.css. */
 #programs { display: grid; gap: 2.25rem; }
 article.program { display: grid; gap: 0.85rem;
                   padding: 1.25rem 1.5rem; border: 1px solid var(--rule);

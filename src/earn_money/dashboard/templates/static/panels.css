@@ -1,5 +1,6 @@
-/* Across-program panels: ACTIVE SCANS + RECENT SIGNALS. Loaded after
-   dashboard.css so the base `.qtbl`, `.run`, `.empty` rules apply. */
+/* Across-program panels: ACTIVE SCANS + RECENT SIGNALS. Loaded via
+   direct `<link>` in index.html after the dashboard-*.css partials so
+   the base `.qtbl`, `.run`, `.empty` rules apply. */
 
 /* Active-scans strip — borrow .run chip styling but tint to indicate
    in-flight. The pulsing border draws the eye without making the page

@@ -1,5 +1,5 @@
-/* Footer + boot stagger animation. Loaded via @import from dashboard.css
-   after dashboard-programs.css. */
+/* Footer + boot stagger animation. Loaded via direct `<link>` in
+   index.html after dashboard-programs.css. */
 footer { margin-top: 4rem; padding-top: 1.25rem;
          border-top: 1px solid var(--rule); color: var(--mute);
          font-size: 0.7rem; letter-spacing: 0.12em;

@@ -1,5 +1,5 @@
-/* Reset + body chrome + main layout. Loaded via @import from
-   dashboard.css; tokens.css must precede so var(--...) resolves. */
+/* Reset + body chrome + main layout. Loaded via direct `<link>` in
+   index.html; tokens.css must precede so var(--...) resolves. */
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;

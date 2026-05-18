@@ -7,8 +7,9 @@ Extracted from hacker_loop.py to keep that module under the project's
   - `build_prompt(...)`: per-turn prompt assembly
   - `build_action_class_block(...)`: the "tried / still useful" summary
 
-Pure module — no class state. Importers in tests still see
-`_SYSTEM_PROMPT` and `_COVERAGE_LABELS` via the `hacker_loop` facade.
+Pure module — no class state. `_SYSTEM_PROMPT` is re-exported via the
+`hacker_loop` facade for existing importers; `_COVERAGE_LABELS` is local
+to this module (no external consumers).
 """
 from __future__ import annotations
 

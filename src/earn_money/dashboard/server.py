@@ -2,11 +2,10 @@
 
 stdlib `ThreadingHTTPServer` + a small `BaseHTTPRequestHandler` subclass.
 Routes:
-- `GET /`                      → ``templates/index.html`` (200, ``text/html``)
-- `GET /static/dashboard.css`  → cached CSS bytes (200, ``text/css``)
-- `GET /static/dashboard.js`   → cached JS bytes  (200, ``application/javascript``)
-- `GET /api/status`            → ``aggregator.build_status(paths)`` as JSON
-- anything else                → 404
+- `GET /`            → ``templates/index.html`` (200, ``text/html``)
+- `GET /static/*`    → cached asset bytes (see ``_server_static.STATIC_ROUTES``)
+- `GET /api/status`  → ``aggregator.build_status(paths)`` as JSON
+- anything else      → 404
 
 Default bind is ``127.0.0.1`` (loopback only). `--host` lets the
 operator opt into a non-loopback bind when the host firewall is the
