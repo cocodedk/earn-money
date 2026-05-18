@@ -1,4 +1,9 @@
-"""HTML + linked-asset fetcher for stub 1.3 frontend-framework.
+"""HTTP evidence collection for stub 1.3 frontend-framework.
+
+Bounds runner cost on hostile targets: per-fetch byte caps prevent
+unbounded body materialisation, per-target asset count caps prevent
+fan-out abuse, and the same-origin / scheme filter keeps fetches
+within the program's stated scope. See the spec for the full rule set.
 
 Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/03-frontend-framework.md
 """
@@ -6,7 +11,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -23,6 +28,11 @@ class FetcherConfig:
     max_body_bytes: int = 524288
     allow_external_asset_fetch: bool = False
     allow_source_map_fetch: bool = False
+
+    def __post_init__(self) -> None:
+        for name in ("max_linked_assets", "max_asset_bytes", "max_body_bytes"):
+            if getattr(self, name) < 0:
+                raise ValueError(f"{name} must be >= 0; got {getattr(self, name)}")
 
 
 _DEFAULT_CONFIG = FetcherConfig()
@@ -47,7 +57,7 @@ def fetch_evidence(
         except httpx.TransportError:
             return _empty_bundle(base_url)
 
-        html_body = _truncate(base_resp.text or "", config.max_body_bytes)
+        html_body = (base_resp.text or "")[: config.max_body_bytes]
         final_url = str(base_resp.url)
         link_srcs = _extract_srcs(html_body)
         script_paths = [_to_path(src) for src in link_srcs]
@@ -71,38 +81,31 @@ def _empty_bundle(url: str) -> dict:
     }
 
 
-def _truncate(text: str, limit: int) -> str:
-    return text[:limit] if len(text) > limit else text
-
-
 def _extract_srcs(html: str) -> list[str]:
-    """Return the raw src/href strings from script + asset link tags.
+    """Return raw src/href strings for asset-bearing tags — script[src]
+    plus <link rel=stylesheet|modulepreload|preload(as=script)>.
 
-    Returns the original strings (possibly absolute URLs, possibly
-    relative paths) so the fetcher can do same-origin filtering on the
-    real source before resolution overrides it."""
+    Returns originals (not resolved) so the fetcher can apply same-
+    origin filtering on the real source before resolution overrides it."""
     soup = BeautifulSoup(html, "html.parser")
     srcs: list[str] = []
     for tag in soup.find_all("script", src=True):
         srcs.append(tag["src"])
     for tag in soup.find_all("link"):
-        rel = tag.get("rel") or []
         href = tag.get("href")
         if not href:
             continue
-        if _link_is_asset(rel, tag.get("as")):
+        if _link_is_asset(tag.get("rel") or [], tag.get("as")):
             srcs.append(href)
     return srcs
 
 
 def _link_is_asset(rel: list[str], as_attr: str | None) -> bool:
-    if "stylesheet" in rel:
-        return True
-    if "modulepreload" in rel:
-        return True
-    if "preload" in rel and as_attr == "script":
-        return True
-    return False
+    return (
+        "stylesheet" in rel
+        or "modulepreload" in rel
+        or ("preload" in rel and as_attr == "script")
+    )
 
 
 def _to_path(src: str) -> str:
@@ -124,7 +127,11 @@ def _fetch_assets(
             break
         if not config.allow_source_map_fetch and src.endswith(".map"):
             continue
-        asset_url = _resolve(base_url, src)
+        asset_url = urljoin(base_url, src)
+        # urljoin handles relative paths, absolute URLs, AND protocol-
+        # relative `//cdn/x.js` correctly; the scheme check catches
+        # absolute non-http(s) like `ftp://...` and pseudo-schemes like
+        # `javascript:` that survived urljoin unchanged.
         if not asset_url.startswith(("http://", "https://")):
             continue
         if (
@@ -146,18 +153,12 @@ def _try_fetch(
         resp = client.get(url)
     except httpx.TransportError:
         return None
-    return _truncate(resp.text or "", max_bytes)
+    return (resp.text or "")[:max_bytes]
 
 
 def _origin(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.scheme}://{parts.netloc}"
-
-
-def _resolve(base_url: str, path_or_url: str) -> str:
-    if "://" in path_or_url:
-        return path_or_url
-    return f"{_origin(base_url)}{path_or_url}"
 
 
 def _basename(url: str) -> str:
