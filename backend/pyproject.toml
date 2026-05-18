@@ -29,6 +29,10 @@ omit = [
     "config/settings.py",
     "config/urls.py",
     "config/celery.py",
+    # Opt-in live-network tests — skipped unless LIVE_TESTS=1. Counting
+    # them against the strict-coverage bar would force every CI run to
+    # require external connectivity to target.cocode.dk.
+    "*/test_live_*.py",
 ]
 
 [tool.coverage.report]
