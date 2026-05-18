@@ -99,10 +99,17 @@ def _process_target_run(run: ScanRun, tr: ScanTargetRun) -> None:
         )
 
     runner = get_runner(run.stub_slug)
-    if runner is None:
-        time.sleep(SIMULATOR_STEP_DELAY)  # simulator fallback
-    else:
-        runner(run, tr)
+    try:
+        if runner is None:
+            time.sleep(SIMULATOR_STEP_DELAY)  # simulator fallback
+        else:
+            runner(run, tr)
+    except Exception as exc:
+        # Isolate per-target runner crashes — without this catch, a
+        # single httpx.ConnectError leaves target_run pinned at RUNNING
+        # with no terminal event, and the SSE stream never closes.
+        _finalize_failed(run, tr, started_payload, exc)
+        return
 
     with transaction.atomic():
         tr.status = RunStatus.DONE
@@ -146,6 +153,30 @@ def _finalize_stopped(run: ScanRun, current_tr: ScanTargetRun) -> None:
             scan_run=run,
             subject=run,
             data={"id": str(run.id), "transition": "stopping → stopped"},
+        )
+
+
+def _finalize_failed(
+    run: ScanRun,
+    tr: ScanTargetRun,
+    started_payload: dict[str, Any],
+    exc: BaseException,
+) -> None:
+    with transaction.atomic():
+        tr.status = RunStatus.FAILED
+        tr.finished_at = timezone.now()
+        tr.save(update_fields=["status", "finished_at", "updated_at"])
+        Event.log(
+            type=EventType.SCAN_TARGET_RUN_FAILED,
+            scan_run=run,
+            target=tr.target,
+            subject=tr,
+            data={
+                **started_payload,
+                "finished_at": tr.finished_at,
+                "error": type(exc).__name__,
+                "message": str(exc),
+            },
         )
 
 

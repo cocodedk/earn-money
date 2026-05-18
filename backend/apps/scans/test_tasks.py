@@ -275,6 +275,78 @@ class FinalizeStoppedDefensiveTests(TestCase):
 
 
 @patch("apps.scans.tasks.time.sleep")
+class RunnerFailureTests(TestCase):
+    """When a stub runner raises, the dispatcher must isolate the
+    failure: mark the target_run FAILED, emit a SCAN_TARGET_RUN_FAILED
+    event, and continue with the next target. Otherwise a single
+    httpx.ConnectError would leave the run pinned at RUNNING with no
+    DONE event — the SSE stream would never close."""
+
+    def setUp(self) -> None:
+        from apps.stubs.runners import _clear_for_testing
+
+        _clear_for_testing()
+
+    def tearDown(self) -> None:
+        from apps.stubs.runners import _clear_for_testing
+
+        _clear_for_testing()
+
+    def test_runner_exception_marks_target_failed_and_emits_event(self, _sleep) -> None:
+        from apps.stubs.runners import register
+
+        from .tasks import _execute_scan
+
+        @register("1.1")
+        def runner(scan_run, target_run):
+            raise RuntimeError("boom — fake httpx.ConnectError")
+
+        run = _make_run_with_targets(1)
+        _execute_scan(str(run.id))
+
+        tr = run.target_runs.get()
+        assert tr.status == RunStatus.FAILED
+        assert tr.finished_at is not None
+        # started event WAS emitted; done was NOT; failed IS.
+        assert Event.objects.filter(
+            type=EventType.SCAN_TARGET_RUN_STARTED, scan_run=run
+        ).count() == 1
+        assert Event.objects.filter(
+            type=EventType.SCAN_TARGET_RUN_DONE, scan_run=run
+        ).count() == 0
+        failed = Event.objects.get(
+            type=EventType.SCAN_TARGET_RUN_FAILED, scan_run=run
+        )
+        assert failed.data["error"] == "RuntimeError"
+        assert "boom" in failed.data["message"]
+
+    def test_runner_failure_does_not_block_other_targets(self, _sleep) -> None:
+        from apps.stubs.runners import register
+
+        from .tasks import _execute_scan
+
+        calls: list = []
+
+        @register("1.1")
+        def runner(scan_run, target_run):
+            calls.append(target_run.id)
+            if len(calls) == 1:
+                raise RuntimeError("first target explodes")
+
+        run = _make_run_with_targets(2)
+        _execute_scan(str(run.id))
+
+        # Both targets attempted — second runs after first fails.
+        assert len(calls) == 2
+        target_runs = list(run.target_runs.order_by("created_at"))
+        assert target_runs[0].status == RunStatus.FAILED
+        assert target_runs[1].status == RunStatus.DONE
+        # Run still finalises — per-target failure doesn't fail the run.
+        run.refresh_from_db()
+        assert run.status == RunStatus.DONE
+
+
+@patch("apps.scans.tasks.time.sleep")
 class PostLoopRaceTests(TestCase):
     """If ScanRun.status flips externally between the last target
     completion and the post-loop refresh, the task respects the new
