@@ -98,6 +98,7 @@ All four URLs are authorised for any HTTP technique — the `roe.md` floor appli
 - Conventional Commits enforced by the `commit-msg` hook.
 - Branch naming: `<type>/<short-description>` in kebab-case. See `CONTRIBUTING.md`.
 - Never `--no-verify` unless explicitly authorised. Hook failures are signals, not noise.
+- After every commit, run `/simplify` and iterate (fix → re-run) until the review returns no actionable findings. Each `/simplify` round's fixes are their own commit. Don't move to the next task while `/simplify` still has open issues.
 
 ## Behavioural guidelines
 
