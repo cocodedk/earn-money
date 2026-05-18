@@ -1,9 +1,44 @@
-"""Shared fixtures for dashboard probe-runner tests."""
+"""Shared fixtures for dashboard probe-runner + probe-route tests."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
+
+from earn_money import config
+
+
+@pytest.fixture()
+def tmp_root(tmp_path: Path) -> Path:
+    (tmp_path / "RECON_ENABLED").touch()
+    return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def _reset_probe_slot():
+    """Ensure no probe slot leaks between tests. The handler installs
+    a _FakeRunner under server._PROBE_SLOT on a successful start; without
+    this fixture a subsequent test would see a stale 409 from a slot the
+    previous test left in place."""
+    from earn_money.dashboard import server
+    server._PROBE_SLOT = None
+    yield
+    server._PROBE_SLOT = None
+
+
+@pytest.fixture()
+def handler_factory(tmp_root: Path):
+    from earn_money.dashboard import server
+
+    from ._probe_routes_helpers import _FakeRunner
+
+    paths = config.Paths.from_root(tmp_root)
+    # Patch ProbeRunner in the server module to our fake.
+    with patch.object(server, "ProbeRunner", _FakeRunner, create=True):
+        index_html = b"<!doctype html><title>t</title>"
+        static = {}
+        yield server._make_handler(paths, index_html, static), paths
 
 
 @pytest.fixture()
