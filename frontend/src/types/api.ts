@@ -42,3 +42,16 @@ export type HealthResponse = {
   worker?: boolean;
   version?: string;
 };
+
+export type ScanEventLevel = "debug" | "info" | "warning" | "error";
+
+export type ScanEvent = {
+  id: Uuid;
+  scan_run_id: Uuid;
+  target_id: Uuid | null;
+  level: ScanEventLevel;
+  event_type: string;
+  message: string;
+  data: Record<string, unknown>;
+  created_at: Iso8601;
+};

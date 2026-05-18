@@ -1,0 +1,45 @@
+.panel {
+  @apply border border-gray-200 rounded;
+}
+.controls {
+  @apply flex items-center gap-4 px-3 py-2 border-b border-gray-200 bg-gray-50 text-sm;
+}
+.filter {
+  @apply flex items-center gap-2;
+}
+.filter select {
+  @apply h-7 border border-gray-300 rounded px-2 bg-white;
+}
+.toggle {
+  @apply flex items-center gap-2;
+}
+.scroller {
+  @apply max-h-72 overflow-y-auto;
+}
+.list {
+  @apply font-mono text-xs;
+}
+.row {
+  @apply grid grid-cols-[68px_60px_180px_1fr] gap-2 px-3 py-1 border-b border-gray-100;
+}
+.row[data-level="error"] {
+  @apply bg-red-50;
+}
+.row[data-level="warning"] {
+  @apply bg-yellow-50;
+}
+.time {
+  @apply text-gray-500;
+}
+.level {
+  @apply text-gray-700 uppercase;
+}
+.type {
+  @apply text-gray-900;
+}
+.message {
+  @apply text-gray-700 truncate;
+}
+.empty {
+  @apply px-3 py-6 text-center text-gray-600;
+}
