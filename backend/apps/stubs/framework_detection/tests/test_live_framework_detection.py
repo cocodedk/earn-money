@@ -22,6 +22,7 @@ import pytest
 from django.test import TestCase
 
 from apps.evidence.models import Evidence
+from apps.findings.confidence import CONFIDENCE_RANK, confidence_rank
 from apps.findings.models import Finding
 from apps.projects.models import Project
 from apps.scans.models import ScanRun, ScanTargetRun
@@ -34,9 +35,6 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("LIVE_TESTS") != "1",
     reason="LIVE_TESTS=1 required to opt into network-dependent fixtures",
 )
-
-
-_CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3}
 
 
 def _setup_run(base_url: str, host: str) -> tuple[ScanRun, ScanTargetRun]:
@@ -52,9 +50,9 @@ def _setup_run(base_url: str, host: str) -> tuple[ScanRun, ScanTargetRun]:
 
 
 def _assert_medium_or_higher(findings) -> None:
+    medium = CONFIDENCE_RANK["medium"]
     for finding in findings:
-        rank = _CONFIDENCE_RANK.get(finding.confidence, 0)
-        assert rank >= _CONFIDENCE_RANK["medium"], (
+        assert confidence_rank(finding.confidence) >= medium, (
             f"finding {finding.id} has confidence={finding.confidence}; "
             f"spec requires medium or higher"
         )

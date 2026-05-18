@@ -9,7 +9,8 @@ Workflow per target:
 2. For each signature in the library, check if it matches the evidence.
 3. Group matched signatures by `technology`.
 4. Write one `Evidence` row per matched signature, one `Finding` row
-   per detected technology.
+   per detected technology — bulk-inserted inside one transaction so a
+   crash never leaves orphan Evidence rows for a missing Finding.
 5. The `Finding` carries the highest confidence of all signatures that
    contributed to it.
 
@@ -21,7 +22,10 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from django.db import transaction
+
 from apps.evidence.models import Evidence
+from apps.findings.confidence import confidence_rank
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 
@@ -29,9 +33,6 @@ from ..runners import register
 from .fetcher import fetch_evidence
 from .matcher import matches
 from .signatures import SIGNATURES
-
-
-_CONFIDENCE_RANK = {"low": 1, "medium": 2, "high": 3}
 
 
 @register("1.1")
@@ -49,10 +50,12 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
 
     body_hash = _hash(bundle.get("html_body", ""))
 
+    evidences_to_create: list[Evidence] = []
+    findings_to_create: list[Finding] = []
+
     for technology, sigs in by_tech.items():
-        evidence_ids: list[str] = []
-        for sig in sigs:
-            evidence = Evidence.objects.create(
+        tech_evidences = [
+            Evidence(
                 scan_run=scan_run,
                 target=target,
                 source=sig["source"],
@@ -69,25 +72,31 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
                     "technology": technology,
                 },
             )
-            evidence_ids.append(str(evidence.id))
-
-        confidence = _max_confidence(sigs)
-        Finding.objects.create(
-            scan_run=scan_run,
-            target=target,
-            stub_slug=scan_run.stub_slug,
-            title=f"{technology} detected on {target.host}",
-            category=sigs[0]["category"],
-            severity=Severity.INFO,
-            confidence=confidence,
-            status=FindingStatus.CANDIDATE,
-            data={
-                "technology": technology,
-                "evidence_ids": evidence_ids,
-                "signature_ids": [sig["id"] for sig in sigs],
-                "method": "deterministic_signature",
-            },
+            for sig in sigs
+        ]
+        evidences_to_create.extend(tech_evidences)
+        findings_to_create.append(
+            Finding(
+                scan_run=scan_run,
+                target=target,
+                stub_slug=scan_run.stub_slug,
+                title=f"{technology} detected on {target.host}",
+                category=sigs[0]["category"],
+                severity=Severity.INFO,
+                confidence=_max_confidence(sigs),
+                status=FindingStatus.CANDIDATE,
+                data={
+                    "technology": technology,
+                    "evidence_ids": [str(e.id) for e in tech_evidences],
+                    "signature_ids": [sig["id"] for sig in sigs],
+                    "method": "deterministic_signature",
+                },
+            )
         )
+
+    with transaction.atomic():
+        Evidence.objects.bulk_create(evidences_to_create)
+        Finding.objects.bulk_create(findings_to_create)
 
 
 def _matched_value(signature: dict[str, Any]) -> str:
@@ -97,8 +106,6 @@ def _matched_value(signature: dict[str, Any]) -> str:
 
 
 def _excerpt_for(signature: dict[str, Any], bundle: dict[str, Any]) -> str:
-    """Return a short string that demonstrates the match — useful for
-    triage UI without dumping the entire HTTP body."""
     source = signature["source"]
     if source == "header":
         value = bundle.get("headers", {}).get(signature["field"], "")
@@ -108,8 +115,6 @@ def _excerpt_for(signature: dict[str, Any], bundle: dict[str, Any]) -> str:
         return f"cookies: {names}"[:200]
     if source == "html" and signature["field"] == "script_names":
         return f"scripts: {bundle.get('script_names', [])}"[:200]
-    # source == "html" with body field — show the line surrounding the
-    # pattern for context, capped to 200 chars.
     body = bundle.get("html_body", "")
     idx = body.find(signature["pattern"])
     if idx < 0:
@@ -120,7 +125,7 @@ def _excerpt_for(signature: dict[str, Any], bundle: dict[str, Any]) -> str:
 def _max_confidence(signatures: list[dict[str, Any]]) -> str:
     return max(
         (sig["confidence"] for sig in signatures),
-        key=lambda c: _CONFIDENCE_RANK.get(c, 0),
+        key=confidence_rank,
     )
 
 
