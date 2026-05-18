@@ -62,6 +62,22 @@ SIGNATURES: list[dict[str, Any]] = [
         "confidence": "high",
     },
     {
+        # Caddy strips the upstream Server header on reverse-proxy
+        # responses but adds itself to the Via chain. Same technology
+        # as server_caddy; second signature so detection survives the
+        # proxy-hides-Server case. Same web_server category — Caddy
+        # is a web server regardless of which role it's playing in a
+        # given response.
+        "id": "caddy_via",
+        "header_name": "via",
+        "value_pattern": "Caddy",
+        "match_type": "contains",
+        "technology": "caddy",
+        "technology_category": "web_server",
+        "version_regex": None,
+        "confidence": "high",
+    },
+    {
         "id": "powered_by_express",
         "header_name": "x-powered-by",
         "value_pattern": "Express",
