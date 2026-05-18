@@ -1,0 +1,32 @@
+.shell {
+  @apply h-full grid;
+  grid-template-columns: 240px 1fr;
+}
+.sidebar {
+  @apply bg-gray-50 border-r border-gray-200 flex flex-col py-4;
+}
+.brand {
+  @apply px-4 pb-4 font-semibold text-sm;
+}
+.navList {
+  @apply flex flex-col;
+}
+.navLink {
+  @apply block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100;
+}
+.main {
+  @apply flex flex-col min-w-0;
+}
+.topbar {
+  @apply h-14 flex items-center justify-between px-6 border-b border-gray-200 bg-white;
+}
+.topbarLeft,
+.topbarRight {
+  @apply flex items-center gap-2;
+}
+.content {
+  @apply flex-1 overflow-auto px-6 py-4;
+}
+.navLink span[data-active="true"] {
+  @apply font-medium text-gray-900;
+}
