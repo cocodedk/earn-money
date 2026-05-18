@@ -1,18 +1,21 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { describe, it, expect, beforeEach } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Route, Routes } from "react-router-dom";
+import { renderWithProviders } from "../test/renderWithProviders";
 import { Layout } from "./Layout";
 
+beforeEach(() => window.localStorage.clear());
+
 function setup(initialRoute = "/projects") {
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/projects" element={<div>projects body</div>} />
-          <Route path="/targets" element={<div>targets body</div>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+  return renderWithProviders(
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/projects" element={<div>projects body</div>} />
+        <Route path="/targets" element={<div>targets body</div>} />
+      </Route>
+    </Routes>,
+    { route: initialRoute },
   );
 }
 
@@ -40,7 +43,23 @@ describe("Layout", () => {
 
   it("marks the active route", () => {
     setup("/targets");
-    // data-active lives on the inner span because NavLink's `isActive` is exposed there.
     expect(screen.getByText("Targets")).toHaveAttribute("data-active", "true");
+  });
+
+  it("renders the connection pill and current-project chip in the top bar", async () => {
+    setup();
+    expect(
+      await screen.findByTestId("connection-pill"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("current-project-chip")).toBeInTheDocument();
+  });
+
+  it("moves the active marker when navigating to a different route", async () => {
+    setup("/projects");
+    expect(screen.getByText("Projects")).toHaveAttribute("data-active", "true");
+    await userEvent.click(screen.getByRole("link", { name: "Targets" }));
+    await waitFor(() =>
+      expect(screen.getByText("Targets")).toHaveAttribute("data-active", "true"),
+    );
   });
 });

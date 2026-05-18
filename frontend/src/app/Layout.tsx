@@ -1,6 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
 import styles from "./Layout.module.css";
 import { navItems } from "./nav";
+import { CurrentProjectChip } from "../components/CurrentProjectChip";
+import { ConnectionPill } from "../components/ConnectionPill";
 
 export function Layout() {
   return (
@@ -25,8 +27,12 @@ export function Layout() {
       </aside>
       <div className={styles.main}>
         <header className={styles.topbar}>
-          <div className={styles.topbarLeft}>{/* current project chip slot (Task V) */}</div>
-          <div className={styles.topbarRight}>{/* connection pill slot (Task Q) */}</div>
+          <div className={styles.topbarLeft}>
+            <CurrentProjectChip />
+          </div>
+          <div className={styles.topbarRight}>
+            <ConnectionPill />
+          </div>
         </header>
         <main className={styles.content}>
           <Outlet />
