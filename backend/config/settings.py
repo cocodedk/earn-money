@@ -133,6 +133,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
+    "DEFAULT_PAGINATION_CLASS": "config.pagination.DefaultPagination",
+    "PAGE_SIZE": 50,
 }
 
 

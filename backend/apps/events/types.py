@@ -15,3 +15,7 @@ from django.db import models
 class EventType(models.TextChoices):
     # Sanity / test fixture — kept for system-test events and tests.
     SYSTEM_TEST = "system.test", "System test event"
+    # Project lifecycle
+    PROJECT_CREATED = "project.created", "Project created"
+    PROJECT_UPDATED = "project.updated", "Project updated"
+    PROJECT_DELETED = "project.deleted", "Project deleted"
