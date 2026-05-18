@@ -55,3 +55,21 @@ export type ScanEvent = {
   data: Record<string, unknown>;
   created_at: Iso8601;
 };
+
+export type Target = {
+  id: Uuid;
+  project: Uuid;
+  base_url: string;
+  host: string | null;
+  ip: string | null;
+  status: TargetStatus;
+  created_at: Iso8601;
+};
+
+export type CreateTargetBody = {
+  project: Uuid;
+  base_url: string;
+  host?: string | null;
+  ip?: string | null;
+  status?: TargetStatus;
+};
