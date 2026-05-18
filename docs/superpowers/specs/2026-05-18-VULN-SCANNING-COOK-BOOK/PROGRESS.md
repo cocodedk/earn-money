@@ -9,7 +9,7 @@ Each row shows `spec / plan`. Spec: `[ ]` pending · `[~]` in-progress · `[!]` 
 
 ## Phase 1 — Information gathering — specs 0/25, plans 0/25
 
-- [ ] / [ ] [`01-framework-detection`](01-information-gathering/01-framework-detection.md) — Framework detection
+- [ ] / [ ] [`01-framework-detection`](01-information-gathering/01-framework-detection.md) — Framework detection — fixture: `multi-target`
 - [ ] / [ ] [`02-server-headers`](01-information-gathering/02-server-headers.md) — Server headers
 - [ ] / [ ] [`03-frontend-framework`](01-information-gathering/03-frontend-framework.md) — Frontend framework
 - [ ] / [ ] [`04-backend-hints`](01-information-gathering/04-backend-hints.md) — Backend hints
