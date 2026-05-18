@@ -1,0 +1,12 @@
+.pill {
+  @apply inline-flex items-center gap-2 text-sm text-gray-700;
+}
+.dot {
+  @apply h-2 w-2 rounded-full bg-gray-400 transition-opacity duration-200;
+}
+.pill[data-connected="true"] .dot {
+  @apply bg-green-500;
+}
+.pill[data-connected="false"] .dot {
+  @apply bg-red-500;
+}
