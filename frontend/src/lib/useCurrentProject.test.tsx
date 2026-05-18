@@ -1,16 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
 import { server } from "../test/server";
-import { makeTestQueryClient } from "../test/renderWithProviders";
+import { makeRenderHookWrapper } from "../test/renderWithProviders";
 import { useCurrentProject } from "./useCurrentProject";
-
-function wrapper({ children }: { children: ReactNode }) {
-  const client = makeTestQueryClient();
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-}
 
 function noProjects() {
   server.use(
@@ -20,6 +13,11 @@ function noProjects() {
   );
 }
 
+function renderUseCurrentProject() {
+  const { Wrapper } = makeRenderHookWrapper();
+  return renderHook(() => useCurrentProject(), { wrapper: Wrapper });
+}
+
 beforeEach(() => {
   window.localStorage.clear();
 });
@@ -27,13 +25,13 @@ beforeEach(() => {
 describe("useCurrentProject", () => {
   it("starts null when localStorage is empty", () => {
     noProjects();
-    const { result } = renderHook(() => useCurrentProject(), { wrapper });
+    const { result } = renderUseCurrentProject();
     expect(result.current.id).toBeNull();
   });
 
   it("persists setId to localStorage and reflects in next read", () => {
     noProjects();
-    const { result } = renderHook(() => useCurrentProject(), { wrapper });
+    const { result } = renderUseCurrentProject();
     act(() => result.current.setId("u-1"));
     expect(window.localStorage.getItem("em.frontend.currentProjectId")).toBe(
       "u-1",
@@ -44,7 +42,7 @@ describe("useCurrentProject", () => {
   it("removes the key when setId is called with null", () => {
     noProjects();
     window.localStorage.setItem("em.frontend.currentProjectId", "u-1");
-    const { result } = renderHook(() => useCurrentProject(), { wrapper });
+    const { result } = renderUseCurrentProject();
     act(() => result.current.setId(null));
     expect(
       window.localStorage.getItem("em.frontend.currentProjectId"),
@@ -72,14 +70,14 @@ describe("useCurrentProject", () => {
       ),
     );
     window.localStorage.setItem("em.frontend.currentProjectId", "u-1");
-    const { result } = renderHook(() => useCurrentProject(), { wrapper });
+    const { result } = renderUseCurrentProject();
     await waitFor(() => expect(result.current.project?.name).toBe("Local Lab"));
   });
 
   it("clears the id when the project no longer exists", async () => {
     noProjects();
     window.localStorage.setItem("em.frontend.currentProjectId", "u-gone");
-    const { result } = renderHook(() => useCurrentProject(), { wrapper });
+    const { result } = renderUseCurrentProject();
     await waitFor(() => expect(result.current.id).toBeNull());
     expect(
       window.localStorage.getItem("em.frontend.currentProjectId"),

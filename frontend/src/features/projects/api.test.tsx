@@ -1,19 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
 import { server } from "../../test/server";
-import { makeTestQueryClient } from "../../test/renderWithProviders";
+import { makeRenderHookWrapper } from "../../test/renderWithProviders";
 import { useProjectsQuery, useCreateProjectMutation, PROJECTS_KEY } from "./api";
-
-function makeWrapper() {
-  const client = makeTestQueryClient();
-  function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-  }
-  return { client, Wrapper };
-}
 
 describe("useProjectsQuery", () => {
   it("fetches and returns the page of projects", async () => {
@@ -36,7 +26,7 @@ describe("useProjectsQuery", () => {
         }),
       ),
     );
-    const { Wrapper } = makeWrapper();
+    const { Wrapper } = makeRenderHookWrapper();
     const { result } = renderHook(() => useProjectsQuery(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current.data?.count).toBe(1));
     expect(result.current.data?.results[0].name).toBe("Local Lab");
@@ -65,7 +55,7 @@ describe("useCreateProjectMutation", () => {
         );
       }),
     );
-    const { client, Wrapper } = makeWrapper();
+    const { client, Wrapper } = makeRenderHookWrapper();
     const listSpy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useCreateProjectMutation(), {
       wrapper: Wrapper,

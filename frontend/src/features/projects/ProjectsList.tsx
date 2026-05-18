@@ -28,8 +28,8 @@ export function ProjectsList() {
           </ButtonLink>
         }
       />
-      {query.isError ? (
-        <div className="mt-4">
+      <div className="mt-4">
+        {query.isError ? (
           <Callout
             variant="error"
             title="Backend unreachable"
@@ -37,9 +37,7 @@ export function ProjectsList() {
           >
             Could not load projects.
           </Callout>
-        </div>
-      ) : (
-        <div className="mt-4">
+        ) : (
           <Table<Project>
             columns={columns}
             rows={query.data?.results ?? []}
@@ -55,8 +53,8 @@ export function ProjectsList() {
               />
             }
           />
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

@@ -1,12 +1,18 @@
-import { Children, cloneElement, ReactElement, ReactNode } from "react";
+import { cloneElement, ReactElement } from "react";
 import styles from "./Form.module.css";
+
+type FieldInputProps = {
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
+  "data-invalid"?: boolean;
+};
 
 export type FormFieldProps = {
   label: string;
   htmlFor: string;
   error?: string;
   required?: boolean;
-  children: ReactNode;
+  children: ReactElement<FieldInputProps>;
 };
 
 export function FormField({
@@ -17,14 +23,7 @@ export function FormField({
   children,
 }: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
-  // Children.only throws when not exactly one valid element, so the cloned
-  // element below is always defined.
-  const child = Children.only(children) as ReactElement<{
-    "aria-invalid"?: boolean;
-    "aria-describedby"?: string;
-    "data-invalid"?: boolean;
-  }>;
-  const enhancedChild = cloneElement(child, {
+  const enhancedChild = cloneElement(children, {
     "aria-invalid": Boolean(error),
     "aria-describedby": error ? errorId : undefined,
     "data-invalid": Boolean(error),

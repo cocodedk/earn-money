@@ -15,6 +15,14 @@ export function makeTestQueryClient(): QueryClient {
   });
 }
 
+export function makeRenderHookWrapper() {
+  const client = makeTestQueryClient();
+  function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  }
+  return { client, Wrapper };
+}
+
 export function renderWithProviders(ui: ReactElement, options: Options = {}) {
   const client = options.client ?? makeTestQueryClient();
 

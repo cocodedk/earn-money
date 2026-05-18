@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useProjectsQuery } from "../features/projects/api";
 import type { Project } from "../types/api";
 
@@ -9,14 +9,14 @@ export function useCurrentProject() {
     window.localStorage.getItem(KEY),
   );
 
-  function setId(next: string | null) {
+  const setId = useCallback((next: string | null) => {
     if (next === null) {
       window.localStorage.removeItem(KEY);
     } else {
       window.localStorage.setItem(KEY, next);
     }
     setIdState(next);
-  }
+  }, []);
 
   const query = useProjectsQuery();
   const project: Project | null =
@@ -28,7 +28,7 @@ export function useCurrentProject() {
     if (id && query.data && !query.data.results.some((p) => p.id === id)) {
       setId(null);
     }
-  }, [id, query.data]);
+  }, [id, query.data, setId]);
 
   return { id, setId, project };
 }

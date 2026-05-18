@@ -28,7 +28,7 @@ export function Table<T>({
     return <TableSkeleton columnCount={columns.length} rowCount={5} />;
   }
   if (rows.length === 0 && emptyState) {
-    return <>{emptyState}</>;
+    return emptyState;
   }
   return (
     <table className={styles.table} data-testid="table">
