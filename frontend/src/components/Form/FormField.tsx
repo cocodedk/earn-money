@@ -1,10 +1,4 @@
-import {
-  Children,
-  cloneElement,
-  isValidElement,
-  ReactElement,
-  ReactNode,
-} from "react";
+import { Children, cloneElement, ReactElement, ReactNode } from "react";
 import styles from "./Form.module.css";
 
 export type FormFieldProps = {
@@ -23,18 +17,18 @@ export function FormField({
   children,
 }: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
+  // Children.only throws when not exactly one valid element, so the cloned
+  // element below is always defined.
   const child = Children.only(children) as ReactElement<{
     "aria-invalid"?: boolean;
     "aria-describedby"?: string;
     "data-invalid"?: boolean;
   }>;
-  const enhancedChild = isValidElement(child)
-    ? cloneElement(child, {
-        "aria-invalid": Boolean(error),
-        "aria-describedby": error ? errorId : undefined,
-        "data-invalid": Boolean(error),
-      })
-    : child;
+  const enhancedChild = cloneElement(child, {
+    "aria-invalid": Boolean(error),
+    "aria-describedby": error ? errorId : undefined,
+    "data-invalid": Boolean(error),
+  });
   return (
     <div className={styles.field}>
       <label htmlFor={htmlFor} className={styles.label}>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
@@ -55,6 +55,29 @@ describe("ProjectsList", () => {
     renderWithProviders(<ProjectsList />, { route: "/projects" });
     expect(await screen.findByText(/backend unreachable/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("re-fetches when Retry is clicked", async () => {
+    let calls = 0;
+    server.use(
+      msw.get("/api/projects/", () => {
+        calls += 1;
+        return HttpResponse.error();
+      }),
+    );
+    renderWithProviders(<ProjectsList />, { route: "/projects" });
+    await screen.findByText(/backend unreachable/i);
+    const firstCallCount = calls;
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(calls).toBeGreaterThan(firstCallCount));
+  });
+
+  it("navigates from the empty-state Create button", async () => {
+    withProjects([]);
+    renderWithProviders(<ProjectsList />, { route: "/projects" });
+    const button = await screen.findByRole("button", { name: "Create project" });
+    await userEvent.click(button);
+    expect(screen.getByTestId("page-header-create")).toBeInTheDocument();
   });
 
   it("exposes a Create project link in the page header", async () => {
