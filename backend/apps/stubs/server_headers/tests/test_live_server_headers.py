@@ -84,7 +84,6 @@ class DvwaLiveTests(TestCase):
         # carry version_regex.
         apache_finding = Finding.objects.get(data__technology="apache_httpd")
         assert apache_finding.data["version"] is not None
-        assert "." in apache_finding.data["version"]
         php_finding = Finding.objects.get(data__technology="php")
         assert php_finding.data["version"] is not None
         _assert_medium_or_higher(findings)

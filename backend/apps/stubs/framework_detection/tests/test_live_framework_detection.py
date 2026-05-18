@@ -24,9 +24,8 @@ from django.test import TestCase
 from apps.evidence.models import Evidence
 from apps.findings.confidence import CONFIDENCE_RANK, confidence_rank
 from apps.findings.models import Finding
-from apps.projects.models import Project
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.targets.models import ScanTarget
+from apps.stubs._test_factories import seed_target_run
 
 from ..runner import run
 
@@ -38,15 +37,12 @@ pytestmark = pytest.mark.skipif(
 
 
 def _setup_run(base_url: str, host: str) -> tuple[ScanRun, ScanTargetRun]:
-    project = Project.objects.create(name=f"live-{host}")
-    target = ScanTarget.objects.create(
-        project=project, base_url=base_url, host=host,
+    return seed_target_run(
+        stub_slug="1.1",
+        host=host,
+        base_url=base_url,
+        project_name=f"live-{host}",
     )
-    scan_run = ScanRun.objects.create(project=project, stub_slug="1.1")
-    target_run = ScanTargetRun.objects.create(
-        scan_run=scan_run, target=target,
-    )
-    return scan_run, target_run
 
 
 def _assert_medium_or_higher(findings) -> None:
