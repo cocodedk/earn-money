@@ -93,3 +93,23 @@ export type Stub = {
 export type StubDetail = Stub & {
   body: string;
 };
+
+export type ScanRun = {
+  id: Uuid;
+  project: Uuid;
+  stub_slug: string;
+  status: ScanRunStatus;
+  target_run_count: number;
+  findings_count: number;
+  started_at: Iso8601 | null;
+  finished_at: Iso8601 | null;
+  created_at: Iso8601;
+};
+
+export type CreateScanRunBody = {
+  project: Uuid;
+  stub_slug: string;
+  target_ids: Uuid[];
+};
+
+export type LifecycleAction = "start" | "pause" | "resume" | "stop";
