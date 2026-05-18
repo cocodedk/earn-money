@@ -79,6 +79,13 @@ def _j(**kwargs: object) -> str:
     return json.dumps(kwargs)
 
 
+def _provider_error(msg: str, *, status: int) -> Exception:
+    """Mirror the production shape: a raised object carrying `.status_code`,
+    same way the openai SDK / providers_openai_compat wraps HTTP failures."""
+    from earn_money.agent.providers_openai_compat import ProviderError
+    return ProviderError(msg, status_code=status)
+
+
 class TestHackerLoop:
     def test_loop_stops_on_stop(self):
         loop = _loop([_j(tool="stop", category="stop", args={"reason": "done"})])
@@ -255,7 +262,7 @@ class TestResponseFormatPassthrough:
         # second call must omit response_format and succeed.
         loop = _loop([])  # _loop wires provider.complete.side_effect manually
         loop.provider.complete.side_effect = [
-            RuntimeError("response_format unsupported"),
+            _provider_error("response_format unsupported", status=400),
             json.dumps({"tool": "stop", "category": "stop", "args": {"reason": "done"}}),
         ]
         result = loop.run()
@@ -300,7 +307,7 @@ class TestResponseFormatPassthrough:
         # repeat the garbage. Exactly two calls.
         loop = _loop([])
         loop.provider.complete.side_effect = [
-            RuntimeError("response_format unsupported"),
+            _provider_error("response_format unsupported", status=400),
             "{still garbage",
         ]
         result = loop.run()
@@ -596,7 +603,7 @@ class TestPromptHook:
     def test_attempt_1_used_response_format_false_when_provider_rejects_rf(self):
         loop = _loop([])
         loop.provider.complete.side_effect = [
-            RuntimeError("response_format unsupported"),
+            _provider_error("response_format unsupported", status=400),
             _j(tool="stop", category="stop", args={"reason": "done"}),
         ]
         seen: list[dict] = []
@@ -609,9 +616,13 @@ class TestPromptHook:
         assert seen[0]["used_response_format"] is False
 
     def test_llm_error_when_first_call_returns_none(self):
-        # Both helper calls raise → helper returns (None, False) → run() returns llm_error.
+        # 400 triggers retry; both helper calls raise → helper returns
+        # (None, False) → run() exits with llm_error.
         loop = _loop([])
-        loop.provider.complete.side_effect = [RuntimeError("a"), RuntimeError("b")]
+        loop.provider.complete.side_effect = [
+            _provider_error("a", status=400),
+            _provider_error("b", status=400),
+        ]
         result = loop.run()
         assert result.stop_reason == "llm_error"
 
@@ -648,9 +659,12 @@ class TestProviderHelper:
         assert "response_format" not in provider.complete.call_args.kwargs
 
     def test_returns_used_response_format_false_when_rf_call_raises(self):
+        """HTTP 400 from the model adapter means it rejected `response_format`.
+        Helper retries without the kwarg and the second call succeeds."""
         provider = MagicMock()
+        rf_reject = _provider_error("response_format unsupported", status=400)
         provider.complete.side_effect = [
-            RuntimeError("response_format unsupported"),
+            rf_reject,
             _j(tool="stop", category="stop", args={}),
         ]
         raw, used_rf = _call_provider_with_rf_fallback(
@@ -659,6 +673,58 @@ class TestProviderHelper:
         )
         assert used_rf is False
         assert raw is not None
+        assert len(provider.complete.call_args_list) == 2
+
+    def test_402_does_not_trigger_retry(self, caplog):
+        """HTTP 402 (out of credit on OpenRouter) is not fixable by dropping
+        response_format. Helper must NOT retry — return (None, False) so the
+        loop fails cleanly instead of burning a second doomed call."""
+        import logging as _logging
+        provider = MagicMock()
+        provider.complete.side_effect = _provider_error(
+            "402 - requires more credits", status=402,
+        )
+        with caplog.at_level(_logging.ERROR, logger="earn_money.agent.hacker_loop"):
+            raw, used_rf = _call_provider_with_rf_fallback(
+                provider, system="s", user="u",
+                task=TaskType.AGENT_PLANNING, with_response_format=True,
+            )
+        assert raw is None
+        assert used_rf is False
+        assert len(provider.complete.call_args_list) == 1
+        assert any("status=402" in r.message for r in caplog.records)
+
+    def test_401_does_not_trigger_retry(self):
+        provider = MagicMock()
+        provider.complete.side_effect = _provider_error("unauthorized", status=401)
+        raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert raw is None and used_rf is False
+        assert len(provider.complete.call_args_list) == 1
+
+    def test_429_does_not_trigger_retry(self):
+        provider = MagicMock()
+        provider.complete.side_effect = _provider_error("rate limit", status=429)
+        raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert raw is None and used_rf is False
+        assert len(provider.complete.call_args_list) == 1
+
+    def test_unknown_status_does_not_trigger_retry(self):
+        """An exception with no `status_code` attribute (transport blip,
+        timeout, non-HTTP error) is treated conservatively: don't retry."""
+        provider = MagicMock()
+        provider.complete.side_effect = RuntimeError("connection reset")
+        raw, used_rf = _call_provider_with_rf_fallback(
+            provider, system="s", user="u",
+            task=TaskType.AGENT_PLANNING, with_response_format=True,
+        )
+        assert raw is None and used_rf is False
+        assert len(provider.complete.call_args_list) == 1
 
 
 class TestResponseFormatSkiplist:

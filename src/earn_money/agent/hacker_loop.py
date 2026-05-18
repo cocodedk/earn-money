@@ -418,17 +418,17 @@ def _call_provider_with_rf_fallback(
     Models listed in `LLM_DISABLE_RESPONSE_FORMAT_MODELS` (see
     `_disabled_rf_models`) skip the response_format call entirely.
     """
-    if with_response_format:
-        try:
-            model = resolve_model(task)
-        except RouterUnconfigured:
-            model = None
-        if model is not None and model in _disabled_rf_models():
-            log.info(
-                "model=%s response_format=disabled reason=model_skiplist",
-                model,
-            )
-            with_response_format = False
+    try:
+        model = resolve_model(task)
+    except RouterUnconfigured:
+        model = None
+
+    if with_response_format and model is not None and model in _disabled_rf_models():
+        log.info(
+            "model=%s response_format=disabled reason=model_skiplist",
+            model,
+        )
+        with_response_format = False
 
     if with_response_format:
         try:
@@ -438,9 +438,26 @@ def _call_provider_with_rf_fallback(
             )
             return raw, True
         except Exception as e:
-            log.warning("Provider rejected response_format; retrying without: %s", e)
+            # Retry without response_format only when the model itself
+            # rejected the structured-output kwarg (HTTP 400). Auth/credit/
+            # rate-limit/provider-unavailable/timeout failures aren't
+            # fixable by dropping the kwarg — bubble up as a clean failure.
+            status = getattr(e, "status_code", None)
+            if status != 400:
+                log.error(
+                    "Provider error (no retry): model=%s task=%s status=%s err=%s",
+                    model or "?", task, status, e,
+                )
+                return None, False
+            log.warning(
+                "Provider rejected response_format (400); retrying without: %s", e,
+            )
     try:
         return provider.complete(system=system, user=user, task=task), False
     except Exception as e:
-        log.error("Provider error: %s", e)
+        log.error(
+            "Provider error: model=%s task=%s status=%s err=%s",
+            model or "?", task,
+            getattr(e, "status_code", None), e,
+        )
         return None, False

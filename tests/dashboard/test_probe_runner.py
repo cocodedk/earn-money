@@ -361,11 +361,17 @@ class TestEventEmission:
     ):
         """Pin the response_format retry behaviour: first call sends
         `response_format={"type": "json_object"}`; if the provider
-        raises, the second call must omit the kwarg and succeed. One
-        bad model must not kill the whole run."""
+        returns HTTP 400 (the model adapter rejecting the kwarg), the
+        second call must omit it and succeed. One bad model must not
+        kill the whole run.
+
+        Auth/credit/rate-limit errors (401/402/429) are NOT fixable by
+        dropping the kwarg and have their own no-retry tests in
+        test_hacker_loop.py::TestProviderHelper."""
+        from earn_money.agent.providers_openai_compat import ProviderError
         runner = make_runner(replies=[])  # we wire side_effect manually below
         runner.provider.complete.side_effect = [
-            RuntimeError("response_format unsupported"),
+            ProviderError("response_format unsupported", status_code=400),
             _j(tool="stop", category="stop", args={"reason": "done"}),
         ]
         result = runner.run()

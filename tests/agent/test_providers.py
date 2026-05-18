@@ -13,7 +13,9 @@ from earn_money.agent.providers import (
     from_env,
 )
 from earn_money.agent.providers_openai_compat import (
+    ProviderError,
     openrouter_headers,
+    openrouter_max_tokens,
     openrouter_timeout,
 )
 
@@ -30,6 +32,7 @@ def _isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "OPENROUTER_SITE_URL",
         "OPENROUTER_APP_NAME",
         "OPENROUTER_TIMEOUT_SECONDS",
+        "OPENROUTER_MAX_TOKENS",
         "OPENROUTER_DEFAULT_MODEL",
         "OPENROUTER_MODEL_CODING_SECURITY",
         "HF_API_KEY",
@@ -113,6 +116,45 @@ def test_openrouter_timeout_negative_falls_back(
 ) -> None:
     monkeypatch.setenv("OPENROUTER_TIMEOUT_SECONDS", "-5")
     assert openrouter_timeout() == 60.0
+
+
+def test_openrouter_max_tokens_default() -> None:
+    assert openrouter_max_tokens() == 4096
+
+
+def test_openrouter_max_tokens_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Operator drops the per-call budget without redeploying when the
+    OpenRouter key runs low on credit (HTTP 402 fires on max_tokens * price)."""
+    monkeypatch.setenv("OPENROUTER_MAX_TOKENS", "2000")
+    assert openrouter_max_tokens() == 2000
+
+
+def test_openrouter_max_tokens_invalid_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_MAX_TOKENS", "not a number")
+    assert openrouter_max_tokens() == 4096
+
+
+def test_openrouter_max_tokens_zero_or_negative_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_MAX_TOKENS", "0")
+    assert openrouter_max_tokens() == 4096
+    monkeypatch.setenv("OPENROUTER_MAX_TOKENS", "-1")
+    assert openrouter_max_tokens() == 4096
+
+
+def test_provider_error_default_status_code_is_none() -> None:
+    err = ProviderError("boom")
+    assert err.status_code is None
+
+
+def test_provider_error_carries_status_code() -> None:
+    """Callers gate retry policy on the HTTP status. 402 (credit exhausted)
+    and 401/403 (auth) must be distinguishable from 400 (bad request)."""
+    err = ProviderError("402 out of credit", status_code=402)
+    assert err.status_code == 402
 
 
 def test_openai_provider_resolves_via_task_router_when_enabled(
