@@ -11,12 +11,14 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from apps.projects.views import ProjectViewSet
+from apps.targets.views import ScanTargetViewSet
 
 from .health import health
 
 
 router = DefaultRouter()
 router.register(r"projects", ProjectViewSet, basename="project")
+router.register(r"targets", ScanTargetViewSet, basename="target")
 
 
 urlpatterns = [

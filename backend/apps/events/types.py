@@ -19,3 +19,7 @@ class EventType(models.TextChoices):
     PROJECT_CREATED = "project.created", "Project created"
     PROJECT_UPDATED = "project.updated", "Project updated"
     PROJECT_DELETED = "project.deleted", "Project deleted"
+    # Target lifecycle
+    TARGET_CREATED = "target.created", "Target created"
+    TARGET_UPDATED = "target.updated", "Target updated"
+    TARGET_DELETED = "target.deleted", "Target deleted"
