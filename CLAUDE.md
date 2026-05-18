@@ -70,6 +70,19 @@ Two invariants remain repo-wide regardless of any program's RoE — they aren't 
 - Coordinated disclosure. No public writeup until the program permits (default 90-day silence + program approval).
 - The dedicated VPS egress IP is used for nothing else. No SSH-from-laptop traffic, no personal services. Triage teams cross-reference IPs.
 
+## Test fixtures
+
+Operator-owned vuln-app host at `target.cocode.dk` (`89.167.63.167`). Eleven containers run behind Caddy; four are publicly reachable over HTTPS and serve as the canonical fixtures for cookbook implementation:
+
+| URL | App | Notes |
+|-----|-----|-------|
+| `https://target.cocode.dk/` | OWASP Juice Shop | "Mystery" blind target — no hostname leak, no path leak; runners must fingerprint. |
+| `https://juiceshop.cocode.dk/` | OWASP Juice Shop | Same container, identifiable hostname for direct-test scenarios. |
+| `https://dvwa.cocode.dk/` | DVWA | Default creds `admin` / `password`. DB auto-created on start via MariaDB sidecar `dvwa-db` on docker network `dvwa-net` — DVWA container needs `DB_SERVER=dvwa-db` env or login breaks. Re-init via `/setup.php` if state gets corrupted. |
+| `https://webgoat.cocode.dk/` | WebGoat | Root redirects to `/WebGoat/login`. Self-service registration; no default admin. |
+
+All HTTP techniques on these four URLs are authorised — the `roe.md` floor in "Operational rules" applies to live bug-bounty programs, not to these designated test environments. Caddy config lives at `/etc/caddy/Caddyfile` on the host; SSH as `root` with `~/.ssh/id_cocodedk`. Eight additional lab containers (clawpwn variants, JBoss/WebLogic CVE labs, extra Juice Shop replicas) are reachable only on `127.0.0.1:18xxx` from the host itself — add a Caddy block when a cookbook bullet needs one.
+
 ## Architecture
 
 See the spec for the full breakdown. Five units with clear boundaries:
