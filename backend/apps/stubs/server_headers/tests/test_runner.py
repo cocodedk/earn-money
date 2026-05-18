@@ -1,9 +1,7 @@
 """End-to-end runner tests for stub 1.2 with mocked fetcher.
 
-The runner is registered under stub_slug="1.2" via @register("1.2").
-`fetch_evidence` is patched so tests inject canned header bundles
-instead of hitting real targets. The runner writes Evidence + Finding
-rows against the test database.
+`fetch_evidence` is patched in every test so canned header bundles
+drive the runner without real network.
 """
 from __future__ import annotations
 
@@ -13,25 +11,15 @@ from django.test import TestCase
 
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, FindingStatus, Severity
-from apps.projects.models import Project
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.targets.models import ScanTarget
+from apps.stubs._test_factories import seed_target_run
 
+from ..redaction import redact_headers
 from ..runner import run
 
 
-def _seed(host: str = "x.example") -> tuple[ScanRun, ScanTargetRun]:
-    project = Project.objects.create(name="acme")
-    target = ScanTarget.objects.create(
-        project=project,
-        base_url=f"https://{host}",
-        host=host,
-    )
-    scan_run = ScanRun.objects.create(project=project, stub_slug="1.2")
-    target_run = ScanTargetRun.objects.create(
-        scan_run=scan_run, target=target,
-    )
-    return scan_run, target_run
+def _seed() -> tuple[ScanRun, ScanTargetRun]:
+    return seed_target_run(stub_slug="1.2", host="x.example")
 
 
 def _bundle(headers: dict[str, str], *, method: str = "HEAD") -> dict:
@@ -64,6 +52,9 @@ class NginxDetectionTests(TestCase):
         assert finding.data["matched_header_name"] == "server"
         assert finding.data["matched_header_value"] == "nginx/1.24.0"
         assert finding.data["source"] == "server_headers"
+        assert len(finding.data["evidence_ids"]) == len(
+            finding.data["signature_ids"]
+        )
 
         evidence = Evidence.objects.get()
         assert evidence.source == EvidenceSource.HEADER
@@ -97,7 +88,6 @@ class ExpressDetectionTests(TestCase):
             run(scan_run, target_run)
 
         finding = Finding.objects.get(data__technology="express")
-        # Spec: no version_regex on express signature → version absent.
         assert finding.data["version"] is None
 
 
@@ -116,11 +106,30 @@ class CloudflareDetectionTests(TestCase):
         assert finding.data["technology_category"] == "cdn"
         assert finding.confidence == "high"
 
+    def test_two_cloudflare_signatures_share_one_finding(self) -> None:
+        """cf-ray AND cf-cache-status both indicate cloudflare. Spec
+        §Conflict handling says collapse same-technology hits into one
+        Finding — but the Finding must reference BOTH signatures and
+        BOTH Evidence rows."""
+        scan_run, target_run = _seed()
+        bundle = _bundle(
+            {"cf-ray": "76abc-CDG", "cf-cache-status": "HIT"}
+        )
+
+        with patch(
+            "apps.stubs.server_headers.runner.fetch_evidence",
+            return_value=bundle,
+        ):
+            run(scan_run, target_run)
+
+        finding = Finding.objects.get(data__technology="cloudflare")
+        assert len(finding.data["signature_ids"]) == 2
+        assert len(finding.data["evidence_ids"]) == 2
+        assert Evidence.objects.filter(field="cf-ray").exists()
+        assert Evidence.objects.filter(field="cf-cache-status").exists()
+
 
 class MultiLayerDetectionTests(TestCase):
-    """Spec §Conflict handling: multiple credible hints should each
-    surface as their own Finding. Edge + app stack co-exist."""
-
     def test_emits_one_finding_per_detected_technology(self) -> None:
         scan_run, target_run = _seed()
         bundle = _bundle({
@@ -139,7 +148,7 @@ class MultiLayerDetectionTests(TestCase):
         assert "nginx" in techs
         assert "php" in techs
         assert "cloudflare" in techs
-        # Each finding has at least one evidence row.
+        assert Finding.objects.count() == 3
         assert Evidence.objects.count() == 3
 
 
@@ -158,10 +167,17 @@ class NoMatchTests(TestCase):
         assert Evidence.objects.count() == 0
 
 
-class RedactionInEvidenceTests(TestCase):
-    """Sensitive headers must be redacted from evidence persistence."""
+class RedactionInRunnerTests(TestCase):
+    """Spec §Persistence: secret-bearing headers must be redacted before
+    persistence. Verify the runner actually calls redact_headers (spy
+    on the call) AND that the post-redaction headers are what feeds the
+    matcher and the Evidence raw_excerpt."""
 
-    def test_set_cookie_redacted_in_evidence_raw_excerpt(self) -> None:
+    def test_runner_calls_redact_headers_before_matching(self) -> None:
+        """The spy assertion is the strict gate: the runner MUST call
+        `redact_headers(bundle["headers"])` before anything else looks
+        at the headers. If a future refactor sneaks raw bundle headers
+        to the matcher, this test fails."""
         scan_run, target_run = _seed()
         bundle = _bundle({
             "server": "nginx/1.24.0",
@@ -171,21 +187,20 @@ class RedactionInEvidenceTests(TestCase):
         with patch(
             "apps.stubs.server_headers.runner.fetch_evidence",
             return_value=bundle,
-        ):
+        ), patch(
+            "apps.stubs.server_headers.runner.redact_headers",
+            wraps=redact_headers,
+        ) as redact_spy:
             run(scan_run, target_run)
 
-        # The matched evidence is for server, not set-cookie — but the
-        # excerpt may include neighbouring header values. Verify set-cookie
-        # value never appears in any evidence row.
-        for ev in Evidence.objects.all():
-            assert "secret-xyz" not in ev.raw_excerpt
+        redact_spy.assert_called_once_with(bundle["headers"])
 
 
 class RegistryDispatchTests(TestCase):
     """Stub 1.2 runner must be reachable via the runner registry under
     stub_slug='1.2'. The registry is process-global and other test
-    classes (e.g. apps.stubs.test_runners.RegistryTests) call
-    `_clear_for_testing()` in setUp/tearDown, which wipes registrations
+    classes (apps.stubs.test_runners.RegistryTests) call
+    _clear_for_testing() in setUp/tearDown, which wipes registrations
     made at app-init time. Re-register here so the assertion is
     independent of test-run order."""
 

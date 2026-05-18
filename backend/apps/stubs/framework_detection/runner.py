@@ -25,7 +25,7 @@ from typing import Any
 from django.db import transaction
 
 from apps.evidence.models import Evidence
-from apps.findings.confidence import confidence_rank
+from apps.findings.confidence import max_confidence
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 
@@ -83,7 +83,7 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
                 title=f"{technology} detected on {target.host}",
                 category=sigs[0]["category"],
                 severity=Severity.INFO,
-                confidence=_max_confidence(sigs),
+                confidence=max_confidence(sigs),
                 status=FindingStatus.CANDIDATE,
                 data={
                     "technology": technology,
@@ -120,13 +120,6 @@ def _excerpt_for(signature: dict[str, Any], bundle: dict[str, Any]) -> str:
     if idx < 0:
         return ""  # pragma: no cover  # matched() returned True so the pattern is in body; defense
     return body[max(0, idx - 40):idx + 160]
-
-
-def _max_confidence(signatures: list[dict[str, Any]]) -> str:
-    return max(
-        (sig["confidence"] for sig in signatures),
-        key=confidence_rank,
-    )
 
 
 def _hash(text: str) -> str:

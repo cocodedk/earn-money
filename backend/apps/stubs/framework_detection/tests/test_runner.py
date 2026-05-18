@@ -12,23 +12,14 @@ from django.test import TestCase
 
 from apps.evidence.models import Evidence
 from apps.findings.models import Finding, FindingStatus, Severity
-from apps.projects.models import Project
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.targets.models import ScanTarget
+from apps.stubs._test_factories import seed_target_run
 
 from ..runner import run
 
 
 def _seed(host: str = "dvwa.cocode.dk") -> tuple[ScanRun, ScanTargetRun]:
-    project = Project.objects.create(name="acme")
-    target = ScanTarget.objects.create(
-        project=project,
-        base_url=f"https://{host}",
-        host=host,
-    )
-    scan_run = ScanRun.objects.create(project=project, stub_slug="1.1")
-    target_run = ScanTargetRun.objects.create(scan_run=scan_run, target=target)
-    return scan_run, target_run
+    return seed_target_run(stub_slug="1.1", host=host)
 
 
 class DvwaDetectionTests(TestCase):
