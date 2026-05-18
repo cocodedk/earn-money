@@ -7,6 +7,10 @@ dj-database-url>=2.2
 django-cors-headers>=4.4
 python-frontmatter>=1.1
 
+# Cookbook stub runners
+httpx>=0.27
+beautifulsoup4>=4.12
+
 # --- Test + coverage tooling (strict 100% per CLAUDE.md) ---
 pytest>=8.3
 pytest-django>=4.9
