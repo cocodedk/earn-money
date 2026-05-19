@@ -47,9 +47,7 @@ _CAPTURED_HEADERS: frozenset[str] = frozenset({
     "sunset",
     "warning",
     "link",
-    "allow",
     "location",
-    "content-type",
 })
 
 
