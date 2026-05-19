@@ -88,6 +88,53 @@ class HeaderCaptureTests(unittest.TestCase):
         assert probe["headers"]["deprecation"] == "true"
         assert "sunset" in probe["headers"]
 
+    def test_cookie_and_auth_headers_dropped(self) -> None:
+        # Spec §Safety: "must not persist cookies, authorization
+        # headers, tokens". Capture them at fetch time so a debug dump
+        # of the bundle can't leak credentials even if Evidence-write
+        # redaction is bypassed.
+        responses = _baseline_responses()
+        responses["/api/v1"] = _resp(
+            "{}",
+            headers={
+                "Set-Cookie": "session=abc",
+                "Authorization": "Bearer t",
+                "Deprecation": "true",
+            },
+        )
+        with mocked_fetcher(responses):
+            bundle = fetch_evidence("https://x.example/")
+        headers = bundle["probes"]["/api/v1"]["headers"]
+        assert "set-cookie" not in headers
+        assert "authorization" not in headers
+        assert "deprecation" in headers
+
+    def test_multi_value_link_header_preserved(self) -> None:
+        # RFC 8288 allows multiple Link headers per response. If the
+        # fetcher collapsed them via dict(), a rel="deprecation" in
+        # any but the last would be lost. Multi-values must combine
+        # with comma per RFC 7230 §3.2.2.
+        from ..signals import header_deprecation_evidence
+        req = httpx.Request("GET", "https://x.example/api/v1")
+        multi_resp = httpx.Response(
+            status_code=200,
+            headers=[
+                ("link", '</next>; rel="next"'),
+                ("link", '</v2>; rel="deprecation"'),
+            ],
+            content=b"{}",
+            request=req,
+        )
+        responses = _baseline_responses()
+        responses["/api/v1"] = multi_resp
+        with mocked_fetcher(responses):
+            bundle = fetch_evidence("https://x.example/")
+        link = bundle["probes"]["/api/v1"]["headers"]["link"]
+        assert 'rel="deprecation"' in link
+        assert "header:Link:rel=deprecation" in header_deprecation_evidence(
+            bundle["probes"]["/api/v1"]["headers"],
+        )
+
 
 class RedirectCaptureTests(unittest.TestCase):
     def test_location_header_preserved_on_302(self) -> None:

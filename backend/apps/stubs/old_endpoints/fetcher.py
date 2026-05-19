@@ -37,6 +37,21 @@ from .candidates import SEEDED_PATHS
 DEFAULT_VERIFY = os.environ.get("OLD_ENDPOINTS_VERIFY", "1") != "0"
 DEFAULT_TIMEOUT = 8.0
 
+# Headers the runner needs for classification and signal extraction.
+# Capturing only this allowlist keeps cookies, auth tokens, and other
+# credential-bearing headers out of the bundle — spec §Safety requires
+# they're never persisted, and filtering at fetch time is defense in
+# depth against accidental logging of the bundle.
+_CAPTURED_HEADERS: frozenset[str] = frozenset({
+    "deprecation",
+    "sunset",
+    "warning",
+    "link",
+    "allow",
+    "location",
+    "content-type",
+})
+
 
 @dataclass(frozen=True)
 class FetcherConfig:
@@ -114,7 +129,20 @@ def _try_probe(
     return {
         "status": resp.status_code,
         "body": (resp.text or "")[:max_body_bytes],
-        "headers": dict(resp.headers),
+        "headers": _capture_headers(resp.headers),
         "url": str(resp.url),
         "location": resp.headers.get("location"),
     }
+
+
+def _capture_headers(headers: httpx.Headers) -> dict[str, str]:
+    """Return only allowlisted headers, combining multi-values with
+    `,` per RFC 7230 §3.2.2 so RFC 8288 multi-Link headers don't lose
+    a `rel="deprecation"` to dict-collapse."""
+    out: dict[str, list[str]] = {}
+    for raw_key, value in headers.multi_items():
+        key = raw_key.lower()
+        if key not in _CAPTURED_HEADERS:
+            continue
+        out.setdefault(key, []).append(value)
+    return {key: ", ".join(values) for key, values in out.items()}
