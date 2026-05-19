@@ -54,6 +54,19 @@ class RobotsTxtTests(unittest.TestCase):
         assert "/admin" in paths
         assert "/private/" in paths
 
+    def test_full_external_url_dropped(self) -> None:
+        # Spec §Path normalization rule 2: full external URLs are
+        # dropped as path hints. Stub 1.6 only probes same-origin
+        # paths anyway, so the drop is correctness-positive (no
+        # accidental SSRF-ish off-origin GETs from operator noise).
+        body = (
+            "User-agent: *\n"
+            "Disallow: https://evil.example/x\n"
+            "Disallow: /admin"
+        )
+        paths = parse_robots_txt(body)
+        assert paths == ["/admin"]
+
 
 class SitemapXmlTests(unittest.TestCase):
     def test_extracts_loc_paths_same_origin(self) -> None:
