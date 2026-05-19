@@ -449,6 +449,17 @@ class ScanRunTargetRunsActionTests(_CookbookFixtureMixin, APITestCase):
         assert row_b["findings_count"] == 0
         assert row_b["evidence_count"] == 0
 
+    def test_row_exposes_updated_at_and_target_host(self) -> None:
+        # em-frontend slice 6B needs `updated_at` for live-freshness
+        # diffing until SSE lands, and `target_host` as the canonical
+        # short label for the per-target column. See chat msg #1565.
+        url = reverse("scanrun-target-runs", args=[self.run.id])
+        row = {r["target"]: r for r in self.client.get(url).json()["results"]}[
+            str(self.target_a.id)
+        ]
+        assert row["target_host"] == "dvwa.cocode.dk"
+        assert "updated_at" in row and row["updated_at"] is not None
+
     def test_returns_lifecycle_timestamps(self) -> None:
         from django.utils import timezone
 

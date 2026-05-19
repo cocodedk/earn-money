@@ -82,13 +82,21 @@ class ScanRunSerializer(serializers.ModelSerializer):
 class ScanTargetRunSerializer(serializers.ModelSerializer):
     """Row shape for /api/scan-runs/<id>/target-runs/.
 
-    `target_base_url`, `findings_count`, and `evidence_count` are
-    denormalized convenience fields the viewset annotates so the
-    frontend's per-target status table renders without a second
-    round-trip per row."""
+    Denormalized convenience fields the viewset (or the model base)
+    surfaces so the frontend's per-target status table renders without
+    a second round-trip per row:
+
+    * `target_base_url` / `target_host` — labels for the target column.
+    * `findings_count` / `evidence_count` — counts annotated by the view.
+    * `updated_at` — auto-maintained by Django (TimestampedUUIDModel);
+      gives em-frontend a live-freshness signal for poll/diff until
+      SSE-driven row updates land (slice 6D)."""
 
     target_base_url = serializers.URLField(
         source="target.base_url", read_only=True
+    )
+    target_host = serializers.CharField(
+        source="target.host", read_only=True
     )
     findings_count = serializers.IntegerField(read_only=True)
     evidence_count = serializers.IntegerField(read_only=True)
@@ -99,11 +107,13 @@ class ScanTargetRunSerializer(serializers.ModelSerializer):
             "id",
             "target",
             "target_base_url",
+            "target_host",
             "status",
             "started_at",
             "finished_at",
             "findings_count",
             "evidence_count",
             "created_at",
+            "updated_at",
         )
         read_only_fields = fields
