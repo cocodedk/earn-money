@@ -15,6 +15,8 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
+from .._shared.body_match import contains_any
+
 
 _AUTH_STATUSES = {401, 403}
 _OK_STATUS = 200
@@ -43,13 +45,11 @@ _ADMIN_PANEL_MARKERS: tuple[str, ...] = (
 
 
 def has_login_form(body: str) -> bool:
-    lower = body.lower()
-    return any(marker in lower for marker in _LOGIN_FORM_MARKERS)
+    return contains_any(body, _LOGIN_FORM_MARKERS)
 
 
 def has_admin_panel_marker(body: str) -> bool:
-    lower = body.lower()
-    return any(marker in lower for marker in _ADMIN_PANEL_MARKERS)
+    return contains_any(body, _ADMIN_PANEL_MARKERS)
 
 
 def is_auth_status(status: int) -> bool:

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 
+from .._shared.body_match import contains_any
 from .candidates import STALE_TOKENS
 
 
@@ -73,10 +74,7 @@ def header_deprecation_evidence(headers: dict[str, str]) -> list[str]:
 def body_has_deprecation_marker(body: str) -> bool:
     """Case-insensitive scan for the deprecation phrases the spec
     enumerates under §Body indicators."""
-    if not body:
-        return False
-    lowered = body.lower()
-    return any(marker in lowered for marker in _BODY_MARKERS)
+    return contains_any(body, _BODY_MARKERS)
 
 
 def path_has_stale_token_segment(path: str) -> str | None:

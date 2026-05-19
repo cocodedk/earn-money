@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .._shared.body_match import contains_all, contains_any
 from ._tokens import ENV_KEY_TOKENS, SECRET_KEY_TOKENS
 from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 
@@ -44,12 +45,11 @@ def match_framework_signature(
     any match is authoritative."""
     if not body:
         return None
-    lowered = body.lower()
     lowered_ct = (content_type or "").lower()
     for sig in FRAMEWORK_SIGNATURES:
         if not _content_type_allowed(sig, lowered_ct):
             continue
-        if all(marker in lowered for marker in sig.body_markers):
+        if contains_all(body, sig.body_markers):
             return SignatureMatch(
                 kind=sig.kind,
                 confidence="high",
@@ -92,9 +92,8 @@ def find_stack_trace_markers(body: str) -> list[str]:
     `absolute_path`} per spec §Persistence."""
     if not body:
         return []
-    lowered = body.lower()
     out: list[str] = []
-    if any(p in lowered for p in _STACK_TRACE_PHRASES):
+    if contains_any(body, _STACK_TRACE_PHRASES):
         out.append("stack_trace")
     if (
         _ABS_PATH_FILE_QUOTE.search(body)
@@ -111,10 +110,9 @@ def find_env_leak_markers(body: str) -> list[str]:
     {`environment_variable`, `secret_like_value`}."""
     if not body:
         return []
-    lowered = body.lower()
     out: list[str] = []
-    if any(token in lowered for token in SECRET_KEY_TOKENS):
+    if contains_any(body, SECRET_KEY_TOKENS):
         out.append("secret_like_value")
-    if any(token in lowered for token in ENV_KEY_TOKENS):
+    if contains_any(body, ENV_KEY_TOKENS):
         out.append("environment_variable")
     return out
