@@ -73,7 +73,7 @@ export function useScanRunTargetRunsQuery(
   const prev = useRef(livePolling);
 
   useEffect(() => {
-    if (prev.current === true && livePolling === false && scanRunId) {
+    if (prev.current && !livePolling && scanRunId) {
       const key = scanRunTargetRunsKey(scanRunId);
       void (async () => {
         await client.cancelQueries({ queryKey: key });
