@@ -1,17 +1,18 @@
 """Parsers for stub 1.14 source-maps.
 
-Slice 1 contents:
+Slice 1 / 2 contents:
 * ``Asset`` — dataclass for a same-origin JS/CSS asset URL.
 * ``parse_html_assets`` — extract candidate JS/CSS assets from a
   page body per spec §"Candidate asset collection".
-
-Subsequent slices add the sourceMappingURL comment extractor
-and the Source Map v3 JSON validator alongside this file.
+* ``extract_source_mapping_url`` — pull the raw ``sourceMappingURL``
+  value from a JS or CSS body per spec §"Source map reference
+  detection". Does not resolve or validate — slice 3 owns that.
 
 Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/14-source-maps.md
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urljoin, urlsplit
@@ -114,3 +115,37 @@ def _make_asset(
     if f"{parts.scheme}://{parts.netloc}" != base_origin:
         return None
     return Asset(url=absolute, kind=kind)
+
+
+# Tooling convention: the canonical comment appears at the end of
+# the asset body, so when more than one is present, the LAST match
+# wins. Earlier matches are usually decoy / debug leftovers.
+_JS_SOURCE_MAP_RE = re.compile(
+    r"^[ \t]*//[#@][ \t]*sourceMappingURL=[ \t]*(.+?)[ \t]*$",
+    re.MULTILINE,
+)
+_CSS_SOURCE_MAP_RE = re.compile(
+    r"/\*[#@][ \t]*sourceMappingURL=[ \t]*(.+?)[ \t]*\*/",
+)
+
+
+def extract_source_mapping_url(body: str, kind: AssetKind) -> str | None:
+    """Pull the raw ``sourceMappingURL`` value from an asset body.
+
+    ``kind="javascript"`` matches both spec JS forms (``//#`` modern
+    and ``//@`` legacy). ``kind="css"`` matches the block-comment
+    form (``/*# sourceMappingURL=… */``). Cross-form matches are
+    rejected: a ``/*# … */`` block inside a JS body and a ``//# …``
+    line inside a CSS body both come back as ``None`` so a
+    malformed bundler emission can't masquerade as the canonical
+    directive.
+
+    Returns the raw value (no URL resolution, no scheme validation).
+    """
+    if not body:
+        return None
+    pattern = _JS_SOURCE_MAP_RE if kind == "javascript" else _CSS_SOURCE_MAP_RE
+    matches = pattern.findall(body)
+    if not matches:
+        return None
+    return matches[-1].strip()
