@@ -99,34 +99,35 @@ def classify_probe(
     headers = probe.get("headers") or {}
     content_type = headers.get("content-type", "")
 
+    # Scan body once, fan the results out to the three CONFIRMED
+    # branches so each marker pass runs at most once per probe.
+    env_markers = find_env_leak_markers(body)
+    stack_markers = find_stack_trace_markers(body)
+    leaked = env_markers + stack_markers
+
     # Body evidence trumps path: a framework signature anywhere is
     # authoritative regardless of the path the probe came from.
     match = match_framework_signature(body, content_type)
     if match is not None:
-        env_markers = find_env_leak_markers(body)
-        stack_markers = find_stack_trace_markers(body)
         return Verdict(
             kind=match.kind,
             exposure="public",
             confidence="high",
             finding_status=FindingStatus.CONFIRMED,
             indicators=[f"signature:{m}" for m in match.markers_matched],
-            leaked_data_classes=env_markers + stack_markers,
+            leaked_data_classes=leaked,
         )
 
-    env_markers = find_env_leak_markers(body)
     if env_markers:
-        stack_markers = find_stack_trace_markers(body)
         return Verdict(
             kind="environment_leak",
             exposure="public",
             confidence="high",
             finding_status=FindingStatus.CONFIRMED,
             indicators=[f"env_leak:{m}" for m in env_markers],
-            leaked_data_classes=env_markers + stack_markers,
+            leaked_data_classes=leaked,
         )
 
-    stack_markers = find_stack_trace_markers(body)
     if stack_markers:
         return Verdict(
             kind="stack_trace",
