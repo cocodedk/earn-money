@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
@@ -54,8 +54,7 @@ export function CreateScanRun() {
   const isProjectsEmpty =
     projects.isSuccess && projects.data?.results.length === 0;
 
-  async function onSubmit(event: FormEvent, chainStart: boolean) {
-    event.preventDefault();
+  async function submitForm(chainStart: boolean) {
     setFieldErrors({});
     setBannerError(null);
     setStartLegError(null);
@@ -140,7 +139,10 @@ export function CreateScanRun() {
         </CalloutSlot>
       )}
       <form
-        onSubmit={(e) => onSubmit(e, false)}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submitForm(false);
+        }}
         noValidate
         className="mt-4 flex flex-col gap-4 max-w-lg"
       >
@@ -248,7 +250,7 @@ export function CreateScanRun() {
           <Button
             type="button"
             variant="secondary"
-            onClick={(e) => onSubmit(e, true)}
+            onClick={() => void submitForm(true)}
             loading={createMutation.isPending || startMutation.isPending}
           >
             Create and start
