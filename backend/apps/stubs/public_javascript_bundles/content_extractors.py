@@ -22,11 +22,13 @@ Extension = Literal["js", "mjs", "cjs", "jsx", "none", "unknown"]
 
 # Canonical build-hint vocabulary per spec. Order is the canonical
 # emit order so signature comparison is idempotent across reruns.
-_BUILD_HINTS: tuple[str, ...] = (
-    "main", "runtime", "vendor", "chunk", "app", "polyfills",
+# Patterns pre-compiled at module load so the per-call hot path
+# matches the file's other regexes (_HASH_SEGMENT_RE,
+# _JS_SOURCE_MAP_RE) — no runtime regex assembly.
+_BUILD_HINT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (hint, re.compile(rf"(?:^|[.\-_~]){re.escape(hint)}(?:$|[.\-_~])"))
+    for hint in ("main", "runtime", "vendor", "chunk", "app", "polyfills")
 )
-_BUILD_HINT_TOKEN_BOUNDARY = r"(?:^|[.\-_~])"
-_BUILD_HINT_TAIL_BOUNDARY = r"(?:$|[.\-_~])"
 
 # Hash-like segment: 6+ alphanumeric chars with at least one digit,
 # bounded by `.` or `-`. Matches `main.8f31a2.js`, `chunk-ABC123.js`,
@@ -71,16 +73,8 @@ def extract_extension(url: str) -> Extension:
 
 
 def extract_build_hints(filename: str) -> list[str]:
-    found: list[str] = []
-    for hint in _BUILD_HINTS:
-        pattern = (
-            _BUILD_HINT_TOKEN_BOUNDARY
-            + re.escape(hint)
-            + _BUILD_HINT_TAIL_BOUNDARY
-        )
-        if re.search(pattern, filename):
-            found.append(hint)
-    return found
+    return [hint for hint, pattern in _BUILD_HINT_PATTERNS
+            if pattern.search(filename)]
 
 
 def extract_hash_in_filename(filename: str) -> bool:
@@ -93,8 +87,6 @@ def extract_hash_in_filename(filename: str) -> bool:
 
 
 def extract_source_map_url(body: str) -> str | None:
-    if not body:
-        return None
     matches = _JS_SOURCE_MAP_RE.findall(body)
     if not matches:
         return None
@@ -104,9 +96,14 @@ def extract_source_map_url(body: str) -> str | None:
 def extract_minified_marker(body: str) -> bool:
     """Heuristic — minified bundles have far fewer newlines per byte
     than readable source. Below `_MINIFIED_MIN_BYTES` the signal is
-    too noisy (utility scripts, snippets), so we abstain → False."""
+    too noisy (utility scripts, snippets), so we abstain → False.
+
+    Counting newlines via ``body.count("\\n")`` instead of
+    ``splitlines()`` avoids allocating one substring per line on a
+    5-MiB body. Over-counting (missing ``\\r``/``\\v`` line breaks
+    that ``splitlines`` would catch) biases the average toward
+    *shorter* lines — i.e., toward False, the conservative answer."""
     if len(body) < _MINIFIED_MIN_BYTES:
         return False
-    lines = body.splitlines() or [body]
-    avg_line_len = len(body) / len(lines)
+    avg_line_len = len(body) / max(body.count("\n") + 1, 1)
     return avg_line_len >= _MINIFIED_AVG_LINE_LEN_THRESHOLD
