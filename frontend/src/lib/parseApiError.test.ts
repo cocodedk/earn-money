@@ -25,6 +25,18 @@ describe("parseApiError", () => {
     });
   });
 
+  it("classifies 400 with a single {detail} body as kind=detail (DRF APIException)", async () => {
+    const response = new Response(
+      JSON.stringify({ detail: "Illegal transition." }),
+      { status: 400, headers: { "content-type": "application/json" } },
+    );
+    expect(await parseApiError(response)).toEqual({
+      kind: "detail",
+      detail: "Illegal transition.",
+      status: 400,
+    });
+  });
+
   it("classifies non-validation 4xx as kind=detail", async () => {
     const response = new Response(JSON.stringify({ detail: "Not found." }), {
       status: 404,

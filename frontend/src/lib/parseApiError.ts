@@ -22,6 +22,12 @@ export async function parseApiError(input: unknown): Promise<ApiError> {
     if (Array.isArray(body.non_field_errors)) {
       return { kind: "non_field", errors: body.non_field_errors as string[] };
     }
+    // DRF APIException (e.g. InvalidTransition on a model action) returns
+    // 400 with a single `{detail: "..."}` body — that's a top-level
+    // explanation, not per-field validation. Classify as detail.
+    if (typeof body.detail === "string") {
+      return { kind: "detail", detail: body.detail, status: 400 };
+    }
     return { kind: "field", errors: body as Record<string, string[]> };
   }
   const detail = typeof body.detail === "string" ? body.detail : "Request failed";
