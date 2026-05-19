@@ -19,8 +19,8 @@ from .parser import Asset
 from .resolver import ResolvedMapUrl
 
 
-RAW_EXCERPT_CAP = 200
-ASSET_KIND_TO_SOURCE = {
+_RAW_EXCERPT_CAP = 200
+_ASSET_KIND_TO_SOURCE = {
     "javascript": EvidenceSource.SCRIPT,
     "css": EvidenceSource.CSS,
 }
@@ -41,7 +41,7 @@ def save_asset_evidence(
 ) -> Evidence:
     return _save_evidence(
         scan_run=scan_run, target=target,
-        source=ASSET_KIND_TO_SOURCE[asset.kind],
+        source=_ASSET_KIND_TO_SOURCE[asset.kind],
         url=outcome.final_url, outcome=outcome,
         matched_value=asset.kind,
     )
@@ -67,7 +67,7 @@ def _save_evidence(
         scan_run=scan_run, target=target, source=source,
         url=url, method="GET", field=matched_value,
         matched_value=matched_value,
-        raw_excerpt=excerpt[:RAW_EXCERPT_CAP],
+        raw_excerpt=excerpt[:_RAW_EXCERPT_CAP],
         data={
             "kind": outcome.kind, "status": outcome.status,
             "content_type": outcome.content_type,

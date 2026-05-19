@@ -1,12 +1,4 @@
-"""Finding persistence for stub 1.14 runner.
-
-``emit_finding`` is the per-(asset, attempted-map) hook the runner
-calls. It owns the optional map fetch, classification, evidence
-chaining, and the Finding row write. Internals (``_save_finding``,
-``_finding_data``) stay private to this module.
-
-Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/14-source-maps.md
-"""
+"""Finding persistence for stub 1.14 — see 14-source-maps.md."""
 from __future__ import annotations
 
 from apps.findings.models import Finding
@@ -21,7 +13,7 @@ from .runner_evidence import save_map_evidence
 from .validator import SourceMapMetadata, parse_source_map
 
 
-FINDING_SOURCE = "source_maps"
+_FINDING_SOURCE = "source_maps"
 
 
 def emit_finding(
@@ -65,7 +57,7 @@ def _save_finding(
     finding = Finding(
         scan_run=scan_run, target=target, stub_slug=scan_run.stub_slug,
         title=f"Source map: {verdict.finding_status.value}",
-        category="source_maps", severity=verdict.severity,
+        category=_FINDING_SOURCE, severity=verdict.severity,
         confidence=verdict.confidence, status=verdict.finding_status,
         data=_finding_data(
             asset, asset_outcome, resolved, map_outcome,
@@ -88,7 +80,7 @@ def _finding_data(
         "map_url": resolved.absolute_url,
         "map_reference_type": verdict.map_reference_type,
         "indicators": verdict.indicators,
-        "evidence_ids": evidence_ids, "source": FINDING_SOURCE,
+        "evidence_ids": evidence_ids, "source": _FINDING_SOURCE,
     }
     if map_outcome is not None:
         data["map_status"] = map_outcome.status

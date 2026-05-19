@@ -1,20 +1,5 @@
 """Stub 1.14 runner — registered against stub_slug "1.14".
 
-Per-scan pass (one ScanTargetRun → one base_url):
-
-1. Fetch the HTML at base_url. Diagnostic Evidence row written
-   regardless of outcome.
-2. Parse same-origin JS/CSS assets out of the HTML body
-   (parser.parse_html_assets) — bounded by spec max_assets=50.
-3. For each asset:
-   a. Fetch the asset; persist Evidence(source=SCRIPT|CSS).
-   b. If asset body has a sourceMappingURL comment → resolve and
-      attempt map fetch with reference_type="comment".
-   c. Otherwise → probe ``{asset_url}.map`` once with
-      reference_type="fallback".
-4. Classify (classify_map_result) and persist a Finding per
-   (asset, attempted map) pair.
-
 MVP deferred (tracked):
 * Cross-run idempotence — current pass always creates new rows.
 * `stale` status — needs cross-run state.
