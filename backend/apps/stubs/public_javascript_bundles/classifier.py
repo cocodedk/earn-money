@@ -15,18 +15,16 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NamedTuple
 
+from .._shared.types import Confidence
 from .fetcher import BundleFetchKind
 
 
-Confidence = Literal["low", "medium", "high"]
 Status = Literal["candidate", "confirmed", "rejected", "stale"]
 
 
-@dataclass(frozen=True)
-class Verdict:
+class Verdict(NamedTuple):
     confidence: Confidence
     status: Status
 
