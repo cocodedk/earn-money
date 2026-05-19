@@ -22,3 +22,9 @@ export function withPaginated(path: string, rows: unknown[]) {
     ),
   );
 }
+
+// Install a GET handler for an endpoint that returns a bare JSON array
+// (used by /api/stubs/ — DRF pagination is intentionally disabled there).
+export function withBareArray(path: string, rows: unknown[]) {
+  server.use(msw.get(path, () => HttpResponse.json(rows)));
+}
