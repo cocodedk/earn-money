@@ -29,3 +29,4 @@ class StubsConfig(AppConfig):
         from . import backup_files  # noqa: F401  registers "1.7"
         from . import admin_panels  # noqa: F401  registers "1.8"
         from . import old_endpoints  # noqa: F401  registers "1.9"
+        from . import debug_pages  # noqa: F401  registers "1.10"
