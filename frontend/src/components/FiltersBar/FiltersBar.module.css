@@ -1,0 +1,13 @@
+.bar {
+  @apply flex flex-wrap items-end gap-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded;
+}
+.filter {
+  @apply flex flex-col gap-1 text-sm;
+}
+.label {
+  @apply text-gray-600 text-xs uppercase tracking-wide;
+}
+.select,
+.input {
+  @apply h-9 px-2 rounded border border-gray-300 bg-white text-sm min-w-[160px];
+}
