@@ -8,22 +8,8 @@ import { EmptyState } from "../../components/EmptyState";
 import { Callout } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useTargetsQuery } from "./api";
+import { StatusBadge } from "./StatusBadge";
 import type { Project, Target } from "../../types/api";
-
-function StatusBadge({ status }: { status: Target["status"] }) {
-  const palette =
-    status === "active"
-      ? "bg-green-100 text-green-800"
-      : "bg-gray-200 text-gray-700";
-  return (
-    <span
-      data-testid={`status-${status}`}
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${palette}`}
-    >
-      {status}
-    </span>
-  );
-}
 
 function nameLookup(projects: Project[] | undefined) {
   const byId = new Map<string, string>();

@@ -1,3 +1,4 @@
+import { StatusBadge as GenericStatusBadge } from "../../components/StatusBadge";
 import type { StubStatus } from "../../types/api";
 
 const STATUS_PALETTE: Record<StubStatus, string> = {
@@ -8,12 +9,5 @@ const STATUS_PALETTE: Record<StubStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: StubStatus }) {
-  return (
-    <span
-      data-testid={`status-${status}`}
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_PALETTE[status]}`}
-    >
-      {status}
-    </span>
-  );
+  return <GenericStatusBadge status={status} palette={STATUS_PALETTE} />;
 }
