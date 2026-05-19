@@ -43,6 +43,8 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     matched: list[dict[str, Any]] = [
         sig for sig in SIGNATURES if matches(sig, bundle)
     ]
+    if not matched:
+        return
 
     by_tech: dict[str, list[dict[str, Any]]] = {}
     for sig in matched:

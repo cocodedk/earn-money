@@ -30,6 +30,10 @@ from .signatures import SIGNATURES
 _FINDING_SOURCE = "frontend_framework"
 
 
+# Lossy: both script_src_path and asset_body collapse to SCRIPT. The
+# triage UI groups by EvidenceSource for headline filtering; the
+# precise origin (path vs body) survives on Evidence.field and in
+# Evidence.data["signature_id"], so the asymmetry is recoverable.
 _EVIDENCE_SOURCE_BY_SIG_SOURCE = {
     "html_body": EvidenceSource.HTML,
     "script_src_path": EvidenceSource.SCRIPT,
