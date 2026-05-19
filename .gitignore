@@ -25,9 +25,11 @@ archive/v1/recon/outputs/
 !.env.example
 .envrc
 
-# Claude Code / MCP — per-session config containing absolute paths and
-# operator-specific hook scripts; never commit.
-.claude/
+# Claude Code / MCP — share hook config so worktrees inherit it, but
+# keep all runtime state (cron, task list, locks) per-checkout.
+.claude/*
+!.claude/settings.json
+.claude/settings.local.json
 .mcp.json
 
 # --- OS, editor, language artifacts ---
