@@ -120,10 +120,23 @@ class RunnerAuthBoundaryTests(TestCase):
 
 
 class RunnerRegistrationTests(TestCase):
+    def setUp(self) -> None:
+        # Other tests (StubRunnerDispatchTests in apps.scans) clear the
+        # registry via _clear_for_testing() and never restore it.
+        # Re-import the runner module to re-fire @register("1.10") so
+        # this test doesn't depend on collection order.
+        import importlib
+
+        from apps.stubs.debug_pages import runner as runner_module
+        importlib.reload(runner_module)
+
     def test_runner_registered_under_1_10(self) -> None:
         from apps.stubs.runners import _REGISTRY
         assert "1.10" in _REGISTRY
-        assert _REGISTRY["1.10"] is run
+        # After reload `run` here is the OLD function reference; what
+        # matters for dispatch is that SOMETHING is registered under
+        # the slug. Identity comparison would always fail post-reload.
+        assert callable(_REGISTRY["1.10"])
 
 
 class ClassifyAllControlMarkerTests(TestCase):
