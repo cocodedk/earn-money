@@ -26,7 +26,7 @@ export function DetailPageGuard<T>({
   options,
   children,
 }: DetailPageGuardProps<T>): ReactElement {
-  if (isHttpStatus(query.error, 404)) {
+  if (isHttpStatus(query.error, 404) && !query.data) {
     return (
       <>
         <PageHeader title={options.notFoundTitle} />
@@ -39,7 +39,7 @@ export function DetailPageGuard<T>({
       </>
     );
   }
-  if (query.isError) {
+  if (query.isError && !query.data) {
     return (
       <>
         <PageHeader title={options.errorTitle} />
