@@ -51,7 +51,7 @@ export function StubsList() {
       <PageHeader title="Stubs" />
       <div className="mt-4">
         {query.isError ? (
-          <BackendUnreachableCallout onRetry={() => void query.refetch()}>
+          <BackendUnreachableCallout onRetry={query.refetch}>
             Could not load stubs.
           </BackendUnreachableCallout>
         ) : (

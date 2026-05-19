@@ -1,10 +1,12 @@
 import { ReactNode } from "react";
 import { Callout } from "./Callout";
-import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
+import { BACKEND_UNREACHABLE } from "../../lib/messages";
 
 export type BackendUnreachableCalloutProps = {
   children: ReactNode;
-  onRetry?: () => void;
+  // `() => unknown` so callers can pass `query.refetch` directly without
+  // a `() => void` wrapper around its Promise return.
+  onRetry?: () => unknown;
 };
 
 export function BackendUnreachableCallout({

@@ -63,7 +63,7 @@ export function TargetsList() {
       />
       <div className="mt-4">
         {targets.isError ? (
-          <BackendUnreachableCallout onRetry={() => void targets.refetch()}>
+          <BackendUnreachableCallout onRetry={targets.refetch}>
             Could not load targets.
           </BackendUnreachableCallout>
         ) : (

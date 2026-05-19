@@ -1,6 +1,5 @@
 import type { ApiError } from "./parseApiError";
-
-export const BACKEND_UNREACHABLE = "Backend unreachable";
+import { BACKEND_UNREACHABLE } from "./messages";
 
 export type ErrorSetters = {
   setFieldErrors: (errors: Record<string, string[]>) => void;

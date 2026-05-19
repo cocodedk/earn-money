@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BackendUnreachableCallout } from "./BackendUnreachableCallout";
-import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
+import { BACKEND_UNREACHABLE } from "../../lib/messages";
 
 describe("BackendUnreachableCallout", () => {
   it("renders the shared title and body children", () => {

@@ -31,7 +31,7 @@ export function ProjectsList() {
       />
       <div className="mt-4">
         {query.isError ? (
-          <BackendUnreachableCallout onRetry={() => void query.refetch()}>
+          <BackendUnreachableCallout onRetry={query.refetch}>
             Could not load projects.
           </BackendUnreachableCallout>
         ) : (

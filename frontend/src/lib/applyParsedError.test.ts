@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { applyParsedError, BACKEND_UNREACHABLE } from "./applyParsedError";
+import { applyParsedError } from "./applyParsedError";
+import { BACKEND_UNREACHABLE } from "./messages";
 
 function makeSetters() {
   return {
