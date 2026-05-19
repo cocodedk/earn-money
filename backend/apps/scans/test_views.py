@@ -450,9 +450,9 @@ class ScanRunTargetRunsActionTests(_CookbookFixtureMixin, APITestCase):
         assert row_b["evidence_count"] == 0
 
     def test_row_exposes_updated_at_and_target_host(self) -> None:
-        # em-frontend slice 6B needs `updated_at` for live-freshness
-        # diffing until SSE lands, and `target_host` as the canonical
-        # short label for the per-target column. See chat msg #1565.
+        # `updated_at` is the freshness signal frontends can poll/diff
+        # against until SSE row updates land; `target_host` is the
+        # canonical short label for the per-target column.
         url = reverse("scanrun-target-runs", args=[self.run.id])
         row = {r["target"]: r for r in self.client.get(url).json()["results"]}[
             str(self.target_a.id)
