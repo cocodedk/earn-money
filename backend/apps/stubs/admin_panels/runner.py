@@ -145,18 +145,13 @@ def _evaluate_one(
 def _is_same_origin_admin_redirect(location: str, base_url: str) -> bool:
     if not location:
         return False
-    # Protocol-relative `//host/path` inherits the base URL's scheme but
-    # specifies a (possibly different) host. Normalise to absolute form
-    # before the origin check, otherwise `//attacker.example/admin`
-    # would slip through as "no scheme → treat as relative" and the
-    # cross-origin filter wouldn't fire.
-    if location.startswith("//"):
-        location = f"{urlsplit(base_url).scheme}:{location}"
-    if "://" in location and origin(location) != origin(base_url):
+    # urljoin normalises absolute-path, protocol-relative (`//host/path`),
+    # and absolute references against the base URL per RFC 3986 §5.2 —
+    # the same-origin check then sees an unambiguous absolute URL.
+    absolute = urljoin(base_url, location)
+    if origin(absolute) != origin(base_url):
         return False
-    path = (
-        urlsplit(location).path if "://" in location else location
-    ).lower()
+    path = urlsplit(absolute).path.lower()
     return any(term in path for term in _ADMIN_PATH_TERMS)
 
 

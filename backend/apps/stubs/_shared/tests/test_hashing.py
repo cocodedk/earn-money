@@ -1,4 +1,3 @@
-"""Tests for shared body-hash helpers."""
 from __future__ import annotations
 
 import hashlib
