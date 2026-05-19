@@ -16,18 +16,6 @@ from ..fetcher import BundleFetcherConfig, BundleFetchOutcome, fetch_bundle
 from ._helpers import mocked_fetcher, resp
 
 
-def _resp_bytes(body_bytes: bytes, *, url: str, ct: str = "application/javascript"):
-    """Build a 200 response from raw bytes — used to drive the
-    fetcher's byte-semantic cap path without UTF-8 round-trip."""
-    import httpx
-    return httpx.Response(
-        status_code=200,
-        headers={"content-type": ct},
-        content=body_bytes,
-        request=httpx.Request("GET", url),
-    )
-
-
 _HOST = "https://example.test"
 
 
@@ -83,7 +71,10 @@ class TruncationTests(unittest.TestCase):
         char = "𝄞"  # U+1D11E G clef — 4 bytes in UTF-8
         body_bytes = (char * 1024).encode("utf-8")  # 4096 wire bytes
         assert len(body_bytes) == 4096
-        with mocked_fetcher({"/utf8.js": _resp_bytes(body_bytes, url=url)}):
+        with mocked_fetcher({"/utf8.js": resp(
+            body_bytes, url=url,
+            headers={"content-type": "application/javascript"},
+        )}):
             outcome = fetch_bundle(
                 url, config=BundleFetcherConfig(max_body_bytes=1024),
             )

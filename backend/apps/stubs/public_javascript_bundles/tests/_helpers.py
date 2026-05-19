@@ -13,16 +13,20 @@ import httpx
 
 
 def resp(
-    body: str = "",
+    body: str | bytes = "",
     *,
     status_code: int = 200,
     url: str,
     headers: dict[str, str] | None = None,
 ) -> httpx.Response:
+    """Fake httpx.Response. ``body`` accepts str (UTF-8-encoded for
+    the wire) or bytes (passed through) so byte-semantic tests can
+    drive the fetcher with raw multibyte payloads."""
+    content = body.encode("utf-8") if isinstance(body, str) else body
     return httpx.Response(
         status_code=status_code,
         headers=headers or {},
-        content=body.encode("utf-8"),
+        content=content,
         request=httpx.Request("GET", url),
     )
 
