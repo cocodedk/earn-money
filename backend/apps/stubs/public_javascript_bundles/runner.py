@@ -22,13 +22,14 @@ from django.db import transaction
 from apps.scans.models import ScanRun, ScanTargetRun
 
 from ..runners import register
-from .fetcher import fetch_bundle
+from .fetcher import BundleFetcherConfig, fetch_bundle
 from .parser import BundleCandidate, extract_bundle_candidates
 from .runner_evidence import save_bundle_evidence, save_html_evidence
 from .runner_findings import emit_finding, emit_unfetched_finding
 
 
 _MAX_BUNDLE_COUNT = 50
+_HTML_FETCHER_CONFIG = BundleFetcherConfig(max_body_bytes=1_048_576)
 
 
 @register("1.15")
@@ -42,8 +43,11 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     html_url = base_url if base_url.endswith("/") else base_url + "/"
     # fetch_bundle returns kind="non_js" for text/html but retains
     # the body — we exploit that to share one HTTP layer + one mock
-    # harness across both fetch types.
-    html_outcome = fetch_bundle(html_url)
+    # harness across both fetch types. Spec §Inputs sizes the HTML
+    # budget separately (max_html_bytes=1 MiB) from the bundle
+    # budget (max_bundle_bytes=5 MiB), so the HTML call uses a
+    # tighter config.
+    html_outcome = fetch_bundle(html_url, _HTML_FETCHER_CONFIG)
 
     with transaction.atomic():
         html_evidence = save_html_evidence(

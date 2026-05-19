@@ -63,10 +63,16 @@ def extract_filename(url: str) -> str | None:
 
 
 def extract_extension(url: str) -> Extension:
-    name = extract_filename(url)
-    if name is None or "." not in name:
+    return extension_of_filename(extract_filename(url) or "")
+
+
+def extension_of_filename(filename: str) -> Extension:
+    """Faster path for callers that already extracted the filename
+    (e.g. the runner builds the signature dict around `filename` and
+    must avoid re-running urlsplit per bundle)."""
+    if "." not in filename:
         return "none"
-    ext = name.rsplit(".", 1)[-1].lower()
+    ext = filename.rsplit(".", 1)[-1].lower()
     if ext in ("js", "mjs", "cjs", "jsx"):
         return ext  # type: ignore[return-value]
     return "unknown"

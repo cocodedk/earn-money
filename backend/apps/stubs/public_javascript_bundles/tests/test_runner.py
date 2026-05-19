@@ -132,14 +132,16 @@ class SameOriginConfirmedBundleTests(TestCase):
 
 class CrossOriginCandidateTests(TestCase):
     def test_cdn_script_recorded_as_candidate_without_fetching(self) -> None:
-        # include_cdn_metadata=false: the runner records the cross-
-        # origin reference but MUST NOT fetch the CDN URL. We assert
-        # by not stubbing it — the helper's 404 fallback would fire
-        # if the runner tried to GET it, producing a second
-        # evidence/finding pair (we check that doesn't happen).
+        # include_cdn_metadata=false: spec §Safety bars the runner
+        # from GETting an off-origin URL. Direct assertion on the
+        # mock guarantees the safety boundary at the HTTP layer.
         scan_run, target_run = _seed()
-        with mocked_fetcher({"/": _html(_HTML_WITH_CDN)}):
+        with mocked_fetcher({"/": _html(_HTML_WITH_CDN)}) as instance:
             run(scan_run, target_run)
+            urls_called = [
+                str(call.args[0]) for call in instance.get.call_args_list
+            ]
+        assert "https://cdn.example/lib.js" not in urls_called
         finding = Finding.objects.get(scan_run=scan_run)
         assert finding.status == FindingStatus.CANDIDATE
         assert finding.confidence == "low"
