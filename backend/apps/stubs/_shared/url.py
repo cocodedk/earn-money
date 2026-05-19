@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 
 def origin(url: str) -> str:
@@ -53,3 +53,31 @@ def classify_same_origin(raw: str, base_url: str) -> OriginVerdict:
     if f"{parts.scheme}://{parts.netloc}" != origin(base_url):
         return OriginVerdict(kind="cross_origin", absolute_url=None)
     return OriginVerdict(kind="ok", absolute_url=absolute)
+
+
+@dataclass(frozen=True)
+class NormalizedUrl:
+    """Outcome of resolving a candidate URL against a base URL with
+    fragment stripped and query preserved.
+
+    Unlike ``classify_same_origin`` (which drops the URL on
+    cross-origin so callers can't reach it by accident), this helper
+    keeps the absolute URL on cross-origin so the caller can record
+    metadata for off-origin assets (CDN bundles, third-party scripts).
+    The ``same_origin`` flag carries the RFC 6454 verdict; it's False
+    when ``url`` is None.
+    """
+    url: str | None
+    same_origin: bool
+
+
+def normalize_url(raw: str, base_url: str) -> NormalizedUrl:
+    absolute = urljoin(base_url, raw)
+    parts = urlsplit(absolute)
+    if parts.scheme not in {"http", "https"}:
+        return NormalizedUrl(url=None, same_origin=False)
+    url = urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, parts.query, ""),
+    )
+    same = f"{parts.scheme}://{parts.netloc}" == origin(base_url)
+    return NormalizedUrl(url=url, same_origin=same)
