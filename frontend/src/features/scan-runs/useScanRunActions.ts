@@ -26,7 +26,6 @@ export const ACTION_LABEL: Record<LifecycleAction, string> = {
 export type ScanRunActions = {
   visibleActions: readonly LifecycleAction[];
   handlers: Record<LifecycleAction, () => void>;
-  isPending: boolean;
 };
 
 export function useScanRunActions(run: ScanRun): ScanRunActions {
@@ -42,7 +41,5 @@ export function useScanRunActions(run: ScanRun): ScanRunActions {
       resume: () => resume.mutate(run.id),
       stop: () => stop.mutate(run.id),
     },
-    isPending:
-      start.isPending || pause.isPending || resume.isPending || stop.isPending,
   };
 }

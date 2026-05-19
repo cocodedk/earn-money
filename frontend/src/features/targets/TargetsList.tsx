@@ -6,8 +6,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { BackendUnreachableCallout } from "../../components/Callout";
-import { byKey } from "../../lib/byKey";
-import { useProjectsQuery } from "../projects/api";
+import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
 import type { Target } from "../../types/api";
@@ -35,20 +34,8 @@ function buildColumns(
 
 export function TargetsList() {
   const targets = useTargetsQuery();
-  const projects = useProjectsQuery();
+  const projectName = useProjectNameLookup();
   const navigate = useNavigate();
-  // Memoise both the lookup Map and the column array so cell closures
-  // keep referential equality across unrelated re-renders.
-  const projectName = useMemo(
-    () =>
-      byKey(
-        projects.data?.results,
-        (p) => p.id,
-        (p) => p.name,
-        (id) => id.slice(0, 8),
-      ),
-    [projects.data?.results],
-  );
   const columns = useMemo(() => buildColumns(projectName), [projectName]);
   return (
     <>

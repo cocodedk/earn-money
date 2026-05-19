@@ -6,31 +6,20 @@ import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { BackendUnreachableCallout } from "../../components/Callout";
-import { byKey } from "../../lib/byKey";
-import { useProjectsQuery } from "../projects/api";
-import { useStubsQuery } from "../stubs/api";
+import { useProjectNameLookup } from "../projects/useProjectNameLookup";
+import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
 import { useScanRunsQuery } from "./api";
-import { ACTION_LABEL, useScanRunActions } from "./useScanRunActions";
+import { LifecycleActions } from "./LifecycleActions";
 import { StatusBadge } from "./StatusBadge";
 import type { ScanRun } from "../../types/api";
 
 function ActionButtons({ run }: { run: ScanRun }) {
-  const { visibleActions, handlers } = useScanRunActions(run);
   return (
     <div className="flex gap-2">
       <ButtonLink to={scanRunDetailPath(run.id)} variant="secondary">
         Open
       </ButtonLink>
-      {visibleActions.map((action) => (
-        <button
-          key={action}
-          type="button"
-          onClick={handlers[action]}
-          className="rounded bg-gray-200 px-3 py-1 text-sm hover:bg-gray-300"
-        >
-          {ACTION_LABEL[action]}
-        </button>
-      ))}
+      <LifecycleActions run={run} />
     </div>
   );
 }
@@ -82,29 +71,9 @@ function buildColumns(
 
 export function ScanRunsList() {
   const runs = useScanRunsQuery();
-  const projects = useProjectsQuery();
-  const stubs = useStubsQuery();
+  const projectName = useProjectNameLookup();
+  const stubName = useStubSlugLookup();
   const navigate = useNavigate();
-  const projectName = useMemo(
-    () =>
-      byKey(
-        projects.data?.results,
-        (p) => p.id,
-        (p) => p.name,
-        (id) => id.slice(0, 8),
-      ),
-    [projects.data?.results],
-  );
-  const stubName = useMemo(
-    () =>
-      byKey(
-        stubs.data,
-        (s) => s.slug,
-        (s) => s.slug,
-        (slug) => slug,
-      ),
-    [stubs.data],
-  );
   const columns = useMemo(
     () => buildColumns(projectName, stubName),
     [projectName, stubName],
