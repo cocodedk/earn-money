@@ -7,9 +7,12 @@ export const ROUTES = {
   stubs: "/stubs",
   stubDetail: "/stubs/:slug",
   scanRuns: "/scan-runs",
+  scanRunsNew: "/scan-runs/new",
+  scanRunDetail: "/scan-runs/:id",
   findings: "/findings",
   evidence: "/evidence",
   settings: "/settings",
 } as const;
 
 export const stubDetailPath = (slug: string) => `/stubs/${slug}`;
+export const scanRunDetailPath = (id: string) => `/scan-runs/${id}`;

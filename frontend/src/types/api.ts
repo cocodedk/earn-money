@@ -78,3 +78,24 @@ export type StubSummary = {
 };
 
 export type Stub = StubSummary & { body: string };
+
+export type ScanRun = {
+  id: Uuid;
+  project: Uuid;
+  stub_slug: string;
+  status: ScanRunStatus;
+  started_at: Iso8601 | null;
+  finished_at: Iso8601 | null;
+  target_run_count: number;
+  findings_count: number;
+  created_at: Iso8601;
+  updated_at: Iso8601;
+};
+
+export type CreateScanRunBody = {
+  project: Uuid;
+  stub_slug: string;
+  target_ids: Uuid[];
+};
+
+export type LifecycleAction = "start" | "pause" | "resume" | "stop";
