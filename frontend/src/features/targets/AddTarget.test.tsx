@@ -178,6 +178,104 @@ describe("AddTarget", () => {
     expect(await screen.findByText(/backend unreachable/i)).toBeInTheDocument();
   });
 
+  it("omits host and ip from the body when both inputs are blank", async () => {
+    withProject();
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      msw.post("/api/targets/", async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            id: "t-new",
+            project: "p1",
+            base_url: "https://dvwa.cocode.dk",
+            host: null,
+            ip: null,
+            status: "active",
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<AddTarget />, { route: "/targets/new" });
+    await userEvent.type(
+      await screen.findByLabelText(/Base URL/),
+      "https://dvwa.cocode.dk",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add target" }));
+    await waitFor(() => expect(received).not.toBeNull());
+    expect(received).toEqual({
+      project: "p1",
+      base_url: "https://dvwa.cocode.dk",
+    });
+    expect("host" in received!).toBe(false);
+    expect("ip" in received!).toBe(false);
+  });
+
+  it("includes only host when host is filled but ip is blank", async () => {
+    withProject();
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      msw.post("/api/targets/", async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            id: "t-new",
+            project: "p1",
+            base_url: "https://dvwa.cocode.dk",
+            host: "dvwa.cocode.dk",
+            ip: null,
+            status: "active",
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<AddTarget />, { route: "/targets/new" });
+    await userEvent.type(
+      await screen.findByLabelText(/Base URL/),
+      "https://dvwa.cocode.dk",
+    );
+    await userEvent.type(screen.getByLabelText(/Host/), "dvwa.cocode.dk");
+    await userEvent.click(screen.getByRole("button", { name: "Add target" }));
+    await waitFor(() => expect(received).not.toBeNull());
+    expect(received!.host).toBe("dvwa.cocode.dk");
+    expect("ip" in received!).toBe(false);
+  });
+
+  it("treats whitespace-only host as blank (omitted from the body)", async () => {
+    withProject();
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      msw.post("/api/targets/", async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            id: "t-new",
+            project: "p1",
+            base_url: "https://dvwa.cocode.dk",
+            host: null,
+            ip: null,
+            status: "active",
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<AddTarget />, { route: "/targets/new" });
+    await userEvent.type(
+      await screen.findByLabelText(/Base URL/),
+      "https://dvwa.cocode.dk",
+    );
+    await userEvent.type(screen.getByLabelText(/Host/), "   ");
+    await userEvent.click(screen.getByRole("button", { name: "Add target" }));
+    await waitFor(() => expect(received).not.toBeNull());
+    expect("host" in received!).toBe(false);
+  });
+
   it("accepts typing into the Host and IP fields", async () => {
     withProject();
     let received: { host: string | null; ip: string | null } = {
