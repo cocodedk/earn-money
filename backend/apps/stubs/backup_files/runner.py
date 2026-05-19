@@ -51,6 +51,10 @@ def _build_rows(
     evidences: list[Evidence] = []
     findings: list[Finding] = []
 
+    # Every Finding uses confidence="high": the fetcher already filtered
+    # 404s and SPA-shell responses, so a 2xx survival on a deny-by-
+    # default path IS a real leak — source_kind varies the category,
+    # not the certainty.
     for path, response in responses.items():
         source_kind = response["source_kind"]
         url = urljoin(target.base_url, path)
