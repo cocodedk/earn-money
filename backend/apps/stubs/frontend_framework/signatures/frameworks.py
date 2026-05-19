@@ -17,6 +17,19 @@ FRAMEWORK_SIGNATURES: list[dict[str, Any]] = [
         "confidence": "high",
     },
     {
+        # Angular CLI's default root selector. Strong: only Angular
+        # apps emit this custom element, and the empty SPA shell still
+        # carries it before hydration.
+        "id": "angular_app_root",
+        "technology": "Angular",
+        "category": "framework",
+        "source": "html_body",
+        "match_type": "contains",
+        "value_pattern": "<app-root",
+        "version_regex": None,
+        "confidence": "high",
+    },
+    {
         "id": "angular_ngcontent_marker",
         "technology": "Angular",
         "category": "framework",
