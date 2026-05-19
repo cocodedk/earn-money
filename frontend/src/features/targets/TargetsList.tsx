@@ -1,0 +1,100 @@
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../app/routes";
+import { ButtonLink } from "../../components/Button";
+import { PageHeader } from "../../components/PageHeader";
+import { Table, type TableColumn } from "../../components/Table";
+import { EmptyState } from "../../components/EmptyState";
+import { Callout } from "../../components/Callout";
+import { useProjectsQuery } from "../projects/api";
+import { useTargetsQuery } from "./api";
+import type { Project, Target } from "../../types/api";
+
+function StatusBadge({ status }: { status: Target["status"] }) {
+  const palette =
+    status === "active"
+      ? "bg-green-100 text-green-800"
+      : "bg-gray-200 text-gray-700";
+  return (
+    <span
+      data-testid={`status-${status}`}
+      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${palette}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function nameLookup(projects: Project[] | undefined) {
+  const byId = new Map<string, string>();
+  for (const p of projects ?? []) {
+    byId.set(p.id, p.name);
+  }
+  return (id: string) => byId.get(id) ?? id.slice(0, 8);
+}
+
+function buildColumns(
+  projectName: (id: string) => string,
+): TableColumn<Target>[] {
+  return [
+    { key: "base_url", header: "Base URL", cell: (t) => t.base_url },
+    { key: "host", header: "Host", cell: (t) => t.host },
+    { key: "ip", header: "IP", cell: (t) => t.ip ?? "—" },
+    { key: "project", header: "Project", cell: (t) => projectName(t.project) },
+    {
+      key: "status",
+      header: "Status",
+      cell: (t) => <StatusBadge status={t.status} />,
+    },
+    {
+      key: "created_at",
+      header: "Created at",
+      cell: (t) => t.created_at.slice(0, 10),
+    },
+  ];
+}
+
+export function TargetsList() {
+  const targets = useTargetsQuery();
+  const projects = useProjectsQuery();
+  const navigate = useNavigate();
+  const columns = buildColumns(nameLookup(projects.data?.results));
+  return (
+    <>
+      <PageHeader
+        title="Targets"
+        action={
+          <ButtonLink to={ROUTES.targetsNew} data-testid="page-header-create">
+            Create target
+          </ButtonLink>
+        }
+      />
+      <div className="mt-4">
+        {targets.isError ? (
+          <Callout
+            variant="error"
+            title="Backend unreachable"
+            action={{ label: "Retry", onClick: () => void targets.refetch() }}
+          >
+            Could not load targets.
+          </Callout>
+        ) : (
+          <Table<Target>
+            columns={columns}
+            rows={targets.data?.results ?? []}
+            rowKey={(t) => t.id}
+            isLoading={targets.isLoading}
+            emptyState={
+              <EmptyState
+                message="No targets yet."
+                action={{
+                  label: "Create target",
+                  onClick: () => navigate(ROUTES.targetsNew),
+                }}
+              />
+            }
+          />
+        )}
+      </div>
+    </>
+  );
+}
