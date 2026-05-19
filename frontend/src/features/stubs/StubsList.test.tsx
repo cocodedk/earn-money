@@ -6,23 +6,7 @@ import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { LocationProbe, withBareArray } from "../../test/helpers";
 import { StubsList } from "./StubsList";
-
-function stub(overrides: Record<string, unknown> = {}) {
-  return {
-    slug: "1.1",
-    phase: 1,
-    spec: 1,
-    phase_slug: "01-information-gathering",
-    spec_slug: "framework-detection",
-    title: "Framework detection",
-    phase_title: "Information gathering",
-    category: "Content discovery",
-    status: "done",
-    fixture: "juice-shop",
-    path: "01-information-gathering/01-framework-detection.md",
-    ...overrides,
-  };
-}
+import { makeStub as stub } from "./__fixtures__/stub";
 
 describe("StubsList", () => {
   it("shows a skeleton while loading", () => {

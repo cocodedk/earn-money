@@ -5,6 +5,7 @@ import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { StubDetail } from "./StubDetail";
+import { makeStubWithBody } from "./__fixtures__/stub";
 
 function renderAt(path: string) {
   return renderWithProviders(
@@ -15,20 +16,7 @@ function renderAt(path: string) {
   );
 }
 
-const FULL = {
-  slug: "1.1",
-  phase: 1,
-  spec: 1,
-  phase_slug: "01-information-gathering",
-  spec_slug: "framework-detection",
-  title: "Framework detection",
-  phase_title: "Information gathering",
-  category: "Content discovery",
-  status: "done" as const,
-  fixture: "juice-shop",
-  path: "01-information-gathering/01-framework-detection.md",
-  body: "# 1.1 Framework detection\n\nDetect the application framework.",
-};
+const FULL = makeStubWithBody();
 
 describe("StubDetail", () => {
   it("renders the title, metadata, and the markdown body", async () => {

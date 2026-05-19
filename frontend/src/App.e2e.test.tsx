@@ -4,6 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "./test/server";
 import { renderWithProviders } from "./test/renderWithProviders";
+import {
+  makeStub,
+  makeStubWithBody,
+} from "./features/stubs/__fixtures__/stub";
 import App from "./App";
 
 type StoredProject = { name: string; description: string } | null;
@@ -180,27 +184,10 @@ describe("end-to-end slice 1", () => {
   });
 
   it("walks the stubs list → detail → back flow", async () => {
-    const stub = {
-      slug: "1.1",
-      phase: 1,
-      spec: 1,
-      phase_slug: "01-information-gathering",
-      spec_slug: "framework-detection",
-      title: "Framework detection",
-      phase_title: "Information gathering",
-      category: "Content discovery",
-      status: "done" as const,
-      fixture: "juice-shop",
-      path: "01-information-gathering/01-framework-detection.md",
-    };
+    const stub = makeStub();
     server.use(
       msw.get("/api/stubs/", () => HttpResponse.json([stub])),
-      msw.get("/api/stubs/1.1/", () =>
-        HttpResponse.json({
-          ...stub,
-          body: "# 1.1 Framework detection\n\nDetect the application framework.",
-        }),
-      ),
+      msw.get("/api/stubs/1.1/", () => HttpResponse.json(makeStubWithBody())),
     );
 
     renderWithProviders(<App />, { route: "/stubs" });

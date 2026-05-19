@@ -5,20 +5,9 @@ import { server } from "../../test/server";
 import { withBareArray } from "../../test/helpers";
 import { makeRenderHookWrapper } from "../../test/renderWithProviders";
 import { STUBS_KEY, useStubQuery, useStubsQuery } from "./api";
+import { makeStub, makeStubWithBody } from "./__fixtures__/stub";
 
-const STUB_SUMMARY = {
-  slug: "1.1",
-  phase: 1,
-  spec: 1,
-  phase_slug: "01-information-gathering",
-  spec_slug: "framework-detection",
-  title: "Framework detection",
-  phase_title: "Information gathering",
-  category: "Content discovery",
-  status: "done",
-  fixture: "juice-shop",
-  path: "01-information-gathering/01-framework-detection.md",
-};
+const STUB_SUMMARY = makeStub();
 
 describe("useStubsQuery", () => {
   it("fetches a bare array and returns the list", async () => {
@@ -34,7 +23,7 @@ describe("useStubQuery", () => {
   it("fetches one stub including the markdown body", async () => {
     server.use(
       msw.get("/api/stubs/1.1/", () =>
-        HttpResponse.json({ ...STUB_SUMMARY, body: "# 1.1\n\nbody text" }),
+        HttpResponse.json(makeStubWithBody({ body: "# 1.1\n\nbody text" })),
       ),
     );
     const { Wrapper } = makeRenderHookWrapper();
