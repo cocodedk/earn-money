@@ -9,6 +9,7 @@ import { useCreateTargetMutation } from "./api";
 import { useCurrentProject } from "../../lib/useCurrentProject";
 import { parseApiError } from "../../lib/parseApiError";
 import { HttpError } from "../../lib/http";
+import type { CreateTargetBody } from "../../types/api";
 
 export function AddTarget() {
   const { id: projectId } = useCurrentProject();
@@ -48,12 +49,15 @@ export function AddTarget() {
     setFieldErrors({});
     setBannerError(null);
     try {
-      await mutation.mutateAsync({
+      const body: CreateTargetBody = {
         project: projectId!,
         base_url: baseUrl,
-        host: host.trim() || null,
-        ip: ip.trim() || null,
-      });
+      };
+      const trimmedHost = host.trim();
+      const trimmedIp = ip.trim();
+      if (trimmedHost) body.host = trimmedHost;
+      if (trimmedIp) body.ip = trimmedIp;
+      await mutation.mutateAsync(body);
       navigate(ROUTES.targets);
     } catch (err) {
       const parsed = await parseApiError(
