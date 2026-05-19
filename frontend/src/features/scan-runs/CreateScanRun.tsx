@@ -1,10 +1,10 @@
-import { ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { FormField } from "../../components/Form";
 import { Button } from "../../components/Button";
-import { Callout } from "../../components/Callout";
+import { Callout, CalloutSlot } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useTargetsQuery } from "../targets/api";
 import { useStubsQuery } from "../stubs/api";
@@ -17,10 +17,6 @@ import { applyParsedError } from "../../lib/applyParsedError";
 import type { CreateScanRunBody, Target } from "../../types/api";
 
 type PickerMode = "all" | "selected";
-
-function CalloutSlot({ children }: { children: ReactNode }) {
-  return <div className="mt-4">{children}</div>;
-}
 
 export function CreateScanRun() {
   const projects = useProjectsQuery();

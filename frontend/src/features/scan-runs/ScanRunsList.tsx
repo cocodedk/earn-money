@@ -6,6 +6,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { BackendUnreachableCallout } from "../../components/Callout";
+import { byKey } from "../../lib/byKey";
 import { useProjectsQuery } from "../projects/api";
 import { useStubsQuery } from "../stubs/api";
 import {
@@ -18,10 +19,8 @@ import {
 import { StatusBadge } from "./StatusBadge";
 import type {
   LifecycleAction,
-  Project,
   ScanRun,
   ScanRunStatus,
-  StubSummary,
 } from "../../types/api";
 
 const VALID_ACTIONS: Record<ScanRunStatus, readonly LifecycleAction[]> = {
@@ -69,18 +68,6 @@ function ActionButtons({ run }: { run: ScanRun }) {
       ))}
     </div>
   );
-}
-
-function nameLookup(projects: Project[] | undefined) {
-  const byId = new Map<string, string>();
-  for (const p of projects ?? []) byId.set(p.id, p.name);
-  return (id: string) => byId.get(id) ?? id.slice(0, 8);
-}
-
-function stubLookup(stubs: StubSummary[] | undefined) {
-  const bySlug = new Map<string, string>();
-  for (const s of stubs ?? []) bySlug.set(s.slug, s.slug);
-  return (slug: string) => bySlug.get(slug) ?? slug;
 }
 
 function buildColumns(
@@ -134,10 +121,25 @@ export function ScanRunsList() {
   const stubs = useStubsQuery();
   const navigate = useNavigate();
   const projectName = useMemo(
-    () => nameLookup(projects.data?.results),
+    () =>
+      byKey(
+        projects.data?.results,
+        (p) => p.id,
+        (p) => p.name,
+        (id) => id.slice(0, 8),
+      ),
     [projects.data?.results],
   );
-  const stubName = useMemo(() => stubLookup(stubs.data), [stubs.data]);
+  const stubName = useMemo(
+    () =>
+      byKey(
+        stubs.data,
+        (s) => s.slug,
+        (s) => s.slug,
+        (slug) => slug,
+      ),
+    [stubs.data],
+  );
   const columns = useMemo(
     () => buildColumns(projectName, stubName),
     [projectName, stubName],

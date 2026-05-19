@@ -1,10 +1,10 @@
-import { FormEvent, ReactNode, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { FormField, TextInput } from "../../components/Form";
 import { Button } from "../../components/Button";
-import { Callout } from "../../components/Callout";
+import { Callout, CalloutSlot } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useCreateTargetMutation } from "./api";
 import { parseApiError } from "../../lib/parseApiError";
@@ -43,12 +43,6 @@ function buildBody(state: FormState): CreateTargetBody {
     ...(state.host.trim() ? { host: state.host.trim() } : {}),
     ...(state.ip.trim() ? { ip: state.ip.trim() } : {}),
   };
-}
-
-// Wraps Callouts in the `mt-4` spacing used between page header and body —
-// kept inline because Callout itself is the abstraction; this is layout.
-function CalloutSlot({ children }: { children: ReactNode }) {
-  return <div className="mt-4">{children}</div>;
 }
 
 export function CreateTarget() {

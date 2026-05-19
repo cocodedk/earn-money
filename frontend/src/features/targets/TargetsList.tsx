@@ -6,18 +6,11 @@ import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { BackendUnreachableCallout } from "../../components/Callout";
+import { byKey } from "../../lib/byKey";
 import { useProjectsQuery } from "../projects/api";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
-import type { Project, Target } from "../../types/api";
-
-function nameLookup(projects: Project[] | undefined) {
-  const byId = new Map<string, string>();
-  for (const p of projects ?? []) {
-    byId.set(p.id, p.name);
-  }
-  return (id: string) => byId.get(id) ?? id.slice(0, 8);
-}
+import type { Target } from "../../types/api";
 
 function buildColumns(
   projectName: (id: string) => string,
@@ -47,7 +40,13 @@ export function TargetsList() {
   // Memoise both the lookup Map and the column array so cell closures
   // keep referential equality across unrelated re-renders.
   const projectName = useMemo(
-    () => nameLookup(projects.data?.results),
+    () =>
+      byKey(
+        projects.data?.results,
+        (p) => p.id,
+        (p) => p.name,
+        (id) => id.slice(0, 8),
+      ),
     [projects.data?.results],
   );
   const columns = useMemo(() => buildColumns(projectName), [projectName]);
