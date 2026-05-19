@@ -31,3 +31,4 @@ class StubsConfig(AppConfig):
         from . import old_endpoints  # noqa: F401  registers "1.9"
         from . import debug_pages  # noqa: F401  registers "1.10"
         from . import robots_txt  # noqa: F401  registers "1.11"
+        from . import sitemap_xml  # noqa: F401  registers "1.12"
