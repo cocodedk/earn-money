@@ -269,17 +269,4 @@ Spec §Live events panel → 6D. Spec §Findings panel + Evidence panel → 6C. 
 
 ## Review state
 
-In mutual-acceptance loop with codex (gpt-5.5 xhigh). After rounds 1-5 codex returned 20 issues; all addressed in this revision.
-
-**Stable since round 4 — do not re-litigate:** §Type contract, §Column layout (incl. per-row test-id), §Files (all rows), §Decisions items 1-4, §Acceptance criteria, §Out of scope, §Backend pagination policy (`PAGE_SIZE = 50` at `backend/config/settings.py:138`), §Prerequisites SHA pin (`e93c6f4`), §Tests row-timestamp split (stopped-from-queued vs stopped-from-running).
-
-**Changed in response to codex round 5 (BLOCKER):**
-- §Hook contract terminal-flush rule: replaced `invalidateQueries({ cancelRefetch: true })` with a two-step `cancelQueries` + `refetchQueries` pattern. <!-- lint:allow --> `invalidateQueries({ cancelRefetch: true })` only cancels in-flight *refetches* (cached data exists); it does NOT cancel an in-flight *initial* fetch. <!-- lint:allow --> The no-cached-data edge would let a stale pre-terminal response land after polling is off.
-- §Tests `api.target-runs.test.tsx`: split the in-flight flush test into two branches — "cached data exists" (existing) and "no cached data (initial fetch in flight)" (new, round-5 edge case).
-- §Tests `ScanRunDetail.target-runs.test.tsx`: added the matching no-cached-data branch at the integration level.
-
-**Changed in response to codex round 6 (contradiction cleanup):**
-- §Render integration worker-driven flow step 4: dropped the "invalidate-and-refetch" wording (leftover from pre-round-5 contract); <!-- lint:allow --> now reads "two-step `cancelQueries` + `refetchQueries` pair" matching §Hook contract.
-- §Tests `ScanRunDetail.target-runs.test.tsx` — `running → done` and `running → stopping → stopped` bullets: dropped "exactly one refetch fires" / "no-op'd by `cancelRefetch: false`" wording (also leftover); <!-- lint:allow --> both now assert cache content (fresh terminal rows committed) consistent with the §Hook contract terminal-flush rule.
-
-**For codex round 7 (cleanup verification — past the 6-round cap per protocol):** validate the round-6 cleanup landed; spot any remaining `invalidate`/`cancelRefetch` leftovers. Stable sections unchanged from prior rounds.
+Extracted to a portable file so codex can be passed just the state on resumed verification, not the full spec. See [`2026-05-19-scan-run-detail-6B-review-state.md`](2026-05-19-scan-run-detail-6B-review-state.md) for the round-by-round changelog, the stable-since-round-4 list, and the current "Ready for resumed codex cleanup verification" status. Companion files: [`2026-05-19-scan-run-detail-6B-backend-anchors.md`](2026-05-19-scan-run-detail-6B-backend-anchors.md) (verified backend file:line refs codex does not need to re-grep), [`2026-05-19-scan-run-detail-6B-cleanup-verify-prompt.md`](2026-05-19-scan-run-detail-6B-cleanup-verify-prompt.md) (the paste-ready resumed codex prompt for when the gpt-5.5 usage limit resets at 2026-05-20 02:38), and [`2026-05-19-scan-run-detail-6B-lint.yaml`](2026-05-19-scan-run-detail-6B-lint.yaml) (consistency vocab the spec passes locally).
