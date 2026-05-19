@@ -19,6 +19,58 @@ _nonce_bundle = make_nonce_bundle
 _probe = make_probe
 
 
+class Soft404BothNoncesTests(TestCase):
+    """Spec §Soft-404: a status-200 candidate is soft-404 only when
+    its body matches BOTH random missing paths. If the two nonces
+    return DIFFERENT bodies, no reliable baseline exists — no
+    candidate should be suppressed by an unstable profile."""
+
+    def test_distinct_nonce_bodies_disable_soft_404_filter(self) -> None:
+        scan_run, target_run = _seed()
+        bundle = {
+            "baseline": {
+                "status": 200, "body": "home", "url": "x", "location": None,
+            },
+            "probes": {
+                "/scanner-baseline-aaaaaaaa": _probe("404 v1", 200),
+                "/scanner-baseline-bbbbbbbb": _probe("404 v2", 200),
+                # Candidate matches ONE nonce but not the other. With
+                # the BOTH-required spec, this should NOT be filtered.
+                "/admin": _probe("404 v1", 200),
+            },
+        }
+        with patch(
+            "apps.stubs.admin_panels.runner.fetch_evidence",
+            return_value=bundle,
+        ):
+            run(scan_run, target_run)
+
+        # /admin is emitted (medium / distinct_body): baseline was
+        # unreliable, so /admin reports on the merits of being a
+        # non-404 status-200 distinct from the home baseline.
+        finding = Finding.objects.get(data__path="/admin")
+        assert finding.confidence == "medium"
+
+
+class FindingTypeTests(TestCase):
+    """Spec §Persistence requires
+    `finding_type = "exposed_admin_panel"`."""
+
+    def test_finding_carries_exposed_admin_panel_type(self) -> None:
+        scan_run, target_run = _seed()
+        bundle = _nonce_bundle(
+            probes={"/admin": _probe("unauthorized", 401)},
+        )
+        with patch(
+            "apps.stubs.admin_panels.runner.fetch_evidence",
+            return_value=bundle,
+        ):
+            run(scan_run, target_run)
+
+        finding = Finding.objects.get(data__path="/admin")
+        assert finding.data["finding_type"] == "exposed_admin_panel"
+
+
 class Soft404SuppressTests(TestCase):
     def test_200_matching_soft_404_no_markers_suppressed(self) -> None:
         scan_run, target_run = _seed()

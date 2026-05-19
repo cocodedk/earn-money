@@ -69,11 +69,24 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
 
 
 def _soft_404_profile(probes: dict[str, dict]) -> set[str]:
-    return {
+    """Build the soft-404 reference hash set from the nonce probes.
+
+    Per spec §Soft-404: a status-200 candidate is soft-404 only when
+    its body fingerprint matches BOTH random missing paths. If the two
+    nonces produced the SAME body (the common case — server returns a
+    canonical 404 page or SPA shell for every unknown route), the set
+    has one entry and candidate-matches-set means matches-both. If the
+    nonces produced DIFFERENT bodies (rare; suggests the server's
+    not-found response varies), no stable baseline exists — return an
+    empty set so no candidate is suppressed by an unreliable profile."""
+    nonce_hashes = {
         _hash(probe["body"])
         for path, probe in probes.items()
         if _NONCE_MARKER in path
     }
+    if len(nonce_hashes) != 1:
+        return set()
+    return nonce_hashes
 
 
 def _evaluate_probes(
@@ -178,6 +191,7 @@ def _build_rows(
                 confidence=confidence,
                 status=FindingStatus.CANDIDATE,
                 data={
+                    "finding_type": "exposed_admin_panel",
                     "path": path,
                     "status": probe["status"],
                     "signal_kind": signal_kind,
