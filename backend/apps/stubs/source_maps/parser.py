@@ -15,11 +15,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Literal
-from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
-from .._shared.url import origin
+from .._shared.url import classify_same_origin
 
 
 AssetKind = Literal["javascript", "css"]
@@ -58,12 +57,11 @@ def parse_html_assets(
     """
     if not html:
         return []
-    base_origin = origin(base_url)
     soup = BeautifulSoup(html, "html.parser")
 
     seen: set[str] = set()
     assets: list[Asset] = []
-    for asset in _walk(soup, base_url, base_origin):
+    for asset in _walk(soup, base_url):
         if asset.url in seen:
             continue
         seen.add(asset.url)
@@ -73,48 +71,40 @@ def parse_html_assets(
     return assets
 
 
-def _walk(soup: BeautifulSoup, base_url: str, base_origin: str):
+def _walk(soup: BeautifulSoup, base_url: str):
     """Yield candidate assets in document order. Per-tag classification
     lives in the per-element helpers."""
     for tag in soup.find_all(["script", "link"]):
-        candidate = _from_tag(tag, base_url, base_origin)
+        candidate = _from_tag(tag, base_url)
         if candidate is not None:
             yield candidate
 
 
-def _from_tag(tag, base_url: str, base_origin: str) -> Asset | None:
+def _from_tag(tag, base_url: str) -> Asset | None:
     if tag.name == "script":
         raw = (tag.get("src") or "").strip()
         if not raw:
             return None
-        return _make_asset(raw, base_url, base_origin, "javascript")
+        return _make_asset(raw, base_url, "javascript")
     # BS4 parses `rel` as a list (multi-token HTML attr) or None.
     rels = {r.lower() for r in (tag.get("rel") or [])}
     raw = (tag.get("href") or "").strip()
     if not raw:
         return None
     if "stylesheet" in rels:
-        return _make_asset(raw, base_url, base_origin, "css")
+        return _make_asset(raw, base_url, "css")
     if "modulepreload" in rels:
-        return _make_asset(raw, base_url, base_origin, "javascript")
+        return _make_asset(raw, base_url, "javascript")
     if "preload" in rels and (tag.get("as") or "").lower() == "script":
-        return _make_asset(raw, base_url, base_origin, "javascript")
+        return _make_asset(raw, base_url, "javascript")
     return None
 
 
-def _make_asset(
-    raw: str,
-    base_url: str,
-    base_origin: str,
-    kind: AssetKind,
-) -> Asset | None:
-    absolute = urljoin(base_url, raw)
-    parts = urlsplit(absolute)
-    if parts.scheme not in {"http", "https"}:
+def _make_asset(raw: str, base_url: str, kind: AssetKind) -> Asset | None:
+    verdict = classify_same_origin(raw, base_url)
+    if verdict.kind != "ok" or verdict.absolute_url is None:
         return None
-    if f"{parts.scheme}://{parts.netloc}" != base_origin:
-        return None
-    return Asset(url=absolute, kind=kind)
+    return Asset(url=verdict.absolute_url, kind=kind)
 
 
 # Tooling convention: the canonical comment appears at the end of

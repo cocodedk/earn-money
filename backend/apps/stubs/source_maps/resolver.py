@@ -17,9 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
-from urllib.parse import urljoin, urlsplit
 
-from .._shared.url import origin
+from .._shared.url import classify_same_origin
 
 
 ResolvedKind = Literal["ok", "inline_data_url", "cross_origin", "invalid"]
@@ -58,14 +57,12 @@ def resolve_map_url(raw: str, asset_url: str) -> ResolvedMapUrl:
     if _is_inline_data_url(stripped):
         return ResolvedMapUrl(kind="inline_data_url", absolute_url=None)
 
-    absolute = urljoin(asset_url, stripped)
-    scheme = urlsplit(absolute).scheme
-    if scheme not in {"http", "https"}:
-        return ResolvedMapUrl(kind="invalid", absolute_url=None)
-
-    if origin(absolute) != origin(asset_url):
+    verdict = classify_same_origin(stripped, asset_url)
+    if verdict.kind == "ok":
+        return ResolvedMapUrl(kind="ok", absolute_url=verdict.absolute_url)
+    if verdict.kind == "cross_origin":
         return ResolvedMapUrl(kind="cross_origin", absolute_url=None)
-    return ResolvedMapUrl(kind="ok", absolute_url=absolute)
+    return ResolvedMapUrl(kind="invalid", absolute_url=None)
 
 
 def _is_inline_data_url(value: str) -> bool:
