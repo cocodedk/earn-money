@@ -110,6 +110,7 @@ class LaravelTests(unittest.TestCase):
         match = match_framework_signature(body, content_type="text/html")
         assert match is not None
         assert match.kind == "laravel_ignition"
+        assert match.confidence == "high"
 
 
 class RailsInfoTests(unittest.TestCase):
@@ -122,6 +123,7 @@ class RailsInfoTests(unittest.TestCase):
         match = match_framework_signature(body, content_type="text/html")
         assert match is not None
         assert match.kind == "rails_info"
+        assert match.confidence == "high"
 
 
 class NoMatchTests(unittest.TestCase):

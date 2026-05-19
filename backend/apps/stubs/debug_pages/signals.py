@@ -19,13 +19,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .signatures import FRAMEWORK_SIGNATURES, Signature
+from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 
 
 @dataclass(frozen=True)
 class SignatureMatch:
-    kind: str
-    confidence: str  # "low" | "medium" | "high"; always "high" for now
+    kind: DebugPageKind
+    confidence: str  # cookbook vocabulary low|medium|high — Finding.confidence is free-form
     markers_matched: tuple[str, ...]
 
 
@@ -117,18 +117,19 @@ _SECRET_KEY_TOKENS: tuple[str, ...] = (
     "private_key",
 )
 
-# Env-var key names: identifiers that prove the page is dumping the
-# runtime environment, regardless of whether values are secret-shaped.
-_ENV_KEY_TOKENS: tuple[str, ...] = (
+# Pure env-var indicators: keys that prove the page is dumping the
+# runtime environment but aren't themselves secret-shaped.
+_ENV_ONLY_TOKENS: tuple[str, ...] = (
     "app_env",
     "node_env",
-    "secret_key",
-    "database_url",
-    "redis_url",
-    "aws_access_key_id",
-    "aws_secret_access_key",
     "debug=true",
 )
+
+# Every secret-key token is also an env var when it appears on a
+# debug page (it's a runtime environment variable that happens to
+# carry a secret). Compose explicitly so the dual-label intent is
+# visible in the data instead of an accidental copy-paste duplicate.
+_ENV_KEY_TOKENS: tuple[str, ...] = _ENV_ONLY_TOKENS + _SECRET_KEY_TOKENS
 
 
 def find_env_leak_markers(body: str) -> list[str]:

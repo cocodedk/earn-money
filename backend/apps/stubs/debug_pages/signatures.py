@@ -18,11 +18,37 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+
+# Spec §Persistence DebugPageKind closed string-union. Promoting to a
+# Literal alias means typos like "phpinfo " or "spring-actuator" fail
+# the type-check at signature-table construction time rather than as
+# silent runtime mismatches downstream.
+DebugPageKind = Literal[
+    "phpinfo",
+    "django_debug_toolbar",
+    "symfony_profiler",
+    "spring_actuator",
+    "go_pprof",
+    "werkzeug_debugger",
+    "laravel_telescope",
+    "laravel_horizon",
+    "laravel_ignition",
+    "rails_info",
+    "apache_server_status",
+    "apache_server_info",
+    "stack_trace",
+    "environment_leak",
+    "route_listing",
+    "generic_debug",
+    "unknown",
+]
 
 
 @dataclass(frozen=True)
 class Signature:
-    kind: str  # one of the DebugPageKind values per spec §Persistence
+    kind: DebugPageKind
     # ALL markers must appear (case-insensitive) for a match. Two
     # markers ANDed beats one marker for false-positive resistance:
     # `phpinfo()` alone could be in a blog post, but with `PHP Version`
@@ -86,7 +112,11 @@ FRAMEWORK_SIGNATURES: tuple[Signature, ...] = (
         body_markers=("rails::infocontroller",),
     ),
     Signature(
+        # "Apache Server Status" is the mod_status page title; the phrase
+        # is unique enough on its own. Some deployments strip the
+        # "Server Version: Apache/x.y" line behind reverse proxies, so
+        # gating on it would reject real findings.
         kind="apache_server_status",
-        body_markers=("apache server status", "server version: apache"),
+        body_markers=("apache server status",),
     ),
 )
