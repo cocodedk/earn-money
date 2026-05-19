@@ -4,7 +4,7 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { BackendUnreachableCallout } from "../../components/Callout";
+import { ListPageGuard } from "../../components/ListPageGuard";
 import { useProjectsQuery } from "./api";
 import type { Project } from "../../types/api";
 
@@ -29,29 +29,23 @@ export function ProjectsList() {
           </ButtonLink>
         }
       />
-      <div className="mt-4">
-        {query.isError ? (
-          <BackendUnreachableCallout onRetry={query.refetch}>
-            Could not load projects.
-          </BackendUnreachableCallout>
-        ) : (
-          <Table<Project>
-            columns={columns}
-            rows={query.data?.results ?? []}
-            rowKey={(r) => r.id}
-            isLoading={query.isLoading}
-            emptyState={
-              <EmptyState
-                message="No projects yet."
-                action={{
-                  label: "Create project",
-                  onClick: () => navigate(ROUTES.projectsNew),
-                }}
-              />
-            }
-          />
-        )}
-      </div>
+      <ListPageGuard query={query} errorBody="Could not load projects.">
+        <Table<Project>
+          columns={columns}
+          rows={query.data?.results ?? []}
+          rowKey={(r) => r.id}
+          isLoading={query.isLoading}
+          emptyState={
+            <EmptyState
+              message="No projects yet."
+              action={{
+                label: "Create project",
+                onClick: () => navigate(ROUTES.projectsNew),
+              }}
+            />
+          }
+        />
+      </ListPageGuard>
     </>
   );
 }

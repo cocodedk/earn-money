@@ -5,7 +5,7 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { BackendUnreachableCallout } from "../../components/Callout";
+import { ListPageGuard } from "../../components/ListPageGuard";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
 import { useScanRunsQuery } from "./api";
@@ -81,29 +81,23 @@ export function ScanRunsList() {
   return (
     <>
       <PageHeader title="Scan runs" />
-      <div className="mt-4">
-        {runs.isError ? (
-          <BackendUnreachableCallout onRetry={runs.refetch}>
-            Could not load scan runs.
-          </BackendUnreachableCallout>
-        ) : (
-          <Table<ScanRun>
-            columns={columns}
-            rows={runs.data?.results ?? []}
-            rowKey={(r) => r.id}
-            isLoading={runs.isLoading}
-            emptyState={
-              <EmptyState
-                message="No scan runs yet."
-                action={{
-                  label: "Create scan run",
-                  onClick: () => navigate(ROUTES.scanRunsNew),
-                }}
-              />
-            }
-          />
-        )}
-      </div>
+      <ListPageGuard query={runs} errorBody="Could not load scan runs.">
+        <Table<ScanRun>
+          columns={columns}
+          rows={runs.data?.results ?? []}
+          rowKey={(r) => r.id}
+          isLoading={runs.isLoading}
+          emptyState={
+            <EmptyState
+              message="No scan runs yet."
+              action={{
+                label: "Create scan run",
+                onClick: () => navigate(ROUTES.scanRunsNew),
+              }}
+            />
+          }
+        />
+      </ListPageGuard>
     </>
   );
 }

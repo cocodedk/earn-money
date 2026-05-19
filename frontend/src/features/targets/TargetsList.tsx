@@ -5,7 +5,7 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { BackendUnreachableCallout } from "../../components/Callout";
+import { ListPageGuard } from "../../components/ListPageGuard";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
@@ -47,29 +47,23 @@ export function TargetsList() {
           </ButtonLink>
         }
       />
-      <div className="mt-4">
-        {targets.isError ? (
-          <BackendUnreachableCallout onRetry={targets.refetch}>
-            Could not load targets.
-          </BackendUnreachableCallout>
-        ) : (
-          <Table<Target>
-            columns={columns}
-            rows={targets.data?.results ?? []}
-            rowKey={(t) => t.id}
-            isLoading={targets.isLoading}
-            emptyState={
-              <EmptyState
-                message="No targets yet."
-                action={{
-                  label: "Create target",
-                  onClick: () => navigate(ROUTES.targetsNew),
-                }}
-              />
-            }
-          />
-        )}
-      </div>
+      <ListPageGuard query={targets} errorBody="Could not load targets.">
+        <Table<Target>
+          columns={columns}
+          rows={targets.data?.results ?? []}
+          rowKey={(t) => t.id}
+          isLoading={targets.isLoading}
+          emptyState={
+            <EmptyState
+              message="No targets yet."
+              action={{
+                label: "Create target",
+                onClick: () => navigate(ROUTES.targetsNew),
+              }}
+            />
+          }
+        />
+      </ListPageGuard>
     </>
   );
 }

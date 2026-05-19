@@ -5,7 +5,7 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { BackendUnreachableCallout } from "../../components/Callout";
+import { ListPageGuard } from "../../components/ListPageGuard";
 import { useStubsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
 import type { StubSummary } from "../../types/api";
@@ -49,21 +49,15 @@ export function StubsList() {
   return (
     <>
       <PageHeader title="Stubs" />
-      <div className="mt-4">
-        {query.isError ? (
-          <BackendUnreachableCallout onRetry={query.refetch}>
-            Could not load stubs.
-          </BackendUnreachableCallout>
-        ) : (
-          <Table<StubSummary>
-            columns={columns}
-            rows={query.data ?? []}
-            rowKey={(s) => s.slug}
-            isLoading={query.isLoading}
-            emptyState={<EmptyState message="No stubs found." />}
-          />
-        )}
-      </div>
+      <ListPageGuard query={query} errorBody="Could not load stubs.">
+        <Table<StubSummary>
+          columns={columns}
+          rows={query.data ?? []}
+          rowKey={(s) => s.slug}
+          isLoading={query.isLoading}
+          emptyState={<EmptyState message="No stubs found." />}
+        />
+      </ListPageGuard>
     </>
   );
 }
