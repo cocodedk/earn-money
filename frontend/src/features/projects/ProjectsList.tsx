@@ -4,9 +4,8 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { Callout } from "../../components/Callout";
+import { BackendUnreachableCallout } from "../../components/Callout";
 import { useProjectsQuery } from "./api";
-import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { Project } from "../../types/api";
 
 const columns: TableColumn<Project>[] = [
@@ -32,13 +31,9 @@ export function ProjectsList() {
       />
       <div className="mt-4">
         {query.isError ? (
-          <Callout
-            variant="error"
-            title={BACKEND_UNREACHABLE}
-            action={{ label: "Retry", onClick: () => void query.refetch() }}
-          >
+          <BackendUnreachableCallout onRetry={() => void query.refetch()}>
             Could not load projects.
-          </Callout>
+          </BackendUnreachableCallout>
         ) : (
           <Table<Project>
             columns={columns}

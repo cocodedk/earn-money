@@ -5,10 +5,9 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { Callout } from "../../components/Callout";
+import { BackendUnreachableCallout } from "../../components/Callout";
 import { useStubsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
-import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { StubSummary } from "../../types/api";
 
 function buildColumns(): TableColumn<StubSummary>[] {
@@ -52,13 +51,9 @@ export function StubsList() {
       <PageHeader title="Stubs" />
       <div className="mt-4">
         {query.isError ? (
-          <Callout
-            variant="error"
-            title={BACKEND_UNREACHABLE}
-            action={{ label: "Retry", onClick: () => void query.refetch() }}
-          >
+          <BackendUnreachableCallout onRetry={() => void query.refetch()}>
             Could not load stubs.
-          </Callout>
+          </BackendUnreachableCallout>
         ) : (
           <Table<StubSummary>
             columns={columns}

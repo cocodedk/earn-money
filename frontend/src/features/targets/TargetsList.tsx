@@ -5,11 +5,10 @@ import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
-import { Callout } from "../../components/Callout";
+import { BackendUnreachableCallout } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
-import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { Project, Target } from "../../types/api";
 
 function nameLookup(projects: Project[] | undefined) {
@@ -64,13 +63,9 @@ export function TargetsList() {
       />
       <div className="mt-4">
         {targets.isError ? (
-          <Callout
-            variant="error"
-            title={BACKEND_UNREACHABLE}
-            action={{ label: "Retry", onClick: () => void targets.refetch() }}
-          >
+          <BackendUnreachableCallout onRetry={() => void targets.refetch()}>
             Could not load targets.
-          </Callout>
+          </BackendUnreachableCallout>
         ) : (
           <Table<Target>
             columns={columns}

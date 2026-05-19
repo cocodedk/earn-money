@@ -19,9 +19,7 @@ export function applyParsedError(parsed: ApiError, set: ErrorSetters): void {
       return set.setBannerError("Something went wrong. Please try again.");
     case "network":
       return set.setBannerError(`${BACKEND_UNREACHABLE}.`);
-    /* v8 ignore next 5 — compile-time exhaustiveness; unreachable at runtime
-       because ApiError.kind is a closed union. A new variant fails to type-
-       check here before it ever runs. */
+    /* v8 ignore next 4 — exhaustiveness guard; `never` makes a new ApiError.kind a type error */
     default: {
       const _exhaustive: never = parsed;
       return _exhaustive;
