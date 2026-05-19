@@ -5,7 +5,7 @@ import { DetailPageGuard } from "../../components/DetailPageGuard";
 import { MetaList, MetaRow } from "../../components/MetaList";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
-import { useScanRunQuery } from "./api";
+import { useScanRunQuery, isRunActive } from "./api";
 import { LifecycleActions } from "./LifecycleActions";
 import { StatusBadge } from "./StatusBadge";
 import { ScanRunTargetsTable } from "./ScanRunTargetsTable";
@@ -36,10 +36,10 @@ function DetailBody({ run }: { run: ScanRun }) {
           {run.finished_at ? run.finished_at.slice(0, 19) : "—"}
         </MetaRow>
       </MetaList>
-      {(() => {
-        const livePolling = run.status === "running" || run.status === "stopping";
-        return <ScanRunTargetsTable scanRunId={run.id} livePolling={livePolling} />;
-      })()}
+      <ScanRunTargetsTable
+        scanRunId={run.id}
+        livePolling={isRunActive(run.status)}
+      />
     </>
   );
 }

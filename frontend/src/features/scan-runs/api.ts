@@ -10,6 +10,10 @@ import type {
   Uuid,
 } from "../../types/api";
 
+export function isRunActive(status: string | undefined): boolean {
+  return status === "running" || status === "stopping";
+}
+
 export const SCAN_RUNS_KEY = ["scan-runs"] as const;
 export const scanRunKey = (id: string) => [...SCAN_RUNS_KEY, id] as const;
 
@@ -27,7 +31,7 @@ export function useScanRunQuery(id: string | undefined) {
     enabled: Boolean(id),
     refetchInterval: (q) => {
       const status = q.state.data?.status;
-      return status === "running" || status === "stopping" ? 2000 : false;
+      return isRunActive(status) ? 2000 : false;
     },
   });
 }
