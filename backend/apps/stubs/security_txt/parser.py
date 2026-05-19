@@ -55,13 +55,17 @@ def parse_security_txt(body: str) -> ParsedSecurityTxt:
     errors: list[str] = []
 
     for lineno, raw in enumerate(body.splitlines(), start=1):
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("#"):
+        # RFC 9116 §2.2: comments begin with `#` and extend to end of
+        # line. Strip the inline comment BEFORE the blank/colon checks
+        # so `Contact: mailto:a@x.test # primary` doesn't store the
+        # whole "mailto:a@x.test # primary" tail as the value.
+        line = _strip_inline_comment(raw).strip()
+        if not line:
             continue
-        if ":" not in stripped:
-            errors.append(f"line {lineno}: malformed (no colon): {stripped!r}")
+        if ":" not in line:
+            errors.append(f"line {lineno}: malformed (no colon): {line!r}")
             continue
-        name, _, value = stripped.partition(":")
+        name, _, value = line.partition(":")
         name = name.strip()
         value = value.strip()
         if not value:
@@ -73,6 +77,25 @@ def parse_security_txt(body: str) -> ParsedSecurityTxt:
         else:
             unknown.append((name, value))
 
+    return _freeze(known, unknown, errors)
+
+
+def _strip_inline_comment(raw: str) -> str:
+    """Slice `raw` at the first `#` and return the prefix. RFC 9116
+    §2.2 doesn't reserve any escape syntax for `#`, so fragments in
+    URI values (rare in security.txt — mailto: has none, https:// is
+    discouraged for Contact) are sacrificed for spec compliance."""
+    idx = raw.find("#")
+    if idx == -1:
+        return raw
+    return raw[:idx]
+
+
+def _freeze(
+    known: dict[str, list[str]],
+    unknown: list[tuple[str, str]],
+    errors: list[str],
+) -> ParsedSecurityTxt:
     return ParsedSecurityTxt(
         contact=tuple(known["contact"]),
         expires=tuple(known["expires"]),

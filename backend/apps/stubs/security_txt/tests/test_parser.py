@@ -109,6 +109,14 @@ class CommentTests(unittest.TestCase):
         parsed = parse_security_txt(body)
         assert parsed.contact == ("mailto:a@x.test",)
 
+    def test_inline_comment_after_value_stripped(self) -> None:
+        # RFC 9116 §2.2: comments begin with `#` and run to end of
+        # line. The Contact value must NOT include the trailing
+        # ` # primary` comment.
+        body = "Contact: mailto:sec@example.test # primary contact\n"
+        parsed = parse_security_txt(body)
+        assert parsed.contact == ("mailto:sec@example.test",)
+
 
 class UnknownFieldTests(unittest.TestCase):
     def test_unknown_field_preserved(self) -> None:
