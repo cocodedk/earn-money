@@ -35,14 +35,23 @@ class ApiErrorIndicator(NamedTuple):
     matched_value: str  # bounded snippet for evidence excerpt
 
 
-# Strong-disclosure JSON field NAMES (case-sensitive — frameworks
-# emit these exact keys). Spec §"Strong disclosure indicators":
-# stack/trace fields + exception fields + source location fields.
-_STRONG_JSON_FIELDS: frozenset[str] = frozenset({
-    "stack", "trace", "stackTrace", "traceback", "frames", "backtrace",
-    "exception", "exceptionClass", "errorClass",
-    "file", "filename", "line", "lineNumber", "column",
+# Strong-disclosure JSON field NAMES, lowercased — matched case-
+# insensitively against the response body's keys. Spec §"Strong
+# disclosure indicators": stack/trace + exception + source location.
+# Lowercasing the body's keys at walk time lets the matcher catch
+# .NET PascalCase emissions (`StackTrace`, `Source`, `InnerException`)
+# alongside the typical lowerCamelCase from Node/Python/Java.
+_STRONG_JSON_FIELDS_LOWER: frozenset[str] = frozenset({
+    "stack", "trace", "stacktrace", "traceback", "frames", "backtrace",
+    "exception", "exceptionclass", "errorclass",
+    "file", "filename", "line", "linenumber", "column",
 })
+
+# Per-field matched_value cap. The signature row carries up to
+# spec-config max_evidence_excerpt_bytes (4096) for the body
+# excerpt; the per-field snippet is one log line so the row stays
+# compact when many fields fire.
+_MATCHED_VALUE_CAP = 120
 
 # Source-path patterns: an absolute path on Unix or Windows that
 # carries a language-extension line/column suffix. Conservative —
@@ -79,7 +88,12 @@ _DATABASE_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"\bsqlite3\.[A-Za-z]*Error\b"),
     re.compile(r"\bno such table:\s+\w+", re.IGNORECASE),
-    re.compile(r"\bMicrosoft SQL Server\b.*\berror\b", re.IGNORECASE),
+    # Bounded `.{0,200}?` avoids full-body backtracking when the
+    # first literal hits early and the second never appears.
+    re.compile(
+        r"\bMicrosoft SQL Server\b.{0,200}?\berror\b",
+        re.IGNORECASE | re.DOTALL,
+    ),
     re.compile(r"\bMongo(?:Network|Server|Write|)Error\b"),
 )
 
@@ -121,7 +135,10 @@ def _first_json_field(
 def _walk_for_strong_field(node) -> ApiErrorIndicator | None:
     if isinstance(node, dict):
         for key, value in node.items():
-            if key in _STRONG_JSON_FIELDS and _is_meaningful(value):
+            if (
+                key.lower() in _STRONG_JSON_FIELDS_LOWER
+                and _is_meaningful(value)
+            ):
                 return ApiErrorIndicator(
                     kind="json_debug_field",
                     matched_value=f"{key}={_excerpt(value)}",
@@ -147,8 +164,8 @@ def _is_meaningful(value: object) -> bool:
     return True
 
 
-def _excerpt(value: object, *, cap: int = 120) -> str:
-    return str(value)[:cap]
+def _excerpt(value: object) -> str:
+    return str(value)[:_MATCHED_VALUE_CAP]
 
 
 def _first_match(

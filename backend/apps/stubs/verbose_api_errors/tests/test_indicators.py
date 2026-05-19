@@ -47,6 +47,13 @@ class JsonDebugFieldTests(unittest.TestCase):
         body = '{"stackTrace": "TypeError: foo"}'
         assert "json_debug_field" in _kinds(body)
 
+    def test_pascalcase_StackTrace_field_detected(self) -> None:
+        # .NET DeveloperExceptionPage serialises with PascalCase
+        # keys (`StackTrace`, `Source`, `InnerException`). The
+        # matcher lowercases keys at walk time so it picks them up.
+        body = '{"StackTrace": "System.NullReferenceException..."}'
+        assert "json_debug_field" in _kinds(body)
+
     def test_empty_field_value_skipped(self) -> None:
         # `stack: ""` and `stack: null` mean nothing — must not flag.
         for body in (
