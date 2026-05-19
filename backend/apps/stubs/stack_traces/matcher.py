@@ -18,6 +18,15 @@ from typing import NamedTuple
 from .signatures import SIGNATURES, Family, Language, Signature
 
 
+# Families that match only the "loose" fallback shapes (no language
+# or framework hint). The classifier downgrades these to lower
+# confidence; the runner uses them in severity selection. Defined
+# here so all three callers read the same authoritative set.
+GENERIC_FAMILIES: frozenset[str] = frozenset({
+    "generic_stack_trace", "path_line_leak",
+})
+
+
 class StackTraceMatch(NamedTuple):
     family: Family
     language: Language
@@ -25,6 +34,24 @@ class StackTraceMatch(NamedTuple):
     exception_type: str | None
     top_frame: str | None
     stack_frame_count: int
+
+
+def strongest_match(matches: list[StackTraceMatch]) -> StackTraceMatch:
+    """Pick the highest-signal match: more frames > with exception >
+    framework set > known (non-generic) family. Ties break on first-
+    seen so deterministic ordering across runs is preserved when two
+    equally strong matches appear. Public so the classifier and the
+    runner agree on which match gets persisted — drifting copies
+    would silently desync the runner's Finding row from the
+    classifier's confidence verdict."""
+    def score(m: StackTraceMatch) -> tuple[int, int, int, int]:
+        return (
+            m.stack_frame_count,
+            1 if m.exception_type else 0,
+            1 if m.framework else 0,
+            0 if m.family in GENERIC_FAMILIES else 1,
+        )
+    return max(matches, key=score)
 
 
 def detect_stack_traces(body: str, content_type: str) -> list[StackTraceMatch]:

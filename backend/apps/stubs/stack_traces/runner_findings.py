@@ -15,16 +15,11 @@ from apps.targets.models import ScanTarget
 
 from .classifier import Verdict
 from .fetcher import ResponseSnapshot
-from .matcher import StackTraceMatch
+from .matcher import GENERIC_FAMILIES, StackTraceMatch
 
 
 _STUB_SLUG = "1.16"
 _CATEGORY = "stack_traces"
-# Generic fallbacks emit info; everything else (concrete framework
-# stack, language-specific runtime) emits low because the spec ties
-# severity_source=deterministic to the evidence carrying a real
-# language/framework leak.
-_GENERIC_FAMILIES = frozenset({"generic_stack_trace", "path_line_leak"})
 
 
 def emit_finding(
@@ -32,8 +27,12 @@ def emit_finding(
     *, snapshot: ResponseSnapshot, match: StackTraceMatch,
     verdict: Verdict, evidence_ids: list[str], requested_url: str,
 ) -> Finding:
+    # Generic fallbacks emit info; everything else (concrete
+    # framework stack, language-specific runtime) emits low — spec
+    # ties severity_source=deterministic to evidence carrying a real
+    # language/framework leak.
     severity = (
-        Severity.INFO if match.family in _GENERIC_FAMILIES else Severity.LOW
+        Severity.INFO if match.family in GENERIC_FAMILIES else Severity.LOW
     )
     finding = Finding(
         scan_run=scan_run, target=target, stub_slug=_STUB_SLUG,

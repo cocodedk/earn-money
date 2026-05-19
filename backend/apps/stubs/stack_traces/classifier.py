@@ -20,15 +20,12 @@ from __future__ import annotations
 from typing import Literal, NamedTuple
 
 from .._shared.types import Confidence
-from .matcher import StackTraceMatch
+from .matcher import GENERIC_FAMILIES, StackTraceMatch, strongest_match
 
 
 Status = Literal["candidate", "confirmed", "rejected", "stale"]
 
 _ERROR_STATUS_THRESHOLD = 400
-_GENERIC_FAMILIES: frozenset[str] = frozenset({
-    "generic_stack_trace", "path_line_leak",
-})
 
 
 class Verdict(NamedTuple):
@@ -46,7 +43,7 @@ def classify(
         return None
     if is_docs_like:
         return Verdict(confidence="low", status="rejected")
-    best = _strongest(matches)
+    best = strongest_match(matches)
     return Verdict(
         confidence=_confidence_for(best, response_status),
         status="confirmed",
@@ -57,7 +54,7 @@ def _confidence_for(
     match: StackTraceMatch, response_status: int,
 ) -> Confidence:
     has_exception = match.exception_type is not None
-    is_known_family = match.family not in _GENERIC_FAMILIES
+    is_known_family = match.family not in GENERIC_FAMILIES
     is_error_response = response_status >= _ERROR_STATUS_THRESHOLD
 
     qualifies_for_high = (
@@ -80,18 +77,3 @@ def _confidence_for(
         return "medium"
 
     return "low"
-
-
-def _strongest(matches: list[StackTraceMatch]) -> StackTraceMatch:
-    """Pick the match with the highest signal: more frames > with
-    exception > framework set > known (non-generic) family. Ties
-    break on first-seen so deterministic ordering across runs is
-    preserved when two equally strong matches appear."""
-    def score(m: StackTraceMatch) -> tuple[int, int, int, int]:
-        return (
-            m.stack_frame_count,
-            1 if m.exception_type else 0,
-            1 if m.framework else 0,
-            0 if m.family in _GENERIC_FAMILIES else 1,
-        )
-    return max(matches, key=score)
