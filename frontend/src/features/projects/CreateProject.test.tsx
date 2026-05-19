@@ -49,6 +49,58 @@ describe("CreateProject", () => {
     );
   });
 
+  it("submits the body shape {name, description} matching the contract", async () => {
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      msw.post("/api/projects/", async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            id: "u-new",
+            name: "Acme",
+            description: "Lab",
+            target_count: 0,
+            scan_run_count: 0,
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<CreateProject />, { route: "/projects/new" });
+    await userEvent.type(screen.getByLabelText(/Name/), "Acme");
+    await userEvent.type(screen.getByLabelText(/Description/), "Lab");
+    await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(received).not.toBeNull());
+    expect(received).toEqual({ name: "Acme", description: "Lab" });
+  });
+
+  it("sends description as empty string (not null) when left blank", async () => {
+    let received: Record<string, unknown> | null = null;
+    server.use(
+      msw.post("/api/projects/", async ({ request }) => {
+        received = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            id: "u-new",
+            name: "Acme",
+            description: "",
+            target_count: 0,
+            scan_run_count: 0,
+            created_at: "2026-05-18T20:00:00.000000Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderWithProviders(<CreateProject />, { route: "/projects/new" });
+    await userEvent.type(screen.getByLabelText(/Name/), "Acme");
+    await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+    await waitFor(() => expect(received).not.toBeNull());
+    expect(received!.description).toBe("");
+    expect(received!.description).not.toBeNull();
+  });
+
   it("renders server field errors under the matching input", async () => {
     server.use(
       msw.post("/api/projects/", () =>
