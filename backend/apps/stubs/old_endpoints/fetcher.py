@@ -37,6 +37,11 @@ from .candidates import SEEDED_PATHS
 DEFAULT_VERIFY = os.environ.get("OLD_ENDPOINTS_VERIFY", "1") != "0"
 DEFAULT_TIMEOUT = 8.0
 
+# Path-segment marker shared between fetcher (emits) and runner
+# (skips). Tests reference it via the same constant so a rename in
+# one place doesn't silently drift the other.
+CONTROL_MARKER = "__scanner_control_"
+
 # Headers the runner needs for classification and signal extraction.
 # Capturing only this allowlist keeps cookies, auth tokens, and other
 # credential-bearing headers out of the bundle — spec §Safety requires
@@ -109,10 +114,11 @@ def _control_paths() -> tuple[str, str, str]:
     Per-namespace coverage so the runner can detect e.g. an SPA shell
     that only fires under /, distinct from a JSON 404 under /api."""
     nonce = secrets.token_hex(6)
+    suffix = f"{CONTROL_MARKER}not_found_{nonce}"
     return (
-        f"/__scanner_control_not_found_{nonce}",
-        f"/api/__scanner_control_not_found_{nonce}",
-        f"/legacy/__scanner_control_not_found_{nonce}",
+        f"/{suffix}",
+        f"/api/{suffix}",
+        f"/legacy/{suffix}",
     )
 
 

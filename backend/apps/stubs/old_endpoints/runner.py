@@ -18,17 +18,16 @@ from urllib.parse import urljoin
 from django.db import transaction
 
 from apps.evidence.models import Evidence, EvidenceSource
-from apps.findings.models import Finding, FindingStatus, Severity
+from apps.findings.models import Finding, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
 from ..runners import register
 from .classify import Verdict, classify_probe
-from .fetcher import fetch_evidence
+from .fetcher import CONTROL_MARKER, fetch_evidence
 
 
 _FINDING_SOURCE = "old_endpoints"
-_CONTROL_MARKER = "__scanner_control_"
 
 
 @register("1.9")
@@ -59,7 +58,7 @@ def _classify_all(
     they're the soft-404 reference. Skip them by their nonce marker."""
     out: list[tuple[str, dict, Verdict]] = []
     for path, probe in probes.items():
-        if _CONTROL_MARKER in path:
+        if CONTROL_MARKER in path:
             continue
         verdict = classify_probe(path, probe, baseline_body)
         if verdict is not None:
@@ -110,7 +109,7 @@ def _build_rows(
                 category=verdict.classification,
                 severity=Severity.INFO,
                 confidence=verdict.confidence,
-                status=getattr(FindingStatus, verdict.finding_status.upper()),
+                status=verdict.finding_status,
                 data={
                     "finding_type": "old_endpoint",
                     "path": path,

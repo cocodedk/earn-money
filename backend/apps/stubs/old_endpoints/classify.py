@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+from apps.findings.models import FindingStatus
+
 from .signals import (
     body_has_deprecation_marker,
     header_deprecation_evidence,
@@ -26,8 +28,8 @@ _AUTH_BOUNDARY_STATUSES = {401, 403}
 
 
 class Verdict(NamedTuple):
-    classification: str  # "alive" | ...
-    finding_status: str  # FindingStatus value
+    classification: str  # "alive" | "auth_boundary" | "method_discovery_only"
+    finding_status: FindingStatus
     confidence: str  # "low" | "medium" | "high"
     indicators: list[str]  # spec stale_indicators vocabulary
 
@@ -53,13 +55,15 @@ def classify_probe(
     # presence of any allowlisted deprecation marker is enough; path
     # token isn't required (the header is the server's authority).
     if header_evidence:
-        return Verdict("alive", "confirmed", "high", indicators)
+        return Verdict(
+            "alive", FindingStatus.CONFIRMED, "high", indicators,
+        )
 
     # Spec §7 row 2: deprecation marker in the body → confirmed/high.
     # Same authority as the header — server explicitly says deprecated.
     if body and body_has_deprecation_marker(body):
         return Verdict(
-            "alive", "confirmed", "high",
+            "alive", FindingStatus.CONFIRMED, "high",
             indicators + ["body_marker:deprecation"],
         )
 
@@ -74,11 +78,12 @@ def classify_probe(
     # medium (auth gate on a legacy path is signal but not proof).
     if status in _AUTH_BOUNDARY_STATUSES:
         return Verdict(
-            "auth_boundary", "candidate", "medium", indicators,
+            "auth_boundary", FindingStatus.CANDIDATE, "medium", indicators,
         )
     if status == 405:
         return Verdict(
-            "method_discovery_only", "candidate", "medium", indicators,
+            "method_discovery_only", FindingStatus.CANDIDATE, "medium",
+            indicators,
         )
 
     # Spec §7 row 3: stale-token path is LIVE (200/204/206) with no
@@ -88,10 +93,10 @@ def classify_probe(
     if status not in _ALIVE_STATUSES:
         return None
 
-    # Filter SPA shells / homepage fallback: if the body is identical
-    # to the baseline, that's almost certainly the SPA shell or a
-    # wildcard route handler — classify as generic_fallback, no
-    # finding (spec §6 generic_fallback classification rule).
+    # Spec §6 generic_fallback rule: body identical to the homepage
+    # baseline classifies as fallback, not endpoint hit.
     if body and body == baseline_body:
         return None
-    return Verdict("alive", "candidate", "medium", indicators)
+    return Verdict(
+        "alive", FindingStatus.CANDIDATE, "medium", indicators,
+    )
