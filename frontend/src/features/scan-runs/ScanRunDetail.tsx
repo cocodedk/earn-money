@@ -1,13 +1,8 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
-import {
-  BackendUnreachableCallout,
-  Callout,
-  CalloutSlot,
-} from "../../components/Callout";
+import { DetailPageGuard } from "../../components/DetailPageGuard";
 import { MetaList, MetaRow } from "../../components/MetaList";
-import { isHttpStatus } from "../../lib/http";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
 import { useScanRunQuery } from "./api";
@@ -47,34 +42,19 @@ function DetailBody({ run }: { run: ScanRun }) {
 export function ScanRunDetail() {
   const { id } = useParams();
   const query = useScanRunQuery(id);
-
-  if (isHttpStatus(query.error, 404)) {
-    return (
-      <>
-        <PageHeader title="Scan run not found" />
-        <CalloutSlot>
-          <Callout variant="info">
-            No scan run matches "{id}".{" "}
-            <Link to={ROUTES.scanRuns}>Back to scan runs.</Link>
-          </Callout>
-        </CalloutSlot>
-      </>
-    );
-  }
-  if (query.isError) {
-    return (
-      <>
-        <PageHeader title="Scan run" />
-        <CalloutSlot>
-          <BackendUnreachableCallout>
-            Could not load scan run.
-          </BackendUnreachableCallout>
-        </CalloutSlot>
-      </>
-    );
-  }
-  if (!query.data) {
-    return <PageHeader title="Loading…" />;
-  }
-  return <DetailBody run={query.data} />;
+  return (
+    <DetailPageGuard
+      query={query}
+      options={{
+        notFoundTitle: "Scan run not found",
+        notFoundMessage: `No scan run matches "${id}".`,
+        backTo: ROUTES.scanRuns,
+        backLabel: "Back to scan runs.",
+        errorTitle: "Scan run",
+        errorBody: "Could not load scan run.",
+      }}
+    >
+      {(run) => <DetailBody run={run} />}
+    </DetailPageGuard>
+  );
 }
