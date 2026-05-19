@@ -28,13 +28,14 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-import hashlib
 import os
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
 
 import httpx
+
+from .._shared.hashing import body_hash_bytes
 
 
 DEFAULT_VERIFY = os.environ.get("PUBLIC_JS_BUNDLES_VERIFY", "1") != "0"
@@ -54,15 +55,14 @@ _JS_URL_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx")
 
 _GENERIC_CONTENT_TYPES = frozenset({"", "application/octet-stream", "text/plain"})
 
-# Body-prefix patterns that signal JavaScript on a generic content
-# type. Conservative — minified bundles often start with a comment
-# or an IIFE; modules with `import`/`export`; CommonJS with
-# `module.exports`; classic scripts with `var`/`function`. The
-# heuristic only kicks in when the URL also looks like JS, so the
-# false-positive surface is bounded.
+# Prefix patterns that signal JavaScript on a generic content type.
+# Spec: "body starts like JavaScript" — strict prefix match (post-
+# leading-whitespace), no substring fallback. The heuristic only
+# kicks in when the URL also looks like JS, so the false-positive
+# surface is bounded.
 _JS_BODY_MARKERS = (
-    "//", "/*", "function", "=>", "var ", "const ", "let ",
-    "import ", "export ", "module.exports", "(function", "!function",
+    "//", "/*", "function", "var ", "const ", "let ",
+    "import ", "export ", "(function", "!function",
 )
 
 _JS_BODY_PROBE_BYTES = 1024
@@ -130,24 +130,24 @@ def _classify(
     final_url = str(response.url)
     raw_ct = response.headers.get("content-type", "")
     content_type = raw_ct.split(";", 1)[0].strip().lower()
-    raw_body = response.text or ""
-    body = raw_body[:max_body_bytes]
-    bytes_read = len(body.encode("utf-8"))
-    truncated = len(raw_body) > max_body_bytes
+    # Cap and hash in WIRE BYTES per spec §"Fetch bundle metadata":
+    # max_bundle_bytes is a byte budget, the sha256 is over the bytes
+    # read. Slicing response.text (a decoded str) would either let a
+    # multibyte-UTF-8 payload past the budget or undercount it.
+    raw_bytes = response.content or b""
+    body_bytes = raw_bytes[:max_body_bytes]
+    truncated = len(raw_bytes) > max_body_bytes
+    body = body_bytes.decode("utf-8", errors="replace")
+    bytes_read = len(body_bytes)
     status = response.status_code
 
     kind = _kind_for(status, content_type, final_url, body)
-    sha256 = (
-        hashlib.sha256(body.encode("utf-8")).hexdigest()
-        if kind in ("ok", "non_js", "blocked") else None
-    )
-    if kind not in ("ok", "non_js", "blocked"):
+    if kind in {"ok", "non_js", "blocked"}:
+        sha256 = body_hash_bytes(body_bytes)
+    else:
         # absent / inconclusive responses don't carry meaningful
         # bundle bytes; drop the body to keep evidence focused.
-        body = ""
-        bytes_read = 0
-        truncated = False
-        sha256 = None
+        body, bytes_read, truncated, sha256 = "", 0, False, None
 
     return BundleFetchOutcome(
         kind=kind, status=status, body=body, final_url=final_url,
@@ -185,8 +185,7 @@ def _body_looks_like_js(body: str) -> bool:
     head = body[:_JS_BODY_PROBE_BYTES].lstrip()
     if not head:
         return False
-    return any(head.startswith(marker) or marker in head[:200]
-               for marker in _JS_BODY_MARKERS)
+    return any(head.startswith(marker) for marker in _JS_BODY_MARKERS)
 
 
 def _parse_content_length(headers) -> int | None:

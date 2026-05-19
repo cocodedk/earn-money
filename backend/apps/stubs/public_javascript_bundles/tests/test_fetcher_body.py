@@ -16,6 +16,18 @@ from ..fetcher import BundleFetcherConfig, BundleFetchOutcome, fetch_bundle
 from ._helpers import mocked_fetcher, resp
 
 
+def _resp_bytes(body_bytes: bytes, *, url: str, ct: str = "application/javascript"):
+    """Build a 200 response from raw bytes — used to drive the
+    fetcher's byte-semantic cap path without UTF-8 round-trip."""
+    import httpx
+    return httpx.Response(
+        status_code=200,
+        headers={"content-type": ct},
+        content=body_bytes,
+        request=httpx.Request("GET", url),
+    )
+
+
 _HOST = "https://example.test"
 
 
@@ -60,6 +72,26 @@ class TruncationTests(unittest.TestCase):
         assert outcome.truncated is True
         expected = hashlib.sha256(("a" * (1024 * 1024)).encode("utf-8")).hexdigest()
         assert outcome.sha256 == expected
+
+    def test_truncation_is_byte_semantic_not_char_semantic(self) -> None:
+        # Spec §"Fetch bundle metadata": max_bundle_bytes is a BYTE
+        # budget. A 4-byte-per-char UTF-8 payload at 1024 chars is
+        # 4096 bytes — must be truncated when the cap is 1024 bytes.
+        # The previous str-slicing implementation would have let it
+        # through silently.
+        url = f"{_HOST}/utf8.js"
+        char = "𝄞"  # U+1D11E G clef — 4 bytes in UTF-8
+        body_bytes = (char * 1024).encode("utf-8")  # 4096 wire bytes
+        assert len(body_bytes) == 4096
+        with mocked_fetcher({"/utf8.js": _resp_bytes(body_bytes, url=url)}):
+            outcome = fetch_bundle(
+                url, config=BundleFetcherConfig(max_body_bytes=1024),
+            )
+        assert outcome.kind == "ok"
+        assert outcome.bytes_read == 1024
+        assert outcome.truncated is True
+        # sha256 is over the bytes read, not the decoded chars.
+        assert outcome.sha256 == hashlib.sha256(body_bytes[:1024]).hexdigest()
 
     def test_undersized_body_not_truncated(self) -> None:
         url = f"{_HOST}/small.js"

@@ -15,6 +15,13 @@ def body_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def body_hash_bytes(data: bytes) -> str:
+    """Raw hex SHA-256 of `data`. Bytes flavour for callers (stub 1.15
+    fetcher) that work in wire bytes so the hash is independent of
+    UTF-8 decoding decisions."""
+    return hashlib.sha256(data).hexdigest()
+
+
 def prefixed_body_hash(text: str) -> str:
     """Return `sha256:<hex>` — the format Evidence.content_hash carries
     so downstream tooling can split on `:` to recover the algorithm."""
