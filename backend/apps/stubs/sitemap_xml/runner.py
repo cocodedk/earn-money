@@ -24,7 +24,7 @@ from urllib.parse import urljoin
 from django.db import transaction
 
 from apps.evidence.models import Evidence, EvidenceSource
-from apps.findings.models import Finding, Severity
+from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
@@ -85,7 +85,7 @@ def _probe_seeds(
             else None
         )
         verdict = classify_response(outcome, parsed=parsed)
-        if verdict.finding_status.value == "confirmed":
+        if verdict.finding_status == FindingStatus.CONFIRMED:
             return outcome, parsed, verdict
         last = (outcome, parsed, verdict)
     assert last is not None, "_SEEDS is non-empty"
