@@ -70,11 +70,13 @@ describe("FiltersBar", () => {
     expect(onChange).toHaveBeenCalledWith("severity", "high");
   });
 
-  it("renders a text input when a filter has no options", async () => {
+  it("renders a text input when inputType=text", async () => {
     const onChange = vi.fn();
     render(
       <FiltersBar
-        filters={[{ key: "source", label: "Source", options: [] }]}
+        filters={[
+          { key: "source", label: "Source", options: [], inputType: "text" },
+        ]}
         values={{ source: "" }}
         onChange={onChange}
       />,
@@ -83,5 +85,19 @@ describe("FiltersBar", () => {
     expect(input).toHaveAttribute("type", "text");
     await userEvent.type(input, "x");
     expect(onChange).toHaveBeenCalledWith("source", "x");
+  });
+
+  it("falls back to a select with just 'All' when options is empty (default mode)", () => {
+    render(
+      <FiltersBar
+        filters={[{ key: "project", label: "Project", options: [] }]}
+        values={{}}
+        onChange={() => {}}
+      />,
+    );
+    const select = screen.getByLabelText("Project") as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    expect(select.options).toHaveLength(1);
+    expect(select.options[0].textContent).toBe("All");
   });
 });

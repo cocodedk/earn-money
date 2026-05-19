@@ -6,6 +6,7 @@ export type FilterDef = {
   key: string;
   label: string;
   options: FilterOption[];
+  inputType?: "select" | "text";
 };
 
 export type FiltersBarProps = {
@@ -20,10 +21,11 @@ export function FiltersBar({ filters, values, onChange }: FiltersBarProps) {
       {filters.map((filter) => {
         const value = values[filter.key] ?? "";
         const inputId = `filter-${filter.key}`;
+        const mode = filter.inputType ?? "select";
         return (
           <label key={filter.key} className={styles.filter} htmlFor={inputId}>
             <span className={styles.label}>{filter.label}</span>
-            {filter.options.length > 0 ? (
+            {mode === "select" ? (
               <select
                 id={inputId}
                 className={styles.select}
