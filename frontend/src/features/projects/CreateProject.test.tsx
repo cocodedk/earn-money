@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useLocation } from "react-router-dom";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
+import { LocationProbe } from "../../test/helpers";
 import { CreateProject } from "./CreateProject";
-
-function LocationProbe() {
-  return <span data-testid="loc">{useLocation().pathname}</span>;
-}
 
 describe("CreateProject", () => {
   it("validates required name field locally", async () => {

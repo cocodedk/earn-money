@@ -4,20 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
+import { withPaginated } from "../../test/helpers";
 import { ProjectsList } from "./ProjectsList";
 
-function withProjects(rows: unknown[]) {
-  server.use(
-    msw.get("/api/projects/", () =>
-      HttpResponse.json({
-        count: rows.length,
-        next: null,
-        previous: null,
-        results: rows,
-      }),
-    ),
-  );
-}
+const withProjects = (rows: unknown[]) =>
+  withPaginated("/api/projects/", rows);
 
 describe("ProjectsList", () => {
   it("shows the skeleton while loading", () => {

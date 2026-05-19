@@ -2,14 +2,10 @@ import { describe, it, expect } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http as msw, HttpResponse } from "msw";
-import { useLocation } from "react-router-dom";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
+import { LocationProbe, withPaginated } from "../../test/helpers";
 import { TargetsList } from "./TargetsList";
-
-function LocationProbe() {
-  return <span data-testid="loc">{useLocation().pathname}</span>;
-}
 
 const PROJECT = {
   id: "p-1",
@@ -31,31 +27,9 @@ const TARGET = {
   updated_at: "2026-05-19T08:00:00.000000Z",
 };
 
-function withProjects(rows: unknown[]) {
-  server.use(
-    msw.get("/api/projects/", () =>
-      HttpResponse.json({
-        count: rows.length,
-        next: null,
-        previous: null,
-        results: rows,
-      }),
-    ),
-  );
-}
-
-function withTargets(rows: unknown[]) {
-  server.use(
-    msw.get("/api/targets/", () =>
-      HttpResponse.json({
-        count: rows.length,
-        next: null,
-        previous: null,
-        results: rows,
-      }),
-    ),
-  );
-}
+const withProjects = (rows: unknown[]) =>
+  withPaginated("/api/projects/", rows);
+const withTargets = (rows: unknown[]) => withPaginated("/api/targets/", rows);
 
 describe("TargetsList", () => {
   it("shows a skeleton while the list is loading", () => {

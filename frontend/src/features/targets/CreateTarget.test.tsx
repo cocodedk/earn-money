@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useLocation } from "react-router-dom";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
+import { LocationProbe, withPaginated } from "../../test/helpers";
 import { CreateTarget } from "./CreateTarget";
 
 const PROJECT = {
@@ -16,18 +16,8 @@ const PROJECT = {
   created_at: "2026-05-19T08:00:00.000000Z",
 };
 
-function withProjects(rows: unknown[]) {
-  server.use(
-    msw.get("/api/projects/", () =>
-      HttpResponse.json({
-        count: rows.length,
-        next: null,
-        previous: null,
-        results: rows,
-      }),
-    ),
-  );
-}
+const withProjects = (rows: unknown[]) =>
+  withPaginated("/api/projects/", rows);
 
 function trackPostCount() {
   let count = 0;
@@ -38,10 +28,6 @@ function trackPostCount() {
     }),
   );
   return () => count;
-}
-
-function LocationProbe() {
-  return <span data-testid="loc">{useLocation().pathname}</span>;
 }
 
 async function pickProject(name = "Local Lab") {
@@ -112,17 +98,9 @@ describe("CreateTarget — happy paths", () => {
 
 describe("CreateTarget — projects-query branches", () => {
   it("disables project select while projects are loading", async () => {
-    server.use(
-      msw.get("/api/projects/", async () => {
-        await new Promise((r) => setTimeout(r, 5000));
-        return HttpResponse.json({
-          count: 0,
-          next: null,
-          previous: null,
-          results: [],
-        });
-      }),
-    );
+    // Never-resolving handler keeps the projects query in its loading
+    // state for the lifetime of this test — no timer to drain.
+    server.use(msw.get("/api/projects/", () => new Promise(() => {})));
     renderWithProviders(<CreateTarget />, { route: "/targets/new" });
     const select = await screen.findByLabelText(/Project/);
     expect(select).toBeDisabled();

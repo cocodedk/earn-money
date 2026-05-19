@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, ReactNode, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
@@ -29,18 +29,26 @@ function validateBaseUrl(raw: string): string | null {
   return null;
 }
 
-function buildBody(
-  projectId: string,
-  baseUrl: string,
-  host: string,
-  ip: string,
-): CreateTargetBody {
+type FormState = {
+  projectId: string;
+  baseUrl: string;
+  host: string;
+  ip: string;
+};
+
+function buildBody(state: FormState): CreateTargetBody {
   return {
-    project: projectId,
-    base_url: baseUrl.trim(),
-    ...(host.trim() ? { host: host.trim() } : {}),
-    ...(ip.trim() ? { ip: ip.trim() } : {}),
+    project: state.projectId,
+    base_url: state.baseUrl.trim(),
+    ...(state.host.trim() ? { host: state.host.trim() } : {}),
+    ...(state.ip.trim() ? { ip: state.ip.trim() } : {}),
   };
+}
+
+// Wraps Callouts in the `mt-4` spacing used between page header and body —
+// kept inline because Callout itself is the abstraction; this is layout.
+function CalloutSlot({ children }: { children: ReactNode }) {
+  return <div className="mt-4">{children}</div>;
 }
 
 export function CreateTarget() {
@@ -71,7 +79,7 @@ export function CreateTarget() {
     setFieldErrors({});
     setBannerError(null);
     try {
-      await mutation.mutateAsync(buildBody(projectId, baseUrl, host, ip));
+      await mutation.mutateAsync(buildBody({ projectId, baseUrl, host, ip }));
       navigate(ROUTES.targets);
     } catch (err) {
       const parsed = await parseApiError(
@@ -90,21 +98,21 @@ export function CreateTarget() {
     <>
       <PageHeader title="Create target" />
       {bannerError && (
-        <div className="mt-4">
+        <CalloutSlot>
           <Callout variant="error">{bannerError}</Callout>
-        </div>
+        </CalloutSlot>
       )}
       {projects.isError && (
-        <div className="mt-4">
+        <CalloutSlot>
           <Callout variant="error">Could not load projects.</Callout>
-        </div>
+        </CalloutSlot>
       )}
       {isProjectsEmpty && (
-        <div className="mt-4">
+        <CalloutSlot>
           <Callout variant="info">
             <Link to={ROUTES.projectsNew}>Create a project first.</Link>
           </Callout>
-        </div>
+        </CalloutSlot>
       )}
       <form
         onSubmit={onSubmit}

@@ -1,20 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
 import { server } from "../../test/server";
+import { makeRenderHookWrapper } from "../../test/renderWithProviders";
 import { TARGETS_KEY, useCreateTargetMutation, useTargetsQuery } from "./api";
-
-function makeWrapper() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-  }
-  return { client, Wrapper };
-}
 
 describe("useTargetsQuery", () => {
   it("fetches and returns the page of targets", async () => {
@@ -39,7 +28,7 @@ describe("useTargetsQuery", () => {
         }),
       ),
     );
-    const { Wrapper } = makeWrapper();
+    const { Wrapper } = makeRenderHookWrapper();
     const { result } = renderHook(() => useTargetsQuery(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current.data?.count).toBe(1));
     expect(result.current.data?.results[0].host).toBe("dvwa.cocode.dk");
@@ -67,7 +56,7 @@ describe("useCreateTargetMutation", () => {
         );
       }),
     );
-    const { client, Wrapper } = makeWrapper();
+    const { client, Wrapper } = makeRenderHookWrapper();
     const invalidateSpy = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useCreateTargetMutation(), {
       wrapper: Wrapper,

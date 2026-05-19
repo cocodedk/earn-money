@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
@@ -57,7 +58,13 @@ export function TargetsList() {
   const targets = useTargetsQuery();
   const projects = useProjectsQuery();
   const navigate = useNavigate();
-  const columns = buildColumns(nameLookup(projects.data?.results));
+  // Memoise both the lookup Map and the column array so cell closures
+  // keep referential equality across unrelated re-renders.
+  const projectName = useMemo(
+    () => nameLookup(projects.data?.results),
+    [projects.data?.results],
+  );
+  const columns = useMemo(() => buildColumns(projectName), [projectName]);
   return (
     <>
       <PageHeader
