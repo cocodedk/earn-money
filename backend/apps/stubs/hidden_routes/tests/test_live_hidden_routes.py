@@ -49,12 +49,10 @@ class JuiceShopLiveTests(TestCase):
         run(scan_run, target_run)
 
         paths = {f.data["path"] for f in Finding.objects.all()}
-        # /api and /api/v1 return 500 with distinct bodies — Express
+        # /api and /api/v1 return 500 with distinct bodies (Express
         # backend errors that the SPA-shell soft-404 filter doesn't
-        # match.
-        assert "/api" in paths
-        # /ftp from robots.txt Disallow.
-        assert "/ftp" in paths
+        # match); /ftp from robots.txt Disallow.
+        assert {"/api", "/api/v1", "/ftp"} <= paths
 
 
 class DvwaLiveTests(TestCase):
