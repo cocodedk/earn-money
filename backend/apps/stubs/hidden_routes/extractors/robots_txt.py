@@ -17,8 +17,14 @@ from __future__ import annotations
 from ...robots_txt.parser import parse_robots
 
 
+# Defence-in-depth body cap — stub 1.6's fetcher already caps the
+# body, but the extractor shouldn't blow memory if the contract
+# gets relaxed. Carried forward from the pre-#105 implementation.
+_MAX_BODY_BYTES = 1_048_576
+
+
 def parse_robots_txt(body: str) -> list[str]:
-    parsed = parse_robots(body)
+    parsed = parse_robots(body[:_MAX_BODY_BYTES])
     paths: list[str] = []
     for group in parsed.groups:
         paths.extend(group.disallows)
