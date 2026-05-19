@@ -42,3 +42,21 @@ export type HealthResponse = {
   worker?: boolean;
   version?: string;
 };
+
+export type Target = {
+  id: Uuid;
+  project: Uuid;
+  base_url: string;
+  host: string;
+  ip: string | null;
+  status: TargetStatus;
+  created_at: Iso8601;
+  updated_at: Iso8601;
+};
+
+export type CreateTargetBody = {
+  project: Uuid;
+  base_url: string;
+  host?: string;
+  ip?: string | null;
+};
