@@ -24,7 +24,7 @@ from apps.events.types import EventType
 from apps.evidence.serializers import EvidenceSerializer
 from apps.findings.serializers import FindingSerializer
 
-from .models import ScanRun
+from .models import RunStatus, ScanRun
 from .serializers import ScanRunSerializer, ScanTargetRunSerializer
 from .tasks import run_scan
 
@@ -105,7 +105,14 @@ class ScanRunViewSet(
     @action(detail=True, methods=["post"])
     def stop(self, _request: Request, pk: str | None = None) -> Response:
         run = self.get_object()
+        # From RUNNING the in-flight worker observes STOPPING on its
+        # next loop iteration and finalizes. From PAUSED no worker is
+        # running, so the request must enqueue one — otherwise the run
+        # deadlocks at STOPPING forever.
+        was_paused = run.status == RunStatus.PAUSED
         run.stop()
+        if was_paused:
+            transaction.on_commit(lambda: run_scan.delay(str(run.id)))
         return Response(self.get_serializer(run).data)
 
     @action(detail=True, methods=["get"])

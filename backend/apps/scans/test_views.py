@@ -294,6 +294,35 @@ class ScanRunLifecycleActionsApiTests(_CookbookFixtureMixin, APITestCase):
         r = self.client.post(self._action_url("stop"))
         assert r.json()["status"] == RunStatus.STOPPING
 
+    def test_stop_action_from_paused_enqueues_run_scan(self) -> None:
+        # paused→stop deadlock fix: from PAUSED there is no running
+        # worker to observe STOPPING, so the view must enqueue one to
+        # call _finalize_stopped.
+        from unittest.mock import patch
+
+        self.run.status = RunStatus.PAUSED
+        self.run.save()
+        with patch("apps.scans.views.run_scan.delay") as mock_delay, \
+             self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(self._action_url("stop"))
+        assert r.status_code == status.HTTP_200_OK
+        assert r.json()["status"] == RunStatus.STOPPING
+        mock_delay.assert_called_once_with(str(self.run.id))
+
+    def test_stop_action_from_running_does_not_enqueue(self) -> None:
+        # The already-running worker observes STOPPING on its next loop
+        # iteration and calls _finalize_stopped — enqueueing a second
+        # worker from the view would race with it.
+        from unittest.mock import patch
+
+        self.run.status = RunStatus.RUNNING
+        self.run.save()
+        with patch("apps.scans.views.run_scan.delay") as mock_delay, \
+             self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(self._action_url("stop"))
+        assert r.status_code == status.HTTP_200_OK
+        mock_delay.assert_not_called()
+
 
 class ScanRunEventsActionTests(_CookbookFixtureMixin, APITestCase):
     """GET /api/scan-runs/<uuid>/events/ — chronological event stream
