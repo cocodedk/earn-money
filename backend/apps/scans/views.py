@@ -12,7 +12,7 @@ Filters on list:
 from __future__ import annotations
 
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -25,7 +25,7 @@ from apps.evidence.serializers import EvidenceSerializer
 from apps.findings.serializers import FindingSerializer
 
 from .models import ScanRun
-from .serializers import ScanRunSerializer
+from .serializers import ScanRunSerializer, ScanTargetRunSerializer
 from .tasks import run_scan
 
 
@@ -129,4 +129,29 @@ class ScanRunViewSet(
         qs = run.evidence.all().order_by("-created_at")
         page = self.paginate_queryset(qs)
         serializer = EvidenceSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="target-runs")
+    def target_runs(self, _request: Request, pk: str | None = None) -> Response:
+        """Per-target status table for the scan-run-detail page.
+
+        Annotates findings_count + evidence_count via Count over the
+        scan_run + target join (so other scan runs against the same
+        target don't contaminate the per-row counts). Returns paginated
+        rows with the target's base_url denormalized for the table."""
+        run = self.get_object()
+        qs = run.target_runs.select_related("target").annotate(
+            findings_count=Count(
+                "target__findings",
+                filter=Q(target__findings__scan_run=run),
+                distinct=True,
+            ),
+            evidence_count=Count(
+                "target__evidence",
+                filter=Q(target__evidence__scan_run=run),
+                distinct=True,
+            ),
+        ).order_by("created_at")
+        page = self.paginate_queryset(qs)
+        serializer = ScanTargetRunSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)

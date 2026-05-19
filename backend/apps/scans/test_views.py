@@ -358,3 +358,90 @@ class ScanRunEvidenceActionTests(_CookbookFixtureMixin, APITestCase):
         body = self.client.get(url).json()
         assert body["count"] == 1
         assert body["results"][0]["matched_value"] == "PHPSESSID"
+
+
+class ScanRunTargetRunsActionTests(_CookbookFixtureMixin, APITestCase):
+    def setUp(self) -> None:
+        from apps.evidence.models import Evidence
+        from apps.findings.models import Finding
+
+        from .models import ScanTargetRun
+
+        project = Project.objects.create(name="acme")
+        self.target_a = ScanTarget.objects.create(
+            project=project,
+            base_url="https://dvwa.cocode.dk",
+            host="dvwa.cocode.dk",
+        )
+        self.target_b = ScanTarget.objects.create(
+            project=project,
+            base_url="https://webgoat.cocode.dk",
+            host="webgoat.cocode.dk",
+        )
+        self.run = ScanRun.objects.create(project=project, stub_slug="1.1")
+        self.tr_a = ScanTargetRun.objects.create(
+            scan_run=self.run, target=self.target_a,
+        )
+        self.tr_b = ScanTargetRun.objects.create(
+            scan_run=self.run, target=self.target_b,
+        )
+        # Findings + Evidence on target_a only, to verify per-target
+        # denormalized counts.
+        for _ in range(3):
+            Finding.objects.create(
+                scan_run=self.run, target=self.target_a, stub_slug="1.1",
+                title="finding", category="runtime",
+            )
+        Evidence.objects.create(
+            scan_run=self.run, target=self.target_a, source="cookie",
+            url="https://dvwa.cocode.dk/", field="Set-Cookie",
+            matched_value="PHPSESSID", content_hash="sha256:a",
+        )
+
+        # Different run on the same project — must NOT contaminate counts.
+        other_run = ScanRun.objects.create(project=project, stub_slug="1.2")
+        Finding.objects.create(
+            scan_run=other_run, target=self.target_a, stub_slug="1.2",
+            title="other-run finding", category="runtime",
+        )
+
+    def test_returns_each_target_run_with_denormalized_counts(self) -> None:
+        url = reverse("scanrun-target-runs", args=[self.run.id])
+        body = self.client.get(url).json()
+        assert body["count"] == 2
+        rows = {r["target"]: r for r in body["results"]}
+        # target_a: 3 findings + 1 evidence
+        row_a = rows[str(self.target_a.id)]
+        assert row_a["target_base_url"] == "https://dvwa.cocode.dk"
+        assert row_a["findings_count"] == 3
+        assert row_a["evidence_count"] == 1
+        assert row_a["status"] == "queued"
+        # target_b: zero counts but row present
+        row_b = rows[str(self.target_b.id)]
+        assert row_b["findings_count"] == 0
+        assert row_b["evidence_count"] == 0
+
+    def test_returns_lifecycle_timestamps(self) -> None:
+        from django.utils import timezone
+
+        now = timezone.now()
+        self.tr_a.status = "running"
+        self.tr_a.started_at = now
+        self.tr_a.save()
+        url = reverse("scanrun-target-runs", args=[self.run.id])
+        body = self.client.get(url).json()
+        row_a = {r["target"]: r for r in body["results"]}[str(self.target_a.id)]
+        assert row_a["status"] == "running"
+        assert row_a["started_at"] is not None
+        assert row_a["finished_at"] is None
+
+    def test_unknown_scan_run_returns_404(self) -> None:
+        url = reverse("scanrun-target-runs", args=[uuid.uuid4()])
+        assert self.client.get(url).status_code == status.HTTP_404_NOT_FOUND
+
+    def test_paginated_shape(self) -> None:
+        body = self.client.get(
+            reverse("scanrun-target-runs", args=[self.run.id])
+        ).json()
+        assert "count" in body
+        assert "results" in body

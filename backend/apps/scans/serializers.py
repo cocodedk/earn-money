@@ -74,3 +74,33 @@ class ScanRunSerializer(serializers.ModelSerializer):
             [ScanTargetRun(scan_run=scan_run, target=t) for t in targets]
         )
         return scan_run
+
+
+class ScanTargetRunSerializer(serializers.ModelSerializer):
+    """Row shape for /api/scan-runs/<id>/target-runs/.
+
+    `target_base_url`, `findings_count`, and `evidence_count` are
+    denormalized convenience fields the viewset annotates so the
+    frontend's per-target status table renders without a second
+    round-trip per row."""
+
+    target_base_url = serializers.URLField(
+        source="target.base_url", read_only=True
+    )
+    findings_count = serializers.IntegerField(read_only=True)
+    evidence_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ScanTargetRun
+        fields = (
+            "id",
+            "target",
+            "target_base_url",
+            "status",
+            "started_at",
+            "finished_at",
+            "findings_count",
+            "evidence_count",
+            "created_at",
+        )
+        read_only_fields = fields
