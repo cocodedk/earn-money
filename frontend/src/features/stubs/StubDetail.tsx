@@ -5,25 +5,8 @@ import { PageHeader } from "../../components/PageHeader";
 import { Callout } from "../../components/Callout";
 import { HttpError } from "../../lib/http";
 import { useStubQuery } from "./api";
-import type { Stub, StubStatus } from "../../types/api";
-
-const STATUS_PALETTE: Record<StubStatus, string> = {
-  done: "bg-green-100 text-green-800",
-  "in-progress": "bg-blue-100 text-blue-800",
-  blocked: "bg-amber-100 text-amber-800",
-  pending: "bg-gray-200 text-gray-700",
-};
-
-function StatusBadge({ status }: { status: StubStatus }) {
-  return (
-    <span
-      data-testid={`status-${status}`}
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_PALETTE[status]}`}
-    >
-      {status}
-    </span>
-  );
-}
+import { StatusBadge } from "./StatusBadge";
+import type { Stub } from "../../types/api";
 
 function MetaRow({ label, children }: { label: string; children: ReactNode }) {
   return (

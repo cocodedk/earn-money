@@ -5,6 +5,8 @@ import { ProjectsList } from "./features/projects/ProjectsList";
 import { CreateProject } from "./features/projects/CreateProject";
 import { TargetsList } from "./features/targets/TargetsList";
 import { CreateTarget } from "./features/targets/CreateTarget";
+import { StubsList } from "./features/stubs/StubsList";
+import { StubDetail } from "./features/stubs/StubDetail";
 import { ComingSoon } from "./features/coming-soon";
 
 export default function App() {
@@ -16,7 +18,8 @@ export default function App() {
         <Route path={ROUTES.projectsNew} element={<CreateProject />} />
         <Route path={ROUTES.targets} element={<TargetsList />} />
         <Route path={ROUTES.targetsNew} element={<CreateTarget />} />
-        <Route path={ROUTES.stubs} element={<ComingSoon name="Stubs" />} />
+        <Route path={ROUTES.stubs} element={<StubsList />} />
+        <Route path={ROUTES.stubDetail} element={<StubDetail />} />
         <Route path={ROUTES.scanRuns} element={<ComingSoon name="Scan Runs" />} />
         <Route path={ROUTES.findings} element={<ComingSoon name="Findings" />} />
         <Route path={ROUTES.evidence} element={<ComingSoon name="Evidence" />} />

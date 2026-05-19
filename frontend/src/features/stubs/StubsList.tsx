@@ -7,25 +7,8 @@ import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { Callout } from "../../components/Callout";
 import { useStubsQuery } from "./api";
-import type { StubStatus, StubSummary } from "../../types/api";
-
-const STATUS_PALETTE: Record<StubStatus, string> = {
-  done: "bg-green-100 text-green-800",
-  "in-progress": "bg-blue-100 text-blue-800",
-  blocked: "bg-amber-100 text-amber-800",
-  pending: "bg-gray-200 text-gray-700",
-};
-
-function StatusBadge({ status }: { status: StubStatus }) {
-  return (
-    <span
-      data-testid={`status-${status}`}
-      className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${STATUS_PALETTE[status]}`}
-    >
-      {status}
-    </span>
-  );
-}
+import { StatusBadge } from "./StatusBadge";
+import type { StubSummary } from "../../types/api";
 
 function buildColumns(): TableColumn<StubSummary>[] {
   return [

@@ -178,4 +178,44 @@ describe("end-to-end slice 1", () => {
     );
     expect(screen.getByText("dvwa.cocode.dk")).toBeInTheDocument();
   });
+
+  it("walks the stubs list → detail → back flow", async () => {
+    const stub = {
+      slug: "1.1",
+      phase: 1,
+      spec: 1,
+      phase_slug: "01-information-gathering",
+      spec_slug: "framework-detection",
+      title: "Framework detection",
+      phase_title: "Information gathering",
+      category: "Content discovery",
+      status: "done" as const,
+      fixture: "juice-shop",
+      path: "01-information-gathering/01-framework-detection.md",
+    };
+    server.use(
+      msw.get("/api/stubs/", () => HttpResponse.json([stub])),
+      msw.get("/api/stubs/1.1/", () =>
+        HttpResponse.json({
+          ...stub,
+          body: "# 1.1 Framework detection\n\nDetect the application framework.",
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: "/stubs" });
+
+    expect(await screen.findByText("Framework detection")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "1.1" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Detect the application framework/),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/1\.1 · Framework detection/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("link", { name: "Stubs" }));
+    await waitFor(() =>
+      expect(screen.getByText("Framework detection")).toBeInTheDocument(),
+    );
+  });
 });
