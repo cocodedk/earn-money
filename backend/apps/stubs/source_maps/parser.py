@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from .._shared.url import origin
 
 
-AssetKind = Literal["javascript", "css", "unknown"]
+AssetKind = Literal["javascript", "css"]
 
 _DEFAULT_MAX_ASSETS = 50
 
@@ -29,7 +29,7 @@ _DEFAULT_MAX_ASSETS = 50
 @dataclass(frozen=True)
 class Asset:
     """One discovered same-origin JS/CSS asset reference."""
-    url: str  # absolute, same-origin with the page base_url
+    url: str
     kind: AssetKind
 
 
@@ -84,6 +84,8 @@ def _walk(soup: BeautifulSoup, base_url: str, base_origin: str):
 def _from_tag(tag, base_url: str, base_origin: str) -> Asset | None:
     if tag.name == "script":
         raw = (tag.get("src") or "").strip()
+        if not raw:
+            return None
         return _make_asset(raw, base_url, base_origin, "javascript")
     # BS4 parses `rel` as a list (multi-token HTML attr) or None.
     rels = {r.lower() for r in (tag.get("rel") or [])}
@@ -105,12 +107,10 @@ def _make_asset(
     base_origin: str,
     kind: AssetKind,
 ) -> Asset | None:
-    if not raw:
-        return None
     absolute = urljoin(base_url, raw)
     parts = urlsplit(absolute)
     if parts.scheme not in {"http", "https"}:
         return None
-    if origin(absolute) != base_origin:
+    if f"{parts.scheme}://{parts.netloc}" != base_origin:
         return None
     return Asset(url=absolute, kind=kind)
