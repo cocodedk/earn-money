@@ -35,8 +35,18 @@ class Signature(NamedTuple):
     language: Language
     framework: str | None
     required_re: re.Pattern[str]
-    frame_re: re.Pattern[str] | None
+    # Every family ships a frame_re — invariant pinned in the table
+    # below. exception_re stays optional because generic_stack_trace
+    # and path_line_leak legitimately have no exception extractor.
+    frame_re: re.Pattern[str]
     exception_re: re.Pattern[str] | None
+
+
+# CPython File-frame line shared by python_traceback, django_debug,
+# and flask_werkzeug_debug. Lifted so a future change to the Python
+# frame format (e.g. PEP 657 fine-grained location hints) lands in
+# one place.
+_PY_FRAME_RE = re.compile(r'^\s*File "([^"]+)", line (\d+)', re.MULTILINE)
 
 
 SIGNATURES: tuple[Signature, ...] = (
@@ -46,7 +56,7 @@ SIGNATURES: tuple[Signature, ...] = (
             r"(?:Django.*Exception Type:|Exception Type:.*Traceback)",
             re.DOTALL,
         ),
-        frame_re=re.compile(r'^\s*File "([^"]+)", line (\d+)', re.MULTILINE),
+        frame_re=_PY_FRAME_RE,
         exception_re=re.compile(
             r"Exception Type:\s*([A-Za-z][A-Za-z0-9_.]+)"
         ),
@@ -54,7 +64,7 @@ SIGNATURES: tuple[Signature, ...] = (
     Signature(
         family="flask_werkzeug_debug", language="python", framework="flask",
         required_re=re.compile(r"Werkzeug.*Traceback", re.DOTALL),
-        frame_re=re.compile(r'^\s*File "([^"]+)", line (\d+)', re.MULTILINE),
+        frame_re=_PY_FRAME_RE,
         exception_re=re.compile(
             r"\b([A-Za-z][A-Za-z0-9_]*(?:Error|Exception))\b:"
         ),
@@ -62,7 +72,7 @@ SIGNATURES: tuple[Signature, ...] = (
     Signature(
         family="python_traceback", language="python", framework=None,
         required_re=re.compile(r"Traceback \(most recent call last\):"),
-        frame_re=re.compile(r'^\s*File "([^"]+)", line (\d+)', re.MULTILINE),
+        frame_re=_PY_FRAME_RE,
         exception_re=re.compile(
             r"\b([A-Za-z][A-Za-z0-9_.]*"
             r"(?:Error|Exception|DoesNotExist|NotFound))\b"

@@ -36,16 +36,16 @@ def detect_stack_traces(body: str, content_type: str) -> list[StackTraceMatch]:
         for haystack in haystacks:
             if sig.required_re.search(haystack):
                 matches.append(_build_match(sig, haystack))
+                # One match per family even when both raw body and
+                # flattened JSON haystacks would match — JSON-walked
+                # views are a fallback, not a duplicate channel.
                 break
     return matches
 
 
 def _build_match(sig: Signature, body: str) -> StackTraceMatch:
-    # Every signature carries a frame_re — invariant pinned by the
-    # SIGNATURES table. The list may still be empty when the family
-    # anchor matches but no frames were emitted (e.g. a Whitelabel
-    # Error Page without Java stack lines), in which case top_frame
-    # stays None.
+    # frames empty when the family anchor matches but no frames were
+    # emitted (e.g. Whitelabel Error Page without Java stack lines).
     frames: list[tuple[str, ...]] = sig.frame_re.findall(body)
     top_frame = (
         ":".join(part for part in frames[0] if part) if frames else None

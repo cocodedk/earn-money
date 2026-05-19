@@ -77,6 +77,25 @@ class FrameAbsentTests(unittest.TestCase):
         assert spring.stack_frame_count == 0
 
 
+class DedupePerFamilyTests(unittest.TestCase):
+    def test_match_emitted_once_when_raw_and_json_both_hit(self) -> None:
+        # A pretty-printed JSON body where the python_traceback
+        # signature matches BOTH the raw bytes (unescaped newlines)
+        # AND the flattened string view. Each family must surface
+        # exactly once — the inner-loop break is the load-bearing
+        # invariant for that dedupe.
+        body = (
+            '{"stack": "Traceback (most recent call last):\\n'
+            '  File \\"/x.py\\", line 1, in run\\n'
+            'ValueError: x"}'
+        )
+        matches = detect_stack_traces(body, "application/json")
+        python_matches = [
+            m for m in matches if m.family == "python_traceback"
+        ]
+        assert len(python_matches) == 1
+
+
 class ContractTests(unittest.TestCase):
     def test_returns_namedtuple(self) -> None:
         body = (
