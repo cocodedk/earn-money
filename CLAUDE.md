@@ -22,6 +22,7 @@ The active direction is the [vuln-scanning cookbook](docs/superpowers/specs/2026
 | Before claiming any task done | `superpowers:verification-before-completion` |
 | Working on UI / frontend | `frontend-design:frontend-design` |
 | After implementing — reviewing quality | `simplify` |
+| After implementing a cookbook stub — reviewing spec compliance | spec-review (see below) |
 
 ## Hard rules — apply to any v2 code that ships
 
@@ -99,6 +100,13 @@ All four URLs are authorised for any HTTP technique — the `roe.md` floor appli
 - Branch naming: `<type>/<short-description>` in kebab-case. See `CONTRIBUTING.md`.
 - Never `--no-verify` unless explicitly authorised. Hook failures are signals, not noise.
 - After every commit, run `/simplify` and iterate (fix → re-run) until the review returns no actionable findings. Each `/simplify` round's fixes are their own commit. Don't move to the next task while `/simplify` still has open issues.
+- **After implementing a cookbook stub, run the spec-review pass before marking it done.** Read the stub's spec file end-to-end and audit the implementation against:
+  - **Detection-logic coverage:** every signal/source/match-type the spec lists is reachable in code, OR explicitly noted as deferred in the commit/task with a follow-up.
+  - **Persistence contract:** Finding/Evidence shapes match the spec's typed schema; `confidence`, `severity`, `status` use the spec's vocabularies; `source_kind`/`category` values come from the spec's allowed set.
+  - **Pass/fail positive assertions:** each one is exercised by a test.
+  - **Pass/fail negative assertions:** "must not" rules (no AI, no mutating methods, no hostname-based detection, no unredacted secrets, etc.) are exercised by a regression test where applicable.
+  - **Acceptance criteria:** idempotent, deterministic, bounded by config caps, transport-error tolerant, redirect-policy compliant.
+  - Any deviation that survives the audit gets either fixed or recorded as a follow-up task before the stub is claimed done. The spec-review report is committed as a docs file or referenced in the stub-done commit message.
 
 ## Behavioural guidelines
 
