@@ -27,3 +27,4 @@ class StubsConfig(AppConfig):
         from . import package_leaks  # noqa: F401  registers "1.5"
         from . import hidden_routes  # noqa: F401  registers "1.6"
         from . import backup_files  # noqa: F401  registers "1.7"
+        from . import admin_panels  # noqa: F401  registers "1.8"
