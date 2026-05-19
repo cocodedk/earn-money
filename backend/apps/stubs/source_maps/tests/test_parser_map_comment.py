@@ -107,3 +107,10 @@ class CssSourceMappingUrlTests(unittest.TestCase):
     def test_returns_none_when_no_css_comment(self) -> None:
         body = ".btn { color: blue; }\n"
         assert extract_source_mapping_url(body, "css") is None
+
+    def test_rejects_legacy_at_form_for_css(self) -> None:
+        # Spec §"Source map reference detection" lists `/*#` for CSS
+        # only — the `@` legacy form is JS-only. A `/*@ … */` block
+        # in CSS must not be treated as the canonical directive.
+        body = "/*@ sourceMappingURL=legacy.css.map */"
+        assert extract_source_mapping_url(body, "css") is None

@@ -125,7 +125,7 @@ _JS_SOURCE_MAP_RE = re.compile(
     re.MULTILINE,
 )
 _CSS_SOURCE_MAP_RE = re.compile(
-    r"/\*[#@][ \t]*sourceMappingURL=[ \t]*(.+?)[ \t]*\*/",
+    r"/\*#[ \t]*sourceMappingURL=[ \t]*(.+?)[ \t]*\*/",
 )
 
 
