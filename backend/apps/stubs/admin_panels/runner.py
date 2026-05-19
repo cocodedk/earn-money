@@ -16,16 +16,16 @@ from urllib.parse import urljoin, urlsplit
 
 from django.db import transaction
 
-from apps.evidence.models import Evidence, EvidenceSource
-from apps.findings.models import Finding, FindingStatus, Severity
+from apps.evidence.models import Evidence
+from apps.findings.models import Finding
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.targets.models import ScanTarget
 
 from .._shared.hashing import body_hash
 from .._shared.url import origin
 from ..runners import register
 from .candidates import CANDIDATE_PATHS
 from .fetcher import fetch_evidence
+from .runner_persistence import build_rows
 from .signals import (
     has_admin_panel_marker,
     has_login_form,
@@ -34,7 +34,6 @@ from .signals import (
 )
 
 
-_FINDING_SOURCE = "admin_panels"
 _NONCE_MARKER = "scanner-baseline-"
 _REDIRECT_STATUSES = {301, 302, 303, 307, 308}
 
@@ -59,7 +58,7 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     if not hits:
         return
 
-    evidences, findings = _build_rows(
+    evidences, findings = build_rows(
         hits=hits, scan_run=scan_run, target=target,
     )
 
@@ -152,54 +151,3 @@ def _is_same_origin_admin_redirect(location: str, base_url: str) -> bool:
         return False
     path = urlsplit(absolute).path.lower()
     return any(term in path for term in _ADMIN_PATH_TERMS)
-
-
-def _build_rows(
-    hits: list[tuple[str, dict, str, str]],
-    scan_run: ScanRun,
-    target: ScanTarget,
-) -> tuple[list[Evidence], list[Finding]]:
-    evidences: list[Evidence] = []
-    findings: list[Finding] = []
-
-    for path, probe, confidence, signal_kind in hits:
-        url = urljoin(target.base_url, path)
-        evidence = Evidence(
-            scan_run=scan_run,
-            target=target,
-            source=EvidenceSource.PATH,
-            url=url,
-            method="GET",
-            field=signal_kind,
-            matched_value=path,
-            raw_excerpt=f"{signal_kind}: {path} (status {probe['status']})"[:200],
-            data={
-                "path": path,
-                "status": probe["status"],
-                "signal_kind": signal_kind,
-                "location": probe.get("location"),
-            },
-        )
-        evidences.append(evidence)
-        findings.append(
-            Finding(
-                scan_run=scan_run,
-                target=target,
-                stub_slug=scan_run.stub_slug,
-                title=f"Admin panel exposure: {path} ({signal_kind})",
-                category=signal_kind,
-                severity=Severity.INFO,
-                confidence=confidence,
-                status=FindingStatus.CANDIDATE,
-                data={
-                    "finding_type": "exposed_admin_panel",
-                    "path": path,
-                    "status": probe["status"],
-                    "signal_kind": signal_kind,
-                    "evidence_ids": [str(evidence.id)],
-                    "source": _FINDING_SOURCE,
-                },
-            )
-        )
-
-    return evidences, findings
