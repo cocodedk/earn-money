@@ -25,7 +25,10 @@ from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 @dataclass(frozen=True)
 class SignatureMatch:
     kind: DebugPageKind
-    confidence: str  # cookbook vocabulary low|medium|high — Finding.confidence is free-form
+    # Kept as `str` (not Literal) because the downstream
+    # `Finding.confidence` column is a free-form CharField — a shared
+    # cookbook-wide Confidence Literal is tracked as a follow-up.
+    confidence: str
     markers_matched: tuple[str, ...]
 
 

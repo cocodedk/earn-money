@@ -112,11 +112,12 @@ FRAMEWORK_SIGNATURES: tuple[Signature, ...] = (
         body_markers=("rails::infocontroller",),
     ),
     Signature(
-        # "Apache Server Status" is the mod_status page title; the phrase
-        # is unique enough on its own. Some deployments strip the
-        # "Server Version: Apache/x.y" line behind reverse proxies, so
-        # gating on it would reject real findings.
+        # mod_status output always carries both the page title and the
+        # "Scoreboard Key:" legend; the legend survives behind reverse
+        # proxies (unlike `Server Version: Apache/x.y`, which proxies
+        # often strip). Two specific markers keep prose mentions of
+        # "Apache Server Status" from yielding a finding.
         kind="apache_server_status",
-        body_markers=("apache server status",),
+        body_markers=("apache server status", "scoreboard key"),
     ),
 )

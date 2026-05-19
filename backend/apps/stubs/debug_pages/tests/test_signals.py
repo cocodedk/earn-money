@@ -89,12 +89,24 @@ class ApacheServerStatusTests(unittest.TestCase):
     def test_apache_server_status_matches_high(self) -> None:
         body = (
             "<h1>Apache Server Status for localhost</h1>\n"
-            "Server Version: Apache/2.4\nCurrent Time: ..."
+            "Server Version: Apache/2.4\nCurrent Time: ...\n"
+            "Scoreboard Key:\n_ Waiting for Connection"
         )
         match = match_framework_signature(body, content_type="text/html")
         assert match is not None
         assert match.kind == "apache_server_status"
         assert match.confidence == "high"
+
+    def test_prose_mention_alone_does_not_match(self) -> None:
+        # Blog/docs prose mentioning the phrase without the legend
+        # must not yield a finding — spec §"must not create a
+        # high-confidence finding from a generic page".
+        body = (
+            "<p>This article explains how the Apache Server Status "
+            "module works for monitoring Apache web servers.</p>"
+        )
+        match = match_framework_signature(body, content_type="text/html")
+        assert match is None
 
 
 class LaravelTests(unittest.TestCase):
