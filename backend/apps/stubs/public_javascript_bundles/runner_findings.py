@@ -23,8 +23,8 @@ from .body_text_extractors import (
 )
 from .classifier import Verdict, classify
 from .content_extractors import (
-    extension_of_filename,
     extract_build_hints,
+    extract_extension_from_filename,
     extract_filename,
     extract_hash_in_filename,
     extract_minified_marker,
@@ -120,7 +120,7 @@ def _build_signature_data(
         "script_type": candidate.script_type,
         "discovery_method": candidate.discovery_method,
         "filename": filename,
-        "extension": extension_of_filename(filename),
+        "extension": extract_extension_from_filename(filename),
         "hash_in_filename": extract_hash_in_filename(filename),
         "minified": extract_minified_marker(body),
         "source_map_url": extract_source_map_url(body),

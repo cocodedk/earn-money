@@ -63,13 +63,13 @@ def extract_filename(url: str) -> str | None:
 
 
 def extract_extension(url: str) -> Extension:
-    return extension_of_filename(extract_filename(url) or "")
+    return extract_extension_from_filename(extract_filename(url) or "")
 
 
-def extension_of_filename(filename: str) -> Extension:
-    """Faster path for callers that already extracted the filename
-    (e.g. the runner builds the signature dict around `filename` and
-    must avoid re-running urlsplit per bundle)."""
+def extract_extension_from_filename(filename: str) -> Extension:
+    """Skip the second urlsplit when the caller already has the
+    filename in scope (the runner uses this in _build_signature_data
+    around the filename it just extracted)."""
     if "." not in filename:
         return "none"
     ext = filename.rsplit(".", 1)[-1].lower()

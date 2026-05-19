@@ -67,7 +67,7 @@ def save_bundle_evidence(
 def _save_evidence(
     *, scan_run: ScanRun, target: ScanTarget, source: EvidenceSource,
     url: str, field: str, matched_value: str, excerpt: str,
-    content_hash: str, data: dict,
+    content_hash: str, data: dict[str, object],
 ) -> Evidence:
     ev = Evidence(
         scan_run=scan_run, target=target, source=source,
