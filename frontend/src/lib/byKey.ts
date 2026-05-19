@@ -1,8 +1,5 @@
-// Build a lookup function from an iterable: O(n) build + O(1) reads.
-// Used by list pages that join a foreign-key column (e.g. project name,
-// stub title) against a cached query result. Diverging fallbacks
-// (short UUIDs vs raw slugs) become a callable parameter, not a
-// duplicated helper per call site.
+// Diverging fallbacks (short UUID, raw slug, etc.) become a callable
+// parameter so each consumer doesn't need its own lookup helper.
 export function byKey<T, V = string>(
   items: T[] | undefined,
   keyOf: (item: T) => string,

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { FormField } from "../../components/Form";
 import { Button } from "../../components/Button";
 import { Callout, CalloutSlot } from "../../components/Callout";
-import { useProjectsQuery } from "../projects/api";
+import { ProjectPickerField } from "../projects/ProjectPickerField";
 import { useTargetsQuery } from "../targets/api";
 import { useStubsQuery } from "../stubs/api";
 import {
@@ -19,7 +19,6 @@ import type { CreateScanRunBody, Target } from "../../types/api";
 type PickerMode = "all" | "selected";
 
 export function CreateScanRun() {
-  const projects = useProjectsQuery();
   const stubs = useStubsQuery();
   const targets = useTargetsQuery();
   const createMutation = useCreateScanRunMutation();
@@ -46,9 +45,6 @@ export function CreateScanRun() {
     pickerMode === "all"
       ? activeTargets.map((t) => t.id)
       : selectedTargetIds;
-
-  const isProjectsEmpty =
-    projects.isSuccess && projects.data?.results.length === 0;
 
   async function submitForm(chainStart: boolean) {
     setFieldErrors({});
@@ -127,13 +123,6 @@ export function CreateScanRun() {
           <Callout variant="error">Could not load stubs.</Callout>
         </CalloutSlot>
       )}
-      {isProjectsEmpty && (
-        <CalloutSlot>
-          <Callout variant="info">
-            <Link to={ROUTES.projectsNew}>Create a project first.</Link>
-          </Callout>
-        </CalloutSlot>
-      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -142,29 +131,11 @@ export function CreateScanRun() {
         noValidate
         className="mt-4 flex flex-col gap-4 max-w-lg"
       >
-        <FormField
-          label="Project"
-          htmlFor="project"
-          required
+        <ProjectPickerField
+          value={projectId}
+          onChange={setProjectId}
           error={fieldErrors.project?.[0]}
-        >
-          <select
-            id="project"
-            value={projectId}
-            disabled={projects.isLoading || projects.isError || isProjectsEmpty}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">
-              {projects.isLoading ? "Loading projects…" : "Select a project…"}
-            </option>
-            {(projects.data?.results ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        />
         <FormField
           label="Stub"
           htmlFor="stub_slug"

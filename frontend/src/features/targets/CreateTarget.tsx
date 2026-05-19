@@ -1,11 +1,11 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { FormField, TextInput } from "../../components/Form";
 import { Button } from "../../components/Button";
 import { Callout, CalloutSlot } from "../../components/Callout";
-import { useProjectsQuery } from "../projects/api";
+import { ProjectPickerField } from "../projects/ProjectPickerField";
 import { useCreateTargetMutation } from "./api";
 import { parseApiError } from "../../lib/parseApiError";
 import { applyParsedError } from "../../lib/applyParsedError";
@@ -46,7 +46,6 @@ function buildBody(state: FormState): CreateTargetBody {
 }
 
 export function CreateTarget() {
-  const projects = useProjectsQuery();
   const mutation = useCreateTargetMutation();
   const navigate = useNavigate();
 
@@ -59,11 +58,6 @@ export function CreateTarget() {
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [bannerError, setBannerError] = useState<string | null>(null);
-
-  const isProjectsEmpty =
-    projects.isSuccess && projects.data?.results.length === 0;
-  const projectSelectDisabled =
-    projects.isLoading || projects.isError || isProjectsEmpty;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -91,46 +85,16 @@ export function CreateTarget() {
           <Callout variant="error">{bannerError}</Callout>
         </CalloutSlot>
       )}
-      {projects.isError && (
-        <CalloutSlot>
-          <Callout variant="error">Could not load projects.</Callout>
-        </CalloutSlot>
-      )}
-      {isProjectsEmpty && (
-        <CalloutSlot>
-          <Callout variant="info">
-            <Link to={ROUTES.projectsNew}>Create a project first.</Link>
-          </Callout>
-        </CalloutSlot>
-      )}
       <form
         onSubmit={onSubmit}
         noValidate
         className="mt-4 flex flex-col gap-4 max-w-lg"
       >
-        <FormField
-          label="Project"
-          htmlFor="project"
-          required
+        <ProjectPickerField
+          value={projectId}
+          onChange={setProjectId}
           error={fieldErrors.project?.[0]}
-        >
-          <select
-            id="project"
-            value={projectId}
-            disabled={projectSelectDisabled}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">
-              {projects.isLoading ? "Loading projects…" : "Select a project…"}
-            </option>
-            {(projects.data?.results ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        />
         <FormField
           label="Base URL"
           htmlFor="base_url"
