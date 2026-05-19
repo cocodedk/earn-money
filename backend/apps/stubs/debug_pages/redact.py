@@ -22,17 +22,19 @@ from __future__ import annotations
 
 import re
 
+from ._tokens import SECRET_KEY_TOKENS
+
 
 REDACTION_MARK = "<REDACTED>"
 
 
-# Secret-like key names — same vocabulary as `signals._SECRET_KEY_TOKENS`
-# but as a regex alternation. Kept locally for now; cross-stub lift to
-# `_shared/leak_tokens.py` is a future task once stubs 1.16/1.17 land.
-_SECRET_KEY_ALT = (
-    r"(?:secret_key|api_key|apikey|password|db_password|database_url|"
-    r"redis_url|aws_access_key_id|aws_secret_access_key|private_key)"
-)
+# Derive the regex alternation from the single source of truth so a
+# new token added to `_tokens.SECRET_KEY_TOKENS` automatically flows
+# into the redactor — drift would silently leak the new secret class
+# to Evidence.raw_excerpt.
+_SECRET_KEY_ALT = "(?:" + "|".join(
+    re.escape(token) for token in SECRET_KEY_TOKENS
+) + ")"
 
 
 # `KEY=value` shape — env-var dumps from /actuator/env, phpinfo,

@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from ._tokens import ENV_KEY_TOKENS, SECRET_KEY_TOKENS
 from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 
 
@@ -104,37 +105,6 @@ def find_stack_trace_markers(body: str) -> list[str]:
     return out
 
 
-# Secret-like key names: presence alone implies leaked credentials
-# even without inspecting the value. Spec §Strong indicators env/
-# config leak markers.
-_SECRET_KEY_TOKENS: tuple[str, ...] = (
-    "secret_key",
-    "api_key",
-    "apikey",
-    "password",
-    "db_password",
-    "database_url",
-    "redis_url",
-    "aws_access_key_id",
-    "aws_secret_access_key",
-    "private_key",
-)
-
-# Pure env-var indicators: keys that prove the page is dumping the
-# runtime environment but aren't themselves secret-shaped.
-_ENV_ONLY_TOKENS: tuple[str, ...] = (
-    "app_env",
-    "node_env",
-    "debug=true",
-)
-
-# Every secret-key token is also an env var when it appears on a
-# debug page (it's a runtime environment variable that happens to
-# carry a secret). Compose explicitly so the dual-label intent is
-# visible in the data instead of an accidental copy-paste duplicate.
-_ENV_KEY_TOKENS: tuple[str, ...] = _ENV_ONLY_TOKENS + _SECRET_KEY_TOKENS
-
-
 def find_env_leak_markers(body: str) -> list[str]:
     """Return a list of spec leaked_data_classes labels for env
     variables and secret-like values in `body`. Subset of
@@ -143,8 +113,8 @@ def find_env_leak_markers(body: str) -> list[str]:
         return []
     lowered = body.lower()
     out: list[str] = []
-    if any(token in lowered for token in _SECRET_KEY_TOKENS):
+    if any(token in lowered for token in SECRET_KEY_TOKENS):
         out.append("secret_like_value")
-    if any(token in lowered for token in _ENV_KEY_TOKENS):
+    if any(token in lowered for token in ENV_KEY_TOKENS):
         out.append("environment_variable")
     return out
