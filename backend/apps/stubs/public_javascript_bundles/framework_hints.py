@@ -70,8 +70,6 @@ _FRAMEWORK_SIGNATURES: tuple[tuple[FrameworkName, str, Confidence], ...] = (
 
 
 def extract_framework_hints(body: str) -> list[FrameworkHint]:
-    if not body:
-        return []
     return [
         FrameworkHint(name, pattern, confidence)
         for name, pattern, confidence in _FRAMEWORK_SIGNATURES
