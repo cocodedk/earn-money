@@ -34,3 +34,4 @@ class StubsConfig(AppConfig):
         from . import sitemap_xml  # noqa: F401  registers "1.12"
         from . import security_txt  # noqa: F401  registers "1.13"
         from . import source_maps  # noqa: F401  registers "1.14"
+        from . import public_javascript_bundles  # noqa: F401  registers "1.15"

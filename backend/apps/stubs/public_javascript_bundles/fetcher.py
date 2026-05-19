@@ -93,6 +93,11 @@ class BundleFetchOutcome:
     etag: str | None
     last_modified: str | None
     cache_control: str | None
+    # True when the response carried a content-type in the JS
+    # allowlist (vs the URL+body heuristic path). Surfaces the
+    # high/medium confidence signal the classifier wants without
+    # forcing the runner to re-import the private _JS_CONTENT_TYPES.
+    content_type_matched_allowlist: bool
 
 
 _DEFAULT_CONFIG = BundleFetcherConfig()
@@ -121,6 +126,7 @@ def _transport_failure(url: str) -> BundleFetchOutcome:
         content_type="", content_length=None, bytes_read=0,
         truncated=False, sha256=None, etag=None,
         last_modified=None, cache_control=None,
+        content_type_matched_allowlist=False,
     )
 
 
@@ -157,6 +163,7 @@ def _classify(
         etag=response.headers.get("etag"),
         last_modified=response.headers.get("last-modified"),
         cache_control=response.headers.get("cache-control"),
+        content_type_matched_allowlist=(content_type in _JS_CONTENT_TYPES),
     )
 
 
