@@ -145,9 +145,8 @@ def _evaluate_one(
 def _is_same_origin_admin_redirect(location: str, base_url: str) -> bool:
     if not location:
         return False
-    # urljoin normalises absolute-path, protocol-relative (`//host/path`),
-    # and absolute references against the base URL per RFC 3986 §5.2 —
-    # the same-origin check then sees an unambiguous absolute URL.
+    # urljoin resolves protocol-relative `//host/path` against base_url so
+    # `//attacker.example/admin` can't bypass the same-origin check.
     absolute = urljoin(base_url, location)
     if origin(absolute) != origin(base_url):
         return False

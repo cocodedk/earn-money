@@ -11,7 +11,7 @@ import hashlib
 
 
 def body_hash(text: str) -> str:
-    """Raw hex SHA-256 — used by soft-404 hash sets in path-probe runners."""
+    """Raw hex SHA-256 of `text` (UTF-8)."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
