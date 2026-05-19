@@ -23,6 +23,10 @@ export function useScanRunQuery(id: string | undefined) {
     queryKey: scanRunKey(id ?? ""),
     queryFn: () => http<ScanRun>(`/api/scan-runs/${id}/`),
     enabled: Boolean(id),
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
+      return status === "running" || status === "stopping" ? 2000 : false;
+    },
   });
 }
 
