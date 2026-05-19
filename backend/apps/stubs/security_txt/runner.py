@@ -99,14 +99,18 @@ def _build_evidence(
         f"{outcome.kind}: {outcome.final_url} "
         f"(status {outcome.status or 0})"
     )[:_RAW_EXCERPT_CAP]
+    # `field` carries the verdict's finding_type so cross-stub
+    # evidence indexes against a stable classification vocabulary
+    # (matches stubs 1.11/1.12 convention). The per-probe outcome
+    # kind lives in `data.kind` for audit.
     return Evidence(
         scan_run=scan_run,
         target=target,
         source=EvidenceSource.PATH,
         url=outcome.final_url,
         method="GET",
-        field=outcome.kind,
-        matched_value=outcome.kind,
+        field=verdict.finding_type,
+        matched_value=verdict.finding_type,
         raw_excerpt=excerpt,
         data={
             "kind": outcome.kind,
