@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
 import httpx
 
+from .._shared.url import origin
 from .classify import FetchOutcome
 
 
@@ -61,7 +62,7 @@ def fetch_robots(
     `cross_origin_blocked`."""
     config = config or _DEFAULT_CONFIG
     url = urljoin(base_url + "/", "/robots.txt")
-    base_origin = _origin(base_url)
+    base_origin = origin(base_url)
     redirected = False
 
     with httpx.Client(
@@ -71,6 +72,9 @@ def fetch_robots(
         follow_redirects=False,
         verify=DEFAULT_VERIFY,
     ) as client:
+        # Loop runs max_redirects + 1 times: one initial GET plus up
+        # to N follow-ups. When the loop sees an (N+1)-th 3xx Location,
+        # it refuses and emits `redirect_limit` without following it.
         for hop in range(config.max_redirects + 1):
             try:
                 response = client.get(url)
@@ -100,7 +104,7 @@ def fetch_robots(
                 )
 
             next_url = urljoin(url, location)
-            if _origin(next_url) != base_origin:
+            if origin(next_url) != base_origin:
                 return FetchOutcome(
                     kind="cross_origin_blocked", status=None, body="",
                     final_url=next_url,
@@ -134,11 +138,3 @@ def _ok_outcome(
         final_url=final_url,
         redirected=redirected,
     )
-
-
-def _origin(url: str) -> str:
-    """Return `scheme://netloc` for `url` — the RFC 6454 origin in
-    string form. Used to compare base_url against each redirect
-    Location."""
-    parts = urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}"
