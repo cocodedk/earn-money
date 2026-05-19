@@ -75,6 +75,11 @@ def extract_token_indicators(body: str) -> list[TokenIndicator]:
     out: list[TokenIndicator] = []
     for kind, pattern in _DETECTORS:
         for match in pattern.finditer(body):
+            # bearer_token captures group(1) to strip the literal
+            # "Bearer " prefix from the hashed value — otherwise the
+            # same JWT would hash differently inside vs outside an
+            # Authorization header. Detectors without a capture group
+            # land on group(0) (the whole match).
             raw = match.group(1) if pattern.groups else match.group(0)
             if raw in seen:
                 continue

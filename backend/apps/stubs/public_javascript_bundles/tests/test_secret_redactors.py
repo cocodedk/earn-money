@@ -137,6 +137,20 @@ class GeneralTests(unittest.TestCase):
         kinds = {t.kind for t in extract_token_indicators(body)}
         assert kinds == {"jwt", "aws_access_key", "url_with_credentials"}
 
+    def test_jwt_inside_bearer_collapses_to_single_jwt_indicator(self) -> None:
+        # Load-bearing invariant: `Bearer <jwt>` matches BOTH
+        # detectors. The JWT detector goes first in _DETECTORS and
+        # captures group(0) (the JWT itself). The bearer detector
+        # captures group(1) — the JWT, same raw value. dedupe-by-raw
+        # collapses them to one indicator with the more-specific
+        # kind="jwt". A future change to _BEARER_TOKEN_RE that
+        # captures more or less than the JWT would break this and
+        # produce two indicators for one secret.
+        body = f'Authorization: Bearer {_FAKE_JWT}'
+        indicators = extract_token_indicators(body)
+        assert len(indicators) == 1
+        assert indicators[0].kind == "jwt"
+
     def test_dedupes_same_value(self) -> None:
         # The same JWT pasted twice in a bundle (e.g. a vendor chunk
         # and a manifest reference) should land as ONE indicator.
