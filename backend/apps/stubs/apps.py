@@ -24,3 +24,4 @@ class StubsConfig(AppConfig):
         from . import server_headers  # noqa: F401  registers "1.2"
         from . import frontend_framework  # noqa: F401  registers "1.3"
         from . import backend_hints  # noqa: F401  registers "1.4"
+        from . import package_leaks  # noqa: F401  registers "1.5"
