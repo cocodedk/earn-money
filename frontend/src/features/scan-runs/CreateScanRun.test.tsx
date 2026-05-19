@@ -230,6 +230,64 @@ describe("CreateScanRun", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders backend unreachable on network failure", async () => {
+    withProjectStubsAndTargets();
+    server.use(msw.post("/api/scan-runs/", () => HttpResponse.error()));
+    renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
+    await screen.findByText("https://dvwa.cocode.dk");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create scan run" }),
+    );
+    expect(await screen.findByText(/backend unreachable/i)).toBeInTheDocument();
+  });
+
+  it("renders non_field_errors banner", async () => {
+    withProjectStubsAndTargets();
+    server.use(
+      msw.post("/api/scan-runs/", () =>
+        HttpResponse.json({ non_field_errors: ["bad combo"] }, { status: 400 }),
+      ),
+    );
+    renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
+    await screen.findByText("https://dvwa.cocode.dk");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create scan run" }),
+    );
+    expect(await screen.findByText("bad combo")).toBeInTheDocument();
+  });
+
+  it("renders detail banner on non-validation 4xx", async () => {
+    withProjectStubsAndTargets();
+    server.use(
+      msw.post("/api/scan-runs/", () =>
+        HttpResponse.json({ detail: "Forbidden." }, { status: 403 }),
+      ),
+    );
+    renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
+    await screen.findByText("https://dvwa.cocode.dk");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create scan run" }),
+    );
+    expect(await screen.findByText("Forbidden.")).toBeInTheDocument();
+  });
+
+  it("renders generic banner for field-keyed 400 (no per-field renderer)", async () => {
+    withProjectStubsAndTargets();
+    server.use(
+      msw.post("/api/scan-runs/", () =>
+        HttpResponse.json({ stub_slug: ["unknown stub"] }, { status: 400 }),
+      ),
+    );
+    renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
+    await screen.findByText("https://dvwa.cocode.dk");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create scan run" }),
+    );
+    expect(
+      await screen.findByText(/could not create scan run/i),
+    ).toBeInTheDocument();
+  });
+
   it("toggles individual targets", async () => {
     withProjectStubsAndTargets();
     renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
