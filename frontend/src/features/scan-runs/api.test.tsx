@@ -10,10 +10,40 @@ import {
   useCreateScanRunMutation,
   usePauseScanRunMutation,
   useResumeScanRunMutation,
+  useScanRunQuery,
   useScanRunsQuery,
   useStartScanRunMutation,
   useStopScanRunMutation,
 } from "./api";
+
+describe("useScanRunQuery", () => {
+  it("fetches one scan run by id", async () => {
+    server.use(
+      msw.get("/api/scan-runs/r-1/", () => HttpResponse.json(makeScanRun())),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunQuery("r-1"), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() => expect(result.current.data?.id).toBe("r-1"));
+  });
+
+  it("is disabled when id is undefined — no network call", async () => {
+    let calls = 0;
+    server.use(
+      msw.get("/api/scan-runs/:id/", () => {
+        calls += 1;
+        return HttpResponse.json(makeScanRun());
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useScanRunQuery(undefined), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(calls).toBe(0);
+  });
+});
 
 describe("useScanRunsQuery", () => {
   it("fetches the paginated list", async () => {

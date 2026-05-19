@@ -9,54 +9,19 @@ import { BackendUnreachableCallout } from "../../components/Callout";
 import { byKey } from "../../lib/byKey";
 import { useProjectsQuery } from "../projects/api";
 import { useStubsQuery } from "../stubs/api";
-import {
-  usePauseScanRunMutation,
-  useResumeScanRunMutation,
-  useScanRunsQuery,
-  useStartScanRunMutation,
-  useStopScanRunMutation,
-} from "./api";
+import { useScanRunsQuery } from "./api";
+import { ACTION_LABEL, useScanRunActions } from "./useScanRunActions";
 import { StatusBadge } from "./StatusBadge";
-import type {
-  LifecycleAction,
-  ScanRun,
-  ScanRunStatus,
-} from "../../types/api";
-
-const VALID_ACTIONS: Record<ScanRunStatus, readonly LifecycleAction[]> = {
-  queued: ["start"],
-  running: ["pause", "stop"],
-  paused: ["resume", "stop"],
-  stopping: [],
-  stopped: [],
-  failed: [],
-  done: [],
-};
-
-const ACTION_LABEL: Record<LifecycleAction, string> = {
-  start: "Start",
-  pause: "Pause",
-  resume: "Resume",
-  stop: "Stop",
-};
+import type { ScanRun } from "../../types/api";
 
 function ActionButtons({ run }: { run: ScanRun }) {
-  const start = useStartScanRunMutation();
-  const pause = usePauseScanRunMutation();
-  const resume = useResumeScanRunMutation();
-  const stop = useStopScanRunMutation();
-  const handlers: Record<LifecycleAction, () => void> = {
-    start: () => start.mutate(run.id),
-    pause: () => pause.mutate(run.id),
-    resume: () => resume.mutate(run.id),
-    stop: () => stop.mutate(run.id),
-  };
+  const { visibleActions, handlers } = useScanRunActions(run);
   return (
     <div className="flex gap-2">
       <ButtonLink to={scanRunDetailPath(run.id)} variant="secondary">
         Open
       </ButtonLink>
-      {VALID_ACTIONS[run.status].map((action) => (
+      {visibleActions.map((action) => (
         <button
           key={action}
           type="button"

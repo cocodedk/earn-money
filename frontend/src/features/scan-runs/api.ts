@@ -9,11 +9,20 @@ import type {
 } from "../../types/api";
 
 export const SCAN_RUNS_KEY = ["scan-runs"] as const;
+export const scanRunKey = (id: string) => [...SCAN_RUNS_KEY, id] as const;
 
 export function useScanRunsQuery() {
   return useQuery({
     queryKey: SCAN_RUNS_KEY,
     queryFn: () => http<Paginated<ScanRun>>("/api/scan-runs/"),
+  });
+}
+
+export function useScanRunQuery(id: string | undefined) {
+  return useQuery({
+    queryKey: scanRunKey(id ?? ""),
+    queryFn: () => http<ScanRun>(`/api/scan-runs/${id}/`),
+    enabled: Boolean(id),
   });
 }
 
