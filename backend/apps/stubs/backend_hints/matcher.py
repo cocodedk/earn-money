@@ -50,11 +50,10 @@ def _matches(signature: Signature, bundle: EvidenceBundle) -> bool:
 
 
 def _cookie_values(
-    signature: Signature, bundle: EvidenceBundle
+    _signature: Signature, bundle: EvidenceBundle
 ) -> Iterator[str]:
     for probe in bundle.get("probes", {}).values():
-        for name in probe.get("cookies", []):
-            yield name
+        yield from probe.get("cookies", [])
 
 
 def _header_values(
@@ -68,7 +67,7 @@ def _header_values(
 
 
 def _body_values(
-    signature: Signature, bundle: EvidenceBundle
+    _signature: Signature, bundle: EvidenceBundle
 ) -> Iterator[str]:
     for probe in bundle.get("probes", {}).values():
         body = probe.get("body", "")

@@ -1,0 +1,44 @@
+"""Body-source signatures.
+
+Body matches operate on any probe's body text. The /__scanner_404_xxx
+probe is the cheapest way to surface framework error-page markers
+(Spring's Whitelabel, Werkzeug debugger) without probing admin paths
+the spec forbids.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+
+BODY_SIGNATURES: list[dict[str, Any]] = [
+    {
+        "id": "body_whitelabel_error",
+        "technology": "Spring Boot",
+        "category": "error_page",
+        "source": "body",
+        "match_type": "contains",
+        "value_pattern": "Whitelabel Error Page",
+        "version_regex": None,
+        "confidence": "high",
+    },
+    {
+        "id": "body_django_debug",
+        "technology": "Django",
+        "category": "error_page",
+        "source": "body",
+        "match_type": "contains",
+        "value_pattern": "DisallowedHost at",
+        "version_regex": None,
+        "confidence": "high",
+    },
+    {
+        "id": "body_werkzeug_debugger",
+        "technology": "Werkzeug",
+        "category": "error_page",
+        "source": "body",
+        "match_type": "contains",
+        "value_pattern": "Werkzeug Debugger",
+        "version_regex": None,
+        "confidence": "high",
+    },
+]

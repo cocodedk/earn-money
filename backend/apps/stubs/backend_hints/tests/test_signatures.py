@@ -58,14 +58,13 @@ class SignatureContractTests(unittest.TestCase):
             if sig["version_regex"] is not None:
                 re.compile(sig["version_regex"])
 
-    def test_cookie_signatures_have_field(self) -> None:
-        # cookie source signatures match against cookie NAME (not value);
-        # `field` carries the regex/pattern, value_pattern is the
-        # name-match pattern.
+    def test_cookie_signatures_have_value_pattern(self) -> None:
+        # Cookie signatures match against the cookie NAME (values are
+        # sensitive and redacted by the fetcher). value_pattern carries
+        # that name-match pattern; there is no `field` on cookie
+        # signatures because cookie names are the entire haystack.
         for sig in SIGNATURES:
             if sig["source"] == "cookie":
-                # The match operates on the cookie name; value_pattern
-                # is the name pattern.
                 assert sig.get("value_pattern"), sig["id"]
 
 
