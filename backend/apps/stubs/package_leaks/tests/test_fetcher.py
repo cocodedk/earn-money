@@ -122,6 +122,45 @@ class NotFoundTests(unittest.TestCase):
         assert bundle["responses"] == {}
 
 
+class NonParseableStatusTests(unittest.TestCase):
+    def test_500_response_excluded(self) -> None:
+        # 5xx is non-parseable per the spec; runner mustn't see it.
+        responses = {
+            "https://x.example/package.json": _resp(
+                '{"error": "internal"}',
+                status_code=500,
+                content_type="application/json",
+            ),
+        }
+        with patch(
+            "apps.stubs.package_leaks.fetcher.httpx.Client"
+        ) as mock_client:
+            instance = mock_client.return_value.__enter__.return_value
+            instance.get.side_effect = _mock_get(responses)
+            bundle = fetch_evidence("https://x.example/")
+
+        assert "/package.json" not in bundle["responses"]
+
+    def test_401_protected_response_excluded_from_mvp(self) -> None:
+        # Spec §Direct path probes calls 401/403 "non-leaking" unless
+        # the body itself exposes data. MVP drops them; a follow-up
+        # can add a body-of-auth-required signal.
+        responses = {
+            "https://x.example/composer.json": _resp(
+                "auth required",
+                status_code=401,
+            ),
+        }
+        with patch(
+            "apps.stubs.package_leaks.fetcher.httpx.Client"
+        ) as mock_client:
+            instance = mock_client.return_value.__enter__.return_value
+            instance.get.side_effect = _mock_get(responses)
+            bundle = fetch_evidence("https://x.example/")
+
+        assert "/composer.json" not in bundle["responses"]
+
+
 class TransportErrorTests(unittest.TestCase):
     def test_per_probe_failure_doesnt_abort_others(self) -> None:
         def side_effect(url, **_kwargs):
