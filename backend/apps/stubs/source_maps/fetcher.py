@@ -92,15 +92,15 @@ def _classify(
             kind="inconclusive", status=response.status_code,
             body="", final_url=final_url, content_type=content_type,
         )
-    status = response.status_code
+    # Body kept on every non-cross-origin path. Spec §Persistence
+    # line 303 calls out "blocked or oversized source map response
+    # when useful for audit" — the runner persists a bounded excerpt
+    # for blocked/inconclusive responses, so we must surface the
+    # body, not discard it. Already capped at max_body_bytes.
     body = (response.text or "")[:max_body_bytes]
-    kind = _kind_for_status(status)
-    if kind != "ok":
-        # Body discarded for non-200 paths so persistence stays
-        # bounded; the status + final_url are enough audit trail.
-        body = ""
+    status = response.status_code
     return FetchOutcome(
-        kind=kind, status=status, body=body,
+        kind=_kind_for_status(status), status=status, body=body,
         final_url=final_url, content_type=content_type,
     )
 

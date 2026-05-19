@@ -79,6 +79,21 @@ class BlockedTests(unittest.TestCase):
         assert outcome.kind == "blocked"
         assert outcome.status == 401
 
+    def test_blocked_response_preserves_body_for_audit(self) -> None:
+        # Spec §Persistence line 303: "blocked or oversized source
+        # map response when useful for audit" — the runner needs the
+        # bounded body so a 403'd map can land as Evidence with a
+        # raw_excerpt explaining what the server returned.
+        url = f"{_BASE}/protected.js.map"
+        with mocked_fetcher({
+            "/protected.js.map": resp(
+                "<html>Forbidden</html>", status_code=403, url=url,
+            ),
+        }):
+            outcome = fetch_url(url, _BASE)
+        assert outcome.kind == "blocked"
+        assert outcome.body == "<html>Forbidden</html>"
+
     def test_403_yields_blocked(self) -> None:
         url = f"{_BASE}/protected.js.map"
         with mocked_fetcher({
