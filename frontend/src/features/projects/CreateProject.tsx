@@ -7,6 +7,7 @@ import { Button } from "../../components/Button";
 import { Callout } from "../../components/Callout";
 import { useCreateProjectMutation } from "./api";
 import { parseApiError } from "../../lib/parseApiError";
+import { applyParsedError } from "../../lib/applyParsedError";
 
 export function CreateProject() {
   const [name, setName] = useState("");
@@ -30,18 +31,10 @@ export function CreateProject() {
       await mutation.mutateAsync({ name, description });
       navigate(ROUTES.projects);
     } catch (err) {
-      const parsed = await parseApiError(err);
-      if (parsed.kind === "field") {
-        setFieldErrors(parsed.errors);
-      } else if (parsed.kind === "non_field") {
-        setBannerError(parsed.errors[0]);
-      } else if (parsed.kind === "detail") {
-        setBannerError(parsed.detail);
-      } else if (parsed.kind === "server") {
-        setBannerError("Something went wrong. Please try again.");
-      } else {
-        setBannerError("Backend unreachable.");
-      }
+      applyParsedError(await parseApiError(err), {
+        setFieldErrors,
+        setBannerError,
+      });
     }
   }
 
