@@ -102,7 +102,7 @@ class PerProbeTransportErrorIsolationTests(unittest.TestCase):
 
 class ConfigValidationTests(unittest.TestCase):
     def test_negative_max_body_bytes_rejected(self) -> None:
-        with unittest.TestCase.assertRaises(self, ValueError):
+        with self.assertRaises(ValueError):
             FetcherConfig(max_body_bytes=-1)
 
 
