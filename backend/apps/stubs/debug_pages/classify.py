@@ -24,6 +24,7 @@ from typing import NamedTuple
 
 from apps.findings.models import FindingStatus
 
+from .._shared.types import Confidence
 from .signals import (
     find_env_leak_markers,
     find_stack_trace_markers,
@@ -40,7 +41,7 @@ class Verdict(NamedTuple):
     kind: DebugPageKind
     # Spec §Persistence DebugPageExposure value
     exposure: str  # "public" | "blocked" | "login_required" | "redirected" | "unknown"
-    confidence: str  # cookbook low|medium|high
+    confidence: Confidence
     finding_status: FindingStatus
     indicators: list[str]
     leaked_data_classes: list[str]

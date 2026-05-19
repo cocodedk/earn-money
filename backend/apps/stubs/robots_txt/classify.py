@@ -25,6 +25,8 @@ from typing import Literal, NamedTuple
 
 from apps.findings.models import FindingStatus
 
+from .._shared.types import Confidence
+
 
 FetchKind = Literal[
     "ok", "redirect_limit", "cross_origin_blocked", "unreachable",
@@ -50,7 +52,7 @@ class FetchOutcome:
 class Verdict(NamedTuple):
     classification: str
     finding_status: FindingStatus
-    confidence: str  # cookbook low|medium|high
+    confidence: Confidence
     indicators: list[str]
 
 

@@ -24,6 +24,7 @@ from .._shared.body_match import (
     contains_any,
     contains_any_lowered,
 )
+from .._shared.types import Confidence
 from ._tokens import ENV_KEY_TOKENS, SECRET_KEY_TOKENS
 from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 
@@ -31,10 +32,7 @@ from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 @dataclass(frozen=True)
 class SignatureMatch:
     kind: DebugPageKind
-    # Kept as `str` (not Literal) because the downstream
-    # `Finding.confidence` column is a free-form CharField — a shared
-    # cookbook-wide Confidence Literal is tracked as a follow-up.
-    confidence: str
+    confidence: Confidence
     markers_matched: tuple[str, ...]
 
 

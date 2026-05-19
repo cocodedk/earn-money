@@ -15,6 +15,7 @@ from typing import NamedTuple
 
 from apps.findings.models import FindingStatus
 
+from .._shared.types import Confidence
 from .signals import (
     body_has_deprecation_marker,
     header_deprecation_evidence,
@@ -30,7 +31,7 @@ _AUTH_BOUNDARY_STATUSES = {401, 403}
 class Verdict(NamedTuple):
     classification: str  # "alive" | "auth_boundary" | "method_discovery_only"
     finding_status: FindingStatus
-    confidence: str  # "low" | "medium" | "high"
+    confidence: Confidence
     indicators: list[str]  # spec stale_indicators vocabulary
 
 
