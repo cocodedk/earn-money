@@ -5,8 +5,8 @@ that stub_slug refers to a real cookbook stub and every target_id
 belongs to the named project. On success, creates the ScanRun and one
 ScanTargetRun per target.
 
-Read response: scan-run fields + denormalized `target_run_count`
-(annotated on the queryset in the viewset).
+Read response: scan-run fields + denormalized `target_run_count` and
+`findings_count` (both annotated on the queryset in the viewset).
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ class ScanRunSerializer(serializers.ModelSerializer):
         min_length=1,
     )
     target_run_count = serializers.IntegerField(read_only=True)
+    findings_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = ScanRun
@@ -37,6 +38,7 @@ class ScanRunSerializer(serializers.ModelSerializer):
             "finished_at",
             "target_ids",
             "target_run_count",
+            "findings_count",
             "created_at",
             "updated_at",
         )
@@ -46,6 +48,7 @@ class ScanRunSerializer(serializers.ModelSerializer):
             "started_at",
             "finished_at",
             "target_run_count",
+            "findings_count",
             "created_at",
             "updated_at",
         )

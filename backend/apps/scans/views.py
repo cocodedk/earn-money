@@ -40,6 +40,7 @@ class ScanRunViewSet(
     def get_queryset(self):  # type: ignore[override]
         qs = ScanRun.objects.annotate(
             target_run_count=Count("target_runs", distinct=True),
+            findings_count=Count("findings", distinct=True),
         ).order_by("-created_at")
         params = self.request.query_params
         if params.get("project"):

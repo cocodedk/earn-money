@@ -103,8 +103,35 @@ class ScanRunListTests(_CookbookFixtureMixin, APITestCase):
         row = self.client.get(reverse("scanrun-list")).json()["results"][0]
         uuid.UUID(row["id"])
         assert row["target_run_count"] == 0
+        assert row["findings_count"] == 0
         assert row["status"] in {choice.value for choice in RunStatus}
         assert row["created_at"].endswith("Z")
+
+    def test_findings_count_reflects_actual_findings(self) -> None:
+        # Seed a run with three findings, then assert the annotation
+        # surfaces them. Guards against the annotation accidentally
+        # joining the wrong reverse relation.
+        from apps.findings.models import Finding
+        from apps.targets.models import ScanTarget
+
+        target = ScanTarget.objects.create(
+            project=self.project_a,
+            base_url="https://x.example",
+            host="x.example",
+        )
+        run = ScanRun.objects.create(
+            project=self.project_a, stub_slug="1.1",
+        )
+        for _ in range(3):
+            Finding.objects.create(
+                scan_run=run, target=target, stub_slug="1.1",
+                title="t", category="x",
+            )
+        rows = self.client.get(
+            reverse("scanrun-list"), {"project": str(self.project_a.id)},
+        ).json()["results"]
+        row = next(r for r in rows if r["id"] == str(run.id))
+        assert row["findings_count"] == 3
 
 
 class ScanRunRetrieveTests(_CookbookFixtureMixin, APITestCase):
@@ -147,8 +174,9 @@ class ScanRunCreateTests(_CookbookFixtureMixin, APITestCase):
         assert r.status_code == status.HTTP_201_CREATED
         body = r.json()
         assert body["status"] == RunStatus.QUEUED
-        # Create response carries the denormalized count, same as list.
+        # Create response carries the denormalized counts, same as list.
         assert body["target_run_count"] == 2
+        assert body["findings_count"] == 0
         run = ScanRun.objects.get(pk=body["id"])
         assert run.target_runs.count() == 2
         ev = Event.objects.get(type=EventType.SCAN_RUN_CREATED)
