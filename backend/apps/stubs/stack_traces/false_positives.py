@@ -10,6 +10,14 @@ if the body contains the word "example" — per spec ("if a full
 runtime stack trace appears in a 500 response, report it even if
 the body contains the word `example`").
 
+Spec heuristics 3 and 4 — "matched trace appears inside a code
+example block" and "no nearby exception status, request ID,
+timestamp, error route, or application error wording" — are
+deferred. Per spec §"Heuristics for documentation-like pages":
+all four are cumulative signals, so adding these later can only
+strengthen the docs-likeness verdict, not change the contract.
+Tracked for the slice-3 classifier or a follow-up.
+
 Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/16-stack-traces.md
 """
 from __future__ import annotations

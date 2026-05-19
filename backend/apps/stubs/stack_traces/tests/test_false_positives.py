@@ -75,6 +75,14 @@ class CaseInsensitiveTests(unittest.TestCase):
         assert is_documentation_like(body, status=200) is True
 
 
+class WordBoundaryTests(unittest.TestCase):
+    def test_example_com_substring_does_not_match(self) -> None:
+        # \b is load-bearing: "example.com" in body must NOT
+        # trigger the "example" docs marker.
+        body = "<a href='https://example.com/'>link</a>"
+        assert is_documentation_like(body, status=200) is False
+
+
 class EmptyBodyTests(unittest.TestCase):
     def test_empty_body_is_not_documentation(self) -> None:
         assert is_documentation_like("", status=200) is False
