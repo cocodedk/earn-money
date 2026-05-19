@@ -298,8 +298,6 @@ class ScanRunLifecycleActionsApiTests(_CookbookFixtureMixin, APITestCase):
         # paused→stop deadlock fix: from PAUSED there is no running
         # worker to observe STOPPING, so the view must enqueue one to
         # call _finalize_stopped.
-        from unittest.mock import patch
-
         self.run.status = RunStatus.PAUSED
         self.run.save()
         with patch("apps.scans.views.run_scan.delay") as mock_delay, \
@@ -313,8 +311,6 @@ class ScanRunLifecycleActionsApiTests(_CookbookFixtureMixin, APITestCase):
         # The already-running worker observes STOPPING on its next loop
         # iteration and calls _finalize_stopped — enqueueing a second
         # worker from the view would race with it.
-        from unittest.mock import patch
-
         self.run.status = RunStatus.RUNNING
         self.run.save()
         with patch("apps.scans.views.run_scan.delay") as mock_delay, \
