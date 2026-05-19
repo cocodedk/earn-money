@@ -101,57 +101,76 @@ _DATABASE_ERROR_PATTERNS: tuple[re.Pattern[str], ...] = (
 def detect_api_error_indicators(
     body: str, content_type: str,
 ) -> list[ApiErrorIndicator]:
+    """First-match-per-kind. Sufficient for the classifier verdict —
+    confidence keys on the PRESENCE of any strong-kind indicator.
+    The signature builder uses `detect_all_indicators` to populate
+    the persisted hint arrays."""
     if not body:
         return []
     indicators: list[ApiErrorIndicator] = []
-    json_match = _first_json_field(body, content_type)
-    if json_match is not None:
-        indicators.append(json_match)
-    src_match = _first_match(_SOURCE_PATH_PATTERNS, body)
-    if src_match is not None:
-        indicators.append(
-            ApiErrorIndicator(kind="source_path", matched_value=src_match)
-        )
-    db_match = _first_match(_DATABASE_ERROR_PATTERNS, body)
-    if db_match is not None:
-        indicators.append(
-            ApiErrorIndicator(kind="database_error", matched_value=db_match)
-        )
+    first_json = next(_walk_json_fields(body, content_type), None)
+    if first_json is not None:
+        indicators.append(first_json)
+    src = _first_match(_SOURCE_PATH_PATTERNS, body)
+    if src is not None:
+        indicators.append(ApiErrorIndicator(kind="source_path", matched_value=src))
+    db = _first_match(_DATABASE_ERROR_PATTERNS, body)
+    if db is not None:
+        indicators.append(ApiErrorIndicator(kind="database_error", matched_value=db))
     return indicators
 
 
-def _first_json_field(
+def detect_all_indicators(
     body: str, content_type: str,
-) -> ApiErrorIndicator | None:
+) -> list[ApiErrorIndicator]:
+    """All matches per kind — populates the spec's plural hint
+    arrays (`database_hints`, `file_path_hints`, ...). Same walkers
+    as the first-match path; just consume all of them."""
+    if not body:
+        return []
+    indicators: list[ApiErrorIndicator] = list(
+        _walk_json_fields(body, content_type),
+    )
+    for pattern in _SOURCE_PATH_PATTERNS:
+        for match in pattern.findall(body):
+            indicators.append(
+                ApiErrorIndicator(kind="source_path", matched_value=match),
+            )
+    for pattern in _DATABASE_ERROR_PATTERNS:
+        for match in pattern.findall(body):
+            indicators.append(
+                ApiErrorIndicator(kind="database_error", matched_value=match),
+            )
+    return indicators
+
+
+def _walk_json_fields(body: str, content_type: str):
+    """One walker — yield every strong-key indicator. Callers take
+    `next(...)` for first-match-per-kind or `list(...)` for all."""
     if "json" not in content_type.lower():
-        return None
+        return
     try:
         data = json.loads(body)
     except (json.JSONDecodeError, ValueError):
-        return None
-    return _walk_for_strong_field(data)
+        return
+    yield from _walk(data)
 
 
-def _walk_for_strong_field(node) -> ApiErrorIndicator | None:
+def _walk(node):
     if isinstance(node, dict):
         for key, value in node.items():
             if (
                 key.lower() in _STRONG_JSON_FIELDS_LOWER
                 and _is_meaningful(value)
             ):
-                return ApiErrorIndicator(
+                yield ApiErrorIndicator(
                     kind="json_debug_field",
                     matched_value=f"{key}={_excerpt(value)}",
                 )
-            found = _walk_for_strong_field(value)
-            if found is not None:
-                return found
+            yield from _walk(value)
     elif isinstance(node, list):
         for v in node:
-            found = _walk_for_strong_field(v)
-            if found is not None:
-                return found
-    return None
+            yield from _walk(v)
 
 
 def _is_meaningful(value: object) -> bool:
