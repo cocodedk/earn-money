@@ -5,11 +5,16 @@ match the signature library against each probe's headers/cookies/body,
 group matches by technology, and emit one Finding per technology with
 one Evidence per matched signature.
 
+Evidence rows carry the ACTUAL probe URL that fired (not the base URL)
+and the ACTUAL matched value (not just the signature pattern) so the
+triage UI can show operators exactly what evidence supports each hint.
+
 Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/04-backend-hints.md
 """
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urljoin
 
 from django.db import transaction
 
@@ -21,12 +26,16 @@ from apps.targets.models import ScanTarget
 
 from ..runners import register
 from .fetcher import fetch_evidence
-from .matcher import extract_version, match_signatures
+from .matcher import extract_version, find_first_match, match_signatures
 from .signatures import SIGNATURES
 
 
 _FINDING_SOURCE = "backend_hints"
 
+# Lossy: body source projects to EvidenceSource.HTML even when the
+# probe returned text/plain or a JSON error page. The precise origin
+# survives on Evidence.field (signature_id for body, cookie name for
+# cookies, header name for headers) so the asymmetry is recoverable.
 _EVIDENCE_SOURCE_BY_SIG_SOURCE = {
     "header": EvidenceSource.HEADER,
     "cookie": EvidenceSource.COOKIE,
@@ -63,7 +72,6 @@ def _build_rows(
 ) -> tuple[list[Evidence], list[Finding]]:
     evidences: list[Evidence] = []
     findings: list[Finding] = []
-    url = target.base_url
 
     by_tech: dict[str, list[dict[str, Any]]] = {}
     for sig in matches:
@@ -71,7 +79,7 @@ def _build_rows(
 
     for technology, sigs in by_tech.items():
         tech_evidences = [
-            _build_evidence(sig, scan_run, target, url) for sig in sigs
+            _build_evidence(sig, bundle, scan_run, target) for sig in sigs
         ]
         evidences.extend(tech_evidences)
         primary = sigs[0]
@@ -102,32 +110,53 @@ def _build_rows(
 
 def _build_evidence(
     signature: dict[str, Any],
+    bundle: dict[str, Any],
     scan_run: ScanRun,
     target: ScanTarget,
-    url: str,
 ) -> Evidence:
     sig_source = signature["source"]
+    match = find_first_match(signature, bundle)
+    probe_path, matched_value = match  # match is not None — sig is in `matches`
+    url = urljoin(target.base_url, probe_path)
     return Evidence(
         scan_run=scan_run,
         target=target,
         source=_EVIDENCE_SOURCE_BY_SIG_SOURCE[sig_source],
         url=url,
         method="GET",
-        field=_field_for(signature),
-        matched_value=signature["value_pattern"],
-        raw_excerpt=f"{sig_source}: {_field_for(signature)} ~ {signature['value_pattern']}"[:200],
+        field=_field_for(signature, matched_value),
+        matched_value=matched_value,
+        raw_excerpt=_excerpt(signature, matched_value),
         data={
             "signature_id": signature["id"],
             "technology": signature["technology"],
             "match_type": signature["match_type"],
+            "probe_path": probe_path,
         },
     )
 
 
-def _field_for(signature: dict[str, Any]) -> str:
-    """Header signatures carry an explicit `field`; cookie/body sources
-    don't (whole-haystack match). Return a stable string for the
-    Evidence.field column either way."""
-    if signature["source"] == "header":
+def _field_for(signature: dict[str, Any], matched_value: str) -> str:
+    """Evidence.field's discriminator per source: header name for header
+    sigs, the matched cookie NAME for cookie sigs, the signature_id
+    for body sigs (since the haystack is the whole body)."""
+    source = signature["source"]
+    if source == "header":
         return signature["field"]
-    return signature["source"]
+    if source == "cookie":
+        return matched_value
+    return signature["id"]
+
+
+def _excerpt(signature: dict[str, Any], matched_value: str) -> str:
+    """Short string showing the actual evidence behind the match —
+    capped at 200 chars. For body sigs, return a 200-char window
+    centred on the needle so operators see surrounding context."""
+    source = signature["source"]
+    if source != "body":
+        return matched_value[:200]
+    pattern = signature["value_pattern"]
+    idx = matched_value.find(pattern)
+    if idx < 0:
+        return matched_value[:200]  # pragma: no cover  # defense: matched-by-contains means idx >= 0
+    return matched_value[max(0, idx - 40):idx + 160]
