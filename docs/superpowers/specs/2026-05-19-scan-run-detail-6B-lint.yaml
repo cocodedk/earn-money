@@ -1,0 +1,71 @@
+# Consistency vocab for docs/superpowers/specs/2026-05-19-scan-run-detail-6B-design.md
+#
+# Run: python scripts/spec_consistency_lint.py \
+#        docs/superpowers/specs/2026-05-19-scan-run-detail-6B-design.md \
+#        docs/superpowers/specs/2026-05-19-scan-run-detail-6B-lint.yaml
+#
+# Rule of thumb: only encode terms whose change is contractually meaningful.
+# Do NOT block on stylistic preferences.
+
+deprecated_terms:
+  - pattern: 'invalidateQueries\(\{[^}]*cancelRefetch:\s*true'
+    message: >-
+      Old terminal-flush contract (round 5 BLOCKER). Use the two-step
+      cancelQueries + refetchQueries pattern instead — `invalidateQueries({
+      cancelRefetch: true })` does NOT cancel an in-flight initial fetch.
+  - pattern: 'invalidate-and-refetch'
+    message: >-
+      Pre-round-5 wording for the terminal flush. Replace with explicit
+      "two-step cancel + refetch" or reference §Hook contract.
+  - pattern: 'no-op''d by `cancelRefetch:'
+    message: >-
+      References the round-4-to-5 transitional behavior that no longer
+      applies. Terminal flush always fires; assertions are cache-content,
+      not call count.
+
+# The §Why-two-steps explainer in §Hook contract is allowed to mention the
+# old contract by name to explain why it was rejected — so these patterns
+# are NOT in deprecated_terms. The discriminator is co-occurrence with the
+# new contract terms (handled by paired_terms below).
+
+required_terms:
+  - pattern: 'cancelQueries'
+    message: >-
+      Terminal-flush contract must reference cancelQueries — it is the only
+      TanStack Query call that cancels an in-flight fetch regardless of
+      cache state.
+  - pattern: 'refetchQueries'
+    message: >-
+      Terminal-flush contract must reference refetchQueries — pairs with
+      cancelQueries to start a fresh post-terminal fetch.
+  - pattern: 'PAGE_SIZE = 50'
+    message: >-
+      Backend pagination policy must reference the actual PAGE_SIZE = 50
+      from backend/config/settings.py:138. If this disappears, the spec is
+      either wrong about pagination or the backend changed.
+  - pattern: 'e93c6f4'
+    message: >-
+      Lifecycle parity SHA must be referenced — paused→stop enqueue depends
+      on this commit. Without it, the spec drifts from the backend it locks
+      against.
+  - pattern: '8f5caec'
+    message: >-
+      Serializer-fields lock SHA must be referenced — updated_at +
+      target_host landed here.
+
+paired_terms:
+  - terms:
+      - 'terminal[- ]flush'
+      - 'cancelQueries'
+      - 'refetchQueries'
+    message: >-
+      Anywhere the terminal-flush rule is described, it must mention BOTH
+      cancelQueries and refetchQueries. If one shows up without the other,
+      the contract is half-described.
+  - terms:
+      - 'DetailPageGuard'
+      - '!query\.data'
+    message: >-
+      The DetailPageGuard narrowing decision (§Decisions item 4) must
+      reference the `!query.data` gate. Without it, the narrowing
+      contract isn't pinned down.
