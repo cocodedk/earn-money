@@ -12,7 +12,6 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-import hashlib
 from urllib.parse import urljoin, urlsplit
 
 from django.db import transaction
@@ -22,6 +21,7 @@ from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
+from .._shared.hashing import body_hash
 from .._shared.url import origin
 from ..runners import register
 from .candidates import CANDIDATE_PATHS
@@ -80,7 +80,7 @@ def _soft_404_profile(probes: dict[str, dict]) -> set[str]:
     not-found response varies), no stable baseline exists — return an
     empty set so no candidate is suppressed by an unreliable profile."""
     nonce_hashes = {
-        _hash(probe["body"])
+        body_hash(probe["body"])
         for path, probe in probes.items()
         if _NONCE_MARKER in path
     }
@@ -133,7 +133,7 @@ def _evaluate_one(
 
     has_form = has_login_form(body)
     has_panel = has_admin_panel_marker(body)
-    soft_match = _hash(body) in soft_404
+    soft_match = body_hash(body) in soft_404
 
     if has_form or has_panel:
         return ("high", "body_markers")
@@ -145,6 +145,13 @@ def _evaluate_one(
 def _is_same_origin_admin_redirect(location: str, base_url: str) -> bool:
     if not location:
         return False
+    # Protocol-relative `//host/path` inherits the base URL's scheme but
+    # specifies a (possibly different) host. Normalise to absolute form
+    # before the origin check, otherwise `//attacker.example/admin`
+    # would slip through as "no scheme → treat as relative" and the
+    # cross-origin filter wouldn't fire.
+    if location.startswith("//"):
+        location = f"{urlsplit(base_url).scheme}:{location}"
     if "://" in location and origin(location) != origin(base_url):
         return False
     path = (
@@ -202,7 +209,3 @@ def _build_rows(
         )
 
     return evidences, findings
-
-
-def _hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()

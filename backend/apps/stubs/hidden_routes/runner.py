@@ -18,7 +18,6 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-import hashlib
 from urllib.parse import urljoin
 
 from django.db import transaction
@@ -27,6 +26,8 @@ from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
+
+from .._shared.hashing import body_hash
 
 from ..runners import register
 from .extractors.robots_txt import parse_robots_txt
@@ -70,7 +71,7 @@ def _soft_404_profile(probes: dict[str, dict]) -> set[str]:
     """Return body hashes from the two nonce probes — any other probe
     whose body hash matches one of these is filtered as a soft 404."""
     return {
-        _hash(probe["body"])
+        body_hash(probe["body"])
         for path, probe in probes.items()
         if _NONCE_MARKER in path
     }
@@ -87,7 +88,7 @@ def _add_probe_candidates(
             continue
         if probe["status"] == 404:
             continue
-        if _hash(probe["body"]) in soft_404:
+        if body_hash(probe["body"]) in soft_404:
             continue
         candidates.setdefault(path, "common_path")
 
@@ -171,7 +172,3 @@ def _confidence_for(source_kind: str) -> str:
     if source_kind == "common_path":
         return "high"
     return "medium"
-
-
-def _hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()

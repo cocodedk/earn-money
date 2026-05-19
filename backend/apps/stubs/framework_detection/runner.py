@@ -19,7 +19,6 @@ all targets are processed.
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Any
 
 from django.db import transaction
@@ -29,6 +28,7 @@ from apps.findings.confidence import max_confidence
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 
+from .._shared.hashing import prefixed_body_hash
 from ..runners import register
 from .fetcher import fetch_evidence
 from .matcher import matches
@@ -50,7 +50,7 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     for sig in matched:
         by_tech.setdefault(sig["technology"], []).append(sig)
 
-    body_hash = _hash(bundle.get("html_body", ""))
+    body_hash = prefixed_body_hash(bundle.get("html_body", ""))
 
     evidences_to_create: list[Evidence] = []
     findings_to_create: list[Finding] = []
@@ -122,7 +122,3 @@ def _excerpt_for(signature: dict[str, Any], bundle: dict[str, Any]) -> str:
     if idx < 0:
         return ""  # pragma: no cover  # matched() returned True so the pattern is in body; defense
     return body[max(0, idx - 40):idx + 160]
-
-
-def _hash(text: str) -> str:
-    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
