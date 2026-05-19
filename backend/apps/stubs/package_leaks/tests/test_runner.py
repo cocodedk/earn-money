@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from apps.evidence.models import Evidence
+from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._test_factories import seed_target_run
@@ -120,11 +120,50 @@ class FindingShapeTests(TestCase):
         assert finding.data["source"] == "package_leaks"
 
 
+class ConfidenceAndSourceTaxonomyTests(TestCase):
+    def test_manifest_hit_is_high_confidence_and_path_source(self) -> None:
+        scan_run, target_run = _seed()
+        body = '{"name": "x", "version": "1.0"}'
+        bundle = _bundle({"/package.json": _resp(body)})
+        with patch(
+            "apps.stubs.package_leaks.runner.fetch_evidence",
+            return_value=bundle,
+        ):
+            run(scan_run, target_run)
+
+        finding = Finding.objects.get(data__package="x")
+        assert finding.confidence == "high"
+        evidence = Evidence.objects.get()
+        assert evidence.source == EvidenceSource.PATH
+
+    def test_banner_hit_is_medium_confidence_and_script_source(self) -> None:
+        # A banner in a JS body could be a VENDORED copy of the
+        # package (not the app's actual declared dep) — medium, not
+        # high. And the evidence is JS code, so SCRIPT source.
+        scan_run, target_run = _seed()
+        bundle = _bundle({
+            "/Gemfile": _resp(
+                "/*! axios 1.6.2 */", "application/javascript",
+            ),
+        })
+        with patch(
+            "apps.stubs.package_leaks.runner.fetch_evidence",
+            return_value=bundle,
+        ):
+            run(scan_run, target_run)
+
+        finding = Finding.objects.get(data__package="axios")
+        assert finding.confidence == "medium"
+        evidence = Evidence.objects.get()
+        assert evidence.source == EvidenceSource.SCRIPT
+
+
 class DeduplicationTests(TestCase):
     def test_same_package_in_multiple_sources_collapsed(self) -> None:
         # If the same (package, version) tuple appears in both
-        # package.json AND requirements.txt (synthetic, but possible
-        # in a polyglot repo), it surfaces as one Finding.
+        # package.json AND requirements.txt (rare but real in polyglot
+        # repos), surfaces as ONE Finding with TWO Evidence rows —
+        # every source channel is preserved for operator triage.
         scan_run, target_run = _seed()
         bundle = _bundle({
             "/package.json": _resp(
@@ -140,10 +179,12 @@ class DeduplicationTests(TestCase):
         ):
             run(scan_run, target_run)
 
-        lodash_count = Finding.objects.filter(
+        # One Finding, two Evidence rows linked to it.
+        finding = Finding.objects.get(
             data__package="lodash", data__version="4.17.21"
-        ).count()
-        assert lodash_count == 1
+        )
+        assert len(finding.data["evidence_ids"]) == 2
+        assert Evidence.objects.count() == 2
 
 
 class NoMatchTests(TestCase):
