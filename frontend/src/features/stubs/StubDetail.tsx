@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ROUTES } from "../../app/routes";
 import { PageHeader } from "../../components/PageHeader";
 import { Callout } from "../../components/Callout";
-import { HttpError } from "../../lib/http";
+import { isHttpStatus } from "../../lib/http";
 import { useStubQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
 import type { Stub } from "../../types/api";
@@ -47,7 +47,7 @@ export function StubDetail() {
   const { slug } = useParams();
   const query = useStubQuery(slug);
 
-  if (query.error instanceof HttpError && query.error.response.status === 404) {
+  if (isHttpStatus(query.error, 404)) {
     return (
       <>
         <PageHeader title="Stub not found" />

@@ -7,7 +7,6 @@ import { Button } from "../../components/Button";
 import { Callout } from "../../components/Callout";
 import { useCreateProjectMutation } from "./api";
 import { parseApiError } from "../../lib/parseApiError";
-import { HttpError } from "../../lib/http";
 
 export function CreateProject() {
   const [name, setName] = useState("");
@@ -31,9 +30,7 @@ export function CreateProject() {
       await mutation.mutateAsync({ name, description });
       navigate(ROUTES.projects);
     } catch (err) {
-      const parsed = await parseApiError(
-        err instanceof HttpError ? err.response : err,
-      );
+      const parsed = await parseApiError(err);
       if (parsed.kind === "field") {
         setFieldErrors(parsed.errors);
       } else if (parsed.kind === "non_field") {

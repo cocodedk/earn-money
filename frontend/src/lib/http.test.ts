@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../test/server";
-import { http } from "./http";
+import { http, HttpError, isHttpStatus } from "./http";
 
 describe("http", () => {
   it("returns parsed JSON on 2xx", async () => {
@@ -48,5 +48,23 @@ describe("http", () => {
     await expect(
       http("/api/projects/u1/", { method: "DELETE" }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("isHttpStatus", () => {
+  it("returns true when the error is an HttpError with the matching status", () => {
+    const err = new HttpError(new Response("", { status: 404 }));
+    expect(isHttpStatus(err, 404)).toBe(true);
+  });
+
+  it("returns false when the status does not match", () => {
+    const err = new HttpError(new Response("", { status: 500 }));
+    expect(isHttpStatus(err, 404)).toBe(false);
+  });
+
+  it("returns false for non-HttpError values (network errors, undefined, plain objects)", () => {
+    expect(isHttpStatus(new TypeError("nope"), 404)).toBe(false);
+    expect(isHttpStatus(undefined, 404)).toBe(false);
+    expect(isHttpStatus({ response: { status: 404 } }, 404)).toBe(false);
   });
 });

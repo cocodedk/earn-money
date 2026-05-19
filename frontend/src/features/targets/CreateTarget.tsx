@@ -8,7 +8,6 @@ import { Callout } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useCreateTargetMutation } from "./api";
 import { parseApiError } from "../../lib/parseApiError";
-import { HttpError } from "../../lib/http";
 import type { CreateTargetBody } from "../../types/api";
 
 const SCHEME_AUTHORITY = /^https?:\/\/[^/\s]+/i;
@@ -82,9 +81,7 @@ export function CreateTarget() {
       await mutation.mutateAsync(buildBody({ projectId, baseUrl, host, ip }));
       navigate(ROUTES.targets);
     } catch (err) {
-      const parsed = await parseApiError(
-        err instanceof HttpError ? err.response : err,
-      );
+      const parsed = await parseApiError(err);
       if (parsed.kind === "field") setFieldErrors(parsed.errors);
       else if (parsed.kind === "non_field") setBannerError(parsed.errors[0]);
       else if (parsed.kind === "detail") setBannerError(parsed.detail);

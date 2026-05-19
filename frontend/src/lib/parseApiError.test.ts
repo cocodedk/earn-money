@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseApiError } from "./parseApiError";
+import { HttpError } from "./http";
 
 describe("parseApiError", () => {
   it("classifies field-keyed 400 as kind=field", async () => {
@@ -56,6 +57,17 @@ describe("parseApiError", () => {
   it("classifies thrown fetch errors as kind=network", async () => {
     expect(await parseApiError(new TypeError("Failed to fetch"))).toEqual({
       kind: "network",
+    });
+  });
+
+  it("unwraps an HttpError and classifies its inner Response", async () => {
+    const inner = new Response(JSON.stringify({ name: ["already exists"] }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+    expect(await parseApiError(new HttpError(inner))).toEqual({
+      kind: "field",
+      errors: { name: ["already exists"] },
     });
   });
 });

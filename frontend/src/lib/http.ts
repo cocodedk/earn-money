@@ -11,6 +11,9 @@ export class HttpError extends Error {
   }
 }
 
+export const isHttpStatus = (err: unknown, code: number): boolean =>
+  err instanceof HttpError && err.response.status === code;
+
 export async function http<T>(url: string, options: HttpOptions = {}): Promise<T> {
   const init: RequestInit = {
     method: options.method ?? "GET",
