@@ -3,7 +3,12 @@ import { renderHook, waitFor, act } from "@testing-library/react";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { makeRenderHookWrapper } from "../../test/renderWithProviders";
-import { useTargetsQuery, useCreateTargetMutation, TARGETS_KEY } from "./api";
+import {
+  useTargetsQuery,
+  useTargetDetailQuery,
+  useCreateTargetMutation,
+  TARGETS_KEY,
+} from "./api";
 
 describe("useTargetsQuery", () => {
   it("fetches targets filtered by project", async () => {
@@ -89,5 +94,38 @@ describe("useCreateTargetMutation", () => {
     expect(received).toMatchObject({ project: "p1", base_url: "https://x" });
     expect(spy).toHaveBeenCalledWith({ queryKey: TARGETS_KEY });
     expect(spy).toHaveBeenCalledWith({ queryKey: ["projects"] });
+  });
+});
+
+describe("useTargetDetailQuery", () => {
+  it("fetches by id", async () => {
+    server.use(
+      msw.get("/api/targets/t1/", () =>
+        HttpResponse.json({
+          id: "t1",
+          project: "p1",
+          base_url: "https://dvwa.cocode.dk",
+          host: null,
+          ip: null,
+          status: "active",
+          created_at: "2026-05-18T20:00:00.000000Z",
+        }),
+      ),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useTargetDetailQuery("t1"), {
+      wrapper: Wrapper,
+    });
+    await waitFor(() =>
+      expect(result.current.data?.base_url).toBe("https://dvwa.cocode.dk"),
+    );
+  });
+
+  it("stays disabled when id is null", () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result } = renderHook(() => useTargetDetailQuery(null), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.isFetching).toBe(false);
   });
 });

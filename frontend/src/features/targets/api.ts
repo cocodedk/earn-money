@@ -20,6 +20,14 @@ export function useTargetsQuery(projectId: Uuid | null) {
   });
 }
 
+export function useTargetDetailQuery(id: Uuid | null) {
+  return useQuery({
+    queryKey: [...TARGETS_KEY, id] as const,
+    queryFn: () => http<Target>(`/api/targets/${id!}/`),
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateTargetMutation() {
   const client = useQueryClient();
   return useMutation({
