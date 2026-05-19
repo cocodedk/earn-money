@@ -311,4 +311,56 @@ describe("CreateScanRun", () => {
       screen.getByRole("checkbox", { name: "https://dvwa.cocode.dk" }),
     ).toBeChecked();
   });
+
+  it("changes stub_slug when the dropdown is updated", async () => {
+    window.localStorage.setItem("em.frontend.currentProjectId", "p1");
+    server.use(
+      msw.get("/api/projects/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "p1",
+              name: "Lab",
+              description: "",
+              target_count: 1,
+              scan_run_count: 0,
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/targets/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "t1",
+              project: "p1",
+              base_url: "https://dvwa.cocode.dk",
+              host: null,
+              ip: null,
+              status: "active",
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/stubs/", () =>
+        HttpResponse.json([
+          { ...sampleStubs[0] },
+          { ...sampleStubs[0], slug: "1.2", title: "Server headers" },
+        ]),
+      ),
+    );
+    renderWithProviders(<CreateScanRun />, { route: "/scan-runs/new" });
+    await screen.findByRole("option", { name: /1\.2/ });
+    const select = screen.getByLabelText("Stub") as HTMLSelectElement;
+    await userEvent.selectOptions(select, "1.2");
+    expect(select.value).toBe("1.2");
+  });
 });

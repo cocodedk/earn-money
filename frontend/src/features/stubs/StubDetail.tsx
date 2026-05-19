@@ -4,13 +4,14 @@ import { Callout } from "../../components/Callout";
 import { useStubDetailQuery } from "./api";
 
 export function StubDetail() {
-  const { slug = null } = useParams();
+  // Route is /stubs/:slug — useParams always yields the slug at runtime.
+  const slug = useParams().slug as string;
   const query = useStubDetailQuery(slug);
 
   if (query.isError) {
     return (
       <>
-        <PageHeader title={`Stub ${slug ?? ""}`} />
+        <PageHeader title={`Stub ${slug}`} />
         <div className="mt-4">
           <Callout variant="error" title="Not found">
             This stub could not be loaded.
@@ -23,7 +24,7 @@ export function StubDetail() {
   const stub = query.data;
   return (
     <>
-      <PageHeader title={stub?.title ?? `Stub ${slug ?? ""}`} />
+      <PageHeader title={stub?.title ?? `Stub ${slug}`} />
       {stub && (
         <div className="mt-4 grid grid-cols-[160px_1fr] gap-y-2 max-w-3xl text-sm">
           <div className="text-gray-600">Slug</div>

@@ -63,11 +63,10 @@ export function CreateScanRun() {
   const checked = selectedTargetIds ?? [];
 
   function toggleTarget(id: string) {
-    const current = selectedTargetIds ?? [];
     setSelectedTargetIds(
-      current.includes(id)
-        ? current.filter((x) => x !== id)
-        : [...current, id],
+      checked.includes(id)
+        ? checked.filter((x) => x !== id)
+        : [...checked, id],
     );
   }
 
