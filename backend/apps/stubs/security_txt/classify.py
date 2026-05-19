@@ -129,17 +129,22 @@ def classify_security_txt(
             "security_txt_expired", FindingStatus.CONFIRMED, "high",
             indicators,
         )
-    if canonical_matches is False:
-        return Verdict(
-            "security_txt_canonical_mismatch",
-            FindingStatus.CONFIRMED, "medium",
-            ["canonical_does_not_match_final_url"],
-        )
+    # Legacy-only wins over canonical-mismatch when the file at
+    # /security.txt has a Canonical pointing to the well-known path.
+    # Spec §Canonical: "If the file is served from /security.txt and
+    # Canonical points to /.well-known/security.txt, record this as
+    # legacy placement rather than immediate failure."
     if canonical_kind != "ok" and legacy_kind == "ok":
         return Verdict(
             "security_txt_legacy_only",
             FindingStatus.CONFIRMED, "medium",
             ["only_legacy_path_present"],
+        )
+    if canonical_matches is False:
+        return Verdict(
+            "security_txt_canonical_mismatch",
+            FindingStatus.CONFIRMED, "medium",
+            ["canonical_does_not_match_final_url"],
         )
     if (
         canonical_kind == "ok" and legacy_kind == "ok"
