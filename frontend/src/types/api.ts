@@ -92,6 +92,20 @@ export type ScanRun = {
   updated_at: Iso8601;
 };
 
+export type ScanTargetRun = {
+  id: Uuid;
+  target: Uuid;
+  target_base_url: string;
+  target_host: string;
+  status: ScanRunStatus;
+  started_at: Iso8601 | null;
+  finished_at: Iso8601 | null;
+  updated_at: Iso8601;
+  findings_count: number;
+  evidence_count: number;
+  created_at: Iso8601;
+};
+
 export type CreateScanRunBody = {
   project: Uuid;
   stub_slug: string;
