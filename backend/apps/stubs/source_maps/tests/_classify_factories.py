@@ -15,13 +15,6 @@ from ..validator import SourceMapMetadata
 _BASE = "https://example.test"
 
 
-def ok_asset(url: str = f"{_BASE}/a.js") -> FetchOutcome:
-    return FetchOutcome(
-        kind="ok", status=200, body="x", final_url=url,
-        content_type="application/javascript",
-    )
-
-
 def ok_map(
     url: str = f"{_BASE}/a.js.map", body: str = "{}",
 ) -> FetchOutcome:

@@ -21,14 +21,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from apps.findings.models import FindingStatus, Severity
+
+from .._shared.types import Confidence
 from .fetcher import FetchOutcome
 from .resolver import ResolvedMapUrl
 from .validator import SourceMapMetadata
 
 
-FindingStatusValue = Literal["candidate", "confirmed", "rejected"]
-ConfidenceValue = Literal["low", "medium", "high"]
-SeverityValue = Literal["info", "low", "medium"]
 ReferenceType = Literal["comment", "fallback", "inline_data_url"]
 
 
@@ -36,16 +36,15 @@ ReferenceType = Literal["comment", "fallback", "inline_data_url"]
 class Verdict:
     """One verdict per (asset, attempted map) pair. Persists onto
     a SourceMapFinding row via the runner."""
-    finding_status: FindingStatusValue
-    confidence: ConfidenceValue
-    severity: SeverityValue
+    finding_status: FindingStatus
+    confidence: Confidence
+    severity: Severity
     map_reference_type: ReferenceType
     indicators: tuple[str, ...]
 
 
 def classify_map_result(
     *,
-    asset_outcome: FetchOutcome,
     resolved: ResolvedMapUrl,
     map_outcome: FetchOutcome | None,
     metadata: SourceMapMetadata | None,
@@ -65,33 +64,33 @@ def classify_map_result(
     5. Map fetched blocked or inconclusive → candidate, low.
     6. Map fetched absent (404/410) → rejected, low.
     """
-    # `asset_outcome` is accepted for parity with the runner call
-    # site; current MVP only uses resolved + map_outcome + metadata
-    # but slice 7 may emit indicators sourced from the asset response
-    # (e.g. asset content_type) so we leave the parameter in place.
-    del asset_outcome
-
     if resolved.kind == "inline_data_url":
         return Verdict(
-            finding_status="candidate", confidence="low", severity="info",
+            finding_status=FindingStatus.CANDIDATE,
+            confidence="low", severity=Severity.INFO,
             map_reference_type="inline_data_url",
             indicators=("inline_data_url_not_decoded",),
         )
     if resolved.kind == "cross_origin":
         return Verdict(
-            finding_status="rejected", confidence="low", severity="info",
+            finding_status=FindingStatus.REJECTED,
+            confidence="low", severity=Severity.INFO,
             map_reference_type=reference_type,
             indicators=("cross_origin_map_rejected",),
         )
     if resolved.kind == "invalid":
         return Verdict(
-            finding_status="rejected", confidence="low", severity="info",
+            finding_status=FindingStatus.REJECTED,
+            confidence="low", severity=Severity.INFO,
             map_reference_type=reference_type,
             indicators=("invalid_map_reference",),
         )
 
     # resolved.kind == "ok" — map fetch should have been attempted.
-    assert map_outcome is not None, "ok-resolved must come with map_outcome"
+    # Use a durable RuntimeError rather than `assert` so the contract
+    # survives `python -O`. The runner owns this invariant.
+    if map_outcome is None:
+        raise RuntimeError("ok-resolved must come with map_outcome")
     return _from_map_outcome(map_outcome, metadata, reference_type)
 
 
@@ -104,24 +103,28 @@ def _from_map_outcome(
         return _confirmed(metadata, reference_type)
     if map_outcome.kind == "ok":
         return Verdict(
-            finding_status="candidate", confidence="low", severity="info",
+            finding_status=FindingStatus.CANDIDATE,
+            confidence="low", severity=Severity.INFO,
             map_reference_type=reference_type,
             indicators=("malformed_or_not_source_map",),
         )
     if map_outcome.kind == "absent":
         return Verdict(
-            finding_status="rejected", confidence="low", severity="info",
+            finding_status=FindingStatus.REJECTED,
+            confidence="low", severity=Severity.INFO,
             map_reference_type=reference_type,
             indicators=("map_not_found",),
         )
     if map_outcome.kind == "blocked":
         return Verdict(
-            finding_status="candidate", confidence="low", severity="info",
+            finding_status=FindingStatus.CANDIDATE,
+            confidence="low", severity=Severity.INFO,
             map_reference_type=reference_type,
             indicators=("blocked_map",),
         )
     return Verdict(
-        finding_status="candidate", confidence="low", severity="info",
+        finding_status=FindingStatus.CANDIDATE,
+        confidence="low", severity=Severity.INFO,
         map_reference_type=reference_type,
         indicators=("transient_or_inconclusive",),
     )
@@ -131,7 +134,7 @@ def _confirmed(
     metadata: SourceMapMetadata,
     reference_type: Literal["comment", "fallback"],
 ) -> Verdict:
-    confidence: ConfidenceValue = (
+    confidence: Confidence = (
         "high" if reference_type == "comment" else "medium"
     )
     indicators: list[str] = ["valid_source_map"]
@@ -139,13 +142,14 @@ def _confirmed(
         indicators.append("sources_content_exposed")
     if metadata.internal_path_indicators:
         indicators.append("internal_path_indicators_present")
-    severity: SeverityValue = (
-        "low"
+    severity = (
+        Severity.LOW
         if metadata.has_sources_content or metadata.internal_path_indicators
-        else "info"
+        else Severity.INFO
     )
     return Verdict(
-        finding_status="confirmed", confidence=confidence, severity=severity,
+        finding_status=FindingStatus.CONFIRMED,
+        confidence=confidence, severity=severity,
         map_reference_type=reference_type,
         indicators=tuple(indicators),
     )
