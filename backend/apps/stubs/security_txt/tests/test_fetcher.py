@@ -94,6 +94,19 @@ class InconclusiveTests(unittest.TestCase):
         assert outcome.kind == "inconclusive"
         assert outcome.status is None
 
+    def test_too_many_redirects_yields_inconclusive(self) -> None:
+        # httpx raises TooManyRedirects (NOT a TransportError
+        # subclass) when max_redirects is exceeded. The fetcher
+        # must catch it and surface as `inconclusive` rather than
+        # crashing the scan.
+        def raise_(_url, **_kwargs):
+            req = httpx.Request("GET", _url)
+            raise httpx.TooManyRedirects("redirect loop", request=req)
+        with mocked_fetcher(get_side_effect=raise_):
+            outcome = fetch_security_txt(_BASE, "/.well-known/security.txt")
+        assert outcome.kind == "inconclusive"
+        assert outcome.status is None
+
 
 class CrossHostRedirectTests(unittest.TestCase):
     def test_redirect_to_other_host_rejected_as_inconclusive(self) -> None:

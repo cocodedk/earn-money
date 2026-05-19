@@ -78,6 +78,18 @@ class TransportErrorTests(unittest.TestCase):
             outcome = fetch_sitemap("https://x.example/sitemap.xml")
         assert outcome.kind == "unreachable"
 
+    def test_too_many_redirects_returns_unreachable(self) -> None:
+        # httpx raises TooManyRedirects (NOT a TransportError
+        # subclass) when its default max_redirects=20 is exceeded.
+        # Catch alongside TransportError so a misconfigured server
+        # doesn't crash the scan.
+        def raise_(_url, **_kwargs):
+            req = httpx.Request("GET", _url)
+            raise httpx.TooManyRedirects("loop", request=req)
+        with mocked_fetcher(get_side_effect=raise_):
+            outcome = fetch_sitemap("https://x.example/sitemap.xml")
+        assert outcome.kind == "unreachable"
+
 
 class ConfigValidationTests(unittest.TestCase):
     def test_negative_max_body_bytes_rejected(self) -> None:

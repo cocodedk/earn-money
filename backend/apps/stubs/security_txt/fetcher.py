@@ -76,7 +76,13 @@ def fetch_security_txt(
                     "Accept": "text/plain, */*;q=0.1",
                 },
             )
-        except httpx.TransportError:
+        except (httpx.TransportError, httpx.TooManyRedirects):
+            # TooManyRedirects is not a TransportError subclass —
+            # we explicitly cap at max_redirects=3, so the runtime
+            # path is reachable on a real server with a long
+            # redirect chain. Spec §Redirect handling treats
+            # exceeded-limit as a non-confirming outcome, not a
+            # runner crash.
             return FetchOutcome(
                 kind="inconclusive", status=None, body="", final_url=url,
             )

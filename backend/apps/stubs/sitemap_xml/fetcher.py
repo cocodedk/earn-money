@@ -56,7 +56,10 @@ def fetch_sitemap(
     ) as client:
         try:
             response = client.get(url)
-        except httpx.TransportError:
+        except (httpx.TransportError, httpx.TooManyRedirects):
+            # TooManyRedirects is NOT a TransportError subclass.
+            # httpx's default max_redirects=20 makes a redirect
+            # loop on a misconfigured server reachable in practice.
             return FetchOutcome(
                 kind="unreachable", status=None, body="", final_url=url,
             )
