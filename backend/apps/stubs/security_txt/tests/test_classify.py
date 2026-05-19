@@ -146,6 +146,26 @@ class ConflictingFilesTests(unittest.TestCase):
         )
         assert verdict.finding_type == "security_txt_conflicting_files"
 
+    def test_trailing_newline_only_not_treated_as_conflict(self) -> None:
+        # _bodies_differ normalises trailing whitespace + final
+        # newlines before hashing — without that, a server that
+        # serves the same file twice but adds a trailing \n on one
+        # would false-positive as conflicting_files.
+        body = (
+            f"Contact: mailto:s@x.example\n"
+            f"Expires: 2030-01-01T00:00:00Z\n"
+            f"Canonical: {_CANONICAL_URL}\n"
+        )
+        canonical_body = body
+        legacy_body = body + "\n\n  "  # extra trailing whitespace
+        verdict = classify_security_txt(
+            canonical=_ok(body=canonical_body),
+            legacy=_ok(body=legacy_body, url=_LEGACY_URL),
+            parsed=_parse(canonical_body), now=_NOW,
+        )
+        # Bodies normalise to the same hash → not conflicting.
+        assert verdict.finding_type != "security_txt_conflicting_files"
+
 
 class PresentValidTests(unittest.TestCase):
     def test_clean_file_yields_present_valid(self) -> None:
