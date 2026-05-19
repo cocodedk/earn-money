@@ -228,8 +228,29 @@ describe("useScanRunTargetRunsQuery", () => {
     vi.useRealTimers();
   });
 
-  it("does NOT poll with livePolling: false", async () => {
+  it.each([
+    ["livePolling: false", { livePolling: false }],
+    ["options omitted entirely", undefined],
+  ] as const)("does NOT poll when %s", async (_, options) => {
     vi.useFakeTimers();
+    let calls = 0;
+    server.use(
+      msw.get("/api/scan-runs/r-1/target-runs/", () => {
+        calls += 1;
+        return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    renderHook(
+      () => useScanRunTargetRunsQuery("r-1", options),
+      { wrapper: Wrapper },
+    );
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(calls).toBe(1);
+    vi.useRealTimers();
+  });
+
+  it("initial false → no flush on first render (only true→false edge fires the flush)", async () => {
     let calls = 0;
     server.use(
       msw.get("/api/scan-runs/r-1/target-runs/", () => {
@@ -242,8 +263,29 @@ describe("useScanRunTargetRunsQuery", () => {
       () => useScanRunTargetRunsQuery("r-1", { livePolling: false }),
       { wrapper: Wrapper },
     );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(1); // one initial fetch, no flush invalidation
+  });
+
+  it("unmount mid-poll → no further MSW calls fire after unmount", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    server.use(
+      msw.get("/api/scan-runs/r-1/target-runs/", () => {
+        calls += 1;
+        return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { unmount } = renderHook(
+      () => useScanRunTargetRunsQuery("r-1", { livePolling: true }),
+      { wrapper: Wrapper },
+    );
     await vi.advanceTimersByTimeAsync(2500);
-    expect(calls).toBe(1);
+    const beforeUnmount = calls;
+    unmount();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(calls).toBe(beforeUnmount);
     vi.useRealTimers();
   });
 
@@ -258,7 +300,7 @@ describe("useScanRunTargetRunsQuery", () => {
         }),
       ),
     );
-    const { Wrapper, client } = makeRenderHookWrapper();
+    const { Wrapper } = makeRenderHookWrapper();
     const { rerender, result } = renderHook(
       ({ live }: { live: boolean }) =>
         useScanRunTargetRunsQuery("r-1", { livePolling: live }),

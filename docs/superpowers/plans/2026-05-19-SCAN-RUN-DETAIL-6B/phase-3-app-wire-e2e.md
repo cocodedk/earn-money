@@ -52,31 +52,49 @@ Run `/simplify` to clean.
 **Files:**
 - Create: `frontend/src/features/scan-runs/ScanRunDetail.target-runs.test.tsx`
 
-- [ ] **Step 1: Write the file (mutable MSW pattern + transition + cascade + visible-badge + silent-error branches)**
+- [ ] **Step 1: Imports + `mountAt` helper at the top of the file**
 
 ```tsx
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { screen, within, waitFor } from "@testing-library/react";
+import { Routes, Route } from "react-router-dom";
 import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
+import { scanRunKey } from "./api";
 import { makeScanRun } from "./__fixtures__/scan-run";
 import { makeScanTargetRun } from "./__fixtures__/scan-target-run";
 import type { ScanRun } from "../../types/api";
 import { ScanRunDetail } from "./ScanRunDetail";
 
 function mountAt(id: string) {
+  // renderWithProviders already wraps in MemoryRouter + QueryClientProvider
+  // and returns the test `client` for invalidation/seeding from the test.
   return renderWithProviders(
-    <MemoryRouter initialEntries={[`/scan-runs/${id}`]}>
-      <Routes>
-        <Route path="/scan-runs/:id" element={<ScanRunDetail />} />
-      </Routes>
-    </MemoryRouter>,
+    <Routes>
+      <Route path="/scan-runs/:id" element={<ScanRunDetail />} />
+    </Routes>,
+    { route: `/scan-runs/${id}` },
   );
 }
+```
 
+> **Hook+integration layered coverage is deliberate.** Some branches below (terminal flush in-flight, no-cached-data in-flight, lifecycle cascade) are ALSO covered at the hook level in `api.target-runs.test.tsx`. The hook tests lock the hook's contract; these integration tests lock the same contract end-to-end through `ScanRunDetail`. Do NOT delete one as "duplicate" — they exercise different layers.
+
+- [ ] **Step 2: Write the test body (10 branches across 4 logical groups)**
+
+Append the `describe` open + all 10 `it(...)` blocks to the file, organised into the four groups below. Group boundaries are flagged with `// --- group: name ---` so the engineer can self-checkpoint between groups:
+
+1. **Happy + parent-driven transitions** (4): happy load, queued→running, running→done, running→stopping→stopped.
+2. **Terminal-flush in-flight branches** (2): cached data exists, no cached data (round-5 edge case).
+3. **Cascade + visible polling** (2): lifecycle stop-from-paused cascade, visible badge update on poll.
+4. **Background error silence** (2): parent 500, parent 404.
+
+Total: 10 `it` blocks. The hook-level tests in `api.target-runs.test.tsx` cover similar branches at the hook layer; the integration tests here lock the same contract end-to-end through `ScanRunDetail`. Deliberate layered coverage — do NOT delete one as "duplicate" (see also the note in Step 1).
+
+```tsx
 describe("ScanRunDetail target-runs integration", () => {
+  // --- group 1: happy + parent-driven transitions ---
   it("renders the table beneath the MetaList on happy detail load", async () => {
     server.use(
       msw.get("/api/scan-runs/r-1/", () => HttpResponse.json(makeScanRun({ id: "r-1", status: "running" }))),
@@ -100,11 +118,16 @@ describe("ScanRunDetail target-runs integration", () => {
         return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
       }),
     );
-    mountAt("r-1");
+    const { client } = mountAt("r-1");
     await vi.advanceTimersByTimeAsync(2500);
     const beforeFlip = calls;
+    // With status "queued", parent's refetchInterval is false (no polling),
+    // so flipping `parent` here alone wouldn't trigger a re-fetch. The test
+    // explicitly invalidates the parent key to simulate the cascade that
+    // a lifecycle mutation (or focus event) would deliver in real use.
     parent = makeScanRun({ id: "r-1", status: "running" });
-    await vi.advanceTimersByTimeAsync(3000); // wait for parent poll + child polls
+    await client.invalidateQueries({ queryKey: scanRunKey("r-1") });
+    await vi.advanceTimersByTimeAsync(3000);
     expect(calls).toBeGreaterThan(beforeFlip);
     vi.useRealTimers();
   });
@@ -155,6 +178,40 @@ describe("ScanRunDetail target-runs integration", () => {
     vi.useRealTimers();
   });
 
+  // --- group 2: terminal-flush in-flight branches ---
+  it("in-flight flush — cached data exists: cache ends fresh", async () => {
+    vi.useFakeTimers();
+    let parent: ScanRun = makeScanRun({ id: "r-1", status: "running" });
+    let phase: "pre" | "post" = "pre";
+    server.use(
+      msw.get("/api/scan-runs/r-1/", () => HttpResponse.json(parent)),
+      msw.get("/api/scan-runs/r-1/target-runs/", async () => {
+        if (phase === "pre") {
+          return HttpResponse.json({
+            count: 1, next: null, previous: null,
+            results: [makeScanTargetRun({ id: "tr-1", status: "running" })],
+          });
+        }
+        await new Promise((r) => setTimeout(r, 200));
+        return HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeScanTargetRun({ id: "tr-1", status: "done" })],
+        });
+      }),
+    );
+    mountAt("r-1");
+    await vi.advanceTimersByTimeAsync(2500); // cached "running" landed
+    phase = "post";
+    parent = makeScanRun({ id: "r-1", status: "done" });
+    await vi.advanceTimersByTimeAsync(2000); // parent polls done, flush fires while child is in-flight
+    await vi.advanceTimersByTimeAsync(500);
+    await waitFor(() => {
+      const row = screen.getByTestId("target-run-row-tr-1");
+      expect(within(row).getByTestId("status-done")).toBeInTheDocument();
+    });
+    vi.useRealTimers();
+  });
+
   it("no-cached-data in-flight at terminal flip: cache ends fresh (round-5 edge case)", async () => {
     vi.useFakeTimers();
     let parent: ScanRun = makeScanRun({ id: "r-1", status: "running" });
@@ -181,6 +238,7 @@ describe("ScanRunDetail target-runs integration", () => {
     vi.useRealTimers();
   });
 
+  // --- group 3: cascade + visible polling ---
   it("lifecycle stop-from-paused cascade refetches target-runs", async () => {
     let parent: ScanRun = makeScanRun({ id: "r-1", status: "paused" });
     let targetCalls = 0;
@@ -216,12 +274,15 @@ describe("ScanRunDetail target-runs integration", () => {
     expect(within(row).getByTestId("status-queued")).toBeInTheDocument();
     target = makeScanTargetRun({ id: "tr-1", status: "running" });
     await vi.advanceTimersByTimeAsync(2500);
-    await waitFor(() =>
-      expect(within(row).getByTestId("status-running")).toBeInTheDocument(),
-    );
+    await waitFor(() => {
+      const badge = within(row).getByTestId("status-running");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent("running"); // assert visible text flipped, not just data-testid
+    });
     vi.useRealTimers();
   });
 
+  // --- group 4: background error silence ---
   it("parent background 500 → page stays mounted, no full-page takeover", async () => {
     let serveError = false;
     server.use(
@@ -262,15 +323,15 @@ describe("ScanRunDetail target-runs integration", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests — must pass**
+- [ ] **Step 3: Run tests — must pass**
 
 ```bash
 cd frontend && npm test -- src/features/scan-runs/ScanRunDetail.target-runs.test.tsx
 ```
 
-Expected: PASS for all 9 branches.
+Expected: PASS for all 10 branches (happy / queued→running / running→done / running→stopping→stopped / in-flight-with-cached-data / no-cached-data / lifecycle cascade / visible badge / parent 500 / parent 404).
 
-- [ ] **Step 3: Coverage + commit**
+- [ ] **Step 4: Coverage + commit**
 
 ```bash
 cd frontend && npm test -- --coverage

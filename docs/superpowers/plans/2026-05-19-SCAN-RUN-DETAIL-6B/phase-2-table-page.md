@@ -132,12 +132,27 @@ Run `/simplify` to clean.
 
 ---
 
-### Task B: `ScanRunTargetsTable` component
+### Task B: `ScanRunTargetsTable` component + tests (single TDD cycle)
+
+Test-driven: failing tests first, then component, then green-and-commit-together. Per the project's strict TDD rule, no production code is committed before its failing test exists.
 
 **Files:**
+- Create: `frontend/src/features/scan-runs/ScanRunTargetsTable.test.tsx`
 - Create: `frontend/src/features/scan-runs/ScanRunTargetsTable.tsx`
 
-- [ ] **Step 1: Implement the component**
+- [ ] **Step 1: Write the failing test file first**
+
+Create `ScanRunTargetsTable.test.tsx` with all 9 cases. See **Step 4** below for the full test file contents — write that whole file now, then proceed.
+
+- [ ] **Step 2: Run tests — must fail (component does not exist)**
+
+```bash
+cd frontend && npm test -- src/features/scan-runs/ScanRunTargetsTable.test.tsx
+```
+
+Expected: FAIL — module not found at `./ScanRunTargetsTable`.
+
+- [ ] **Step 3: Implement the component**
 
 ```tsx
 import { useScanRunTargetRunsQuery } from "./api";
@@ -209,21 +224,7 @@ export function ScanRunTargetsTable({ scanRunId, livePolling }: ScanRunTargetsTa
 
 If the existing shared `Table` primitive lives elsewhere (`git grep -l "export.*Table" frontend/src/components`), adjust the import. Otherwise the cell rendering uses raw `<table>` — keep the file under 200 lines either way.
 
-- [ ] **Step 2: Commit (test follows in Task C — file is meaningless alone)**
-
-```bash
-git add frontend/src/features/scan-runs/ScanRunTargetsTable.tsx
-git commit -m "feat(frontend): ScanRunTargetsTable component"
-```
-
----
-
-### Task C: `ScanRunTargetsTable` tests
-
-**Files:**
-- Create: `frontend/src/features/scan-runs/ScanRunTargetsTable.test.tsx`
-
-- [ ] **Step 1: Write the test file**
+- [ ] **Step 4: Test file contents (the file you wrote in Step 1)**
 
 ```tsx
 import { describe, it, expect } from "vitest";
@@ -294,20 +295,24 @@ describe("ScanRunTargetsTable", () => {
     },
   );
 
-  it("renders failed-with-timestamp row (started_at + finished_at set)", async () => {
-    server.use(handler([
-      makeScanTargetRun({
-        id: "tr-failed",
-        status: "failed",
-        started_at: "2026-05-19T10:00:00Z",
-        finished_at: "2026-05-19T10:00:05Z",
-      }),
-    ]));
-    renderWithProviders(<ScanRunTargetsTable scanRunId="r-1" livePolling={false} />);
-    const row = await screen.findByTestId("target-run-row-tr-failed");
-    expect(within(row).getByTestId("status-failed")).toBeInTheDocument();
-    expect(within(row).getByText("2026-05-19T10:00:05")).toBeInTheDocument();
-  });
+  it.each([
+    ["done", "tr-done", "2026-05-19T10:00:00Z", "2026-05-19T10:00:42Z", "2026-05-19T10:00:00", "2026-05-19T10:00:42"],
+    ["failed", "tr-failed", "2026-05-19T10:00:00Z", "2026-05-19T10:00:05Z", "2026-05-19T10:00:00", "2026-05-19T10:00:05"],
+    ["stopped", "tr-stopped-r", "2026-05-19T10:00:00Z", "2026-05-19T10:00:30Z", "2026-05-19T10:00:00", "2026-05-19T10:00:30"],
+  ] as const)(
+    "renders %s row with both timestamps set",
+    async (status, id, started_at, finished_at, startCell, finCell) => {
+      server.use(handler([
+        makeScanTargetRun({ id, status, started_at, finished_at }),
+      ]));
+      renderWithProviders(<ScanRunTargetsTable scanRunId="r-1" livePolling={false} />);
+      const row = await screen.findByTestId(`target-run-row-${id}`);
+      expect(within(row).getByTestId(`status-${status}`)).toBeInTheDocument();
+      const cells = within(row).getAllByRole("cell");
+      expect(cells[2].textContent).toBe(startCell);
+      expect(cells[3].textContent).toBe(finCell);
+    },
+  );
 
   it("renders stopped-from-queued row (null started_at, set finished_at)", async () => {
     server.use(handler([
@@ -343,20 +348,20 @@ describe("ScanRunTargetsTable", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests — must pass**
+- [ ] **Step 5: Run tests — must pass**
 
 ```bash
 cd frontend && npm test -- src/features/scan-runs/ScanRunTargetsTable.test.tsx
 ```
 
-Expected: PASS for all 8 cases.
+Expected: PASS for all 8 cases (happy / empty / loading / mixed-statuses-null-finished_at × 3 / mixed-statuses-both-timestamps × 3 (done, failed, stopped-from-running) / stopped-from-queued / truncation footer / inline error).
 
-- [ ] **Step 3: Coverage check + commit**
+- [ ] **Step 6: Coverage check + commit (both files together)**
 
 ```bash
 cd frontend && npm test -- --coverage
-git add frontend/src/features/scan-runs/ScanRunTargetsTable.test.tsx
-git commit -m "test(frontend): ScanRunTargetsTable component branches"
+git add frontend/src/features/scan-runs/ScanRunTargetsTable.tsx frontend/src/features/scan-runs/ScanRunTargetsTable.test.tsx
+git commit -m "feat(frontend): ScanRunTargetsTable component + tests"
 ```
 
 Run `/simplify` to clean.
@@ -365,4 +370,4 @@ Run `/simplify` to clean.
 
 ### Phase 2 done
 
-Component renders against the contract; DetailPageGuard narrowing locks the §Decisions item 4 behavior. Next: phase 3 — wire into `ScanRunDetail` + integration tests + E2E.
+Component renders against the contract (tested first, implemented second per strict TDD); DetailPageGuard narrowing locks the §Decisions item 4 behavior. Next: phase 3 — wire into `ScanRunDetail` + integration tests + E2E.
