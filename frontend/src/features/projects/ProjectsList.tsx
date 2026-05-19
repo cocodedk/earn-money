@@ -6,6 +6,7 @@ import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { Callout } from "../../components/Callout";
 import { useProjectsQuery } from "./api";
+import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { Project } from "../../types/api";
 
 const columns: TableColumn<Project>[] = [
@@ -33,7 +34,7 @@ export function ProjectsList() {
         {query.isError ? (
           <Callout
             variant="error"
-            title="Backend unreachable"
+            title={BACKEND_UNREACHABLE}
             action={{ label: "Retry", onClick: () => void query.refetch() }}
           >
             Could not load projects.

@@ -1,31 +1,30 @@
 import type { ApiError } from "./parseApiError";
 
+export const BACKEND_UNREACHABLE = "Backend unreachable";
+
 export type ErrorSetters = {
   setFieldErrors: (errors: Record<string, string[]>) => void;
   setBannerError: (message: string) => void;
 };
 
-const KIND_MESSAGES: Record<"server" | "network", string> = {
-  server: "Something went wrong. Please try again.",
-  network: "Backend unreachable.",
-};
-
-// Maps a discriminated ApiError onto the form's field-error and
-// banner-error setters. Both Create forms share this dispatch — the
-// kind→effect mapping lives here so a new error kind is a one-file
-// change.
 export function applyParsedError(parsed: ApiError, set: ErrorSetters): void {
-  if (parsed.kind === "field") {
-    set.setFieldErrors(parsed.errors);
-    return;
+  switch (parsed.kind) {
+    case "field":
+      return set.setFieldErrors(parsed.errors);
+    case "non_field":
+      return set.setBannerError(parsed.errors[0]);
+    case "detail":
+      return set.setBannerError(parsed.detail);
+    case "server":
+      return set.setBannerError("Something went wrong. Please try again.");
+    case "network":
+      return set.setBannerError(`${BACKEND_UNREACHABLE}.`);
+    /* v8 ignore next 5 — compile-time exhaustiveness; unreachable at runtime
+       because ApiError.kind is a closed union. A new variant fails to type-
+       check here before it ever runs. */
+    default: {
+      const _exhaustive: never = parsed;
+      return _exhaustive;
+    }
   }
-  if (parsed.kind === "non_field") {
-    set.setBannerError(parsed.errors[0]);
-    return;
-  }
-  if (parsed.kind === "detail") {
-    set.setBannerError(parsed.detail);
-    return;
-  }
-  set.setBannerError(KIND_MESSAGES[parsed.kind]);
 }

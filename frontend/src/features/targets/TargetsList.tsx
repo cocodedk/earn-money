@@ -9,6 +9,7 @@ import { Callout } from "../../components/Callout";
 import { useProjectsQuery } from "../projects/api";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
+import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { Project, Target } from "../../types/api";
 
 function nameLookup(projects: Project[] | undefined) {
@@ -65,7 +66,7 @@ export function TargetsList() {
         {targets.isError ? (
           <Callout
             variant="error"
-            title="Backend unreachable"
+            title={BACKEND_UNREACHABLE}
             action={{ label: "Retry", onClick: () => void targets.refetch() }}
           >
             Could not load targets.

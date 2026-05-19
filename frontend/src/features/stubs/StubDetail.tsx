@@ -6,6 +6,7 @@ import { Callout } from "../../components/Callout";
 import { isHttpStatus } from "../../lib/http";
 import { useStubQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
+import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { Stub } from "../../types/api";
 
 function MetaRow({ label, children }: { label: string; children: ReactNode }) {
@@ -65,7 +66,7 @@ export function StubDetail() {
       <>
         <PageHeader title="Stub" />
         <div className="mt-4">
-          <Callout variant="error" title="Backend unreachable">
+          <Callout variant="error" title={BACKEND_UNREACHABLE}>
             Could not load stub.
           </Callout>
         </div>

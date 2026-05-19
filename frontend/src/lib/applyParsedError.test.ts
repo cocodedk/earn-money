@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { applyParsedError } from "./applyParsedError";
+import { applyParsedError, BACKEND_UNREACHABLE } from "./applyParsedError";
 
 function makeSetters() {
   return {
@@ -43,6 +43,6 @@ describe("applyParsedError", () => {
   it("renders Backend unreachable on network errors", () => {
     const set = makeSetters();
     applyParsedError({ kind: "network" }, set);
-    expect(set.setBannerError).toHaveBeenCalledWith("Backend unreachable.");
+    expect(set.setBannerError).toHaveBeenCalledWith(`${BACKEND_UNREACHABLE}.`);
   });
 });

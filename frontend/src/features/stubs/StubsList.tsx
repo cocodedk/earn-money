@@ -8,6 +8,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { Callout } from "../../components/Callout";
 import { useStubsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
+import { BACKEND_UNREACHABLE } from "../../lib/applyParsedError";
 import type { StubSummary } from "../../types/api";
 
 function buildColumns(): TableColumn<StubSummary>[] {
@@ -53,7 +54,7 @@ export function StubsList() {
         {query.isError ? (
           <Callout
             variant="error"
-            title="Backend unreachable"
+            title={BACKEND_UNREACHABLE}
             action={{ label: "Retry", onClick: () => void query.refetch() }}
           >
             Could not load stubs.
