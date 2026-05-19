@@ -187,4 +187,84 @@ describe("FindingsList", () => {
       "1.1",
     );
   });
+
+  it("populates all dynamic dropdowns and clears a filter when 'All' is picked", async () => {
+    server.use(
+      msw.get("/api/findings/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+      msw.get("/api/projects/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "p1",
+              name: "Lab",
+              description: "",
+              target_count: 1,
+              scan_run_count: 1,
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/targets/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "t1",
+              project: "p1",
+              base_url: "https://dvwa.cocode.dk",
+              host: null,
+              ip: null,
+              status: "active",
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/scan-runs/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "r-abcdef12",
+              project: "p1",
+              stub_slug: "1.1",
+              status: "done",
+              target_run_count: 1,
+              findings_count: 0,
+              started_at: null,
+              finished_at: null,
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/stubs/", () => HttpResponse.json([])),
+    );
+    window.localStorage.setItem("em.frontend.currentProjectId", "p1");
+    renderWithProviders(<FindingsList />, {
+      route: "/findings?severity=high",
+    });
+    expect(await screen.findByRole("option", { name: "Lab" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "https://dvwa.cocode.dk" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: /r-abcdef/ }),
+    ).toBeInTheDocument();
+    // Clearing a filter by selecting the "All" sentinel deletes it from the URL.
+    await userEvent.selectOptions(screen.getByLabelText("Severity"), "");
+    expect(
+      (screen.getByLabelText("Severity") as HTMLSelectElement).value,
+    ).toBe("");
+  });
 });

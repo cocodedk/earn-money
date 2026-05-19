@@ -105,4 +105,37 @@ describe("FindingDetail", () => {
     mountAt("/findings/f9");
     expect(await screen.findByText(/not found/i)).toBeInTheDocument();
   });
+
+  it("falls back to dashes in the linked evidence table when fields are null", async () => {
+    server.use(
+      msw.get("/api/findings/f1/", () => HttpResponse.json(sampleFinding)),
+      msw.get("/api/evidence/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "e1",
+              scan_run: "r1",
+              target: "t1",
+              finding: "f1",
+              source: "body.html",
+              url: null,
+              method: null,
+              field: null,
+              matched_value: null,
+              raw_excerpt: null,
+              content_hash: "ab",
+              data: {},
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    mountAt("/findings/f1");
+    await screen.findByText("body.html");
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
+  });
 });

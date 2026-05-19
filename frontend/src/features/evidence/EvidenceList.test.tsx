@@ -66,6 +66,15 @@ describe("EvidenceList", () => {
     expect(link).toHaveAttribute("href", "/evidence/e1");
   });
 
+  it("falls back to dashes for null url/method/field/matched_value in rows", async () => {
+    withEvidence([
+      { ...sampleEvidence, url: null, method: null, field: null, matched_value: null },
+    ]);
+    renderWithProviders(<EvidenceList />, { route: "/evidence" });
+    await screen.findByText("header.X-Powered-By");
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
+  });
+
   it("renders text-input for source filter and select for project filter", async () => {
     withEvidence([]);
     renderWithProviders(<EvidenceList />, { route: "/evidence" });
@@ -144,5 +153,86 @@ describe("EvidenceList", () => {
     await waitFor(() => expect(lastUrl).not.toBeNull());
     expect(lastUrl!.searchParams.get("source")).toBe("body.html");
     expect(lastUrl!.searchParams.get("scan_run")).toBe("r1");
+  });
+
+  it("populates project/target/scan-run dropdowns and accepts source typing", async () => {
+    server.use(
+      msw.get("/api/evidence/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+      msw.get("/api/projects/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "p1",
+              name: "Lab",
+              description: "",
+              target_count: 1,
+              scan_run_count: 1,
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/targets/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "t1",
+              project: "p1",
+              base_url: "https://dvwa.cocode.dk",
+              host: null,
+              ip: null,
+              status: "active",
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+      msw.get("/api/scan-runs/", () =>
+        HttpResponse.json({
+          count: 1,
+          next: null,
+          previous: null,
+          results: [
+            {
+              id: "r-abcdef12",
+              project: "p1",
+              stub_slug: "1.1",
+              status: "done",
+              target_run_count: 1,
+              findings_count: 0,
+              started_at: null,
+              finished_at: null,
+              created_at: "2026-05-18T20:00:00.000000Z",
+            },
+          ],
+        }),
+      ),
+    );
+    window.localStorage.setItem("em.frontend.currentProjectId", "p1");
+    renderWithProviders(<EvidenceList />, { route: "/evidence" });
+    expect(await screen.findByRole("option", { name: "Lab" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "https://dvwa.cocode.dk" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: /r-abcdef/ }),
+    ).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Source"), "body");
+    expect((screen.getByLabelText("Source") as HTMLInputElement).value).toBe(
+      "body",
+    );
+    // Pick "All" — exercises onChange's delete branch when value is "".
+    await userEvent.selectOptions(screen.getByLabelText("Project"), "");
+    expect((screen.getByLabelText("Project") as HTMLSelectElement).value).toBe(
+      "",
+    );
   });
 });

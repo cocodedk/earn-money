@@ -117,6 +117,72 @@ describe("TargetResult", () => {
     expect(await screen.findByText("Express detected")).toBeInTheDocument();
   });
 
+  it("renders scan run rows with truncated id link", async () => {
+    setupGoodTarget({
+      scanRuns: [
+        {
+          id: "r-abcdef12-aaaa",
+          project: "p1",
+          stub_slug: "1.1",
+          status: "done",
+          target_run_count: 1,
+          findings_count: 2,
+          started_at: "2026-05-18T20:00:00.000000Z",
+          finished_at: null,
+          created_at: "2026-05-18T20:00:00.000000Z",
+        },
+      ],
+    });
+    mountAt("/targets/t1/results");
+    const link = await screen.findByRole("link", { name: /r-abcdef/ });
+    expect(link).toHaveAttribute("href", "/scan-runs/r-abcdef12-aaaa");
+    expect(screen.getByText("2026-05-18 20:00:00")).toBeInTheDocument();
+  });
+
+  it("falls back to — for a scan run without started_at", async () => {
+    setupGoodTarget({
+      scanRuns: [
+        {
+          id: "r-queue000-bbbb",
+          project: "p1",
+          stub_slug: "1.2",
+          status: "queued",
+          target_run_count: 1,
+          findings_count: 0,
+          started_at: null,
+          finished_at: null,
+          created_at: "2026-05-18T20:00:00.000000Z",
+        },
+      ],
+    });
+    mountAt("/targets/t1/results");
+    await screen.findByRole("link", { name: /r-queue/ });
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("falls back to dashes for null host and ip", async () => {
+    server.use(
+      msw.get("/api/targets/t2/", () =>
+        HttpResponse.json({ ...sampleTarget, id: "t2", host: null, ip: null }),
+      ),
+      msw.get("/api/findings/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+      msw.get("/api/evidence/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+      msw.get("/api/scan-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
+    );
+    mountAt("/targets/t2/results");
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "https://dvwa.cocode.dk",
+    });
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
   it("renders the not-found callout on 404", async () => {
     server.use(
       msw.get("/api/targets/t9/", () =>

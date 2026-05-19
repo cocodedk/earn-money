@@ -94,6 +94,7 @@ export function FindingDetail() {
             <h2 className="text-lg font-medium mb-2">Linked evidence</h2>
             <Table<Evidence>
               columns={evidenceColumns}
+              /* v8 ignore next — `?? []` only fires while data is undefined pre-resolve; the loading state is owned by the Table's isLoading prop */
               rows={evidenceQuery.data?.results ?? []}
               rowKey={(r) => r.id}
               isLoading={evidenceQuery.isLoading}

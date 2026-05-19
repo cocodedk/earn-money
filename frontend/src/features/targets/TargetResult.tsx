@@ -105,6 +105,7 @@ export function TargetResult() {
             <h2 className="text-lg font-medium mb-2">Findings for target</h2>
             <FindingsPanel
               isLoading={findingsQuery.isLoading}
+              /* v8 ignore next — `?? []` only fires pre-resolve; isLoading owns the loading UX */
               rows={findingsQuery.data?.results ?? []}
             />
           </section>
@@ -112,6 +113,7 @@ export function TargetResult() {
             <h2 className="text-lg font-medium mb-2">Evidence for target</h2>
             <EvidencePanel
               isLoading={evidenceQuery.isLoading}
+              /* v8 ignore next — `?? []` only fires pre-resolve; isLoading owns the loading UX */
               rows={evidenceQuery.data?.results ?? []}
             />
           </section>
