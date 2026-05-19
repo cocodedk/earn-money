@@ -73,6 +73,18 @@ class CookieCaptureTests(unittest.TestCase):
 
         assert bundle["probes"]["/"]["cookies"] == []
 
+    def test_attribute_only_cookie_header_is_skipped(self) -> None:
+        # A non-RFC-compliant Set-Cookie like `; HttpOnly` (no name=value
+        # pair) would otherwise be recorded as a cookie name "; HttpOnly".
+        responses = _three_probes()
+        responses["https://x.example/"] = _resp(
+            "x", headers={"set-cookie": "; HttpOnly"},
+        )
+        with mocked_fetcher(responses):
+            bundle = fetch_evidence("https://x.example/")
+
+        assert bundle["probes"]["/"]["cookies"] == []
+
 
 class BodyTruncationTests(unittest.TestCase):
     def test_body_truncated_to_max_body_bytes(self) -> None:

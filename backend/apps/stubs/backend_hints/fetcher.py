@@ -96,9 +96,14 @@ def _cookie_names_from_headers(headers: httpx.Headers) -> list[str]:
     """Extract cookie NAMES from Set-Cookie headers. Values are
     deliberately dropped — they're sensitive and we never persist them.
 
-    httpx.Headers supports multiple Set-Cookie entries via .get_list."""
+    Reject malformed headers without `=` (attribute-only fragments like
+    `; HttpOnly` from non-RFC-compliant servers would otherwise be
+    recorded as cookie names). httpx.Headers supports multiple
+    Set-Cookie entries via .get_list."""
     names: list[str] = []
     for value in headers.get_list("set-cookie"):
+        if "=" not in value:
+            continue
         name = value.split("=", 1)[0].strip()
         if name:
             names.append(name)
