@@ -87,6 +87,20 @@ class DeduplicationTests(unittest.TestCase):
         assert result.count("admin") == 1
 
 
+class DeterministicOrderTests(unittest.TestCase):
+    def test_multi_token_segment_left_to_right_order(self) -> None:
+        # `db-dump.sql` is a single segment that contains three
+        # tokens. Spec doesn't require an order but the docstring
+        # promises first-encounter (left-to-right). A previous
+        # set-based implementation leaked hash randomization into
+        # the result.
+        result = is_sensitive_path("/db-dump.sql")
+        # Filter to just the tokens we know match (in case future
+        # token-list additions change membership).
+        observed = [t for t in result if t in {"db", "dump", "sql"}]
+        assert observed == ["db", "dump", "sql"]
+
+
 class SitemapOriginTests(unittest.TestCase):
     def test_same_host_and_scheme_is_same_origin(self) -> None:
         assert classify_sitemap_origin(

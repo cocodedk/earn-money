@@ -84,13 +84,23 @@ def is_sensitive_path(path: str) -> tuple[str, ...]:
     return tuple(matched)
 
 
-def _segment_components(segment: str) -> set[str]:
-    """Return all matchable components of a path segment:
-    - The whole segment (so `.git` and `.env` stay intact).
-    - Each `.`/`-`/`_`-separated part (so `db-dump.sql` yields
-      {db, dump, sql})."""
-    components = {segment}
-    components.update(p for p in _COMPONENT_SEP.split(segment) if p)
+def _segment_components(segment: str) -> list[str]:
+    """Return all matchable components of a path segment in
+    deterministic order:
+    - The whole segment first (so `.git` and `.env` stay intact and
+      the segment-name match wins over its parts).
+    - Each `.`/`-`/`_`-separated part, in original left-to-right order
+      (so `db-dump.sql` yields [db, dump, sql]).
+
+    Returning a list preserves first-encounter order — a set would
+    leak hash randomization into the matched-tokens tuple, breaking
+    the docstring's `first-encounter order` promise."""
+    components = [segment]
+    seen = {segment}
+    for part in _COMPONENT_SEP.split(segment):
+        if part and part not in seen:
+            seen.add(part)
+            components.append(part)
     return components
 
 
