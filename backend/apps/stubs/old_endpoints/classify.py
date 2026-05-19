@@ -60,8 +60,17 @@ def classify_probe(
         )
 
     # Spec §7 row 2: deprecation marker in the body → confirmed/high.
-    # Same authority as the header — server explicitly says deprecated.
-    if body and body_has_deprecation_marker(body):
+    # Body markers count only on alive (200/204/206) responses per
+    # spec §5 ("from each live response, extract indicators"). 5xx
+    # error pages and 3xx redirect bodies routinely echo the requested
+    # path back — Express's `<title>Error: Unexpected path: /api/
+    # deprecated</title>` would otherwise be read as the server
+    # confirming the endpoint's deprecation.
+    if (
+        status in _ALIVE_STATUSES
+        and body
+        and body_has_deprecation_marker(body)
+    ):
         return Verdict(
             "alive", FindingStatus.CONFIRMED, "high",
             indicators + ["body_marker:deprecation"],

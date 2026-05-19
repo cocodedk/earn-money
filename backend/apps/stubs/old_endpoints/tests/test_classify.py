@@ -64,6 +64,25 @@ class BodyMarkerTests(unittest.TestCase):
         assert verdict.confidence == "high"
         assert "body_marker:deprecation" in verdict.indicators
 
+    def test_body_marker_on_5xx_ignored(self) -> None:
+        # Real-world false positive (caught against juiceshop.cocode.dk):
+        # Express's default 500 error page echoes the requested path
+        # back — e.g. `<title>Error: Unexpected path: /api/deprecated
+        # </title>` — and the body marker scan reads "deprecated" as
+        # the server confirming the endpoint's deprecation. Spec §5
+        # scopes indicator extraction to LIVE responses; gating the
+        # body-marker branch on alive status (200/204/206) rejects
+        # the echo without losing real deprecated-marker findings.
+        verdict = classify_probe(
+            "/api/deprecated",
+            _probe(
+                body="Error: Unexpected path: /api/deprecated",
+                status=500,
+            ),
+            "home",
+        )
+        assert verdict is None
+
 
 class StaleTokenLiveTests(unittest.TestCase):
     def test_stale_token_alive_without_marker_candidate_medium(self) -> None:
