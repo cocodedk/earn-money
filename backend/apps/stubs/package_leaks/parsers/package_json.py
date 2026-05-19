@@ -27,8 +27,14 @@ def parse_package_json(body: str) -> list[dict[str, str]]:
 
     hits: list[dict[str, str]] = []
     _maybe_append_root(data, hits)
-    _maybe_append_deps(data.get("dependencies"), hits)
-    _maybe_append_deps(data.get("devDependencies"), hits)
+    for section in (
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+        "bundledDependencies",
+    ):
+        _maybe_append_deps(data.get(section), hits)
     return hits
 
 

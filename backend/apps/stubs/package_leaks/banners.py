@@ -36,9 +36,14 @@ _BANNER_RE = re.compile(
 _RESERVED_NAME_PREFIXES = {"@license", "@version", "Copyright", "License"}
 
 
+_SOURCE_KIND = "banner"
+
+
 def scan_banners(text: str) -> list[dict[str, str]]:
-    """Return [{package, version}] for every banner-like comment that
-    contains a package + version pair."""
+    """Return [{package, version, source_kind}] for every banner-like
+    comment that contains a package + version pair. The `source_kind`
+    field matches the shape parsers/*.py return so the runner consumes
+    one unified hit type."""
     hits: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for match in _BANNER_RE.finditer(text):
@@ -50,5 +55,11 @@ def scan_banners(text: str) -> list[dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        hits.append({"package": package, "version": version})
+        hits.append(
+            {
+                "package": package,
+                "version": version,
+                "source_kind": _SOURCE_KIND,
+            }
+        )
     return hits

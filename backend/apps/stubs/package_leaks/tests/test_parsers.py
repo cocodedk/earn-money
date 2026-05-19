@@ -36,6 +36,20 @@ class PackageJsonParserTests(unittest.TestCase):
         assert ("react", "17.0.2") in pkgs
         assert ("my-app", "1.0.0") in pkgs
 
+    def test_extracts_peer_and_optional_dependencies(self) -> None:
+        body = """
+        {
+          "name": "lib",
+          "version": "2.0",
+          "peerDependencies": {"react": "^18.0.0"},
+          "optionalDependencies": {"fsevents": "2.3.3"}
+        }
+        """
+        hits = parse_package_json(body)
+        pkgs = {h["package"] for h in hits}
+        assert "react" in pkgs
+        assert "fsevents" in pkgs
+
     def test_extracts_dev_dependencies(self) -> None:
         body = """
         {
@@ -129,3 +143,23 @@ class RequirementsTxtParserTests(unittest.TestCase):
         hits = parse_requirements_txt("foo==1.0.0")
         assert hits == [{"package": "foo", "version": "1.0.0",
                          "source_kind": "requirements.txt"}]
+
+    def test_extras_in_package_name(self) -> None:
+        # `pkg[extra]==1.0` is common in pip output for optional features.
+        hits = parse_requirements_txt("requests[socks]==2.31.0")
+        assert hits == [{"package": "requests", "version": "2.31.0",
+                         "source_kind": "requirements.txt"}]
+
+    def test_pep508_environment_marker(self) -> None:
+        # Trailing `; python_version >= '3.8'` shouldn't break parsing.
+        hits = parse_requirements_txt(
+            "Django==5.1.0; python_version >= '3.8'"
+        )
+        assert hits == [{"package": "Django", "version": "5.1.0",
+                         "source_kind": "requirements.txt"}]
+
+    def test_extras_plus_marker(self) -> None:
+        hits = parse_requirements_txt(
+            "requests[socks,security]==2.31.0; sys_platform == 'linux'"
+        )
+        assert hits[0]["package"] == "requests"

@@ -10,8 +10,22 @@ import re
 
 
 _SOURCE_KIND = "requirements.txt"
+# Common shapes covered:
+#   foo==1.0
+#   foo[extra]==1.0
+#   foo==1.0 ; python_version >= '3.8'
+#   foo[a,b]==1.0; sys_platform == 'linux'
+# Extras and PEP 508 environment markers are ignored — we keep the
+# package name + exact version. Hash-pinned lines (`pkg==1.0 --hash=...`)
+# are out of MVP scope.
 _PINNED_RE = re.compile(
-    r"^\s*([A-Za-z0-9][A-Za-z0-9_.\-]*)==([A-Za-z0-9.\-]+)\s*$"
+    r"^\s*"
+    r"([A-Za-z0-9][A-Za-z0-9_.\-]*)"   # package
+    r"(?:\[[^\]]+\])?"                   # optional [extras]
+    r"==([A-Za-z0-9.\-]+)"                # exact version
+    r"\s*"
+    r"(?:;.*)?"                          # optional PEP 508 marker
+    r"$"
 )
 
 

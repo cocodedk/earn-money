@@ -22,7 +22,7 @@ class CommonBannerForms(unittest.TestCase):
     def test_lodash_short_banner(self) -> None:
         text = "/*! lodash 4.17.21 */"
         hits = scan_banners(text)
-        assert hits == [{"package": "lodash", "version": "4.17.21"}]
+        assert hits == [{"package": "lodash", "version": "4.17.21", "source_kind": "banner"}]
 
     def test_multiline_banner(self) -> None:
         text = """
@@ -31,17 +31,20 @@ class CommonBannerForms(unittest.TestCase):
              */
         """
         hits = scan_banners(text)
-        assert {"package": "react", "version": "17.0.2"} in hits
+        assert {"package": "react", "version": "17.0.2",
+                "source_kind": "banner"} in hits
 
     def test_license_banner_with_v_prefix(self) -> None:
         text = "/** @license React v17.0.2 */"
         hits = scan_banners(text)
-        assert {"package": "React", "version": "17.0.2"} in hits
+        assert {"package": "React", "version": "17.0.2",
+                "source_kind": "banner"} in hits
 
     def test_jquery_short_banner(self) -> None:
         text = "/*! jQuery v3.7.1 */"
         hits = scan_banners(text)
-        assert {"package": "jQuery", "version": "3.7.1"} in hits
+        assert {"package": "jQuery", "version": "3.7.1",
+                "source_kind": "banner"} in hits
 
 
 class FalsePositiveGuard(unittest.TestCase):
@@ -80,7 +83,8 @@ class ScopedPackageNames(unittest.TestCase):
     def test_npm_scoped_name(self) -> None:
         text = "/*! @angular/core 16.2.0 */"
         hits = scan_banners(text)
-        assert {"package": "@angular/core", "version": "16.2.0"} in hits
+        assert {"package": "@angular/core", "version": "16.2.0",
+                "source_kind": "banner"} in hits
 
 
 class ReservedNamesFiltered(unittest.TestCase):
@@ -99,4 +103,4 @@ class DeduplicationTests(unittest.TestCase):
             "/*! lodash 4.17.21 */"
         )
         hits = scan_banners(text)
-        assert hits == [{"package": "lodash", "version": "4.17.21"}]
+        assert hits == [{"package": "lodash", "version": "4.17.21", "source_kind": "banner"}]
