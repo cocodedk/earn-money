@@ -19,7 +19,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .._shared.body_match import contains_all, contains_any
+from .._shared.body_match import (
+    contains_all_lowered,
+    contains_any,
+    contains_any_lowered,
+)
 from ._tokens import ENV_KEY_TOKENS, SECRET_KEY_TOKENS
 from .signatures import FRAMEWORK_SIGNATURES, DebugPageKind, Signature
 
@@ -45,11 +49,16 @@ def match_framework_signature(
     any match is authoritative."""
     if not body:
         return None
+    # Lower the body once and re-use across every signature check —
+    # the loop runs ~11 framework signatures and bodies can reach
+    # 256KB. Per-iteration `body.lower()` would re-allocate every
+    # time.
+    lowered = body.lower()
     lowered_ct = (content_type or "").lower()
     for sig in FRAMEWORK_SIGNATURES:
         if not _content_type_allowed(sig, lowered_ct):
             continue
-        if contains_all(body, sig.body_markers):
+        if contains_all_lowered(lowered, sig.body_markers):
             return SignatureMatch(
                 kind=sig.kind,
                 confidence="high",
@@ -110,9 +119,12 @@ def find_env_leak_markers(body: str) -> list[str]:
     {`environment_variable`, `secret_like_value`}."""
     if not body:
         return []
+    # Lower once — two consecutive contains_any checks would each
+    # re-lower a (capped) 256KB body otherwise.
+    lowered = body.lower()
     out: list[str] = []
-    if contains_any(body, SECRET_KEY_TOKENS):
+    if contains_any_lowered(lowered, SECRET_KEY_TOKENS):
         out.append("secret_like_value")
-    if contains_any(body, ENV_KEY_TOKENS):
+    if contains_any_lowered(lowered, ENV_KEY_TOKENS):
         out.append("environment_variable")
     return out
