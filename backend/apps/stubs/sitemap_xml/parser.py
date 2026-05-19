@@ -23,6 +23,13 @@ from urllib.parse import urldefrag
 SitemapKind = Literal["urlset", "sitemapindex", "unknown"]
 
 
+# Defence-in-depth: extractors must not be at the mercy of the
+# fetcher's body cap. Cap input size locally so a hostile 50MB
+# sitemap can't pin memory inside the regex engine. Mirrors the
+# constant in stub 1.6's existing extractor.
+_MAX_BODY_BYTES = 1_048_576  # 1 MiB
+
+
 @dataclass(frozen=True)
 class SitemapEntry:
     """One `<url>` or `<sitemap>` block. `loc` is required; the meta
@@ -70,6 +77,7 @@ def parse_sitemap_xml(body: str) -> ParsedSitemap:
     empty, or unidentified structure)."""
     if not body:
         return ParsedSitemap(kind="unknown", entries=())
+    body = body[:_MAX_BODY_BYTES]
 
     if _SITEMAPINDEX_RE.search(body):
         kind: SitemapKind = "sitemapindex"
