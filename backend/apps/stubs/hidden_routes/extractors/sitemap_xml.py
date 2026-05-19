@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from urllib.parse import urlsplit
 
+from ..._shared.url import origin
+
 
 # Real-world sitemaps from Google/Shopify/several CMS plugins wrap
 # URLs as <loc><![CDATA[https://...]]></loc>. The inner regex captures
@@ -29,7 +31,7 @@ def parse_sitemap_xml(body: str, base_url: str) -> list[str]:
     body = body[:_MAX_BODY_BYTES]
     if not body or "<loc" not in body.lower():
         return []
-    base_origin = _origin(base_url)
+    base_origin = origin(base_url)
     out: list[str] = []
     seen: set[str] = set()
     for match in _LOC_RE.finditer(body):
@@ -47,16 +49,11 @@ def _strip_cdata(value: str) -> str:
     return m.group(1).strip() if m else value
 
 
-def _origin(url: str) -> str:
-    parts = urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}"
-
-
 def _to_same_origin_path(url: str, base_origin: str) -> str | None:
     """Return the path component if `url` is same-origin (or already a
     relative path); None for cross-origin or unparseable URLs."""
     if "://" not in url:
         return url if url.startswith("/") else None
-    if _origin(url) != base_origin:
+    if origin(url) != base_origin:
         return None
     return urlsplit(url).path or "/"

@@ -16,6 +16,8 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 from bs4 import BeautifulSoup
 
+from .._shared.url import origin
+
 
 DEFAULT_VERIFY = os.environ.get("FRONTEND_FRAMEWORK_VERIFY", "1") != "0"
 DEFAULT_TIMEOUT = 10.0
@@ -121,7 +123,7 @@ def _fetch_assets(
     config: FetcherConfig,
 ) -> dict[str, str]:
     bodies: dict[str, str] = {}
-    base_origin = _origin(base_url)
+    base_origin = origin(base_url)
     for src in srcs:
         if len(bodies) >= config.max_linked_assets:
             break
@@ -136,7 +138,7 @@ def _fetch_assets(
             continue
         if (
             not config.allow_external_asset_fetch
-            and _origin(asset_url) != base_origin
+            and origin(asset_url) != base_origin
         ):
             continue
         body = _try_fetch(client, asset_url, config.max_asset_bytes)
@@ -154,11 +156,6 @@ def _try_fetch(
     except httpx.TransportError:
         return None
     return (resp.text or "")[:max_bytes]
-
-
-def _origin(url: str) -> str:
-    parts = urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}"
 
 
 def _basename(url: str) -> str:
