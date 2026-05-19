@@ -90,6 +90,18 @@ class SitemapXmlTests(unittest.TestCase):
     def test_empty_input_yields_empty(self) -> None:
         assert parse_sitemap_xml("", base_url="https://x.example/") == []
 
+    def test_cdata_wrapped_loc_extracted(self) -> None:
+        # Real-world sitemaps from Google/Shopify wrap URLs as
+        # <loc><![CDATA[https://...]]></loc>. The extractor must
+        # unwrap the CDATA.
+        body = (
+            '<urlset>'
+            '<loc><![CDATA[https://x.example/with-cdata]]></loc>'
+            '</urlset>'
+        )
+        paths = parse_sitemap_xml(body, base_url="https://x.example/")
+        assert paths == ["/with-cdata"]
+
     def test_deduplicates_identical_locs(self) -> None:
         body = "<urlset><loc>/dup</loc><loc>/dup</loc></urlset>"
         paths = parse_sitemap_xml(body, base_url="https://x.example/")

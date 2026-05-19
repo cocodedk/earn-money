@@ -10,11 +10,14 @@ from __future__ import annotations
 
 
 _DISALLOW_PREFIX = "disallow:"
+# Defence-in-depth body cap — fetcher will also cap, but the
+# extractor shouldn't blow memory if the contract gets relaxed.
+_MAX_BODY_BYTES = 1_048_576
 
 
 def parse_robots_txt(body: str) -> list[str]:
     paths: list[str] = []
-    for raw in body.splitlines():
+    for raw in body[:_MAX_BODY_BYTES].splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
