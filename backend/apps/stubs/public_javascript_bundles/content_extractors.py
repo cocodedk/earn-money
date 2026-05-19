@@ -105,5 +105,5 @@ def extract_minified_marker(body: str) -> bool:
     *shorter* lines — i.e., toward False, the conservative answer."""
     if len(body) < _MINIFIED_MIN_BYTES:
         return False
-    avg_line_len = len(body) / max(body.count("\n") + 1, 1)
+    avg_line_len = len(body) / (body.count("\n") + 1)
     return avg_line_len >= _MINIFIED_AVG_LINE_LEN_THRESHOLD
