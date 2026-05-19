@@ -74,6 +74,14 @@ def classify_response(
             [f"status:{status}"],
         )
     if status in _OK_STATUSES:
+        # The runner parses the body before calling classify on a
+        # 200. A None here is a runner contract violation; map it
+        # to the same parse-error shape rather than crashing the scan.
+        if parsed is None:
+            return Verdict(
+                "sitemap_parse_error", FindingStatus.CANDIDATE, "low",
+                ["unparseable_body"],
+            )
         return _classify_ok(parsed)
 
     return Verdict(
@@ -81,13 +89,13 @@ def classify_response(
     )
 
 
-def _classify_ok(parsed: ParsedSitemap | None) -> Verdict:
+def _classify_ok(parsed: ParsedSitemap) -> Verdict:
     """200 / 204 — classification depends on what the parser made of
     the body. `unknown` kind = body didn't look like a sitemap at
     all (HTML, garbage); classifier records it as a parse-error
     candidate so the operator can spot it without surfacing a
     confirmed finding."""
-    if parsed is None or parsed.kind == "unknown":
+    if parsed.kind == "unknown":
         return Verdict(
             "sitemap_parse_error", FindingStatus.CANDIDATE, "low",
             ["unparseable_body"],

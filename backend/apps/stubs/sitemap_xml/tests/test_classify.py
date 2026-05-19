@@ -72,6 +72,14 @@ class ParseErrorTests(unittest.TestCase):
         )
         assert verdict.classification == "sitemap_parse_error"
 
+    def test_200_with_parsed_none_is_defensive_parse_error(self) -> None:
+        # Runner contract: parse before classifying a 200. A None
+        # would be a runner bug; classify maps it to the same parse-
+        # error shape rather than crashing the scan.
+        verdict = classify_response(_ok(), parsed=None)
+        assert verdict.classification == "sitemap_parse_error"
+        assert verdict.finding_status == FindingStatus.CANDIDATE
+
 
 class NotFoundTests(unittest.TestCase):
     def test_404_yields_rejected(self) -> None:
