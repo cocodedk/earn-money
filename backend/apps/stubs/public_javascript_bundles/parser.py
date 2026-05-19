@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NamedTuple
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
@@ -32,7 +32,11 @@ ScriptType = Literal[
 
 _JS_EXTENSIONS = (".js", ".mjs", ".cjs", ".jsx")
 
-_Raw = tuple[str, DiscoveryMethod, ScriptType]
+
+class _RawCandidate(NamedTuple):
+    url: str
+    method: DiscoveryMethod
+    script_type: ScriptType
 
 
 @dataclass(frozen=True)
@@ -75,7 +79,7 @@ def _walk(soup: BeautifulSoup):
                 yield single
 
 
-def _from_script(tag) -> list[_Raw]:
+def _from_script(tag) -> list[_RawCandidate]:
     script_type = (tag.get("type") or "").lower()
     if script_type == "importmap":
         return _from_importmap(tag.string or "")
@@ -83,29 +87,29 @@ def _from_script(tag) -> list[_Raw]:
     if not src:
         return []
     if script_type == "module":
-        return [(src, "module_script_src", "module")]
-    return [(src, "script_src", "classic")]
+        return [_RawCandidate(src, "module_script_src", "module")]
+    return [_RawCandidate(src, "script_src", "classic")]
 
 
-def _from_link(tag) -> _Raw | None:
+def _from_link(tag) -> _RawCandidate | None:
     rels = {r.lower() for r in (tag.get("rel") or [])}
     href = (tag.get("href") or "").strip()
     if not href:
         return None
     if "modulepreload" in rels:
-        return (href, "modulepreload", "module")
+        return _RawCandidate(href, "modulepreload", "module")
     if "preload" in rels:
         if (tag.get("as") or "").lower() == "script":
-            return (href, "preload_script", "preload")
+            return _RawCandidate(href, "preload_script", "preload")
         return None
     if "prefetch" in rels:
         if _looks_like_js(href):
-            return (href, "prefetch", "prefetch")
+            return _RawCandidate(href, "prefetch", "prefetch")
         return None
     return None
 
 
-def _from_importmap(body: str) -> list[_Raw]:
+def _from_importmap(body: str) -> list[_RawCandidate]:
     try:
         data = json.loads(body)
     except (json.JSONDecodeError, ValueError):
@@ -121,7 +125,7 @@ def _from_importmap(body: str) -> list[_Raw]:
         for entries in scopes.values():
             if isinstance(entries, dict):
                 urls.extend(v for v in entries.values() if isinstance(v, str))
-    return [(url, "importmap", "importmap") for url in urls]
+    return [_RawCandidate(url, "importmap", "importmap") for url in urls]
 
 
 def _looks_like_js(href: str) -> bool:

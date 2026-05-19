@@ -12,14 +12,24 @@ source_maps/parser._make_asset and source_maps/resolver.resolve_map_url
 typed verdict so each caller can layer its own treatment over the
 result (parser collapses bad scheme + cross-origin to None; the
 resolver surfaces them as distinct kinds).
+
+`normalize_url(raw, base_url)` runs the same triad but keeps the
+absolute URL on cross-origin (with a `same_origin=False` flag) and
+strips the fragment — for callers (stub 1.15) that want to record
+metadata on off-origin assets rather than fence them off.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Literal
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import SplitResult, urljoin, urlsplit, urlunsplit
 
 
+_HTTP_SCHEMES = frozenset({"http", "https"})
+
+
+@lru_cache(maxsize=64)
 def origin(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.scheme}://{parts.netloc}"
@@ -35,24 +45,6 @@ class OriginVerdict:
     by accident."""
     kind: OriginVerdictKind
     absolute_url: str | None
-
-
-def classify_same_origin(raw: str, base_url: str) -> OriginVerdict:
-    """Resolve ``raw`` against ``base_url`` and classify the result.
-
-    * ``ok``             — http/https URL same-origin with ``base_url``.
-                            ``absolute_url`` populated.
-    * ``invalid_scheme`` — scheme not in {http, https}.
-    * ``cross_origin``   — http/https URL with a different scheme,
-                            host, or port (RFC 6454 origin tuple).
-    """
-    absolute = urljoin(base_url, raw)
-    parts = urlsplit(absolute)
-    if parts.scheme not in {"http", "https"}:
-        return OriginVerdict(kind="invalid_scheme", absolute_url=None)
-    if f"{parts.scheme}://{parts.netloc}" != origin(base_url):
-        return OriginVerdict(kind="cross_origin", absolute_url=None)
-    return OriginVerdict(kind="ok", absolute_url=absolute)
 
 
 @dataclass(frozen=True)
@@ -71,13 +63,46 @@ class NormalizedUrl:
     same_origin: bool
 
 
-def normalize_url(raw: str, base_url: str) -> NormalizedUrl:
+def _resolve(
+    raw: str, base_url: str,
+) -> tuple[str, SplitResult, bool] | None:
+    """urljoin + scheme allowlist + same-origin compare. Single source
+    of truth for the resolve-and-classify triad shared by
+    ``classify_same_origin`` and ``normalize_url``. Returns
+    ``(absolute, parts, same_origin)`` or ``None`` when the scheme is
+    outside ``_HTTP_SCHEMES``."""
     absolute = urljoin(base_url, raw)
     parts = urlsplit(absolute)
-    if parts.scheme not in {"http", "https"}:
+    if parts.scheme not in _HTTP_SCHEMES:
+        return None
+    same = f"{parts.scheme}://{parts.netloc}" == origin(base_url)
+    return absolute, parts, same
+
+
+def classify_same_origin(raw: str, base_url: str) -> OriginVerdict:
+    """Resolve ``raw`` against ``base_url`` and classify the result.
+
+    * ``ok``             — http/https URL same-origin with ``base_url``.
+                            ``absolute_url`` populated.
+    * ``invalid_scheme`` — scheme not in {http, https}.
+    * ``cross_origin``   — http/https URL with a different scheme,
+                            host, or port (RFC 6454 origin tuple).
+    """
+    result = _resolve(raw, base_url)
+    if result is None:
+        return OriginVerdict(kind="invalid_scheme", absolute_url=None)
+    absolute, _parts, same = result
+    if not same:
+        return OriginVerdict(kind="cross_origin", absolute_url=None)
+    return OriginVerdict(kind="ok", absolute_url=absolute)
+
+
+def normalize_url(raw: str, base_url: str) -> NormalizedUrl:
+    result = _resolve(raw, base_url)
+    if result is None:
         return NormalizedUrl(url=None, same_origin=False)
+    _absolute, parts, same = result
     url = urlunsplit(
         (parts.scheme, parts.netloc, parts.path, parts.query, ""),
     )
-    same = f"{parts.scheme}://{parts.netloc}" == origin(base_url)
     return NormalizedUrl(url=url, same_origin=same)
