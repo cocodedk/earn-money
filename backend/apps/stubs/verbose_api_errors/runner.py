@@ -29,10 +29,7 @@ from apps.targets.models import ScanTarget
 from ..runners import register
 from .classifier import classify
 from .fetcher import fetch_response
-from .indicators import (
-    detect_all_indicators,
-    detect_api_error_indicators,
-)
+from .indicators import detect_all_indicators
 from .runner_evidence import save_response_evidence
 from .runner_findings import emit_finding
 
@@ -45,12 +42,11 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     nonce = secrets.token_hex(6)
     api_probe_url = entry_url + f"api/__scanner_nonexistent_{nonce}__"
 
-    with transaction.atomic():
-        for requested_url, probe_kind in (
-            (entry_url, "baseline"),
-            (api_probe_url, "nonexistent_api_sibling"),
-        ):
-            _process_probe(scan_run, target, requested_url, probe_kind)
+    for requested_url, probe_kind in (
+        (entry_url, "baseline"),
+        (api_probe_url, "nonexistent_api_sibling"),
+    ):
+        _process_probe(scan_run, target, requested_url, probe_kind)
 
 
 def _process_probe(
@@ -58,29 +54,21 @@ def _process_probe(
     requested_url: str, probe_kind: str,
 ) -> None:
     snapshot = fetch_response(requested_url)
-    evidence = save_response_evidence(
-        scan_run, target,
-        requested_url=requested_url, probe_kind=probe_kind,
-        snapshot=snapshot,
+    indicators = (
+        detect_all_indicators(snapshot.body, snapshot.content_type)
+        if snapshot.body else []
     )
-    if not snapshot.body:
-        return
-    indicators = detect_api_error_indicators(
-        snapshot.body, snapshot.content_type,
-    )
-    verdict = classify(
-        indicators,
-        response_status=snapshot.status,
-        content_type=snapshot.content_type,
-    )
-    if verdict is None:
-        return
-    all_indicators = detect_all_indicators(
-        snapshot.body, snapshot.content_type,
-    )
-    emit_finding(
-        scan_run, target,
-        snapshot=snapshot, indicators=indicators,
-        all_indicators=all_indicators, verdict=verdict,
-        evidence_id=str(evidence.id), probe_kind=probe_kind,
-    )
+    verdict = classify(indicators, response_status=snapshot.status)
+    with transaction.atomic():
+        evidence = save_response_evidence(
+            scan_run, target,
+            requested_url=requested_url, probe_kind=probe_kind,
+            snapshot=snapshot,
+        )
+        if verdict is None:
+            return
+        emit_finding(
+            scan_run, target,
+            snapshot=snapshot, indicators=indicators, verdict=verdict,
+            evidence_id=str(evidence.id), probe_kind=probe_kind,
+        )
