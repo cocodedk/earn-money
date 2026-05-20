@@ -9,6 +9,8 @@ import { useScanRunQuery, isRunActive } from "./api";
 import { LifecycleActions } from "./LifecycleActions";
 import { StatusBadge } from "./StatusBadge";
 import { ScanRunTargetsTable } from "./ScanRunTargetsTable";
+import { ScanRunFindingsPanel } from "./ScanRunFindingsPanel";
+import { ScanRunEvidencePanel } from "./ScanRunEvidencePanel";
 import type { ScanRun } from "../../types/api";
 
 function DetailBody({ run }: { run: ScanRun }) {
@@ -37,6 +39,14 @@ function DetailBody({ run }: { run: ScanRun }) {
         </MetaRow>
       </MetaList>
       <ScanRunTargetsTable
+        scanRunId={run.id}
+        livePolling={isRunActive(run.status)}
+      />
+      <ScanRunFindingsPanel
+        scanRunId={run.id}
+        livePolling={isRunActive(run.status)}
+      />
+      <ScanRunEvidencePanel
         scanRunId={run.id}
         livePolling={isRunActive(run.status)}
       />
