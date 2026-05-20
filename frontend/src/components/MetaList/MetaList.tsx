@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
+import styles from "./MetaList.module.css";
 
 export function MetaList({ children }: { children: ReactNode }) {
-  return <div className="mt-4 flex flex-col gap-2">{children}</div>;
+  return <div className={styles.list}>{children}</div>;
 }
 
 export function MetaRow({
@@ -12,9 +13,9 @@ export function MetaRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex gap-4 text-sm">
-      <span className="w-32 font-medium text-gray-600">{label}</span>
-      <span>{children}</span>
-    </div>
+    <>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.value}>{children}</span>
+    </>
   );
 }
