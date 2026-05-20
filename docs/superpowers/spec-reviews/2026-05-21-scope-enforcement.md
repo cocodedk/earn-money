@@ -141,17 +141,37 @@ ScanRun for algolia + `find_for_host` mocked to return a program with
 empty `in_scope`. Stub 1.2 runner dispatched synchronously; one
 `OUT_OF_SCOPE_REJECTED` event emitted; zero HTTP fired.
 
-### Step 4 — LIVE algolia HTTP via stub 1.2 (server_headers)
+### Step 4 — LIVE algolia HTTP via stub 1.2 (server_headers, LOCAL)
 
 Real HEAD probe to `https://www.algolia.com` through the production
-fetcher path:
+fetcher path, from the operator's workstation docker stack:
 * No `OUT_OF_SCOPE_REJECTED` events.
 * `Evidence` count for the run: 1.
 * `Finding` count for the run: 1 (server-headers fingerprint).
 * Runner returned cleanly; rate-limit token bucket acquired exactly
   once for the single probe.
 
-### Step 5 — Kill-switch verification
+**Caveat:** this probe leaked the operator's workstation egress IP
+to Algolia. The authoritative live test was re-run from h1.cocode.dk
+(VPS, authorised egress IP) — see Step 5 below.
+
+### Step 5 — LIVE algolia HTTP from h1.cocode.dk (VPS)
+
+Repo synced to h1 via `scripts/sync-vps.sh`; thin standalone
+`backend/scripts/smoke_from_vps.py` exercises the scope check + a
+real HEAD against both in-scope algolia hosts. Output:
+
+```
+loaded program: in_scope=['www.algolia.com', '*.algolia.net', '*.algolianet.com', 'dashboard.algolia.com']
+  PASS    https://www.algolia.com/: status=403 server=cloudflare dur=295ms
+  PASS    https://dashboard.algolia.com/: status=403 server=cloudflare dur=127ms
+```
+
+Cloudflare returns 403 on a UA-less HEAD — expected; what matters
+is that the HTTP fired from h1's IP, the scope match accepted both
+hosts, and the rate-limit interval was honoured. Egress validated.
+
+### Step 6 — Kill-switch verification
 
 `rm flags/RECON_ENABLED`; subsequent `require_recon_enabled()` raises
 `ReconDisabled` with the expected message.
