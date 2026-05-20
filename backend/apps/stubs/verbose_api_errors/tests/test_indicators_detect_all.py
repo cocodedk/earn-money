@@ -93,3 +93,26 @@ class DetectAllIndicatorsTests(unittest.TestCase):
         result = detect_all_indicators(body, "application/json")
         json_count = sum(1 for i in result if i.kind == "json_debug_field")
         assert json_count == 3
+
+
+class FrameworkHintFlowTests(unittest.TestCase):
+    """FU-2: framework_hint indicator flows through both
+    detect_api_error_indicators (first-match path) and
+    detect_all_indicators (full path)."""
+
+    def test_first_match_surfaces_framework_hints(self) -> None:
+        body = "django.core.exceptions.ImproperlyConfigured: SECRET_KEY missing"
+        result = detect_api_error_indicators(body, "text/plain")
+        kinds = {i.kind for i in result}
+        assert "framework_hint" in kinds
+        names = {i.matched_value for i in result if i.kind == "framework_hint"}
+        assert names == {"django"}
+
+    def test_detect_all_collects_multiple_framework_hints(self) -> None:
+        body = (
+            "django.core.handlers raised "
+            "sqlalchemy.exc.OperationalError"
+        )
+        result = detect_all_indicators(body, "text/plain")
+        names = {i.matched_value for i in result if i.kind == "framework_hint"}
+        assert {"django", "sqlalchemy"}.issubset(names)

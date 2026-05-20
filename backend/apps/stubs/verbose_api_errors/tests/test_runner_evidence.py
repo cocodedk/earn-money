@@ -102,6 +102,34 @@ class SelectedHeadersTests(TestCase):
         assert "Authorization" not in headers
 
 
+class FrameworkHintsFindingTests(TestCase):
+    """FU-2: when a body carries a framework hint on an error
+    response, the finding emits at medium confidence and
+    Finding.data.framework_hints is populated."""
+
+    def test_error_with_framework_hint_emits_medium_finding(self) -> None:
+        scan_run, target_run = _seed()
+        body = (
+            "django.core.exceptions.ImproperlyConfigured: "
+            "SECRET_KEY setting must not be empty"
+        )
+
+        def handler(url, **_kwargs):
+            return _resp(
+                body, status=500, url=str(url),
+                content_type="text/plain",
+            )
+
+        with _mock_fetcher(handler):
+            run(scan_run, target_run)
+
+        from apps.findings.models import Finding
+        finding = Finding.objects.filter(scan_run=scan_run).first()
+        assert finding is not None
+        assert finding.confidence == "medium"
+        assert "django" in finding.data["framework_hints"]
+
+
 class TruncationTests(TestCase):
     def test_truncation_flag_false_on_short_body(self) -> None:
         scan_run, target_run = _seed()

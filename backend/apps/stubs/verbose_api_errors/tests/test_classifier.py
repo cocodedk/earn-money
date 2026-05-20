@@ -42,6 +42,22 @@ class MediumConfirmedTests(unittest.TestCase):
         )
         assert verdict == Verdict(confidence="medium", status="confirmed")
 
+    def test_error_status_with_framework_hint_is_medium(self) -> None:
+        # FU-2: spec §"Confidence rules" §medium 2nd bullet — error
+        # status + framework hint, no full stack/path → medium.
+        verdict = classify(
+            [_ind("framework_hint", "django")], response_status=500,
+        )
+        assert verdict == Verdict(confidence="medium", status="confirmed")
+
+    def test_200_framework_hint_alone_stays_low(self) -> None:
+        # No error status → framework hint alone is just a weak
+        # fingerprint signal, not a finding-confidence promotion.
+        verdict = classify(
+            [_ind("framework_hint", "django")], response_status=200,
+        )
+        assert verdict.confidence == "low"
+
 
 class LowCandidateTests(unittest.TestCase):
     def test_200_source_path_alone_is_low(self) -> None:

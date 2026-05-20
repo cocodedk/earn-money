@@ -45,8 +45,13 @@ def classify(
     if not indicators:
         return None
     kinds = {ind.kind for ind in indicators}
-    if response_status >= _ERROR_STATUS_THRESHOLD and (kinds & _STRONG_KINDS):
+    is_error = response_status >= _ERROR_STATUS_THRESHOLD
+    if is_error and (kinds & _STRONG_KINDS):
         return Verdict(confidence="high", status="confirmed")
     if "json_debug_field" in kinds:
+        return Verdict(confidence="medium", status="confirmed")
+    # FU-2: error status + framework/runtime hint (no full stack
+    # or path) → medium. Per spec §"Confidence rules" §medium 2nd bullet.
+    if is_error and "framework_hint" in kinds:
         return Verdict(confidence="medium", status="confirmed")
     return Verdict(confidence="low", status="candidate")

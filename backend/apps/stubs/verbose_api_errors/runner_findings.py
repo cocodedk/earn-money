@@ -66,7 +66,9 @@ def _build_data(
         "database_hints": _dedupe_capped(
             i.matched_value for i in indicators if i.kind == "database_error"
         ),
-        "framework_hints": [],
+        "framework_hints": _dedupe_capped(
+            i.matched_value for i in indicators if i.kind == "framework_hint"
+        ),
         "ai_assistance": "none",
         "evidence_ids": [evidence_id],
     }
