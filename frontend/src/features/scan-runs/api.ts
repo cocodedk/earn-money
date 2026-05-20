@@ -65,37 +65,54 @@ export const usePauseScanRunMutation = makeLifecycleHook("pause");
 export const useResumeScanRunMutation = makeLifecycleHook("resume");
 export const useStopScanRunMutation = makeLifecycleHook("stop");
 
-export const scanRunTargetRunsKey = (id: string) =>
-  [...SCAN_RUNS_KEY, id, "target-runs"] as const;
-
 type ScanRunChildOptions = { livePolling?: boolean };
 
-export function useScanRunTargetRunsQuery(
+function useScanRunChildQuery<T>(
   scanRunId: string | undefined,
+  config: {
+    endpoint: string;
+    queryKey: readonly [...typeof SCAN_RUNS_KEY, string, string];
+  },
   options?: ScanRunChildOptions,
 ) {
   const client = useQueryClient();
   const livePolling = Boolean(options?.livePolling);
   const prev = useRef(livePolling);
+  const key = config.queryKey;
 
   useEffect(() => {
     if (prev.current && !livePolling && scanRunId) {
-      const key = scanRunTargetRunsKey(scanRunId);
       void (async () => {
         await client.cancelQueries({ queryKey: key });
         await client.refetchQueries({ queryKey: key, type: "active" });
       })();
     }
     prev.current = livePolling;
-  }, [livePolling, scanRunId, client]);
+  }, [livePolling, scanRunId, client, key]);
 
   return useQuery({
-    queryKey: scanRunTargetRunsKey(scanRunId ?? ""),
-    queryFn: () =>
-      http<Paginated<ScanTargetRun>>(`/api/scan-runs/${scanRunId}/target-runs/`),
+    queryKey: key,
+    queryFn: () => http<Paginated<T>>(config.endpoint),
     enabled: Boolean(scanRunId),
     refetchInterval: livePolling ? 2000 : false,
   });
+}
+
+export const scanRunTargetRunsKey = (id: string) =>
+  [...SCAN_RUNS_KEY, id, "target-runs"] as const;
+
+export function useScanRunTargetRunsQuery(
+  scanRunId: string | undefined,
+  options?: ScanRunChildOptions,
+) {
+  return useScanRunChildQuery<ScanTargetRun>(
+    scanRunId,
+    {
+      endpoint: `/api/scan-runs/${scanRunId}/target-runs/`,
+      queryKey: scanRunTargetRunsKey(scanRunId ?? ""),
+    },
+    options,
+  );
 }
 
 export const scanRunFindingsKey = (id: string) =>
@@ -105,30 +122,14 @@ export function useScanRunFindingsQuery(
   scanRunId: string | undefined,
   options?: ScanRunChildOptions,
 ) {
-  const client = useQueryClient();
-  const livePolling = Boolean(options?.livePolling);
-  const prev = useRef(livePolling);
-
-  useEffect(() => {
-    if (prev.current && !livePolling && scanRunId) {
-      const key = scanRunFindingsKey(scanRunId);
-      void (async () => {
-        await client.cancelQueries({ queryKey: key });
-        await client.refetchQueries({ queryKey: key, type: "active" });
-      })();
-    }
-    prev.current = livePolling;
-  }, [livePolling, scanRunId, client]);
-
-  return useQuery({
-    queryKey: scanRunFindingsKey(scanRunId ?? ""),
-    queryFn: () =>
-      http<Paginated<Finding>>(
-        `/api/findings/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
-      ),
-    enabled: Boolean(scanRunId),
-    refetchInterval: livePolling ? 2000 : false,
-  });
+  return useScanRunChildQuery<Finding>(
+    scanRunId,
+    {
+      endpoint: `/api/findings/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
+      queryKey: scanRunFindingsKey(scanRunId ?? ""),
+    },
+    options,
+  );
 }
 
 export const scanRunEvidenceKey = (id: string) =>
@@ -138,28 +139,12 @@ export function useScanRunEvidenceQuery(
   scanRunId: string | undefined,
   options?: ScanRunChildOptions,
 ) {
-  const client = useQueryClient();
-  const livePolling = Boolean(options?.livePolling);
-  const prev = useRef(livePolling);
-
-  useEffect(() => {
-    if (prev.current && !livePolling && scanRunId) {
-      const key = scanRunEvidenceKey(scanRunId);
-      void (async () => {
-        await client.cancelQueries({ queryKey: key });
-        await client.refetchQueries({ queryKey: key, type: "active" });
-      })();
-    }
-    prev.current = livePolling;
-  }, [livePolling, scanRunId, client]);
-
-  return useQuery({
-    queryKey: scanRunEvidenceKey(scanRunId ?? ""),
-    queryFn: () =>
-      http<Paginated<Evidence>>(
-        `/api/evidence/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
-      ),
-    enabled: Boolean(scanRunId),
-    refetchInterval: livePolling ? 2000 : false,
-  });
+  return useScanRunChildQuery<Evidence>(
+    scanRunId,
+    {
+      endpoint: `/api/evidence/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
+      queryKey: scanRunEvidenceKey(scanRunId ?? ""),
+    },
+    options,
+  );
 }
