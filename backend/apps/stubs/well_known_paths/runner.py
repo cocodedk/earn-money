@@ -26,9 +26,8 @@ from django.db import transaction
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program, get_registry
 from apps.programs.preflight import host_from_url
-from apps.programs.rate_limit import acquire_for
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.scope_check import enforce_scope
+from apps.stubs._shared.http import guard
 from apps.targets.models import ScanTarget
 
 from ..runners import register
@@ -59,15 +58,14 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     # the target is in-scope; this re-lookup is cached and cheap).
     program = get_registry().find_for_host(host_from_url(base_url))
 
-    # Soft-404 baseline prelude — one probe per target. Scope-checked
-    # before HTTP fires (the random path stays on the same host).
+    # Soft-404 baseline prelude — one probe per target. guard() runs
+    # the kill-switch, FROZEN re-check, scope check, and rate-limit.
     baseline_url = urljoin(base, soft_404.random_nonexistent_path().lstrip("/"))
     try:
-        enforce_scope(target, baseline_url, program,
-                      scan_run=scan_run, stub_id="1.20")
+        guard(program, target, baseline_url,
+              scan_run=scan_run, stub_id="1.20")
     except OutOfScope:
         return  # baseline rejected → nothing else to do
-    acquire_for(program)  # honor RoE rate limit before any HTTP
     baseline = fetch_response(baseline_url, max_bytes=_TEXT_FAMILY_CAP)
     footprint = soft_404.footprint_for(status=baseline.status, body=baseline.body)
 
@@ -85,11 +83,10 @@ def _scan_family(
     for path in fam.candidate_paths:
         url = urljoin(base_url, path.lstrip("/"))
         try:
-            enforce_scope(target, url, program,
-                          scan_run=scan_run, stub_id="1.20")
+            guard(program, target, url,
+                  scan_run=scan_run, stub_id="1.20")
         except OutOfScope:
             continue  # event already logged; skip this candidate
-        acquire_for(program)  # rate limit before HTTP
         snapshot = fetch_response(url, max_bytes=max_bytes)
         evidence = save_response_evidence(
             scan_run, target,

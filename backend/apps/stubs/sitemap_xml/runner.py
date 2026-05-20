@@ -25,7 +25,9 @@ from django.db import transaction
 
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, FindingStatus, Severity
+from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
 from ..runners import register
@@ -51,6 +53,10 @@ _SEEDS: tuple[str, ...] = (
 @register("1.12")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
+    try:
+        resolve_and_guard(scan_run, target, stub_id="1.12")
+    except OutOfScope:
+        return  # event already emitted; halt this stub
     outcome, parsed, verdict = _probe_seeds(target.base_url)
     aggregate = _aggregate(parsed, target.base_url) if parsed else _empty_aggregate()
 

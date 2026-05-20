@@ -27,7 +27,9 @@ from django.db import transaction
 
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, Severity
+from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
 from ..runners import register
@@ -44,6 +46,10 @@ _RAW_EXCERPT_CAP = 200
 @register("1.11")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
+    try:
+        resolve_and_guard(scan_run, target, stub_id="1.11")
+    except OutOfScope:
+        return  # event already emitted; halt this stub
     outcome = fetch_robots(target.base_url)
     parsed = (
         parse_robots(outcome.body) if outcome.kind == "ok" else None

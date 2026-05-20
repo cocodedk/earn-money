@@ -24,7 +24,9 @@ from __future__ import annotations
 
 from django.db import transaction
 
+from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
 from ..runners import register
@@ -40,6 +42,10 @@ _PROBE_SENTINEL = "scanner_sql_orm_error_probe_%27"
 @register("1.19")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
+    try:
+        resolve_and_guard(scan_run, target, stub_id="1.19")
+    except OutOfScope:
+        return  # event already emitted; halt this stub
     base_url = target.base_url
     entry_url = base_url if base_url.endswith("/") else base_url + "/"
     probe_url = f"{entry_url}?{_PROBE_SENTINEL}"

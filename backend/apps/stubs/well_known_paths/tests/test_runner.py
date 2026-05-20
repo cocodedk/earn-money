@@ -191,7 +191,7 @@ class ScopeRejectionTests(TestCase):
         without hitting any fetcher."""
         scan_run, target_run = _seed()
         with patch(
-            "apps.stubs.well_known_paths.runner.enforce_scope",
+            "apps.stubs.well_known_paths.runner.guard",
             side_effect=__import__(
                 "apps.programs.exceptions", fromlist=["OutOfScope"],
             ).OutOfScope("synthetic baseline reject"),
@@ -213,14 +213,14 @@ class ScopeRejectionTests(TestCase):
         scan_run, target_run = _seed()
         call_count = {"n": 0}
 
-        def fake_enforce(target, url, program, *, scan_run=None, stub_id=None):
+        def fake_enforce(program, target, url, *, scan_run=None, stub_id=None):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return None  # baseline passes
             raise OOS("synthetic candidate reject")
 
         with patch(
-            "apps.stubs.well_known_paths.runner.enforce_scope",
+            "apps.stubs.well_known_paths.runner.guard",
             side_effect=fake_enforce,
         ):
             def head(url, **_): return _r(404, url=str(url))

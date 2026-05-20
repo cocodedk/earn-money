@@ -19,7 +19,9 @@ from django.db import transaction
 from apps.evidence.models import Evidence
 from apps.findings.models import Finding
 from apps.findings.bulk import bulk_create_findings
+from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.http import resolve_and_guard
 
 from .._shared.hashing import body_hash
 from .._shared.url import origin
@@ -49,6 +51,10 @@ _ADMIN_PATH_TERMS = (
 @register("1.8")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
+    try:
+        resolve_and_guard(scan_run, target, stub_id="1.8")
+    except OutOfScope:
+        return  # event already emitted; halt this stub
     bundle = fetch_evidence(target.base_url)
     if bundle["baseline"] is None:
         return
