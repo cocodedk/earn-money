@@ -6,13 +6,15 @@
 phase: 1
 spec: 23
 slug: logs
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — absorbed into stub well_known_paths (registered under spec 1.20)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.23 Logs
 
 > Phase 1 — Information gathering · Category: Sensitive files
+
+> **Closure (2026-05-20):** Absorbed by stub `well_known_paths` (registered owner: spec [1.20](./20-env.md)). The `logs` family covers `/app.log`, `/server.log`, `/access.log`, `/error.log`, `/logs/*`, `/laravel.log`, and other application log paths per this spec, with ISO-8601 + nginx combined-log signatures and IP / email redaction before persistence.
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.

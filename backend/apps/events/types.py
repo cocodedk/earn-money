@@ -37,5 +37,7 @@ class EventType(models.TextChoices):
     SCAN_TARGET_RUN_DONE = "scan_target_run.done", "Scan target run completed"
     SCAN_TARGET_RUN_STOPPED = "scan_target_run.stopped", "Scan target run stopped"
     SCAN_TARGET_RUN_FAILED = "scan_target_run.failed", "Scan target run failed"
+    # Finding emitted by a stub runner (new candidate persisted).
+    FINDING_CREATED = "finding.created", "Finding created"
     # Finding triage by the operator (candidate → confirmed/rejected/stale).
     FINDING_STATUS_CHANGED = "finding.status_changed", "Finding status changed"

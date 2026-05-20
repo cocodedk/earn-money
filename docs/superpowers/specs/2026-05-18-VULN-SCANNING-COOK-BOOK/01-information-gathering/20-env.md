@@ -6,13 +6,15 @@
 phase: 1
 spec: 20
 slug: env
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — owner spec for the well_known_paths stub (absorbs 1.21–1.25)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.20 `.env`
 
 > Phase 1 — Information gathering · Category: Sensitive files
+
+> **Implementation (2026-05-20):** This spec is the **registered owner** of stub `well_known_paths`, which also absorbs specs 1.21 / 1.22 / 1.23 / 1.24 / 1.25 (single `@register("1.20")`, mirroring `debug_pages` registering once for 1.10 + 1.18). Implementation lives at `backend/apps/stubs/well_known_paths/` with a six-family `Family` enum (env / git / config_files / logs / backup_archives / db_dumps). See [`./21-git.md`](./21-git.md), [`./22-config-files.md`](./22-config-files.md), [`./23-logs.md`](./23-logs.md), [`./24-backup-archives.md`](./24-backup-archives.md), [`./25-exported-database-files.md`](./25-exported-database-files.md) for the absorbed coverage; post-impl audit at `docs/superpowers/spec-reviews/2026-05-21-stub-well-known-paths.md`.
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.

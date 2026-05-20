@@ -4,7 +4,7 @@
 phase: 1
 spec: 1
 slug: framework-detection
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done
 fixture: multi-target        # juice-shop | dvwa | webgoat | <name> | tbd
 ---
 

@@ -6,13 +6,15 @@
 phase: 1
 spec: 18
 slug: framework-debug-pages
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — absorbed into stub 1.10 (see closure note below)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.18 Framework debug pages
 
 > Phase 1 — Information gathering · Category: Error disclosure
+
+> **Closure (2026-05-20):** This spec's coverage is delivered by stub **1.10 (debug-pages)**, not by a separate `apps/stubs/framework_debug_pages/` package. PR #29 extended stub 1.10's `DebugPageKind` set, signatures, and path hints to cover every framework-debug-page family this spec calls for (laravel_debugbar / aspnet_tracing / elmah / yii_debug / jboss_wildfly_console — with WildFly + JBoss vendor split — plus an `apache_server_info` body signature). No new stub will be built for 1.18. See [`./10-debug-pages.md`](./10-debug-pages.md) for the active contract and the merge commit `c4087d9` (PR #29) for the absorption diff.
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.

@@ -6,13 +6,15 @@
 phase: 1
 spec: 21
 slug: git
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — absorbed into stub well_known_paths (registered under spec 1.20)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.21 `.git`
 
 > Phase 1 — Information gathering · Category: Sensitive files
+
+> **Closure (2026-05-20):** Absorbed by stub `well_known_paths` (registered owner: spec [1.20](./20-env.md)). The `git` family in that stub handles `.git/HEAD`, `.git/config`, `.git/index`, `.git/objects/info/packs`, and other Git control files per this spec's `## Detection logic`.
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.

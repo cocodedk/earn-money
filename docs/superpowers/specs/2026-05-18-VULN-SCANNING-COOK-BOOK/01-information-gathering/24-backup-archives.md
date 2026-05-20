@@ -6,13 +6,15 @@
 phase: 1
 spec: 24
 slug: backup-archives
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — absorbed into stub well_known_paths (registered under spec 1.20)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.24 Backup archives
 
 > Phase 1 — Information gathering · Category: Sensitive files
+
+> **Closure (2026-05-20):** Absorbed by stub `well_known_paths` (registered owner: spec [1.20](./20-env.md)). The `backup_archives` family handles `.zip`, `.tar.gz`, `.tgz`, `.7z`, `.rar`, and other archive paths per this spec. Magic-byte prefix read only (4096-byte Range cap) — no full-file downloads. Content body is redacted entirely (`<binary-redacted bytes=N>`).
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.
