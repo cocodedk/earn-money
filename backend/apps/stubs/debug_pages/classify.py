@@ -58,6 +58,7 @@ _PATH_KIND_HINTS: tuple[tuple[str, DebugPageKind], ...] = (
     ("/telescope", "laravel_telescope"),
     ("/horizon", "laravel_horizon"),
     ("/_ignition", "laravel_ignition"),
+    ("/__debugbar", "laravel_debugbar"),  # 1.18 spec
     ("/_debug_toolbar", "django_debug_toolbar"),
     ("/_profiler", "symfony_profiler"),
     ("/profiler", "symfony_profiler"),
@@ -68,6 +69,10 @@ _PATH_KIND_HINTS: tuple[tuple[str, DebugPageKind], ...] = (
     ("/rails/info", "rails_info"),
     ("/server-status", "apache_server_status"),
     ("/server-info", "apache_server_info"),
+    ("/trace.axd", "aspnet_tracing"),  # 1.18 spec
+    ("/elmah.axd", "elmah"),  # 1.18 spec
+    ("/debug/default", "yii_debug"),  # 1.18 spec
+    ("/web-console", "jboss_wildfly_console"),  # 1.18 spec
     ("/phpinfo.php", "phpinfo"),
     ("/phpinfo", "phpinfo"),
     ("/info.php", "phpinfo"),

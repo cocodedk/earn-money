@@ -35,9 +35,14 @@ DebugPageKind = Literal[
     "laravel_telescope",
     "laravel_horizon",
     "laravel_ignition",
+    "laravel_debugbar",  # 1.18 spec family
     "rails_info",
     "apache_server_status",
     "apache_server_info",
+    "aspnet_tracing",  # 1.18 spec family
+    "elmah",  # 1.18 spec family
+    "yii_debug",  # 1.18 spec family
+    "jboss_wildfly_console",  # 1.18 spec family
     "stack_trace",
     "environment_leak",
     "route_listing",
@@ -119,5 +124,35 @@ FRAMEWORK_SIGNATURES: tuple[Signature, ...] = (
         # "Apache Server Status" from yielding a finding.
         kind="apache_server_status",
         body_markers=("apache server status", "scoreboard key"),
+    ),
+    # 1.18 spec extensions — frameworks the original 1.10 table
+    # didn't cover. Each entry uses the two-marker AND rule so a
+    # single common phrase can't flag.
+    Signature(
+        kind="apache_server_info",
+        body_markers=("apache server information", "server settings"),
+    ),
+    Signature(
+        kind="laravel_debugbar",
+        body_markers=("laravel debugbar", "phpdebugbar"),
+    ),
+    Signature(
+        kind="aspnet_tracing",
+        body_markers=("application trace", "trace information"),
+    ),
+    Signature(
+        kind="elmah",
+        body_markers=("elmah", "error log for"),
+    ),
+    Signature(
+        kind="yii_debug",
+        body_markers=("yii-debug-toolbar", "yii debugger"),
+    ),
+    Signature(
+        # `HAL Management Console` is the canonical title of the
+        # WildFly/JBoss admin UI. Combined with a vendor name in the
+        # title bar it's unambiguous.
+        kind="jboss_wildfly_console",
+        body_markers=("hal management console", "wildfly"),
     ),
 )
