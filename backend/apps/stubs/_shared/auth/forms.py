@@ -17,11 +17,15 @@ the runner emits `AUTH_FIXTURE_REQUIRED` with
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
+
+from ..body_match import contains_any_lowered
 
 
 # Identifier-input names in detection-priority order. The first match
@@ -46,11 +50,17 @@ _FLOW_HINTS: tuple[tuple[Literal["login", "password_reset", "registration", "oau
 
 @dataclass(frozen=True)
 class AuthForm:
-    """One discovered authentication surface — HTML form or JSON endpoint."""
+    """One discovered authentication surface — HTML form or JSON endpoint.
+
+    Either `identifier_field` or `password_field` is non-None (or both).
+    A password-only form (e.g. PIN entry, sudo-confirm, second step of
+    a multi-page login) is still an auth candidate; discovery doesn't
+    enforce which inputs the stub needs.
+    """
     method: Literal["GET", "POST"]
     action_url: str
     content_type: str
-    identifier_field: str
+    identifier_field: str | None
     password_field: str | None
     hidden_fields: dict[str, str]
     flow_hint: Literal["login", "password_reset", "registration", "oauth", "unknown"]
@@ -130,17 +140,18 @@ def discover_json_endpoints(
 # ----- internals ------------------------------------------------------
 
 
-def _parse_form(form_tag, base_url: str) -> AuthForm | None:
-    """Return an `AuthForm` if the tag is an auth candidate, else None."""
+def _parse_form(form_tag: Tag, base_url: str) -> AuthForm | None:
+    """Return an `AuthForm` if the tag is an auth candidate, else None.
+
+    Per spec 2.1 §1, "password field OR identifier-named input" is
+    sufficient; either alone discovers the form. The runner decides
+    whether its specific stub can use a password-only or
+    identifier-only candidate.
+    """
     inputs = form_tag.find_all("input")
     password_field = _find_named_input(inputs, type_filter="password")
     identifier_field = _find_identifier_field(inputs)
     if identifier_field is None and password_field is None:
-        return None
-    # An input named `password` (no type=password) wouldn't have been
-    # captured above; treat purely-identifier forms as auth candidates
-    # only if at least one identifier name matched.
-    if identifier_field is None:
         return None
 
     method = (form_tag.get("method") or "GET").upper()
@@ -167,7 +178,9 @@ def _parse_form(form_tag, base_url: str) -> AuthForm | None:
     )
 
 
-def _find_named_input(inputs, *, type_filter: str | None = None) -> str | None:
+def _find_named_input(
+    inputs: Iterable[Tag], *, type_filter: str | None = None,
+) -> str | None:
     """Return the `name` of the first input matching ``type_filter``."""
     for inp in inputs:
         if type_filter and inp.get("type") != type_filter:
@@ -178,7 +191,7 @@ def _find_named_input(inputs, *, type_filter: str | None = None) -> str | None:
     return None
 
 
-def _find_identifier_field(inputs) -> str | None:
+def _find_identifier_field(inputs: Iterable[Tag]) -> str | None:
     """Return the first input whose `name` matches one of the canonical
     identifier names, preferring earlier entries in _IDENTIFIER_NAMES."""
     present: dict[str, None] = {}
@@ -198,7 +211,6 @@ def _infer_flow_hint(action_url: str) -> Literal["login", "password_reset", "reg
     """Best-effort flow classification from substrings in the action URL."""
     lo = action_url.lower()
     for hint, tokens in _FLOW_HINTS:
-        for token in tokens:
-            if token in lo:
-                return hint
+        if contains_any_lowered(lo, tokens):
+            return hint
     return "unknown"

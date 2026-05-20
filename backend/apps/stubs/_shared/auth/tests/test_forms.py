@@ -166,6 +166,22 @@ def test_form_without_action_uses_base_url() -> None:
 
 # ----- GET credential forms still discovered (refusal happens later) ---
 
+def test_password_only_form_is_discovered() -> None:
+    """Spec 2.1 §1: a form with a password field BUT NO identifier-named
+    input is still an auth candidate (PIN entry, sudo-confirm, second
+    step of multi-page login). Discovery is permissive; the runner
+    decides whether its specific stub can use this candidate."""
+    html = _form(
+        '<form method="POST" action="/confirm-password">'
+        '<input name="password" type="password">'
+        '</form>'
+    )
+    forms = discover_forms(html, BASE)
+    assert len(forms) == 1
+    assert forms[0].password_field == "password"
+    assert forms[0].identifier_field is None
+
+
 def test_get_credential_form_is_discovered_for_safety_layer_to_refuse() -> None:
     """Per spec 2.1 §2.6 — `GET` forms with password inputs are
     refused by the safety layer downstream; discovery itself stays
