@@ -1,9 +1,9 @@
 """Regex pattern tables for stub 1.17 strong-disclosure indicators.
 
 Split out of indicators.py to keep both files under the 200-line
-cap. The tables are intentionally module-level + module-private so
-they compile once at import and reload as a unit when the spec's
-indicator list grows.
+cap. The constants are package-internal (imported only by
+indicators.py inside the stub) — exported with public names so
+the import site reads cleanly without `as _NAME` ceremony.
 
 Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-gathering/17-verbose-api-errors.md
 """

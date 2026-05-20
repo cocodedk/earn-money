@@ -28,10 +28,10 @@ from typing import Literal, NamedTuple
 
 from .framework_hints import detect_framework_hints
 from .patterns import (
-    DATABASE_ERROR_PATTERNS as _DATABASE_ERROR_PATTERNS,
-    MATCHED_VALUE_CAP as _MATCHED_VALUE_CAP,
-    SOURCE_PATH_PATTERNS as _SOURCE_PATH_PATTERNS,
-    STRONG_JSON_FIELDS_LOWER as _STRONG_JSON_FIELDS_LOWER,
+    DATABASE_ERROR_PATTERNS,
+    MATCHED_VALUE_CAP,
+    SOURCE_PATH_PATTERNS,
+    STRONG_JSON_FIELDS_LOWER,
 )
 from .redaction import redact
 
@@ -59,14 +59,13 @@ def detect_api_error_indicators(
     first_json = next(_walk_json_fields(body, content_type), None)
     if first_json is not None:
         indicators.append(first_json)
-    src = _first_match(_SOURCE_PATH_PATTERNS, body)
+    src = _first_match(SOURCE_PATH_PATTERNS, body)
     if src is not None:
         indicators.append(ApiErrorIndicator(kind="source_path", matched_value=_excerpt(src)))
-    db = _first_match(_DATABASE_ERROR_PATTERNS, body)
+    db = _first_match(DATABASE_ERROR_PATTERNS, body)
     if db is not None:
         indicators.append(ApiErrorIndicator(kind="database_error", matched_value=_excerpt(db)))
-    for name in detect_framework_hints(body):
-        indicators.append(ApiErrorIndicator(kind="framework_hint", matched_value=name))
+    _append_framework_hints(indicators, body)
     return indicators
 
 
@@ -81,19 +80,25 @@ def detect_all_indicators(
     indicators: list[ApiErrorIndicator] = list(
         _walk_json_fields(body, content_type),
     )
-    for pattern in _SOURCE_PATH_PATTERNS:
+    for pattern in SOURCE_PATH_PATTERNS:
         for match in pattern.findall(body):
             indicators.append(
                 ApiErrorIndicator(kind="source_path", matched_value=_excerpt(match)),
             )
-    for pattern in _DATABASE_ERROR_PATTERNS:
+    for pattern in DATABASE_ERROR_PATTERNS:
         for match in pattern.findall(body):
             indicators.append(
                 ApiErrorIndicator(kind="database_error", matched_value=_excerpt(match)),
             )
+    _append_framework_hints(indicators, body)
+    return indicators
+
+
+def _append_framework_hints(
+    indicators: list[ApiErrorIndicator], body: str,
+) -> None:
     for name in detect_framework_hints(body):
         indicators.append(ApiErrorIndicator(kind="framework_hint", matched_value=name))
-    return indicators
 
 
 def _walk_json_fields(body: str, content_type: str):
@@ -112,7 +117,7 @@ def _walk(node):
     if isinstance(node, dict):
         for key, value in node.items():
             if (
-                key.lower() in _STRONG_JSON_FIELDS_LOWER
+                key.lower() in STRONG_JSON_FIELDS_LOWER
                 and _is_meaningful(value)
             ):
                 yield ApiErrorIndicator(
@@ -137,7 +142,7 @@ def _is_meaningful(value: object) -> bool:
 
 def _excerpt(value: object) -> str:
     # Redact before capping — cap a scrubbed snippet, not a half-leaked secret.
-    return redact(str(value))[:_MATCHED_VALUE_CAP]
+    return redact(str(value))[:MATCHED_VALUE_CAP]
 
 
 def _first_match(
