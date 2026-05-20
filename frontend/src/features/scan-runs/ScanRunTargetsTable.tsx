@@ -1,6 +1,7 @@
 import { useScanRunTargetRunsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
 import { Callout } from "../../components/Callout";
+import { Table } from "../../components/Table";
 import type { ScanTargetRun } from "../../types/api";
 
 export type ScanRunTargetsTableProps = {
@@ -9,6 +10,24 @@ export type ScanRunTargetsTableProps = {
 };
 
 const fmt = (ts: string | null) => (ts ? ts.slice(0, 19) : "—");
+
+const columns = [
+  {
+    key: "target",
+    header: "Target",
+    cell: (r: ScanTargetRun) => (
+      <>
+        <div>{r.target_host}</div>
+        <div>{r.target_base_url}</div>
+      </>
+    ),
+  },
+  { key: "status", header: "Status", cell: (r: ScanTargetRun) => <StatusBadge status={r.status} /> },
+  { key: "started_at", header: "Started at", cell: (r: ScanTargetRun) => fmt(r.started_at) },
+  { key: "finished_at", header: "Finished at", cell: (r: ScanTargetRun) => fmt(r.finished_at) },
+  { key: "findings", header: "Findings", cell: (r: ScanTargetRun) => r.findings_count },
+  { key: "evidence", header: "Evidence", cell: (r: ScanTargetRun) => r.evidence_count },
+];
 
 export function ScanRunTargetsTable({ scanRunId, livePolling }: ScanRunTargetsTableProps) {
   const query = useScanRunTargetRunsQuery(scanRunId, { livePolling });
@@ -27,33 +46,12 @@ export function ScanRunTargetsTable({ scanRunId, livePolling }: ScanRunTargetsTa
   }
   return (
     <section>
-      <table>
-        <thead>
-          <tr>
-            <th>Target</th>
-            <th>Status</th>
-            <th>Started at</th>
-            <th>Finished at</th>
-            <th>Findings</th>
-            <th>Evidence</th>
-          </tr>
-        </thead>
-        <tbody>
-          {results.map((r: ScanTargetRun) => (
-            <tr key={r.id} data-testid={`target-run-row-${r.id}`}>
-              <td>
-                <div>{r.target_host}</div>
-                <div>{r.target_base_url}</div>
-              </td>
-              <td><StatusBadge status={r.status} /></td>
-              <td>{fmt(r.started_at)}</td>
-              <td>{fmt(r.finished_at)}</td>
-              <td>{r.findings_count}</td>
-              <td>{r.evidence_count}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Table<ScanTargetRun>
+        columns={columns}
+        rows={results}
+        rowKey={(r) => r.id}
+        rowTestId={(r) => `target-run-row-${r.id}`}
+      />
       {next !== null && (
         <p data-testid="targets-truncation">
           Showing first {results.length} of {count} targets
