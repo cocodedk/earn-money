@@ -18,7 +18,9 @@ from __future__ import annotations
 import functools
 from typing import Callable, Protocol
 
+from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.http import resolve_and_guard
 
 
 class StubRunner(Protocol):
@@ -57,8 +59,6 @@ def guarded_runner(
     stay on the lower-level ``guard()`` call inside the iteration loop
     instead.
     """
-    from apps.programs.exceptions import OutOfScope
-    from apps.stubs._shared.http import resolve_and_guard
 
     def decorator(fn: StubRunner) -> StubRunner:
         @functools.wraps(fn)
@@ -73,8 +73,7 @@ def guarded_runner(
                 return  # event already emitted; halt this stub
             fn(scan_run, target_run)
 
-        _REGISTRY[stub_slug] = wrapper
-        return wrapper
+        return register(stub_slug)(wrapper)
 
     return decorator
 

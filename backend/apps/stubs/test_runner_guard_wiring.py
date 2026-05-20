@@ -101,19 +101,19 @@ def _off_scope_program() -> Program:
     )
 
 
+def _all_phase_1_slugs() -> list[str]:
+    """Collect-time helper: ensure the registry is populated before
+    pytest builds the parametrize ids."""
+    for name in _STUB_MODULES:
+        importlib.import_module(name + ".runner")
+    return registered_slugs()
+
+
 @pytest.mark.django_db
-@pytest.mark.parametrize("slug", sorted(_STUB_MODULES, key=lambda m: m))
-def test_runner_refuses_oos_target(slug: str) -> None:
+@pytest.mark.parametrize("stub_slug", _all_phase_1_slugs())
+def test_runner_refuses_oos_target(stub_slug: str) -> None:
     """Each runner emits OUT_OF_SCOPE_REJECTED and halts without HTTP
     when the resolved program excludes the target host."""
-    # The parametrize id is the module path; derive the stub slug from
-    # the registered function via inspect to avoid hard-coding twice.
-    runner_module = importlib.import_module(slug + ".runner")
-    stub_slug = next(
-        s for s in registered_slugs()
-        if inspect.getmodule(_registry_get(s)) is runner_module
-    )
-
     _reset_emit_cache_for_tests()
     _reset_buckets()
     scan_run, target_run = seed_target_run(
