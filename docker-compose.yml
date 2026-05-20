@@ -77,6 +77,14 @@ services:
       RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      # Phase 2 fixture env. Defaults empty; absence of any one only
+      # disables the dependent stub, not the whole stack.
+      FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
+      FIXTURE_MAILBOX_IMAP_HOST: ${FIXTURE_MAILBOX_IMAP_HOST:-}
+      FIXTURE_MAILBOX_IMAP_PORT: ${FIXTURE_MAILBOX_IMAP_PORT:-993}
+      FIXTURE_MAILBOX_IMAP_USER: ${FIXTURE_MAILBOX_IMAP_USER:-}
+      FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
+      FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
