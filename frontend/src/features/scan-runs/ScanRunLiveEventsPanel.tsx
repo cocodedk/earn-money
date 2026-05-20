@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useScanRunEvents } from "./useScanRunEvents";
 import type { ConnectionStatus } from "./useScanRunEvents.utils";
-import type { Event as ApiEvent, EventLevel } from "../../types/api";
+import type { Event as ApiEvent } from "../../types/api";
 import { EventsPanelHeader } from "./EventsPanelHeader";
+import styles from "./ScanRunLiveEventsPanel.module.css";
 
 type Props = { scanRunId: string; livePolling: boolean };
 
@@ -16,13 +17,6 @@ const EMPTY_HINT: Record<ConnectionStatus, string> = {
   closed: "Disconnected",
   disabled:
     "Live events disabled (run \"localStorage.removeItem('disable_live_events')\" in DevTools and reload to re-enable).",
-};
-
-const LEVEL_CLASS: Record<EventLevel, string> = {
-  debug: "text-gray-600 bg-gray-100",
-  info: "text-blue-600 bg-blue-100",
-  warning: "text-amber-600 bg-amber-100",
-  error: "text-red-600 bg-red-100",
 };
 
 function fmtTarget(target: string | null): string {
@@ -39,7 +33,7 @@ function EventRow({
   return (
     <tr ref={rowRef} data-testid={`event-row-${event.id}`}>
       <td>{new Date(event.created_at).toLocaleTimeString()}</td>
-      <td className={`px-1 rounded ${LEVEL_CLASS[event.level]}`}>
+      <td data-level={event.level} className={styles.levelCell}>
         {event.level}
       </td>
       <td>{fmtTarget(event.target)}</td>

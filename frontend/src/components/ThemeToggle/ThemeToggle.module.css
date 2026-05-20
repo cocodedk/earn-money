@@ -1,0 +1,34 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-sharp);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  line-height: 1;
+  color: var(--ink-default);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.toggle:hover {
+  border-color: var(--ink-strong);
+  color: var(--ink-strong);
+}
+
+.toggle:active {
+  transform: translateY(1px);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--ink-strong);
+  outline-offset: 2px;
+}

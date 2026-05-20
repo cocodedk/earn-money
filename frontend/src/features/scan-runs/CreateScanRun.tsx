@@ -147,7 +147,8 @@ export function CreateScanRun() {
             value={stubSlug}
             disabled={stubs.isLoading || stubs.isError}
             onChange={(e) => setStubSlug(e.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded px-3 py-2 text-sm"
+            style={{ border: "1px solid var(--rule-soft)" }}
           >
             <option value="">
               {stubs.isLoading ? "Loading stubs…" : "Select a stub…"}
@@ -167,7 +168,7 @@ export function CreateScanRun() {
         >
           <div id="picker_mode" className="flex flex-col gap-2">
             {projectId && activeTargets.length === 0 && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm" style={{ color: "var(--ink-muted)" }}>
                 No active targets for this project.
               </p>
             )}
@@ -192,7 +193,9 @@ export function CreateScanRun() {
             {pickerMode === "selected" && (
               <ul className="ml-6 flex flex-col gap-1">
                 {activeTargets.length === 0 && (
-                  <li className="text-sm text-gray-600">No active targets.</li>
+                  <li className="text-sm" style={{ color: "var(--ink-muted)" }}>
+                    No active targets.
+                  </li>
                 )}
                 {activeTargets.map((t) => (
                   <li key={t.id}>

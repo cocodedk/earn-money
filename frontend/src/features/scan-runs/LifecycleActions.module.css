@@ -1,0 +1,12 @@
+.button {
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  background: var(--surface-sunken);
+  color: var(--ink-default);
+  border: 1px solid transparent;
+}
+.button:hover {
+  background: var(--surface-canvas);
+}

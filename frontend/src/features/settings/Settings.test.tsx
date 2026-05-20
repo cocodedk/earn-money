@@ -74,4 +74,19 @@ describe("Settings page", () => {
     expect(screen.getByTestId("settings-worker-status")).toHaveTextContent("—");
     expect(screen.getByTestId("settings-backend-version")).toHaveTextContent("—");
   });
+
+  it("renders Theme row with current + resolved values", async () => {
+    server.use(
+      msw.get("/api/health/", () =>
+        HttpResponse.json({ status: "ok", db: true }),
+      ),
+    );
+    renderWithProviders(<Settings />);
+    expect(await screen.findByTestId("settings-theme-current")).toHaveTextContent(
+      "system",
+    );
+    expect(screen.getByTestId("settings-theme-resolved")).toHaveTextContent(
+      /resolved: (light|dark)/,
+    );
+  });
 });

@@ -1,5 +1,6 @@
 import { ACTION_LABEL, useScanRunActions } from "./useScanRunActions";
 import type { ScanRun } from "../../types/api";
+import styles from "./LifecycleActions.module.css";
 
 export function LifecycleActions({ run }: { run: ScanRun }) {
   const { visibleActions, handlers } = useScanRunActions(run);
@@ -11,7 +12,7 @@ export function LifecycleActions({ run }: { run: ScanRun }) {
           key={action}
           type="button"
           onClick={handlers[action]}
-          className="rounded bg-gray-200 px-3 py-1 text-sm hover:bg-gray-300"
+          className={styles.button}
         >
           {ACTION_LABEL[action]}
         </button>

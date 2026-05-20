@@ -22,7 +22,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex flex-col text-sm">
-      <span className="text-gray-600">{filter.label}</span>
+      <span style={{ color: "var(--ink-muted)" }}>{filter.label}</span>
       <select
         aria-label={filter.label}
         value={value}

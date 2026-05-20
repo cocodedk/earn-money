@@ -1,0 +1,21 @@
+.levelCell {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  border-radius: 0.25rem;
+}
+.levelCell[data-level="debug"] {
+  color: var(--ink-muted);
+  background: var(--surface-sunken);
+}
+.levelCell[data-level="info"] {
+  color: var(--info-ink);
+  background: var(--info-soft);
+}
+.levelCell[data-level="warning"] {
+  color: var(--warn-ink);
+  background: var(--warn-soft);
+}
+.levelCell[data-level="error"] {
+  color: var(--err-ink);
+  background: var(--err-soft);
+}
