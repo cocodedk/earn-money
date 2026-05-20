@@ -15,7 +15,7 @@ from .._shared.types import Confidence
 Family = Literal[
     "env", "git", "config_files", "logs", "backup_archives", "db_dumps",
 ]
-PatternType = Literal["literal", "regex", "magic_bytes"]
+PatternType = Literal["regex", "magic_bytes"]
 
 
 class Signature(NamedTuple):
