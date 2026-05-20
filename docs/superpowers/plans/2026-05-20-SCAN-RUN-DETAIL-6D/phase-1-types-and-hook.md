@@ -92,103 +92,15 @@ Tests opt in via `installMockEventSource()` in `beforeEach`, cleanup in `afterEa
 
 ---
 
-### Task 5: `useScanRunEvents` — SSE primary path + ConnectionStatus
-
-**Files:**
-- Create: `frontend/src/features/scan-runs/useScanRunEvents.ts` (~90 lines target; cap 200)
-- Test: `frontend/src/features/scan-runs/useScanRunEvents.sse.test.tsx`
-
-**Hook surface:**
-
-```ts
-export type ConnectionStatus =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "polling-fallback"
-  | "closed";
-
-export interface UseScanRunEventsResult {
-  events: Event[];
-  status: ConnectionStatus;
-  reconnect: () => void;
-  clear: () => void;
-}
-
-export function useScanRunEvents(
-  scanRunId: string | undefined,
-  options?: { livePolling?: boolean; maxBuffer?: number },
-): UseScanRunEventsResult;
-```
-
-**Behaviour in this task (reconnect + polling deferred to Task 6 / 7):**
-- On mount with `scanRunId` truthy AND `livePolling=true`: open `EventSource` against `/api/events/scan-runs/<uuid>/stream/` (route subject to em-backend confirmation per the open msg-#XXX). Status: `connecting` → `connected` on first `onopen`.
-- Append each `onmessage` to the events buffer in arrival order (newest at tail). Cap buffer at `maxBuffer` (default 500); evict oldest when over.
-- `clear()` zeros the local buffer; backend events untouched.
-- `reconnect()` closes current EventSource and immediately reopens; status returns to `connecting`.
-- On unmount or `livePolling=false`: close EventSource, status → `closed`.
-- `scanRunId === undefined`: no EventSource opened, status stays `closed`.
-
-**Test matrix (Task 5):**
-1. Opens EventSource against the expected URL on mount.
-2. Emits message → appended to `events` in order.
-3. Multiple messages → all appended in order, dedupe by `id` (later msg with same id replaces earlier — defensive).
-4. Buffer cap: emit > maxBuffer events → oldest evicted.
-5. `clear()` empties buffer without closing connection (status stays `connected`).
-6. `reconnect()` closes + reopens; status flips `connecting → connected` again.
-7. `scanRunId === undefined`: no instance created.
-8. `livePolling=false`: no instance created.
-9. `livePolling` flips true → false: instance closed, status → `closed`.
-10. Unmount: instance closed.
-
-**Commit:** `feat(frontend): useScanRunEvents SSE primary path + ConnectionStatus`.
+> Task 5: see [phase-1-task-5-sse-primary.md](phase-1-task-5-sse-primary.md).
 
 ---
 
-### Task 6: `useScanRunEvents` — reconnect with exponential backoff
-
-**Files:**
-- Modify: `frontend/src/features/scan-runs/useScanRunEvents.ts`
-- Test: `frontend/src/features/scan-runs/useScanRunEvents.reconnect.test.tsx`
-
-**Behaviour added:**
-- On `onerror`: close current EventSource, status → `reconnecting`, schedule a retry with backoff `1000 * 2^attempt` ms capped at `30_000` ms.
-- After `MAX_SSE_ATTEMPTS = 5` consecutive failed reconnects (no `onopen` between them): give up — status → `polling-fallback` (polling path lands in Task 7).
-- `onopen` after a reconnect → reset attempt counter to 0, status → `connected`.
-- `reconnect()` called manually → reset attempt counter, immediate reopen.
-
-**Test matrix (Task 6):**
-1. SSE fails before first open → status `reconnecting`, retry scheduled at 1 s.
-2. Backoff sequence: failures at attempts 1..5 happen at 1, 2, 4, 8, 16 s (next attempt would be capped at 30).
-3. Successful reopen after retry → status `connected`, counter resets.
-4. 5 consecutive failures with no successful open between → status → `polling-fallback`.
-5. Manual `reconnect()` during backoff → cancels pending retry, opens immediately, counter resets.
-6. Unmount during backoff → pending retry cancelled, no instance created.
-
-**Commit:** `feat(frontend): useScanRunEvents exponential-backoff reconnect`.
+> Task 6: see [phase-1-task-6-reconnect.md](phase-1-task-6-reconnect.md).
 
 ---
 
-### Task 7: `useScanRunEvents` — polling fallback
-
-**Files:**
-- Modify: `frontend/src/features/scan-runs/useScanRunEvents.ts`
-- Test: `frontend/src/features/scan-runs/useScanRunEvents.polling.test.tsx`
-
-**Behaviour added:**
-- On entering `polling-fallback`: stop SSE entirely; start a 2 s polling loop hitting `/api/events/?scan_run=<uuid>` and append new events (dedupe by id).
-- Polling result is `Paginated<Event>` — append `results` in `created_at` order, dedupe against buffer.
-- On `livePolling=false` or unmount: stop polling, status → `closed`.
-- No automatic retry back to SSE — once we fall back, we stay in polling for this scan run's lifetime (revisit if/when SSE reliability needs measuring).
-
-**Test matrix (Task 7):**
-1. After 5 SSE failures → polling loop starts; status `polling-fallback`.
-2. Polling tick → events appended in order, no duplicates by id.
-3. `livePolling=false` while polling → status `closed`, polling stops.
-4. Unmount while polling → polling stops, no leaks.
-5. `clear()` while polling → buffer empties, polling continues.
-
-**Commit:** `feat(frontend): useScanRunEvents polling fallback`.
+> Task 7: see [phase-1-task-7-polling-fallback.md](phase-1-task-7-polling-fallback.md).
 
 ---
 
