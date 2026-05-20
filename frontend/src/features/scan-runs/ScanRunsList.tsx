@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES, scanRunDetailPath } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
@@ -10,6 +10,7 @@ import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
 import { useScanRunsQuery } from "./api";
 import { LifecycleActions } from "./LifecycleActions";
+import { ScanRunsFiltersBar, applyScanRunFilters } from "./ScanRunsFiltersBar";
 import { StatusBadge } from "./StatusBadge";
 import type { ScanRun } from "../../types/api";
 
@@ -74,28 +75,39 @@ export function ScanRunsList() {
   const projectName = useProjectNameLookup();
   const stubName = useStubSlugLookup();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const columns = useMemo(
     () => buildColumns(projectName, stubName),
     [projectName, stubName],
   );
+  const rows = runs.data?.results ?? [];
+  const filtered = useMemo(
+    () => applyScanRunFilters(rows, params),
+    [rows, params],
+  );
+  const emptyState =
+    rows.length === 0 ? (
+      <EmptyState
+        message="No scan runs yet."
+        action={{
+          label: "Create scan run",
+          onClick: () => navigate(ROUTES.scanRunsNew),
+        }}
+      />
+    ) : (
+      <EmptyState message="No scan runs match the current filters." />
+    );
   return (
     <>
       <PageHeader title="Scan runs" />
+      <ScanRunsFiltersBar />
       <ListPageGuard query={runs} errorBody="Could not load scan runs.">
         <Table<ScanRun>
           columns={columns}
-          rows={runs.data?.results ?? []}
+          rows={filtered}
           rowKey={(r) => r.id}
           isLoading={runs.isLoading}
-          emptyState={
-            <EmptyState
-              message="No scan runs yet."
-              action={{
-                label: "Create scan run",
-                onClick: () => navigate(ROUTES.scanRunsNew),
-              }}
-            />
-          }
+          emptyState={emptyState}
         />
       </ListPageGuard>
     </>
