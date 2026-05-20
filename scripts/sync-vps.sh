@@ -56,6 +56,7 @@ rsync -az --delete \
     --exclude='.claude/' \
     --exclude='.mcp.json' \
     --exclude='.coverage' \
+    --exclude='docker-compose.override.yml' \
     ./ "${VPS_HOST}:${VPS_PATH}"
 
 log "done — v2 stack on ${VPS_HOST}:${VPS_PATH}"
