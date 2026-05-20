@@ -150,9 +150,16 @@ FRAMEWORK_SIGNATURES: tuple[Signature, ...] = (
     ),
     Signature(
         # `HAL Management Console` is the canonical title of the
-        # WildFly/JBoss admin UI. Combined with a vendor name in the
-        # title bar it's unambiguous.
+        # WildFly/JBoss admin UI. Signature shape is AND-only, so
+        # the vendor-name branch is two entries — WildFly (current
+        # stream) and JBoss (EAP 6.x and earlier). Either match
+        # yields the same DebugPageKind via `match_framework_signature`'s
+        # first-match contract.
         kind="jboss_wildfly_console",
         body_markers=("hal management console", "wildfly"),
+    ),
+    Signature(
+        kind="jboss_wildfly_console",
+        body_markers=("hal management console", "jboss"),
     ),
 )

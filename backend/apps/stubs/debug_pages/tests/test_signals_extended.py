@@ -72,6 +72,17 @@ class JbossWildflyConsoleTests(unittest.TestCase):
         assert match.kind == "jboss_wildfly_console"
         assert match.confidence == "high"
 
+    def test_jboss_branded_console_also_matches(self) -> None:
+        # JBoss EAP 6.x ships HAL with JBoss branding, no WildFly
+        # token. Signature shape is AND-only, so we ship two
+        # entries with the same kind for the vendor split.
+        body = (
+            "<title>HAL Management Console — JBoss EAP 6.4</title>"
+        )
+        match = match_framework_signature(body, content_type="text/html")
+        assert match is not None
+        assert match.kind == "jboss_wildfly_console"
+
 
 class ApacheServerInfoTests(unittest.TestCase):
     def test_mod_info_page_matches_high(self) -> None:
