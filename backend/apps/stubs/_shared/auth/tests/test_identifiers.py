@@ -32,6 +32,23 @@ def test_username_default_format() -> None:
     assert USERNAME_RE.match(out), out
 
 
+def test_username_starts_with_scanner_invalid_prefix() -> None:
+    """The `scanner_invalid_` prefix is the safety contract — it makes
+    every scanner-generated username visible to defender logs as a
+    scanner trace, not hostile traffic. Locked in here so a regex
+    refactor in identifiers.py can't silently break the prefix."""
+    out = generate_invalid_identifier("username")
+    assert out.startswith("scanner_invalid_"), out
+
+
+def test_email_starts_with_scanner_prefix_under_example_invalid() -> None:
+    """Mirror contract for the email path: `scanner-` prefix +
+    `@example.invalid` suffix (RFC 6761 reserved → no real recipient)."""
+    out = generate_invalid_identifier("email")
+    assert out.startswith("scanner-"), out
+    assert out.endswith("@example.invalid"), out
+
+
 def test_auto_nonce_length() -> None:
     out = generate_invalid_identifier("email")
     nonce = out[len("scanner-"):-len("@example.invalid")]

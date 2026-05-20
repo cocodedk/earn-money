@@ -98,6 +98,13 @@ def _parse_roe(path: Path) -> RoE:
         authorized_test_environments=list(meta.get("authorized_test_environments") or []),
         authorized_test_accounts=list(meta.get("authorized_test_accounts") or []),
         special_notes=str(meta.get("special_notes") or ""),
+        # Phase 2 active-probe gates. Default-deny per safety-floor
+        # decision — omitted keys stay False.
+        allow_active_login_probes=bool(meta.get("allow_active_login_probes", False)),
+        allow_password_reset_probes=bool(meta.get("allow_password_reset_probes", False)),
+        allow_mfa_probes=bool(meta.get("allow_mfa_probes", False)),
+        allow_oauth_probes=bool(meta.get("allow_oauth_probes", False)),
+        allow_registration_probes=bool(meta.get("allow_registration_probes", False)),
     )
 
 
