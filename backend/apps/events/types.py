@@ -45,3 +45,7 @@ class EventType(models.TextChoices):
     # resolved program's scope. Recon halts for that candidate; the
     # event is the audit trail.
     OUT_OF_SCOPE_REJECTED = "scan.out_of_scope_rejected", "Out-of-scope candidate URL rejected"
+    # Post-scan signal: a known CDN/WAF returned 4xx for most probes
+    # so the origin was never reached. Surfaces in the dashboard as
+    # an explanatory banner instead of a silent "0 findings" outcome.
+    EDGE_BLOCKING_DETECTED = "scan.edge_blocking_detected", "Edge / WAF blocked probes before origin"

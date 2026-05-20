@@ -187,6 +187,8 @@ def _finalize_failed(
 
 
 def _mark_run_done(run: ScanRun) -> None:
+    from apps.scans.postmortem import detect_edge_blocking
+
     with transaction.atomic():
         run.status = RunStatus.DONE
         run.finished_at = timezone.now()
@@ -197,3 +199,11 @@ def _mark_run_done(run: ScanRun) -> None:
             subject=run,
             data={"id": str(run.id)},
         )
+        edge = detect_edge_blocking(run)
+        if edge is not None:
+            Event.log(
+                type=EventType.EDGE_BLOCKING_DETECTED,
+                scan_run=run,
+                subject=run,
+                data=edge,
+            )

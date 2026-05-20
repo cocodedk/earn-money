@@ -127,7 +127,25 @@ def _run_one(api, project: str, target: str, stub_slug: str) -> str:
     targets = final.get("target_run_count", 0)
     print(f"  {stub_slug}: {status} — "
           f"target_runs={targets} findings={findings}")
+    _print_post_scan_events(api, run_id)
     return "ok" if status == _OK_STATUS else "fail"
+
+
+def _print_post_scan_events(api, run_id: str) -> None:
+    """Surface post-scan signals (edge-blocking detector, etc.) so the
+    operator can see WHY a scan returned no findings."""
+    interesting = {
+        "scan.edge_blocking_detected",
+        "scan.out_of_scope_rejected",
+    }
+    r = api.get(f"/api/scan-runs/{run_id}/events/")
+    if r.status_code != 200:
+        return
+    payload = r.json()
+    rows = payload.get("results", payload) if isinstance(payload, dict) else payload
+    for ev in rows or []:
+        if ev.get("type") in interesting:
+            print(f"      ↳ {ev['type']}  {ev.get('data', {})}")
 
 
 def _poll_until_terminal(api, run_id: str):
