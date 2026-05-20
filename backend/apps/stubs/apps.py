@@ -37,3 +37,4 @@ class StubsConfig(AppConfig):
         from . import public_javascript_bundles  # noqa: F401  registers "1.15"
         from . import stack_traces  # noqa: F401  registers "1.16"
         from . import verbose_api_errors  # noqa: F401  registers "1.17"
+        from . import sql_orm_errors  # noqa: F401  registers "1.19"
