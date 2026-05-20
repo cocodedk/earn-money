@@ -1,9 +1,15 @@
-"""Stub 1.17 FU-3 negative-assertion regression grid.
+"""Stub 1.17 FU-3 — HTTP-safety regression grid.
 
-The spec §"Negative assertions" and §Safety enumerate "must not"
-rules. Behavior is correct by construction today but had no tests
-pinning it. This file locks each rule in place — drift here means
-a regression that the suite catches before merge.
+Spec §Safety enumerates "must not" rules at the HTTP layer:
+- only GET (no POST/PUT/PATCH/DELETE)
+- no request bodies
+- follow_redirects=False
+- ai_assistance="none" on the persisted finding
+- hostname-agnostic detection
+
+Weak-signal negative tests (RFC 7807, Server header, validation
+error envelopes) live in test_negative_weak_signals.py to keep
+both files under the 200-line cap.
 """
 from __future__ import annotations
 
@@ -14,7 +20,6 @@ import httpx
 
 from django.test import TestCase
 
-from apps.evidence.models import Evidence
 from apps.findings.models import Finding
 from apps.stubs._test_factories import seed_target_run
 
@@ -29,13 +34,10 @@ _DJANGO_BODY = (
 
 
 def _resp(body: str, *, status: int = 200, url: str | None = None,
-          content_type: str = "application/json",
-          extra_headers: dict[str, str] | None = None) -> httpx.Response:
-    headers = {"content-type": content_type}
-    if extra_headers:
-        headers.update(extra_headers)
+          content_type: str = "application/json") -> httpx.Response:
     return httpx.Response(
-        status_code=status, headers=headers,
+        status_code=status,
+        headers={"content-type": content_type},
         content=body.encode("utf-8"),
         request=httpx.Request("GET", url or f"{_BASE}/"),
     )
@@ -163,59 +165,4 @@ class HostnameAgnosticTests(TestCase):
         assert results[0] == results[1]
 
 
-class WeakSignalTests(TestCase):
-    """Spec §"Negative assertions": these responses must NOT create
-    a finding even if they superficially look like errors."""
-
-    def test_rfc_7807_problem_details_no_finding(self) -> None:
-        scan_run, target_run = _seed()
-        body = (
-            '{"type": "https://example.com/probs/oops", '
-            '"title": "Bad Request", "status": 400, '
-            '"detail": "field is required"}'
-        )
-
-        def handler(url, **_kwargs):
-            return _resp(
-                body, status=400, url=str(url),
-                content_type="application/problem+json",
-            )
-
-        with _mock_fetcher(handler):
-            run(scan_run, target_run)
-
-        assert Finding.objects.filter(scan_run=scan_run).count() == 0
-        # Evidence is still recorded (operator triage benefits).
-        assert Evidence.objects.filter(scan_run=scan_run).count() == 2
-
-    def test_server_header_alone_no_finding(self) -> None:
-        scan_run, target_run = _seed()
-
-        def handler(url, **_kwargs):
-            return _resp(
-                "ok", status=200, url=str(url),
-                content_type="text/plain",
-                extra_headers={"Server": "nginx/1.21.6"},
-            )
-
-        with _mock_fetcher(handler):
-            run(scan_run, target_run)
-
-        # Server: nginx alone is not a finding — spec §"Negative
-        # assertions" line 393.
-        assert Finding.objects.filter(scan_run=scan_run).count() == 0
-
-    def test_validation_error_without_internals_no_finding(self) -> None:
-        scan_run, target_run = _seed()
-        body = (
-            '{"errors": [{"field": "email", "message": '
-            '"is required"}]}'
-        )
-
-        def handler(url, **_kwargs):
-            return _resp(body, status=422, url=str(url))
-
-        with _mock_fetcher(handler):
-            run(scan_run, target_run)
-
-        assert Finding.objects.filter(scan_run=scan_run).count() == 0
+# WeakSignalTests live in test_negative_weak_signals.py.
