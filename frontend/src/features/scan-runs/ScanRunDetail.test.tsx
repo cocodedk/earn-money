@@ -70,6 +70,9 @@ describe("ScanRunDetail — happy paths", () => {
     withDeps();
     server.use(
       msw.get("/api/scan-runs/r-1/", () => HttpResponse.json(makeScanRun())),
+      msw.get("/api/scan-runs/r-1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
     );
     renderAt("/scan-runs/r-1");
     expect(await screen.findByText(/Scan run · r-1/)).toBeInTheDocument();
@@ -89,6 +92,9 @@ describe("ScanRunDetail — happy paths", () => {
         HttpResponse.json(
           makeScanRun({ status: "running", started_at: "2026-05-19T09:00:00.000Z" }),
         ),
+      ),
+      msw.get("/api/scan-runs/r-1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
       ),
     );
     renderAt("/scan-runs/r-1");
@@ -116,6 +122,9 @@ describe("ScanRunDetail — happy paths", () => {
           }),
         ),
       ),
+      msw.get("/api/scan-runs/r-1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
     );
     renderAt("/scan-runs/r-1");
     await screen.findByTestId("status-done");
@@ -131,6 +140,9 @@ describe("ScanRunDetail — happy paths", () => {
     withDeps();
     server.use(
       msw.get("/api/scan-runs/r-1/", () => HttpResponse.json(makeScanRun())),
+      msw.get("/api/scan-runs/r-1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
     );
     renderAt("/scan-runs/r-1");
     await screen.findByTestId("status-queued");
@@ -146,6 +158,9 @@ describe("ScanRunDetail — happy paths", () => {
         hit = true;
         return HttpResponse.json(makeScanRun({ status: "running" }));
       }),
+      msw.get("/api/scan-runs/r-1/target-runs/", () =>
+        HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+      ),
     );
     renderAt("/scan-runs/r-1");
     await screen.findByTestId("status-queued");

@@ -80,4 +80,30 @@ describe("DetailPageGuard", () => {
     renderGuard(asQuery({ data: { id: "w-1" } }));
     expect(screen.getByTestId("data").textContent).toBe("w-1");
   });
+
+  it("renders children when isError=true but data is present (background error with stale data)", () => {
+    renderGuard(
+      asQuery({
+        data: { id: "w-cached" },
+        isError: true,
+        error: new HttpError(new Response("", { status: 500 })),
+      }),
+    );
+    expect(screen.getByTestId("data")).toBeInTheDocument();
+    expect(screen.getByTestId("data").textContent).toBe("w-cached");
+    expect(screen.queryByText(/backend unreachable/i)).not.toBeInTheDocument();
+  });
+
+  it("renders children when 404 but data is present (background 404 with stale data)", () => {
+    renderGuard(
+      asQuery({
+        data: { id: "w-cached" },
+        isError: true,
+        error: new HttpError(new Response("", { status: 404 })),
+      }),
+    );
+    expect(screen.getByTestId("data")).toBeInTheDocument();
+    expect(screen.getByTestId("data").textContent).toBe("w-cached");
+    expect(screen.queryByText("Widget not found")).not.toBeInTheDocument();
+  });
 });

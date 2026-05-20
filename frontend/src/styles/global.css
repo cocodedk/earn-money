@@ -1,7 +1,11 @@
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
+@import "@fontsource/funnel-display/500.css";
+@import "@fontsource/funnel-display/600.css";
+@import "@fontsource/funnel-display/700.css";
+@import "@fontsource/funnel-sans/400.css";
+@import "@fontsource/funnel-sans/500.css";
+@import "@fontsource/funnel-sans/600.css";
 @import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
 
 @tailwind base;
 @tailwind components;
@@ -9,6 +13,69 @@
 
 :root {
   color-scheme: light;
+
+  /* Surface */
+  --surface-canvas: #faf9f6;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f3f1ec;
+  --surface-inverse: #0a0a0a;
+
+  /* Ink */
+  --ink-strong: #0a0a0a;
+  --ink-default: #1c1c1a;
+  --ink-muted: #5f5f5a;
+  --ink-soft: #8a8a82;
+  --ink-inverse: #faf9f6;
+
+  /* Rule */
+  --rule-hair: #e7e4dc;
+  --rule-soft: #ddd9d0;
+  --rule-strong: #c9c4b8;
+
+  /* Accent — security amber */
+  --accent: #b45309;
+  --accent-soft: #fef3c7;
+  --accent-ink: #78350f;
+  --accent-ring: rgba(180, 83, 9, 0.22);
+  --accent-wash: rgba(180, 83, 9, 0.04);
+
+  /* Status */
+  --ok: #1f6e3a;
+  --ok-soft: #e6f3e8;
+  --ok-ink: #14532d;
+  --ok-ring: rgba(31, 110, 58, 0.3);
+  --warn: #a16207;
+  --warn-soft: #fef4c7;
+  --warn-ink: #713f12;
+  --err: #991b1b;
+  --err-soft: #fde6e6;
+  --err-ink: #7f1d1d;
+  --err-ring: rgba(153, 27, 27, 0.3);
+  --err-ring-soft: rgba(153, 27, 27, 0.18);
+  --info: #1e3a8a;
+  --info-soft: #e3e9fa;
+  --info-ink: #1e3a8a;
+
+  /* Type families */
+  --font-display: "Funnel Display", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Funnel Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Type scale */
+  --text-micro: 0.6875rem;
+  --text-code: 0.75rem;
+  --text-body: 0.8125rem;
+  --text-default: 0.875rem;
+  --text-display: 1.875rem;
+
+  /* Rhythm */
+  --radius-sharp: 2px;
+  --radius-pill: 999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
 }
 
 html,
@@ -18,11 +85,63 @@ body,
 }
 
 body {
-  @apply bg-white text-gray-900 font-sans text-base antialiased;
+  background: var(--surface-canvas);
+  color: var(--ink-default);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--ink-inverse);
 }
 
 *:focus-visible {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-1;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sharp);
+}
+
+@keyframes em-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes em-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes em-scanline {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 24px 0;
+  }
+}
+
+@keyframes em-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -31,5 +150,6 @@ body {
   *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

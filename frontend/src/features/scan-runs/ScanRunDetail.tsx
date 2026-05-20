@@ -5,14 +5,19 @@ import { DetailPageGuard } from "../../components/DetailPageGuard";
 import { MetaList, MetaRow } from "../../components/MetaList";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useStubSlugLookup } from "../stubs/useStubSlugLookup";
-import { useScanRunQuery } from "./api";
+import { useScanRunQuery, isRunActive } from "./api";
 import { LifecycleActions } from "./LifecycleActions";
 import { StatusBadge } from "./StatusBadge";
+import { ScanRunTargetsTable } from "./ScanRunTargetsTable";
+import { ScanRunFindingsPanel } from "./ScanRunFindingsPanel";
+import { ScanRunEvidencePanel } from "./ScanRunEvidencePanel";
+import { ScanRunLiveEventsPanel } from "./ScanRunLiveEventsPanel";
 import type { ScanRun } from "../../types/api";
 
 function DetailBody({ run }: { run: ScanRun }) {
   const projectName = useProjectNameLookup();
   const stubName = useStubSlugLookup();
+  const livePolling = isRunActive(run.status);
   return (
     <>
       <PageHeader
@@ -35,6 +40,10 @@ function DetailBody({ run }: { run: ScanRun }) {
           {run.finished_at ? run.finished_at.slice(0, 19) : "—"}
         </MetaRow>
       </MetaList>
+      <ScanRunTargetsTable scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunFindingsPanel scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunEvidencePanel scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunLiveEventsPanel scanRunId={run.id} livePolling={livePolling} />
     </>
   );
 }
