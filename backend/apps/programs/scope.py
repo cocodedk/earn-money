@@ -35,7 +35,7 @@ class Scope:
     last_synced: str = ""
 
 
-def _normalise_host(host: str) -> str:
+def normalise_host(host: str) -> str:
     """Lower-case, strip one trailing dot, IDNA-encode unicode.
 
     Rejects host:port, scheme://host, host/path, empty hostnames.
@@ -57,7 +57,7 @@ def _normalise_host(host: str) -> str:
         raise ValueError(f"malformed host (IDNA encode failed): {host!r}") from exc
 
 
-def _matches_any(host: str, patterns: Sequence[str]) -> bool:
+def matches_any(host: str, patterns: Sequence[str]) -> bool:
     """True if ``host`` matches any pattern. Hosts and patterns are
     already lower-cased; `*.suffix` wildcards match `host.endswith("." + suffix)`
     but NOT the bare apex."""
@@ -85,7 +85,7 @@ def matches_scope(
     Raises ``ValueError`` if ``host`` is malformed (empty / contains
     scheme / path / port / IDNA-unencodable).
     """
-    host = _normalise_host(host)
-    if _matches_any(host, out_of_scope):
+    host = normalise_host(host)
+    if matches_any(host, out_of_scope):
         return False
-    return _matches_any(host, in_scope)
+    return matches_any(host, in_scope)

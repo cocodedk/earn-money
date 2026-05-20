@@ -24,7 +24,7 @@ from django.conf import settings
 
 from .exceptions import AmbiguousProgram, InvalidScope, OutOfScope
 from .roe import RoE
-from .scope import Policy, Scope, _matches_any, _normalise_host
+from .scope import Policy, Scope, matches_any, normalise_host
 
 
 _ALLOWED_POLICIES: frozenset[str] = frozenset(
@@ -158,16 +158,16 @@ class ProgramRegistry:
     def find_for_host(self, host: str) -> Program:
         """Resolve `host` to exactly one Program. See module docstring
         for precedence rules. Raises `OutOfScope` or `AmbiguousProgram`."""
-        host = _normalise_host(host)
+        host = normalise_host(host)
         candidates: list[tuple[Program, str, int]] = []
         for prog in self.all_programs():
             for entry in prog.scope.in_scope:
                 entry_l = entry.lower()
-                if entry_l == host and not _matches_any(host, prog.scope.out_of_scope):
+                if entry_l == host and not matches_any(host, prog.scope.out_of_scope):
                     # Exact literal — specificity rank 0 (highest).
                     candidates.append((prog, entry_l, 0))
                 elif entry_l.startswith("*.") and host.endswith("." + entry_l[2:]):
-                    if not _matches_any(host, prog.scope.out_of_scope):
+                    if not matches_any(host, prog.scope.out_of_scope):
                         candidates.append((prog, entry_l, len(entry_l)))
         if not candidates:
             raise OutOfScope(f"host {host!r} not in any program's scope")

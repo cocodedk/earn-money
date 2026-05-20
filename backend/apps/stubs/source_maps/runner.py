@@ -14,13 +14,11 @@ from urllib.parse import urlsplit, urlunsplit
 
 from django.db import transaction
 
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
 from .._shared.url import origin
-from ..runners import register
+from ..runners import guarded_runner
 from .fetcher import fetch_url
 from .parser import Asset, extract_source_mapping_url, parse_html_assets
 from .resolver import resolve_map_url
@@ -28,13 +26,9 @@ from .runner_evidence import save_asset_evidence, save_html_evidence
 from .runner_findings import emit_finding
 
 
-@register("1.14")
+@guarded_runner("1.14")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.14")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     base_url = target.base_url
     base_origin = origin(base_url)
     # Bare base_urls like "https://x.example" leave the GET path

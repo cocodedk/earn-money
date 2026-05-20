@@ -26,12 +26,10 @@ from django.utils import timezone as django_timezone
 
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, Severity
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import FetchOutcome, Verdict, classify_security_txt
 from .fetcher import fetch_security_txt
 from .parser import ParsedSecurityTxt, parse_security_txt
@@ -43,13 +41,9 @@ _CANONICAL_PATH = "/.well-known/security.txt"
 _LEGACY_PATH = "/security.txt"
 
 
-@register("1.13")
+@guarded_runner("1.13")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.13")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     canonical = fetch_security_txt(target.base_url, _CANONICAL_PATH)
     legacy = fetch_security_txt(target.base_url, _LEGACY_PATH)
 

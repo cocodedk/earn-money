@@ -7,7 +7,7 @@ switched dispatches with a single narrow exception type so callers
 4xx response without leaking implementation details.
 
 URL normalisation: HTTP(S) only, hostless URLs rejected, IDNA / lower-
-case / trailing-dot handled by `scope._normalise_host`.
+case / trailing-dot handled by `scope.normalise_host`.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .exceptions import (
 )
 from .flags import is_program_frozen, require_recon_enabled
 from .loader import Program, get_registry
-from .scope import _normalise_host
+from .scope import normalise_host
 
 
 _ALLOWED_SCHEMES = ("http", "https")
@@ -43,7 +43,7 @@ def host_from_url(url: str) -> str:
     host = parts.hostname
     if not host:
         raise ValueError(f"URL has no hostname: {url!r}")
-    return _normalise_host(host)
+    return normalise_host(host)
 
 
 def preflight_scan_run(

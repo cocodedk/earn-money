@@ -23,12 +23,10 @@ from django.db import transaction
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, Severity
 from apps.findings.bulk import bulk_create_findings
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import Verdict, classify_probe
 from .fetcher import CONTROL_MARKER, fetch_evidence
 from .redact import redact_secrets
@@ -38,13 +36,9 @@ _FINDING_SOURCE = "debug_pages"
 _RAW_EXCERPT_CAP = 200
 
 
-@register("1.10")
+@guarded_runner("1.10")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.10")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     bundle = fetch_evidence(target.base_url)
     if bundle["baseline"] is None:
         return

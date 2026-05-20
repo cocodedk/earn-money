@@ -28,7 +28,7 @@ from apps.events.models import Event
 from apps.events.types import EventType
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
-from apps.programs.scope import _matches_any, _normalise_host
+from apps.programs.scope import matches_any, normalise_host
 
 
 # Idempotent-emit cache. Bounded LRU per process; the runner re-checks
@@ -47,7 +47,7 @@ def _host_from_candidate(url: str) -> str:
         )
     if not parts.hostname:
         raise ValueError(f"candidate URL has no hostname: {url!r}")
-    return _normalise_host(parts.hostname)
+    return normalise_host(parts.hostname)
 
 
 def _has_emitted(scan_run_id: str, candidate_url: str) -> bool:
@@ -86,9 +86,9 @@ def enforce_scope(
         # the rejection to in a meaningful way for triage).
         raise OutOfScope(f"malformed candidate URL: {exc}") from exc
 
-    if _matches_any(host, program.scope.out_of_scope):
+    if matches_any(host, program.scope.out_of_scope):
         reason = f"host {host!r} on program out_of_scope deny-list"
-    elif _matches_any(host, program.scope.in_scope):
+    elif matches_any(host, program.scope.in_scope):
         return  # in scope — fetcher proceeds
     else:
         reason = f"host {host!r} not in program scope"

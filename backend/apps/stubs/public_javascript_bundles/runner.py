@@ -19,11 +19,9 @@ from __future__ import annotations
 
 from django.db import transaction
 
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 
-from ..runners import register
+from ..runners import guarded_runner
 from .fetcher import BundleFetcherConfig, fetch_bundle
 from .parser import BundleCandidate, extract_bundle_candidates
 from .runner_evidence import save_bundle_evidence, save_html_evidence
@@ -34,13 +32,9 @@ _MAX_BUNDLE_COUNT = 50
 _HTML_FETCHER_CONFIG = BundleFetcherConfig(max_body_bytes=1_048_576)
 
 
-@register("1.15")
+@guarded_runner("1.15")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.15")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     base_url = target.base_url
     # Bare base_urls like "https://x.example" leave the GET path
     # empty; normalise to "https://x.example/" so the runner always

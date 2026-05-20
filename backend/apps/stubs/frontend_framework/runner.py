@@ -19,12 +19,10 @@ from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.confidence import max_confidence
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.findings.bulk import bulk_create_findings
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .fetcher import fetch_evidence
 from .matcher import extract_version, match_signatures
 from .signatures import SIGNATURES
@@ -44,13 +42,9 @@ _EVIDENCE_SOURCE_BY_SIG_SOURCE = {
 }
 
 
-@register("1.3")
+@guarded_runner("1.3")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.3")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     bundle = fetch_evidence(target.base_url)
 
     matches = match_signatures(SIGNATURES, bundle)

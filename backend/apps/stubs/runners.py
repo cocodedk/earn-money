@@ -15,6 +15,7 @@ useful for stubs that haven't been implemented yet.
 """
 from __future__ import annotations
 
+import functools
 from typing import Callable, Protocol
 
 from apps.scans.models import ScanRun, ScanTargetRun
@@ -39,6 +40,41 @@ def register(stub_slug: str) -> Callable[[StubRunner], StubRunner]:
     def decorator(fn: StubRunner) -> StubRunner:
         _REGISTRY[stub_slug] = fn
         return fn
+
+    return decorator
+
+
+def guarded_runner(
+    stub_slug: str,
+) -> Callable[[StubRunner], StubRunner]:
+    """Decorator: register a runner AND wrap it with the standard
+    pre-flight scope/RECON_ENABLED/FROZEN/rate-limit guard.
+
+    The decorated function receives a target whose base_url is already
+    in-scope (or never executes, because the guard raises ``OutOfScope``
+    and the wrapper swallows it). Use this for the 18 single-pass
+    runners. Stubs that iterate candidate URLs (well_known_paths) must
+    stay on the lower-level ``guard()`` call inside the iteration loop
+    instead.
+    """
+    from apps.programs.exceptions import OutOfScope
+    from apps.stubs._shared.http import resolve_and_guard
+
+    def decorator(fn: StubRunner) -> StubRunner:
+        @functools.wraps(fn)
+        def wrapper(
+            scan_run: ScanRun, target_run: ScanTargetRun
+        ) -> None:
+            try:
+                resolve_and_guard(
+                    scan_run, target_run.target, stub_id=stub_slug,
+                )
+            except OutOfScope:
+                return  # event already emitted; halt this stub
+            fn(scan_run, target_run)
+
+        _REGISTRY[stub_slug] = wrapper
+        return wrapper
 
     return decorator
 

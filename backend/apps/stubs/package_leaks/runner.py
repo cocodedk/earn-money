@@ -23,12 +23,10 @@ from django.db import transaction
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.findings.bulk import bulk_create_findings
-from apps.programs.exceptions import OutOfScope
 from apps.scans.models import ScanRun, ScanTargetRun
-from apps.stubs._shared.http import resolve_and_guard
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .banners import scan_banners
 from .fetcher import fetch_evidence
 from .parsers.package_json import parse_package_json
@@ -45,13 +43,9 @@ _PATH_PARSERS: dict[str, Callable[[str], list[dict[str, str]]]] = {
 }
 
 
-@register("1.5")
+@guarded_runner("1.5")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
-    try:
-        resolve_and_guard(scan_run, target, stub_id="1.5")
-    except OutOfScope:
-        return  # event already emitted; halt this stub
     bundle = fetch_evidence(target.base_url)
     responses = bundle["responses"]
     if not responses:
