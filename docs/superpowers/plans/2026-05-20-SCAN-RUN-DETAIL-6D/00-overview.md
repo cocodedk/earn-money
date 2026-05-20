@@ -79,7 +79,7 @@
 |---------|------------|
 | Type for one event | `Event` (in `types/api.ts`) |
 | Type for event level | `EventLevel` (in `types/api.ts`) |
-| SSE hook (events, scan-run-scoped) | `useScanRunEvents(scanRunId, livePolling)` |
+| SSE hook (events, scan-run-scoped) | `useScanRunEvents(scanRunId, options)` where `options = { livePolling?: boolean; maxBuffer?: number }` |
 | Polling-fallback query key | `scanRunEventsKey(scanRunId) = [...SCAN_RUNS_KEY, scanRunId, "events"]` |
 | Panel component | `ScanRunLiveEventsPanel` |
 | Panel file | `frontend/src/features/scan-runs/ScanRunLiveEventsPanel.tsx` |

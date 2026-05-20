@@ -94,12 +94,12 @@
 **Files:**
 - Create: `docs/superpowers/spec-reviews/2026-05-20-6D-scan-run-detail-live-events.md`
 
-Read the umbrella spec (sections 6 §Live events panel + 12 §Live events) end-to-end. Use the **seven CLAUDE.md spec-review audit dimensions** as report headings (mirrors 6C's spec-review at `docs/superpowers/spec-reviews/2026-05-20-stub-1.17-verbose-api-errors.md`):
+Read the umbrella spec (sections 6 §Live events panel + 12 §Live events) end-to-end. Use the **seven CLAUDE.md spec-review audit dimensions** as report headings (the dimensions are codified in [`CLAUDE.md`](../../../../CLAUDE.md) under "After implementing a cookbook stub, run the spec-review pass before marking it done."; backend reference reports live in the canonical earn-money repo's `docs/superpowers/spec-reviews/` directory):
 
 1. **Detection-logic coverage** — every signal/state the spec lists (SSE message arrival, connection-status transitions, reconnect path, polling fallback engagement, auto-scroll on/off, clear semantics) is reachable in code.
 2. **Persistence contract** — N/A for read-only panel (no writes); explicitly note this.
 3. **Pass/fail positive assertions** — each row column rendered, each control present, each connection status reachable.
-4. **Pass/fail negative assertions** — `Clear local view` does NOT issue any network call (regression test in Task 5 + Task 6 of Phase 1); panel does not mutate backend events; no `DELETE` requests issued anywhere.
+4. **Pass/fail negative assertions** — `Clear local view` does NOT issue any network call (regression test in Phase 1 Task 5 item 6); panel does not mutate backend events; no `DELETE` requests issued anywhere.
 5. **Acceptance criteria** — connection-status visible, reconnect works, polling fallback engages after 5 SSE failures, newest event at bottom (consistent across emit + clear + re-emit), auto-scroll toggle present and defaults to `on`.
 6. **Idempotence / determinism / bounded** — buffer cap exercised; dedupe-by-id exercised; no unbounded growth.
 7. **Transport-error tolerance** — SSE error → reconnect; 5 reconnect failures → polling fallback; polling tick error → handled (no crash).
