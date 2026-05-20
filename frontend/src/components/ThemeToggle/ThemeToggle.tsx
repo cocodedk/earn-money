@@ -19,8 +19,7 @@ const LABEL_NEXT: Record<Theme, string> = {
   system: "switch to light",
 };
 
-// Glyphs: sun U+2600, moon U+263E (BLACK), monitor U+25A2 — pure unicode, no
-// emoji autocoloring across platforms.
+// Plain unicode glyphs (not emoji) so platforms don't autocolor them.
 const GLYPH: Record<Theme, string> = {
   light: "☀",
   dark: "☾",
@@ -46,7 +45,7 @@ export function ThemeToggle() {
       aria-label={`Theme: ${current}; ${LABEL_NEXT[current]}`}
       onClick={() => setTheme(NEXT[current])}
     >
-      <span aria-hidden="true">{GLYPH[current]}</span>
+      {GLYPH[current]}
     </button>
   );
 }
