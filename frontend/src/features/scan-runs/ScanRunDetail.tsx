@@ -11,6 +11,7 @@ import { StatusBadge } from "./StatusBadge";
 import { ScanRunTargetsTable } from "./ScanRunTargetsTable";
 import { ScanRunFindingsPanel } from "./ScanRunFindingsPanel";
 import { ScanRunEvidencePanel } from "./ScanRunEvidencePanel";
+import { ScanRunLiveEventsPanel } from "./ScanRunLiveEventsPanel";
 import type { ScanRun } from "../../types/api";
 
 function DetailBody({ run }: { run: ScanRun }) {
@@ -42,6 +43,7 @@ function DetailBody({ run }: { run: ScanRun }) {
       <ScanRunTargetsTable scanRunId={run.id} livePolling={livePolling} />
       <ScanRunFindingsPanel scanRunId={run.id} livePolling={livePolling} />
       <ScanRunEvidencePanel scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunLiveEventsPanel scanRunId={run.id} livePolling={livePolling} />
     </>
   );
 }

@@ -71,6 +71,9 @@ describe("ScanRunDetail findings + evidence panels", () => {
     expect(findingRows).toHaveLength(2);
     const evidenceRows = await screen.findAllByTestId(/^evidence-row-/);
     expect(evidenceRows).toHaveLength(3);
+    expect(
+      await screen.findByTestId("events-connection-status"),
+    ).toBeInTheDocument();
     expect(await screen.findByText(/Findings \(2\)/)).toBeInTheDocument();
     expect(await screen.findByText(/Evidence \(3\)/)).toBeInTheDocument();
   });
