@@ -73,11 +73,19 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       COOKBOOK_ROOT: /cookbook
+      PROGRAMS_ROOT: /programs
+      RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
+      # Programs registry (scope.md / roe.md per program). Read-only.
+      - ./programs:/programs:ro
+      # Kill-switch flag *directory*. Single-file bind mounts break
+      # when the host file is absent (Docker creates a directory); the
+      # loader checks for the file inside this dir at runtime.
+      - ./flags:/flags:ro
     networks: [scanner-net]
     depends_on:
       postgres:
@@ -97,11 +105,15 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       COOKBOOK_ROOT: /cookbook
+      PROGRAMS_ROOT: /programs
+      RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
+      - ./programs:/programs:ro
+      - ./flags:/flags:ro
     networks: [scanner-net]
     depends_on:
       backend:

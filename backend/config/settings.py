@@ -149,6 +149,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 COOKBOOK_ROOT = os.environ.get("COOKBOOK_ROOT", "/cookbook")
 
 
+# --- Scope-enforcement: programs tree + RECON_ENABLED kill-switch ---
+# Both are mounted as read-only directories from the host. The flag-
+# file approach lets the operator halt all recon by deleting one file
+# without touching any process. See docker-compose.yml for the mounts;
+# `apps.programs.flags` enforces the contract.
+PROGRAMS_ROOT = Path(os.environ.get("PROGRAMS_ROOT", "/programs"))
+RECON_ENABLED_PATH = Path(
+    os.environ.get("RECON_ENABLED_PATH", "/flags/RECON_ENABLED")
+)
+
+
 # --- App version (surfaced by /api/health/) ---
 # Set in compose / deployment. Use git SHA or release tag in production.
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
