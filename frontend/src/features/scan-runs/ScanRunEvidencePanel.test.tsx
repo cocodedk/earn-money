@@ -35,7 +35,7 @@ describe("ScanRunEvidencePanel", () => {
       "Method",
       "Field",
       "Matched value",
-      "Created",
+      "Created at",
     ]);
   });
 

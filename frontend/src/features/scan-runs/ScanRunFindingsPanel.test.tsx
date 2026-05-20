@@ -38,7 +38,7 @@ describe("ScanRunFindingsPanel", () => {
       "Severity",
       "Confidence",
       "Status",
-      "Created",
+      "Created at",
     ]);
   });
 

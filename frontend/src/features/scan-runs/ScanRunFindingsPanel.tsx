@@ -39,7 +39,7 @@ export function ScanRunFindingsPanel({ scanRunId, livePolling }: Props) {
             <th>Severity</th>
             <th>Confidence</th>
             <th>Status</th>
-            <th>Created</th>
+            <th>Created at</th>
           </tr>
         </thead>
         <tbody>

@@ -43,7 +43,7 @@ export function ScanRunEvidencePanel({ scanRunId, livePolling }: Props) {
             <th>Method</th>
             <th>Field</th>
             <th>Matched value</th>
-            <th>Created</th>
+            <th>Created at</th>
           </tr>
         </thead>
         <tbody>
