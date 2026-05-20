@@ -10,12 +10,9 @@ import {
   useFindingsListQuery,
 } from "./api";
 import { makeFinding } from "../scan-runs/__fixtures__/finding";
+import { paged } from "./__fixtures__/refData";
 
 const FINDING_ID = "ffffffff-1111-1111-1111-111111111111";
-
-function paged<T>(rows: T[]) {
-  return { count: rows.length, next: null, previous: null, results: rows };
-}
 
 describe("useFindingsListQuery — URL composition", () => {
   it("omits query string when filters are empty", async () => {
@@ -176,3 +173,4 @@ describe("useFindingDetailQuery", () => {
     ]);
   });
 });
+

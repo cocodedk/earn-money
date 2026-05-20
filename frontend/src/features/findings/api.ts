@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { http } from "../../lib/http";
 import type {
   Confidence,
+  Evidence,
   Finding,
   FindingStatus,
   Paginated,
@@ -67,6 +68,21 @@ export function useFindingDetailQuery(findingId: string | undefined) {
   return useQuery({
     queryKey: findingDetailKey(findingId ?? ""),
     queryFn: () => http<Finding>(`/api/findings/${findingId}/`),
+    enabled: Boolean(findingId),
+  });
+}
+
+export function findingEvidenceKey(id: string) {
+  return [...FINDINGS_KEY, "evidence", id] as const;
+}
+
+export function useFindingEvidenceQuery(findingId: string | undefined) {
+  return useQuery({
+    queryKey: findingEvidenceKey(findingId ?? ""),
+    queryFn: () =>
+      http<Paginated<Evidence>>(
+        `/api/evidence/?finding=${encodeURIComponent(findingId as string)}`,
+      ),
     enabled: Boolean(findingId),
   });
 }
