@@ -54,10 +54,7 @@ def _process_probe(
     requested_url: str, probe_kind: str,
 ) -> None:
     snapshot = fetch_response(requested_url)
-    indicators = (
-        detect_all_indicators(snapshot.body, snapshot.content_type)
-        if snapshot.body else []
-    )
+    indicators = detect_all_indicators(snapshot.body, snapshot.content_type)
     verdict = classify(indicators, response_status=snapshot.status)
     with transaction.atomic():
         evidence = save_response_evidence(
