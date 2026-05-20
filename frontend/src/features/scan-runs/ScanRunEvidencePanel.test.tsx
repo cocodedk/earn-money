@@ -156,4 +156,24 @@ describe("ScanRunEvidencePanel", () => {
     expect(cells[4].textContent).toBe("—");
     expect(cells[5].textContent).toBe("—");
   });
+
+  it("renders blank-string optional fields as em-dash (backend default)", async () => {
+    withPaginated("/api/evidence/", [
+      makeEvidence({
+        id: "eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        field: "",
+        matched_value: "",
+      }),
+    ]);
+    renderWithProviders(
+      <ScanRunEvidencePanel scanRunId={SCAN_RUN_ID} livePolling={false} />,
+    );
+    const row = await screen.findByTestId(
+      "evidence-row-eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    );
+    const cells = within(row).getAllByRole("cell");
+    // Cells[4] = Field, Cells[5] = Matched value
+    expect(cells[4].textContent).toBe("—");
+    expect(cells[5].textContent).toBe("—");
+  });
 });

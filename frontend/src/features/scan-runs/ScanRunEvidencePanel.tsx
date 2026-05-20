@@ -9,7 +9,7 @@ function fmt(ts: string): string {
 }
 
 function dash(v: string | null): string {
-  return v ?? "—";
+  return v || "—";
 }
 
 export function ScanRunEvidencePanel({ scanRunId, livePolling }: Props) {
