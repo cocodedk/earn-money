@@ -199,11 +199,13 @@ def _mark_run_done(run: ScanRun) -> None:
             subject=run,
             data={"id": str(run.id)},
         )
-        edge = detect_edge_blocking(run)
-        if edge is not None:
-            Event.log(
-                type=EventType.EDGE_BLOCKING_DETECTED,
-                scan_run=run,
-                subject=run,
-                data=edge,
-            )
+    # Post-scan analytics — read-only on Finding/Evidence, no need to
+    # hold the write lock on scan_run while scanning hundreds of rows.
+    edge = detect_edge_blocking(run)
+    if edge is not None:
+        Event.log(
+            type=EventType.EDGE_BLOCKING_DETECTED,
+            scan_run=run,
+            subject=run,
+            data=edge,
+        )

@@ -83,6 +83,40 @@ class ExecuteScanHappyPathTests(TestCase):
             type=EventType.SCAN_RUN_DONE, scan_run=run
         ).exists()
 
+    def test_mark_run_done_emits_edge_blocking_when_detected(self, _sleep) -> None:
+        """When `detect_edge_blocking` finds a CDN/WAF pattern on the
+        completed run, `_mark_run_done` emits an
+        EDGE_BLOCKING_DETECTED event carrying the analyzer's payload."""
+        from .tasks import _mark_run_done
+
+        run = _make_run_with_targets(1)
+        payload = {"edge": "cloudflare", "blocked_count": 5, "total_evidence": 5}
+        with patch(
+            "apps.scans.postmortem.detect_edge_blocking",
+            return_value=payload,
+        ):
+            _mark_run_done(run)
+
+        ev = Event.objects.get(
+            type=EventType.EDGE_BLOCKING_DETECTED, scan_run=run,
+        )
+        assert ev.data == payload
+
+    def test_mark_run_done_skips_edge_event_when_undetected(self, _sleep) -> None:
+        """If `detect_edge_blocking` returns None (normal scan),
+        no EDGE_BLOCKING_DETECTED event is emitted."""
+        from .tasks import _mark_run_done
+
+        run = _make_run_with_targets(1)
+        with patch(
+            "apps.scans.postmortem.detect_edge_blocking", return_value=None,
+        ):
+            _mark_run_done(run)
+
+        assert not Event.objects.filter(
+            type=EventType.EDGE_BLOCKING_DETECTED, scan_run=run,
+        ).exists()
+
     def test_run_with_no_targets_goes_done_immediately(self, _sleep) -> None:
         from .tasks import _execute_scan
 

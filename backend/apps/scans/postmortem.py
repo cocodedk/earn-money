@@ -16,35 +16,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from apps.stubs.server_headers.signatures import SIGNATURES
+
 if TYPE_CHECKING:
     from apps.scans.models import ScanRun
 
 
-# Known CDN / WAF tokens. Matched case-insensitively against any
-# Finding's `technology` field or `matched_header_value`. Keep the
-# list narrow — false positives here hide real findings under a
-# "scan was blocked" banner.
-_EDGE_TOKENS: dict[str, str] = {
-    "cloudflare": "cloudflare",
-    "cloudfront": "cloudfront",
-    "akamai": "akamai",
-    "akamaighost": "akamai",
-    "fastly": "fastly",
-    "sucuri": "sucuri",
-    "imperva": "imperva",
-    "incapsula": "imperva",
-}
-
-
-def _match_edge(value: str) -> str | None:
-    """Return the canonical edge name if ``value`` contains a known
-    edge token, else None."""
-    lo = value.lower()
-    for token, edge in _EDGE_TOKENS.items():
-        if token in lo:
-            return edge
-    return None
-
+# Canonical CDN/WAF technology names, sourced from the same signature
+# library stub 1.2 (server_headers) uses to identify them. Reading
+# from `SIGNATURES` rather than hard-coding the list prevents drift:
+# any new CDN added to the stub's signatures automatically becomes a
+# known edge here.
+_CDN_TECHNOLOGIES: frozenset[str] = frozenset(
+    sig["technology"].lower()
+    for sig in SIGNATURES
+    if sig.get("technology_category") == "cdn"
+)
 
 # A scan whose Evidence is mostly 4xx is almost certainly being
 # blocked at an edge somewhere — even when no Finding identifies the
@@ -54,18 +41,26 @@ _UNKNOWN_WAF_THRESHOLD = 0.8
 _UNKNOWN_WAF_MIN_EVIDENCE = 5
 
 
+def _match_edge(value: str) -> str | None:
+    """Return the canonical edge name if ``value`` is a known
+    CDN/WAF technology, else None. Case-insensitive."""
+    lo = value.lower()
+    return lo if lo in _CDN_TECHNOLOGIES else None
+
+
 def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     """Return a summary dict if the scan-run was edge-blocked, else None.
 
     Two heuristics, in order:
-        1. A Finding identifies a known CDN/WAF (Cloudflare, Akamai,
-           Fastly, …). Edge name comes from that Finding.
+        1. A Finding identifies a known CDN/WAF (technology field
+           matches the server_headers stub's CDN signatures). Edge
+           name comes from that Finding.
         2. No identifying Finding, but ≥80% of Evidence rows are 4xx
-           across at least 5 probes → `edge="unknown_waf"`.
+           across at least 5 probes → ``edge="unknown_waf"``.
 
     Result shape:
         {
-            "edge": "cloudflare" | "akamai" | "unknown_waf" | ...,
+            "edge": "cloudflare" | "aws_cloudfront" | "unknown_waf" | ...,
             "blocked_count": int,   # 4xx Evidence rows
             "total_evidence": int,  # all Evidence rows for this run
         }
@@ -76,20 +71,15 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     edge: str | None = None
     for f in Finding.objects.filter(scan_run=scan_run).only("data"):
         data = f.data or {}
-        for field in ("technology", "matched_header_value"):
-            edge = _match_edge(str(data.get(field, "")))
-            if edge:
-                break
+        edge = _match_edge(str(data.get("technology", "")))
         if edge:
             break
 
-    total = 0
-    blocked = 0
-    for ev in Evidence.objects.filter(scan_run=scan_run).only("data"):
-        total += 1
-        status = (ev.data or {}).get("status")
-        if isinstance(status, int) and 400 <= status < 500:
-            blocked += 1
+    evidence_qs = Evidence.objects.filter(scan_run=scan_run)
+    total = evidence_qs.count()
+    blocked = evidence_qs.filter(
+        data__status__gte=400, data__status__lt=500,
+    ).count()
 
     if edge is None:
         if (

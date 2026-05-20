@@ -133,10 +133,19 @@ def _run_one(api, project: str, target: str, stub_slug: str) -> str:
 
 def _print_post_scan_events(api, run_id: str) -> None:
     """Surface post-scan signals (edge-blocking detector, etc.) so the
-    operator can see WHY a scan returned no findings."""
+    operator can see WHY a scan returned no findings.
+
+    Event-type strings are loaded from apps.events.types.EventType at
+    call time — keeps the enum the single source of truth so a future
+    rename won't silently stop the smoke from displaying."""
+    import os
+    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if app_root not in sys.path:
+        sys.path.insert(0, app_root)
+    from apps.events.types import EventType
     interesting = {
-        "scan.edge_blocking_detected",
-        "scan.out_of_scope_rejected",
+        EventType.EDGE_BLOCKING_DETECTED.value,
+        EventType.OUT_OF_SCOPE_REJECTED.value,
     }
     r = api.get(f"/api/scan-runs/{run_id}/events/")
     if r.status_code != 200:
