@@ -5,6 +5,7 @@ import { ProjectsList } from "./features/projects/ProjectsList";
 import { CreateProject } from "./features/projects/CreateProject";
 import { TargetsList } from "./features/targets/TargetsList";
 import { CreateTarget } from "./features/targets/CreateTarget";
+import { TargetResult } from "./features/targets/TargetResult";
 import { StubsList } from "./features/stubs/StubsList";
 import { StubDetail } from "./features/stubs/StubDetail";
 import { ScanRunsList } from "./features/scan-runs/ScanRunsList";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path={ROUTES.projectsNew} element={<CreateProject />} />
         <Route path={ROUTES.targets} element={<TargetsList />} />
         <Route path={ROUTES.targetsNew} element={<CreateTarget />} />
+        <Route path={ROUTES.targetResult} element={<TargetResult />} />
         <Route path={ROUTES.stubs} element={<StubsList />} />
         <Route path={ROUTES.stubDetail} element={<StubDetail />} />
         <Route path={ROUTES.scanRuns} element={<ScanRunsList />} />

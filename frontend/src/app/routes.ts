@@ -4,6 +4,7 @@ export const ROUTES = {
   projectsNew: "/projects/new",
   targets: "/targets",
   targetsNew: "/targets/new",
+  targetResult: "/targets/:targetId/results",
   stubs: "/stubs",
   stubDetail: "/stubs/:slug",
   scanRuns: "/scan-runs",
