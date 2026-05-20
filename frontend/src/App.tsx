@@ -13,6 +13,8 @@ import { CreateScanRun } from "./features/scan-runs/CreateScanRun";
 import { ScanRunDetail } from "./features/scan-runs/ScanRunDetail";
 import { FindingsList } from "./features/findings/FindingsList";
 import { FindingDetail } from "./features/findings/FindingDetail";
+import { EvidenceList } from "./features/evidence/EvidenceList";
+import { EvidenceDetail } from "./features/evidence/EvidenceDetail";
 import { ComingSoon } from "./features/coming-soon";
 
 export default function App() {
@@ -32,7 +34,8 @@ export default function App() {
         <Route path={ROUTES.scanRunDetail} element={<ScanRunDetail />} />
         <Route path={ROUTES.findings} element={<FindingsList />} />
         <Route path={ROUTES.findingDetail} element={<FindingDetail />} />
-        <Route path={ROUTES.evidence} element={<ComingSoon name="Evidence" />} />
+        <Route path={ROUTES.evidence} element={<EvidenceList />} />
+        <Route path={ROUTES.evidenceDetail} element={<EvidenceDetail />} />
         <Route path={ROUTES.settings} element={<ComingSoon name="Settings" />} />
         <Route path="*" element={<ComingSoon name="Not found" />} />
       </Route>
