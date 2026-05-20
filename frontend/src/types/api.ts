@@ -148,3 +148,18 @@ export type Evidence = {
   data: Record<string, unknown>;
   created_at: Iso8601;
 };
+
+export type EventLevel = "debug" | "info" | "warning" | "error";
+
+export type Event = {
+  id: Uuid;
+  type: string;
+  scan_run: Uuid;
+  target: Uuid | null;
+  subject_type: string;
+  subject_id: Uuid;
+  level: EventLevel;
+  message: string;
+  data: Record<string, unknown>;
+  created_at: Iso8601;
+};
