@@ -16,9 +16,9 @@
 
 ```tsx
 import { describe, expect, it, vi } from "vitest";
-import { screen, within, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { Routes, Route } from "react-router-dom";
-import { http as msw, HttpResponse, delay } from "msw";
+import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { withBareArray, withPaginated } from "../../test/helpers";
