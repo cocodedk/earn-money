@@ -21,7 +21,7 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-from typing import Literal, Mapping, NamedTuple, Optional
+from typing import Literal, NamedTuple, Optional
 
 from .._shared.types import Confidence
 from .signals import Match, find_strongest_signal
@@ -43,14 +43,13 @@ class Verdict(NamedTuple):
 def classify(
     *,
     status: int,
-    headers: Mapping[str, str],
     body: bytes,
 ) -> Optional[Verdict]:
     """Match `body` against the signature table and ladder-up a Verdict.
 
     `status` lifts a `requires_context` signature when it's ≥400.
-    `headers` is unused in MVP — RFC 7807 / content-type handling is
-    classifier-level info but doesn't change the ladder today.
+    Headers are inspected at the runner layer (slice 19-C) — content-
+    type + RFC 7807 framing live there, not in the ladder.
     """
     match = find_strongest_signal(body)
     if match is None:
@@ -78,10 +77,17 @@ def classify(
 
 
 def _excerpt_around(body: bytes, match: Match) -> str:
-    """Slice ±120 bytes around the match offset; decode safely."""
+    """Slice ±120 chars around the match's char-offset in the decoded body.
+
+    `match.offset` comes from `re.search` on the body decoded with
+    `errors="replace"` (see signals.py). For correctness on non-ASCII
+    bodies we MUST slice the decoded string, not the raw bytes — byte
+    offsets and char offsets diverge once any byte > 0x7F appears.
+    """
+    text = body.decode("utf-8", errors="replace")
     start = max(0, match.offset - _EXCERPT_HALF_WIDTH)
-    end = min(len(body), match.offset + len(match.matched_text.encode()) + _EXCERPT_HALF_WIDTH)
-    return body[start:end].decode("utf-8", errors="replace")
+    end = min(len(text), match.offset + len(match.matched_text) + _EXCERPT_HALF_WIDTH)
+    return text[start:end]
 
 
 def _severity_for(confidence: Confidence) -> Severity:
