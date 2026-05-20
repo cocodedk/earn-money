@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.events",
     "apps.findings",
     "apps.evidence",
+    "apps.programs",
     "apps.stubs",
 ]
 
