@@ -107,7 +107,7 @@ CELERY_TASK_TIME_LIMIT = 60 * 30
 
 # --- Internationalization ---
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Europe/Copenhagen"
+TIME_ZONE = "UTC"  # API timestamps serialize with "Z"; container TZ stays Copenhagen
 USE_I18N = True
 USE_TZ = True
 
