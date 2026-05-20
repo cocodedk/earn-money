@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { http } from "../../lib/http";
 import type {
   CreateScanRunBody,
+  Finding,
   LifecycleAction,
   Paginated,
   ScanRun,
@@ -91,6 +92,39 @@ export function useScanRunTargetRunsQuery(
     queryKey: scanRunTargetRunsKey(scanRunId ?? ""),
     queryFn: () =>
       http<Paginated<ScanTargetRun>>(`/api/scan-runs/${scanRunId}/target-runs/`),
+    enabled: Boolean(scanRunId),
+    refetchInterval: livePolling ? 2000 : false,
+  });
+}
+
+export const scanRunFindingsKey = (id: string) =>
+  [...SCAN_RUNS_KEY, id, "findings"] as const;
+
+type ScanRunChildOptions = { livePolling?: boolean };
+
+export function useScanRunFindingsQuery(
+  scanRunId: string | undefined,
+  options?: ScanRunChildOptions,
+) {
+  const client = useQueryClient();
+  const livePolling = Boolean(options?.livePolling);
+  const prev = useRef(livePolling);
+
+  useEffect(() => {
+    if (prev.current && !livePolling && scanRunId) {
+      const key = scanRunFindingsKey(scanRunId);
+      void (async () => {
+        await client.cancelQueries({ queryKey: key });
+        await client.refetchQueries({ queryKey: key, type: "active" });
+      })();
+    }
+    prev.current = livePolling;
+  }, [livePolling, scanRunId, client]);
+
+  return useQuery({
+    queryKey: scanRunFindingsKey(scanRunId ?? ""),
+    queryFn: () =>
+      http<Paginated<Finding>>(`/api/findings/?scan_run=${scanRunId}`),
     enabled: Boolean(scanRunId),
     refetchInterval: livePolling ? 2000 : false,
   });
