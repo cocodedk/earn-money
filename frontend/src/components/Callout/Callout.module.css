@@ -9,7 +9,7 @@
   border-radius: var(--radius-sharp);
   background: var(--surface-raised);
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: var(--text-default);
   line-height: 1.45;
   animation: em-fade-rise var(--dur-base) var(--ease-out);
 }
