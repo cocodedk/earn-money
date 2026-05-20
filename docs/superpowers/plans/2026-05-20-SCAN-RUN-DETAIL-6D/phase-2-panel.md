@@ -104,14 +104,18 @@ export function ScanRunLiveEventsPanel({ scanRunId, livePolling }: Props): JSX.E
 - Test: `frontend/src/features/scan-runs/ScanRunLiveEventsPanel.controls.test.tsx`
 
 **Behaviour:**
-- `data-testid="events-clear-local"` button → calls `clear()` from the hook; buffer empties; backend events untouched per umbrella spec line 92.
-- `data-testid="events-reconnect"` button → calls `reconnect()` from the hook; status flips back through `connecting → connected`.
-- Both buttons rendered regardless of status (the hook itself no-ops when not applicable).
+- `data-testid="events-clear-local"` button → calls `clear()` from the hook; buffer empties; backend events untouched per umbrella spec line 92. Button is **always enabled** regardless of status — clear has no preconditions.
+- `data-testid="events-reconnect"` button → calls `reconnect()` from the hook. Per-status behaviour:
+  - `connecting` / `connected` / `reconnecting` / `polling-fallback`: status flips to `connecting → connected` (fresh SSE attempt, attempt counter resets to 0).
+  - `closed`: button is **disabled** (`disabled` HTML attribute set, `aria-disabled="true"`). `closed` means `livePolling=false` or unmount — reconnect needs a `livePolling` flip elsewhere first; the button alone can't force-stream a paused/finished run.
+  - `disabled` (kill-switch active): button is **disabled** with tooltip "Live events disabled by kill switch — remove `localStorage.disable_live_events` and reload to re-enable."
 
 **Test matrix:**
-1. `clear` button → `clear()` called once, buffer emptied in next render.
-2. `reconnect` button → `reconnect()` called once, status transitions.
-3. Both buttons present in all status states.
+1. `clear` button → `clear()` called once, buffer emptied in next render. Button enabled in every status.
+2. `reconnect` button in `connecting`/`connected`/`reconnecting`/`polling-fallback` → `reconnect()` called once, status flips to `connecting`.
+3. `reconnect` button in `closed` → button is `disabled`; click does nothing; `reconnect()` not called.
+4. `reconnect` button in `disabled` (kill-switch) → button is `disabled`; tooltip present on hover.
+5. Both buttons present in all status states (rendered, possibly disabled — not removed from the DOM).
 
 **Commit:** `feat(frontend): ScanRunLiveEventsPanel clear + reconnect controls`.
 

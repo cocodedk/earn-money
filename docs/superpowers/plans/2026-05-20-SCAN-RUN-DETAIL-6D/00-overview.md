@@ -48,7 +48,7 @@
 - No new or modified file over 200 lines. `App.e2e.test.tsx` pre-existing 305-line state is already over the 200-line cap and is the deferred-refactor target for the table-primitive cleanup slice that follows 6D. Phase 3 Task 6 extends it by **one additional case** (mirroring 6C's pattern); the file is **not split inside 6D** — split lands in the cleanup slice along with the `<Table>` primitive lift.
 - Operator can open `/scan-runs/:id` and see events streaming live within ~250 ms of backend emit while the parent run is `running`. Disconnecting the network (DevTools offline) shows the disconnected status indicator and then re-streams on restore.
 - SSE reconnect: exponential backoff capped at 30 s; max 5 attempts before falling back to polling.
-- Polling fallback: 2 s interval, dedupe by `event.id`, **stops when parent run enters terminal status, `livePolling` flips false, or the component unmounts**. No automatic retry back to SSE — once we fall back, we stay in polling for this scan run's lifetime (revisit if/when SSE reliability needs measuring; Last-Event-ID makes mid-stream recovery cheap if we add it later).
+- Polling fallback: 2 s interval, dedupe by `event.id`, **stops when parent run enters terminal status, `livePolling` flips false, or the component unmounts**. **Polling never spontaneously re-attempts SSE** — that's the "no automatic retry" rule. A `livePolling` cycle (false → true, e.g. pause → resume) OR a user-driven `reconnect()` exits polling and starts a fresh SSE attempt (Task 5 governs the reopen, attempt counter resets to 0, buffer preserved). See `phase-1-task-7-polling-fallback.md` §Behaviour for the precise contract.
 - **Rollback kill switch:** localStorage flag `disable_live_events`. **Strict contract:** value `"1"` (string) means enabled; anything else (including `"0"`, `"true"`, `null`, missing key) means disabled-flag-is-off. Set with `localStorage.setItem("disable_live_events", "1")` and reload; remove with `localStorage.removeItem("disable_live_events")` and reload. When enabled, panel skips opening SSE / polling; status pill renders `disabled`; buffer stays empty. Settable via DevTools or operator runbook for triaging flaky deployments without a code revert. Phase 3 Task 7 spec-review verifies the kill switch path.
 - Newest event at **bottom** (matching natural log-tail reading order); auto-scroll defaults to **on** but disables automatically when the user scrolls up.
 - Single peer ping to em-backend at slice completion (chat-noise-floor rule).
@@ -73,7 +73,7 @@
 - Strict TDD on every step: failing test first, then implementation. No production code without a failing test.
 - 100 % line + branch coverage on the production code path (frontend `src/`). Coverage gates measured by `npm test -- --coverage`.
 - House style: per-row `data-testid="event-row-{id}"` (same convention as 6B + 6C).
-- Connection-status indicator testid: `data-testid="events-connection-status"` with values `connecting` | `connected` | `reconnecting` | `polling-fallback` | `closed`.
+- Connection-status indicator testid: `data-testid="events-connection-status"` with values `connecting` | `connected` | `reconnecting` | `polling-fallback` | `closed` | `disabled`.
 - Controls testids: `data-testid="events-autoscroll-toggle"` / `data-testid="events-clear-local"` / `data-testid="events-reconnect"`.
 - Inline timestamp formatter: `fmt(ts) = ts ? new Date(ts).toLocaleTimeString() : "—"` (HH:MM:SS for the live tail; **differs from 6C's date-only** because the events panel is a real-time view).
 
