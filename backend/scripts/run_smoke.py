@@ -34,12 +34,32 @@ DEFAULT_API = "http://localhost:8000"
 POLL_INTERVAL_S = 2.0
 POLL_TIMEOUT_S = 300.0  # 5 min — well_known_paths can iterate ~30 candidates
 
-# Terminal RunStatus values from apps.scans.models.RunStatus. Hard-coded
-# here to keep this script Django-free; if the enum gains a new terminal
-# state the script will hang at POLL_TIMEOUT_S, which is a clear signal
-# to update this set rather than a silent miss.
-_TERMINAL_STATUSES = frozenset({"done", "stopped", "failed"})
-_OK_STATUS = "done"
+
+def _ensure_django() -> None:
+    """Idempotent: put /app on sys.path and call django.setup() so the
+    canonical enums (RunStatus, EventType) can be imported without
+    drifting from a duplicate string literal."""
+    import os
+
+    import django
+    from django.apps import apps
+    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if app_root not in sys.path:
+        sys.path.insert(0, app_root)
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    if not apps.ready:  # idempotent across re-imports
+        django.setup()
+
+
+_ensure_django()
+from apps.scans.models import RunStatus  # noqa: E402
+
+_TERMINAL_STATUSES = frozenset({
+    RunStatus.DONE.value,
+    RunStatus.STOPPED.value,
+    RunStatus.FAILED.value,
+})
+_OK_STATUS = RunStatus.DONE.value
 
 
 def _parse_args() -> argparse.Namespace:
@@ -138,10 +158,7 @@ def _print_post_scan_events(api, run_id: str) -> None:
     Event-type strings are loaded from apps.events.types.EventType at
     call time — keeps the enum the single source of truth so a future
     rename won't silently stop the smoke from displaying."""
-    import os
-    app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if app_root not in sys.path:
-        sys.path.insert(0, app_root)
+    _ensure_django()
     from apps.events.types import EventType
     interesting = {
         EventType.EDGE_BLOCKING_DETECTED.value,

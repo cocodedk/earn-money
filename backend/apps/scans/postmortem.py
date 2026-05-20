@@ -65,6 +65,8 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
             "total_evidence": int,  # all Evidence rows for this run
         }
     """
+    from django.db.models import Count, Q
+
     from apps.evidence.models import Evidence
     from apps.findings.models import Finding
 
@@ -75,11 +77,15 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
         if edge:
             break
 
-    evidence_qs = Evidence.objects.filter(scan_run=scan_run)
-    total = evidence_qs.count()
-    blocked = evidence_qs.filter(
-        data__status__gte=400, data__status__lt=500,
-    ).count()
+    # One round-trip: total + 4xx-only count in a single aggregate.
+    counts = Evidence.objects.filter(scan_run=scan_run).aggregate(
+        total=Count("id"),
+        blocked=Count("id", filter=Q(
+            data__status__gte=400, data__status__lt=500,
+        )),
+    )
+    total = counts["total"]
+    blocked = counts["blocked"]
 
     if edge is None:
         if (
