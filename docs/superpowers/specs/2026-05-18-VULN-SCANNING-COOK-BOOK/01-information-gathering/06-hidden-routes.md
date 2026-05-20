@@ -6,7 +6,7 @@
 phase: 1
 spec: 6
 slug: hidden-routes
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
