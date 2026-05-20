@@ -12,43 +12,50 @@
 - Modify: `frontend/src/features/scan-runs/ScanRunDetail.tsx` (currently 65 lines; new panels add ~10, target ~75)
 - Test: integration tests live in `ScanRunDetail.findings-evidence.test.tsx` (new file, Task 9)
 
-- [ ] **Step 1: Write a minimal failing assertion** — add to a new test file `ScanRunDetail.findings-evidence.test.tsx`:
+- [ ] **Step 1: Write a minimal failing assertion** — add to a new test file `ScanRunDetail.findings-evidence.test.tsx`. Use the `mountAt(id)` pattern from the shipped `ScanRunDetail.target-runs.test.tsx:15-26` (which seeds `/api/projects/` + `/api/stubs/` so ScanRunDetail's sibling queries don't 404, and returns the `client` for invalidation in later tasks):
 
 ```tsx
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http, HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { screen, within, waitFor } from "@testing-library/react";
+import { Routes, Route } from "react-router-dom";
+import { http as msw, HttpResponse, delay } from "msw";
 import { server } from "../../test/server";
+import { renderWithProviders } from "../../test/renderWithProviders";
+import { withBareArray, withPaginated } from "../../test/helpers";
+import { scanRunKey } from "./api";
 import { ScanRunDetail } from "./ScanRunDetail";
 import { makeScanRun } from "./__fixtures__/scan-run";
+import { makeScanTargetRun } from "./__fixtures__/scan-target-run";
+import { makeStub } from "../stubs/__fixtures__/stub";
+import { makeFinding } from "./__fixtures__/finding";
+import { makeEvidence } from "./__fixtures__/evidence";
+import type { ScanRun } from "../../types/api";
 
 const ID = "11111111-1111-1111-1111-111111111111";
 
-function wrap() {
-  const client = new QueryClient();
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[`/scan-runs/${ID}`]}>
-        <Routes>
-          <Route path="/scan-runs/:id" element={<ScanRunDetail />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+function mountAt(id: string) {
+  withPaginated("/api/projects/", []);
+  withBareArray("/api/stubs/", [makeStub()]);
+  return renderWithProviders(
+    <Routes>
+      <Route path="/scan-runs/:id" element={<ScanRunDetail />} />
+    </Routes>,
+    { route: `/scan-runs/${id}` },
   );
 }
 
 it("renders Findings panel below targets table", async () => {
   server.use(
-    http.get(`/api/scan-runs/${ID}/`, () =>
+    msw.get(`/api/scan-runs/${ID}/`, () =>
       HttpResponse.json(makeScanRun({ id: ID, status: "done" })),
     ),
   );
-  wrap();
+  mountAt(ID);
   expect(await screen.findByText(/Findings \(0\)/)).toBeInTheDocument();
 });
 ```
+
+`renderWithProviders` returns `{ client, ...render }` — so tasks 9 case 3 can call `mountAt(ID)` and destructure `const { client } = mountAt(ID)` to get the QueryClient for invalidation.
 
 Run: `npm test -C frontend -- ScanRunDetail.findings-evidence.test.tsx --run`
 Expected: FAIL (panel not rendered)
@@ -93,26 +100,59 @@ Add four more tests. **Integration scope:** these tests prove that `ScanRunDetai
 
 1. **Happy path with data** — server returns 2 findings + 3 evidence; assert `screen.findAllByTestId(/^finding-row-/)` returns 2 elements AND `screen.findAllByTestId(/^evidence-row-/)` returns 3 elements AND `screen.findByText(/Findings \(2\)/)` AND `screen.findByText(/Evidence \(3\)/)`.
 
-2. **Both panels poll while running** — server returns scan run with `status: "running"` plus 0 findings + 0 evidence initially. After mounting, flip the server stub so the next poll returns 1 finding (e.g. via the `let phase: "pre" | "post" = "pre"` pattern from `api.target-runs.flush.test.tsx:12,49,85`). Then:
+2. **Both panels poll while running** — server returns scan run with `status: "running"` plus 0 findings + 0 evidence initially, then a `phase` flip injects 1 finding for the next poll tick. Gate on a **positive** marker that the initial fetch settled (empty-state testid) before flipping phase, so the assertion can't pass vacuously during the loading state:
    ```ts
+   let phase: "pre" | "post" = "pre";
+   server.use(
+     msw.get(`/api/scan-runs/${ID}/`, () =>
+       HttpResponse.json(makeScanRun({ id: ID, status: "running" })),
+     ),
+     msw.get("/api/findings/", () =>
+       HttpResponse.json({
+         count: phase === "pre" ? 0 : 1,
+         next: null,
+         previous: null,
+         results: phase === "pre"
+           ? []
+           : [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa" })],
+       }),
+     ),
+   );
    vi.useFakeTimers();
-   // mount via renderWithProviders
-   await waitFor(() => expect(screen.queryByTestId(`finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)).toBeNull());
+   mountAt(ID);
+   vi.useRealTimers();
+   await screen.findByTestId("findings-empty"); // initial fetch settled
    phase = "post";
+   vi.useFakeTimers();
    await vi.advanceTimersByTimeAsync(2100); // one poll tick past 2s
    vi.useRealTimers();
-   await screen.findByTestId(`finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa`);
+   await screen.findByTestId("finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
    ```
 
-3. **Terminal flush narrow scope** — server starts with `status: "running"`, then flips parent to `done`. Assert: both panels each issue **one** extra fetch after the parent flip (use a `let fcalls = 0` and `let ecalls = 0` counter per route handler; compare `fcalls` and `ecalls` to their pre-flip values plus one). Use the mutable parent pattern:
+3. **Terminal flush narrow scope** — server starts with `status: "running"`, then flips parent to `done`. Assert: both panels each issue **one** extra fetch after the parent flip. Counter pattern + mutable scan run:
    ```ts
-   let scanRun = makeScanRun({ id: SCAN_RUN_ID, status: "running" });
+   let scanRun: ScanRun = makeScanRun({ id: ID, status: "running" });
+   let fcalls = 0;
+   let ecalls = 0;
    server.use(
-     msw.get(`/api/scan-runs/${SCAN_RUN_ID}/`, () => HttpResponse.json(scanRun)),
+     msw.get(`/api/scan-runs/${ID}/`, () => HttpResponse.json(scanRun)),
+     msw.get("/api/findings/", () => {
+       fcalls += 1;
+       return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+     }),
+     msw.get("/api/evidence/", () => {
+       ecalls += 1;
+       return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
+     }),
    );
-   // ...mount, settle, then:
-   scanRun = makeScanRun({ id: SCAN_RUN_ID, status: "done" });
-   client.invalidateQueries({ queryKey: scanRunKey(SCAN_RUN_ID) });
+   const { client } = mountAt(ID);
+   await waitFor(() => expect(fcalls).toBe(1));
+   await waitFor(() => expect(ecalls).toBe(1));
+   const before = { f: fcalls, e: ecalls };
+   scanRun = makeScanRun({ id: ID, status: "done" });
+   await client.invalidateQueries({ queryKey: scanRunKey(ID) });
+   await waitFor(() => expect(fcalls).toBe(before.f + 1));
+   await waitFor(() => expect(ecalls).toBe(before.e + 1));
    ```
 
 4. **Both panels show error callout on 500** — server returns `HttpResponse.error()` for both endpoints, assert `screen.findAllByText(/Could not load/)` returns at least 2 callouts.

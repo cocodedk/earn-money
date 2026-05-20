@@ -182,7 +182,7 @@ git commit -m "feat(frontend): ScanRunFindingsPanel component + tests"
 
 **Columns:** Source, Target (first 8 chars, mono), URL (text, "—" if null), Method ("—" if null), Field ("—" if null), Matched value (mono, "—" if null), Created (date only). No badges — evidence has no severity/status fields.
 
-- [ ] **Step 1: Write the failing test** — mirror `ScanRunFindingsPanel.test.tsx` exactly, swap names, columns, and assertions for evidence shape. Test count ~11 (one fewer than findings since there are no badges to assert).
+- [ ] **Step 1: Write the failing test** — mirror `ScanRunFindingsPanel.test.tsx` exactly, swap names, columns, and assertions for evidence shape. Test count ~11 (drops Task 6's T12 plain-text-of-severity/confidence/status assertion since evidence has none of those columns).
 
 - [ ] **Step 2: Implement** — `ScanRunEvidencePanel.tsx` (target ~70 lines)
 
