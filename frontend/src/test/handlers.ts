@@ -14,4 +14,10 @@ export const handlers = [
       results: [makeScanTargetRun()],
     }),
   ),
+  http.get("/api/evidence/", () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
+  http.get("/api/findings/", () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
 ];
