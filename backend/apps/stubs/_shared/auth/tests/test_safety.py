@@ -85,7 +85,7 @@ def test_record_refusal_emits_auth_probe_refused() -> None:
     scan_run, target_run = seed_target_run(stub_slug="2.1", host="x.example")
 
     record_refusal(
-        scan_run=scan_run, target=target_run.target,
+        scan_run=scan_run, target_run=target_run,
         stub_id="2.1", reason=RefusalReason.ROE_DISABLED,
         details={"knob": "allow_active_login_probes"},
     )
@@ -97,6 +97,9 @@ def test_record_refusal_emits_auth_probe_refused() -> None:
     assert ev.data["reason"] == "roe_disabled"
     assert ev.data["would_have_submitted"] is False
     assert ev.data["knob"] == "allow_active_login_probes"
+    # Subject must be the target_run (per scans.tasks convention), so
+    # the dashboard can link "scan-run → target → refusal" cleanly.
+    assert str(ev.subject_id) == str(target_run.id)
 
 
 @pytest.mark.django_db
@@ -110,7 +113,7 @@ def test_record_refusal_for_fixture_required_uses_fixture_event() -> None:
     scan_run, target_run = seed_target_run(stub_slug="2.5", host="x.example")
 
     record_refusal(
-        scan_run=scan_run, target=target_run.target,
+        scan_run=scan_run, target_run=target_run,
         stub_id="2.5", reason=RefusalReason.FIXTURE_REQUIRED,
         details={"missing_secret": "FIXTURE_MAILBOX_TOKEN"},
     )
@@ -132,7 +135,7 @@ def test_record_refusal_for_missing_secret_uses_fixture_event() -> None:
     scan_run, target_run = seed_target_run(stub_slug="2.5", host="x.example")
 
     record_refusal(
-        scan_run=scan_run, target=target_run.target,
+        scan_run=scan_run, target_run=target_run,
         stub_id="2.5", reason=RefusalReason.MISSING_SECRET,
     )
 

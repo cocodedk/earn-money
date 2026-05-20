@@ -20,10 +20,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from apps.events.models import Event
 from apps.events.types import EventType
+
+if TYPE_CHECKING:
+    from apps.scans.models import ScanRun, ScanTargetRun
 
 
 class RefusalReason(str, Enum):
@@ -89,13 +92,17 @@ _FIXTURE_EVENT_REASONS: frozenset[RefusalReason] = frozenset({
 
 def record_refusal(
     *,
-    scan_run: Any,
-    target: Any,
+    scan_run: "ScanRun",
+    target_run: "ScanTargetRun",
     stub_id: str,
     reason: RefusalReason,
     details: dict[str, Any] | None = None,
 ) -> None:
     """Emit the appropriate AUTH_* event for a pre-execution refusal.
+
+    The event is filed against the specific ``target_run`` so the
+    dashboard can link "scan-run → target → refusal" cleanly. Mirrors
+    `apps.scans.tasks._process_target_run`'s subject convention.
 
     `details` is merged into the event payload alongside the canonical
     fields. Use it to record context like the missing secret's env-var
@@ -106,9 +113,10 @@ def record_refusal(
         if reason in _FIXTURE_EVENT_REASONS
         else EventType.AUTH_PROBE_REFUSED
     )
+    target = target_run.target
     payload: dict[str, Any] = {
         "stub": stub_id,
-        "target_url": getattr(target, "base_url", None),
+        "target_url": target.base_url,
         "reason": reason.value,
         "would_have_submitted": False,
     }
@@ -116,5 +124,5 @@ def record_refusal(
         payload.update(details)
     Event.log(
         type=event_type, scan_run=scan_run,
-        target=target, subject=scan_run, data=payload,
+        target=target, subject=target_run, data=payload,
     )
