@@ -31,7 +31,7 @@ export function ScanRunLiveEventsPanel({ scanRunId, livePolling }: Props): JSX.E
   - `polling-fallback` + empty: "SSE unavailable — polling for events." hint.
   - `connected` + empty: "No events yet" hint.
   - `closed` + empty: "Disconnected" hint.
-  - `disabled` (localStorage kill switch active): "Live events disabled (set `localStorage.disable_live_events=0` and reload to re-enable)." hint.
+  - `disabled` (localStorage kill switch active): "Live events disabled (run `localStorage.removeItem('disable_live_events')` in DevTools and reload to re-enable)." hint.
 
 **Test matrix:**
 1. Renders title + status pill in every status (including `disabled` via localStorage kill switch).

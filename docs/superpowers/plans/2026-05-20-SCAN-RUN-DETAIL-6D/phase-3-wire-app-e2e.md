@@ -55,7 +55,7 @@
 - Create: `frontend/src/features/scan-runs/ScanRunDetail.events.polling-fallback.test.tsx`
 
 **Test:**
-- SSE fails 5 times → status pill `polling-fallback` → polling tick hits `/api/events/?scan_run=...` → rows appear from REST response.
+- SSE fails 5 times → status pill `polling-fallback` → polling tick hits `/api/scan-runs/<uuid>/events/` (with `Last-Event-ID` header set to the newest buffered event id, or omitted if buffer empty) → rows appear from REST response.
 - MSW handler returns fixture events; assert dedupe across ticks.
 
 **Commit:** `test(frontend): ScanRunDetail SSE polling-fallback integration`.

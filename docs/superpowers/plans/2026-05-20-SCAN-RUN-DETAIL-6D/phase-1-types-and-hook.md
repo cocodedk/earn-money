@@ -49,14 +49,14 @@ Mirror the `makeFinding` / `makeEvidence` pattern; default to a `target_started`
 
 ---
 
-### Task 3: Default MSW handler for `/api/events/`
+### Task 3: Default MSW handler for `/api/scan-runs/:id/events/`
 
 **Files:**
 - Modify: `frontend/src/test/handlers.ts`
 
-Add an empty-list paginated handler for `GET /api/events/` (polling fallback baseline). Individual tests override with `server.use(...)`.
+Add an empty-list paginated handler for `GET /api/scan-runs/:id/events/` (em-backend-confirmed polling fallback route, see `00-overview.md` §Backend lock). Individual tests override with `server.use(...)`.
 
-**Commit:** `test(frontend): default MSW handler for /api/events/`.
+**Commit:** `test(frontend): default MSW handler for /api/scan-runs/:id/events/`.
 
 ---
 

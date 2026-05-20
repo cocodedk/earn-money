@@ -14,7 +14,8 @@ export type ConnectionStatus =
   | "connected"
   | "reconnecting"
   | "polling-fallback"
-  | "closed";
+  | "closed"
+  | "disabled";
 
 export interface UseScanRunEventsResult {
   events: Event[];
@@ -29,9 +30,11 @@ export function useScanRunEvents(
 ): UseScanRunEventsResult;
 ```
 
+**Kill-switch contract:** "truthy" means `localStorage.getItem("disable_live_events") === "1"`. The string `"0"` is **not** truthy under this rule. To re-enable, **remove the key** (`localStorage.removeItem("disable_live_events")`) or set it to anything other than `"1"`. This avoids the JS-string `"0"` truthy gotcha.
+
 **Behaviour in this task (reconnect + polling deferred to Task 6 / 7):**
 - On mount with `scanRunId` truthy AND `livePolling=true` AND no `disable_live_events` localStorage flag: open `EventSource` against `/sse/scan-runs/<uuid:scan_run_id>/events/` (em-backend-confirmed route 2026-05-20 — see `00-overview.md` §Backend lock). Status: `connecting` → `connected` on first `onopen`.
-- **Kill switch:** if `localStorage.getItem("disable_live_events")` is truthy at mount, no EventSource opened; status → `closed` with a one-off `"events_disabled_by_kill_switch"` debug-log entry; buffer stays empty. Kill switch is a static read at mount + on `scanRunId` change — operator changing it mid-session requires a reload to take effect.
+- **Kill switch:** if `localStorage.getItem("disable_live_events") === "1"` at mount, no EventSource opened; status → `disabled` with a one-off `"events_disabled_by_kill_switch"` debug-log entry; buffer stays empty. Kill switch is a static read at mount + on `scanRunId` change — operator changing it mid-session requires a reload to take effect.
 - **Malformed SSE frame handling:** if `onmessage` fires with `event.data` that fails `JSON.parse`, the error is caught and the malformed frame is silently dropped (no status change). Optional `console.warn` for dev visibility. Status stays `connected`.
 - **Valid JSON but shape mismatch:** if the parsed payload lacks `id` or `type`, drop the frame (treat as malformed). Do NOT add a runtime schema validator — accept the contract `00-overview.md` §Event shape declares.
 - Append each `onmessage` to the events buffer in arrival order (newest at tail). Cap buffer at `maxBuffer` (default 500); evict oldest when over.
@@ -61,6 +64,8 @@ export function useScanRunEvents(
 13. Unmount: instance closed.
 14. **Malformed SSE frame:** emit `event.data = "{not-json"` → buffer unchanged, status stays `connected`, no exception thrown.
 15. **Valid JSON but missing `id`:** emit `event.data = '{"type":"x"}'` → buffer unchanged (dropped per shape-mismatch rule), status stays `connected`.
-16. **Kill switch:** with `localStorage.setItem("disable_live_events", "1")` in beforeEach, no EventSource opened; status `closed`.
+16. **Kill switch enables:** with `localStorage.setItem("disable_live_events", "1")` in beforeEach, no EventSource opened; status === `disabled`; buffer empty.
+17. **Kill-switch `"0"` is NOT truthy:** with `localStorage.setItem("disable_live_events", "0")` in beforeEach, EventSource IS opened normally; status follows the standard `connecting → connected` flow.
+18. **Kill-switch removed re-enables:** `localStorage.removeItem("disable_live_events")` (no key) → EventSource opens normally.
 
 **Commit:** `feat(frontend): useScanRunEvents SSE primary path + ConnectionStatus`.

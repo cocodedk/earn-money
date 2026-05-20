@@ -10,10 +10,12 @@
 - On entering `polling-fallback`: stop SSE entirely; start a 2 s polling loop hitting `GET /api/scan-runs/<uuid>/events/` (em-backend-confirmed route 2026-05-20 — see `00-overview.md` §Backend lock).
 - **Last-Event-ID resume:** the polling request sets the `Last-Event-ID` HTTP header to the `id` of the newest event currently in the buffer (or omits the header if the buffer is empty). Server resumes with `created_at > anchor.created_at`. Unknown anchor → fresh start (no error).
 - **Result ordering:** server returns `Paginated<Event>` ordered ascending by `created_at`. Append `results` to the buffer in that order. If a returned `id` is already in the buffer, **replace in place** (same dedupe semantic as SSE path — defensive against the rare overlap with a last-second SSE message).
-- **Pagination handling:** if `data.next != null` on a polling response, immediately fetch the next page (`fetch(data.next)`) and continue draining until `next === null`, then wait for the next 2 s tick. Bounded by buffer cap (default 500) — if the cap is reached during drain, evict-oldest semantics apply and we stop draining for this tick (resume on the next tick with a fresh Last-Event-ID).
+- **Pagination handling:** if `data.next != null` on a polling response, immediately fetch the next page (`fetch(data.next)`) and continue draining until `next === null`, then wait for the next 2 s tick. **Buffer cap (default 500) is a soft limit during drain:** events keep appending across pages with evict-oldest semantics, so the buffer always ends the drain holding the **newest** `maxBuffer` events even if multiple pages overflow it. The drain itself does **not** stop early when the cap is hit (we want the newest tail visible, not the oldest).
 - **Error handling:** if a polling response returns HTTP 5xx OR the response shape lacks `results`, log a `console.warn`, leave the buffer untouched, and retry on the next 2 s tick. Persistent 5xx (e.g. 5 consecutive failures) does NOT escalate further — we're already in the fallback path; the operator's signal is the empty/stale buffer + `polling-fallback` status pill.
-- On `livePolling=false`, unmount, OR parent run reaches terminal status (`livePolling` flips false via `isRunActive` returning false on `done`/`stopped`/`failed`/`paused`): stop polling, status → `closed`.
-- No automatic retry back to SSE — once we fall back, we stay in polling for this scan run's lifetime (revisit if/when SSE reliability needs measuring; Last-Event-ID makes the retry cheap if we add it later).
+- On `livePolling=false` (caused by parent run pausing or reaching terminal status `done`/`stopped`/`failed`/`paused` — `isRunActive` returns false for all of those) OR unmount: stop polling, status → `closed`.
+- **`livePolling` flips false → true mid-fallback** (e.g. operator resumes a paused run): the panel exits `polling-fallback`, the SSE primary path **takes over fresh** (Task 5 governs the reopen). The "no automatic retry back to SSE" rule applies only **while polling is active**, not across livePolling cycles. The reopen attempt is fresh: SSE-attempt counter resets to 0; if SSE fails 5x again, we re-enter `polling-fallback`. Buffer is preserved across the cycle.
+- The user-driven `reconnect()` button is the other path back to SSE while inside `polling-fallback` — see Task 6.
+- "No automatic retry" therefore means: **the polling loop itself never spontaneously re-attempts SSE.** A user-initiated `reconnect()` or a `livePolling` cycle is required.
 
 **Test matrix (Task 7):**
 1. After 5 SSE failures → polling loop starts; status `polling-fallback`; first request hits `/api/scan-runs/<uuid>/events/`.
@@ -25,7 +27,7 @@
 7. Polling tick returns a result containing an `id` already in the buffer → entry replaced in place (no duplicate row).
 8. **Last-Event-ID:** with 3 events in buffer, next polling request sets `Last-Event-ID` header to the newest buffered event's `id`.
 9. **Pagination drain:** server returns `next != null` on first page → second `fetch(data.next)` fires immediately within the same tick; events from both pages appended in order.
-10. **Pagination cap:** with `maxBuffer=10`, server returns 15 events across 2 pages → buffer holds the newest 10, oldest 5 evicted; drain stops mid-second-page when cap reached.
+10. **Pagination cap (soft):** with `maxBuffer=10`, server returns 15 events across 2 pages → drain consumes both pages; buffer ends holding the **newest 10** (oldest 5 evicted as we go).
 11. **HTTP 500 response:** polling returns `500` → buffer untouched, status stays `polling-fallback`, next tick retries.
 12. **Invalid response shape:** polling returns `{ "error": "x" }` (no `results` key) → buffer untouched, status stays `polling-fallback`.
 13. **5 consecutive 500s:** polling stays in fallback, does NOT escalate to `closed` — operator triages via the status pill + empty buffer.
