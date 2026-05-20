@@ -6,13 +6,15 @@
 phase: 1
 spec: 25
 slug: exported-database-files
-status: pending     # pending | in-progress | blocked | done
+status: done        # pending | in-progress | blocked | done — absorbed into stub well_known_paths (registered under spec 1.20)
 fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 1.25 Exported database files
 
 > Phase 1 — Information gathering · Category: Sensitive files
+
+> **Closure (2026-05-20):** Absorbed by stub `well_known_paths` (registered owner: spec [1.20](./20-env.md)). The `db_dumps` family covers `/db.sql`, `/backup.sql`, `/dump.sql`, `.sqlite`, `.sqlite3`, `.db`, `.mdb`, and similar exported database files per this spec. SQL text dumps preserve `CREATE TABLE` verbatim and redact `INSERT INTO ... VALUES (...)` value-tuples to `(<REDACTED>)`; SQLite/binary db files use the magic-prefix + binary-redacted strategy.
 
 <!--
 GPT-5.5: Enrichment zone — paste-ready spec contract for LLM-assisted implementation.
