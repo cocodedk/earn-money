@@ -39,6 +39,11 @@ class RefusalReason(str, Enum):
     FIXTURE_REQUIRED = "fixture_required"
     MISSING_SECRET = "missing_fixture_secret"
     BUDGET_EXHAUSTED = "budget_exhausted"
+    # Network-layer failure (DNS / TLS / timeout / connection refused).
+    # Not a fixture issue — the target is unreachable, not unconfigured.
+    # Routes to AUTH_PROBE_REFUSED so the dashboard surfaces it as
+    # "probe blocked" rather than "set up the fixture".
+    TRANSPORT_ERROR = "transport_error"
 
 
 class AbortSignal(str, Enum):

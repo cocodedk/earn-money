@@ -17,10 +17,12 @@ The fetcher/submit/diff/finding chain lands in subsequent chunks.
 """
 from __future__ import annotations
 
+from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.forms import discover_forms
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
+from apps.stubs._shared.scope_check import enforce_scope
 
 from ..runners import guarded_runner
 from .fetcher import fetch_for_discovery
@@ -44,10 +46,22 @@ def run(
     if not outcome.ok:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id="2.1",
-            reason=RefusalReason.FIXTURE_REQUIRED,
-            details={"detail": "transport_error", "error": outcome.error},
+            reason=RefusalReason.TRANSPORT_ERROR,
+            details={"error": outcome.error},
         )
         return
+
+    # Re-verify the final URL is in scope — `httpx` follows same-origin
+    # redirects automatically, and a cross-origin 301 to e.g. an SSO
+    # provider would leave us parsing HTML from an out-of-scope host.
+    # `enforce_scope` raises OutOfScope + emits the audit event.
+    try:
+        enforce_scope(
+            target, outcome.final_url, program,
+            scan_run=scan_run, stub_id="2.1",
+        )
+    except OutOfScope:
+        return  # event already emitted by enforce_scope
 
     forms = discover_forms(
         outcome.body, outcome.final_url,
