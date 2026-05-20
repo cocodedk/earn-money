@@ -3,7 +3,11 @@ import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
 import { EmptyState } from "../../components/EmptyState";
 import { ListPageGuard } from "../../components/ListPageGuard";
-import { targetResultPath, stubDetailPath } from "../../app/routes";
+import {
+  findingDetailPath,
+  stubDetailPath,
+  targetResultPath,
+} from "../../app/routes";
 import {
   FILTER_PARAM_KEYS,
   FindingsFiltersBar,
@@ -20,10 +24,6 @@ function readFilters(params: URLSearchParams): FindingsFilters {
   return out as FindingsFilters;
 }
 
-function findingDetailHref(id: string) {
-  return `/findings/${id}`;
-}
-
 function evidenceForFindingHref(id: string) {
   return `/evidence?finding=${id}`;
 }
@@ -33,7 +33,7 @@ const columns: TableColumn<Finding>[] = [
     key: "title",
     header: "Title",
     cell: (r) => (
-      <Link to={findingDetailHref(r.id)}>{r.title}</Link>
+      <Link to={findingDetailPath(r.id)}>{r.title}</Link>
     ),
   },
   {
@@ -70,7 +70,7 @@ const columns: TableColumn<Finding>[] = [
     header: "Actions",
     cell: (r) => (
       <div className="flex gap-2">
-        <Link to={findingDetailHref(r.id)}>Open finding</Link>
+        <Link to={findingDetailPath(r.id)}>Open finding</Link>
         <Link to={evidenceForFindingHref(r.id)}>Open evidence</Link>
       </div>
     ),

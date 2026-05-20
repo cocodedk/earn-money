@@ -18,3 +18,4 @@ export const ROUTES = {
 export const stubDetailPath = (slug: string) => `/stubs/${slug}`;
 export const scanRunDetailPath = (id: string) => `/scan-runs/${id}`;
 export const targetResultPath = (id: string) => `/targets/${id}/results`;
+export const findingDetailPath = (id: string) => `/findings/${id}`;
