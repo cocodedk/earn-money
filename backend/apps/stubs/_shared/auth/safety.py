@@ -27,6 +27,7 @@ from apps.events.types import EventType
 
 if TYPE_CHECKING:
     from apps.scans.models import ScanRun, ScanTargetRun
+    from apps.stubs._shared.auth.forms import AuthForm
 
 
 class RefusalReason(str, Enum):
@@ -126,3 +127,27 @@ def record_refusal(
         type=event_type, scan_run=scan_run,
         target=target, subject=target_run, data=payload,
     )
+
+
+def check_can_probe(
+    form: "AuthForm", budget: ProbeBudget, state: ProbeState,
+) -> RefusalReason | None:
+    """Return a `RefusalReason` if the runner must NOT submit ``form``
+    under the current ``state`` + ``budget``, else None.
+
+    The runner calls this before each prospective submit. On a non-
+    None return, the runner records the refusal via `record_refusal()`
+    and skips the submit.
+
+    Refusal rules:
+    * `UNSAFE_METHOD` — form has a `password_field` but `method=GET`.
+      Credential-bearing GETs leak the password into URL / Referer /
+      proxy logs; the runner refuses unconditionally.
+    * `BUDGET_EXHAUSTED` — the next submit would exceed
+      ``budget.max_submits``.
+    """
+    if form.password_field is not None and form.method == "GET":
+        return RefusalReason.UNSAFE_METHOD
+    if not state.can_record_submit(budget):
+        return RefusalReason.BUDGET_EXHAUSTED
+    return None

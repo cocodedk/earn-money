@@ -142,3 +142,79 @@ def test_record_refusal_for_missing_secret_uses_fixture_event() -> None:
     assert Event.objects.filter(
         scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED,
     ).exists()
+
+
+# ----- check_can_probe ---------------------------------------------
+
+def test_check_can_probe_allows_post_within_budget() -> None:
+    from apps.stubs._shared.auth.forms import AuthForm
+    from apps.stubs._shared.auth.safety import check_can_probe
+
+    form = AuthForm(
+        method="POST", action_url="https://x.test/login",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field="email", password_field="password",
+        hidden_fields={}, flow_hint="login",
+    )
+    budget = ProbeBudget(
+        stub_id="2.1", max_forms=2, max_submits=4,
+        allow_repeat_confirmation=True,
+    )
+    state = ProbeState()
+    assert check_can_probe(form, budget, state) is None
+
+
+def test_check_can_probe_refuses_get_credential_form() -> None:
+    from apps.stubs._shared.auth.forms import AuthForm
+    from apps.stubs._shared.auth.safety import check_can_probe
+
+    form = AuthForm(
+        method="GET", action_url="https://x.test/login",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field="email", password_field="password",
+        hidden_fields={}, flow_hint="login",
+    )
+    budget = ProbeBudget(
+        stub_id="2.1", max_forms=2, max_submits=4,
+        allow_repeat_confirmation=True,
+    )
+    assert check_can_probe(form, budget, ProbeState()) == RefusalReason.UNSAFE_METHOD
+
+
+def test_check_can_probe_allows_get_when_no_password_field() -> None:
+    """GET on a non-credential form (e.g. reset-token check) is fine —
+    the unsafe-method refusal applies to credential-bearing forms only."""
+    from apps.stubs._shared.auth.forms import AuthForm
+    from apps.stubs._shared.auth.safety import check_can_probe
+
+    form = AuthForm(
+        method="GET", action_url="https://x.test/reset?token=...",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field=None, password_field=None,
+        hidden_fields={}, flow_hint="password_reset",
+    )
+    budget = ProbeBudget(
+        stub_id="2.7", max_forms=1, max_submits=2,
+        allow_repeat_confirmation=False,
+    )
+    assert check_can_probe(form, budget, ProbeState()) is None
+
+
+def test_check_can_probe_refuses_budget_exhausted() -> None:
+    from apps.stubs._shared.auth.forms import AuthForm
+    from apps.stubs._shared.auth.safety import check_can_probe
+
+    form = AuthForm(
+        method="POST", action_url="https://x.test/login",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field="email", password_field="password",
+        hidden_fields={}, flow_hint="login",
+    )
+    budget = ProbeBudget(
+        stub_id="2.1", max_forms=1, max_submits=2,
+        allow_repeat_confirmation=True,
+    )
+    state = ProbeState()
+    state.record_submit()
+    state.record_submit()
+    assert check_can_probe(form, budget, state) == RefusalReason.BUDGET_EXHAUSTED
