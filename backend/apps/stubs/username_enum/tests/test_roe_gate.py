@@ -59,7 +59,7 @@ def test_runner_refuses_when_roe_disabled() -> None:
 
 
 @pytest.mark.django_db
-def test_runner_proceeds_when_roe_enabled(monkeypatch) -> None:
+def test_runner_proceeds_when_roe_enabled() -> None:
     """RoE.allow_active_login_probes=True means the RoE gate doesn't
     fire — the runner proceeds (and will subsequently halt on the
     fixture-required guard since slice 02 chunk 1 doesn't ship the

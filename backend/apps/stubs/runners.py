@@ -16,6 +16,7 @@ useful for stubs that haven't been implemented yet.
 from __future__ import annotations
 
 import functools
+import inspect
 from typing import Callable, Protocol
 
 from apps.programs.exceptions import OutOfScope
@@ -61,17 +62,26 @@ def guarded_runner(
     """
 
     def decorator(fn: StubRunner) -> StubRunner:
+        # Inspect-once: if the wrapped function declares a `program`
+        # parameter, forward the Program object resolved by the guard
+        # so the runner doesn't have to re-look it up. Cached at
+        # decoration time so the per-call cost is one dict lookup.
+        wants_program = "program" in inspect.signature(fn).parameters
+
         @functools.wraps(fn)
         def wrapper(
             scan_run: ScanRun, target_run: ScanTargetRun
         ) -> None:
             try:
-                resolve_and_guard(
+                program = resolve_and_guard(
                     scan_run, target_run.target, stub_id=stub_slug,
                 )
             except OutOfScope:
                 return  # event already emitted; halt this stub
-            fn(scan_run, target_run)
+            if wants_program:
+                fn(scan_run, target_run, program=program)
+            else:
+                fn(scan_run, target_run)
 
         return register(stub_slug)(wrapper)
 
