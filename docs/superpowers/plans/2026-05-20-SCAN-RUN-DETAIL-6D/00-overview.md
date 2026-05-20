@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILLS: `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` for task orchestration; `superpowers:test-driven-development` for every implementation task (failing test first, no production code without a failing test); `superpowers:dispatching-parallel-agents` for the parallelizable scaffolding cluster in Phase 1 (Tasks 1-4). Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship the read-only Live events panel below the Findings + Evidence panels on `/scan-runs/:id`. The panel opens an `EventSource` against the per-scan-run SSE endpoint on mount, renders one row per event (time / level / target / event_type / message), maintains a sticky connection-status indicator, supports the three required controls (auto-scroll toggle / clear local view / reconnect), and falls back to a 2 s polling loop on `/api/events/?scan_run=<uuid>` when the SSE connection enters a terminal error state.
+**Goal:** Ship the read-only Live events panel below the Findings + Evidence panels on `/scan-runs/:id`. The panel opens an `EventSource` against the per-scan-run SSE endpoint on mount, renders one row per event (time / level / target / event_type / message), maintains a sticky connection-status indicator visible **regardless of buffer size** (status pill always shown above an always-rendered table region so accumulated events stay visible during reconnect/closed states), supports the three required controls (auto-scroll toggle / clear local view / reconnect), and falls back to a 2 s polling loop on the REST events endpoint when the SSE connection enters a terminal error state.
 
 **Spec source:** [`../../specs/2026-05-18-MVP-GUI/06-scan-run-detail.md`](../../specs/2026-05-18-MVP-GUI/06-scan-run-detail.md) §Live events panel (lines 59–92) and [`../../specs/2026-05-18-MVP-GUI/12-live-events.md`](../../specs/2026-05-18-MVP-GUI/12-live-events.md). **Note:** §12 documents a stale SSE message shape (`event_type`/`scan_run_id`/`target_id`); the **current backend contract is `type`/`scan_run`/`target` + adds `subject_type`/`subject_id`** per [[project-slice-2-3-reservoirs]] and 6B's existing target-runs contract.
 
@@ -23,9 +23,12 @@
 }
 ```
 
-**Backend lock:** em-backend on `main` ships:
-- SSE endpoint at `/api/events/scan-runs/<uuid>/stream/` per the squash-merged Phase 1 commit `feat(events): SSE endpoint for live scan-run event streaming`. **Verify route shape in Phase 1 implementation;** correct in plan if it differs.
-- REST endpoint at `/api/events/?scan_run=<uuid>` (read-only) per the squash-merged `feat(api): read-only Events / Findings / Evidence endpoints + nested actions`. DRF `PAGE_SIZE = 50` applies.
+**Backend lock (confirmed by em-backend 2026-05-20, all 4 contract answers):**
+- **SSE endpoint:** `GET /sse/scan-runs/<uuid:scan_run_id>/events/` — wired in `backend/config/urls.py:38`, view at `backend/apps/events/views.py`.
+- **SSE envelope:** standard 3-line SSE frame per emit: `id: <event.id>\nevent: <event.type>\ndata: <full EventSerializer JSON>\n\n`. Both `id:` and `event:` lines populated. Closing frame on terminal scan-run status (`done` / `stopped` / `failed`): `: stream-closed\n\n`.
+- **Polling fallback REST:** `GET /api/scan-runs/<uuid>/events/` (DRF nested action on `ScanRunViewSet` at `backend/apps/scans/views.py:119`), DRF-paginated `EventSerializer` output per project `PAGE_SIZE = 50`.
+- **`Last-Event-ID` honored:** server resolves the anchor event by ID, then resumes with `created_at > anchor.created_at`. Unknown anchor or unparseable header → fresh start (no error). Server-side poll interval is 0.5s; client polling interval is 2s (defined in Phase 1 Task 7).
+- **Active-status semantics:** `isRunActive(status)` is the canonical check (`frontend/src/features/scan-runs/api.ts:15`). Currently returns `true` only for `running` or `stopping` — `paused` returns `false`, meaning the SSE connection closes on pause and reopens on resume. This is the existing 6B/6C contract and 6D follows it.
 
 **Reservoir reference:** `origin/feat/em-frontend-slice-2` ships `useScanRunEvents` SSE hook + `LiveEventsPanel`. 6D **does not** merge or depend on that branch — we build fresh on `feat/em-frontend-6C` tip per [[project-slice-2-3-reservoirs]] non-merge rule. Reservoir is read-only inspiration; verify shapes against the current contract above before lifting any code.
 
@@ -45,7 +48,8 @@
 - No new or modified file over 200 lines. `App.e2e.test.tsx` pre-existing 305-line state is already over the 200-line cap and is the deferred-refactor target for the table-primitive cleanup slice that follows 6D. Phase 3 Task 6 extends it by **one additional case** (mirroring 6C's pattern); the file is **not split inside 6D** — split lands in the cleanup slice along with the `<Table>` primitive lift.
 - Operator can open `/scan-runs/:id` and see events streaming live within ~250 ms of backend emit while the parent run is `running`. Disconnecting the network (DevTools offline) shows the disconnected status indicator and then re-streams on restore.
 - SSE reconnect: exponential backoff capped at 30 s; max 5 attempts before falling back to polling.
-- Polling fallback: 2 s interval, dedupe by `event.id`, stops when SSE reconnects or parent run enters terminal status.
+- Polling fallback: 2 s interval, dedupe by `event.id`, **stops when parent run enters terminal status, `livePolling` flips false, or the component unmounts**. No automatic retry back to SSE — once we fall back, we stay in polling for this scan run's lifetime (revisit if/when SSE reliability needs measuring; Last-Event-ID makes mid-stream recovery cheap if we add it later).
+- **Rollback kill switch:** localStorage flag `disable_live_events` (truthy → panel skips opening SSE / polling, status pill renders "disabled", buffer stays empty). Settable via DevTools or operator runbook for triaging flaky deployments without a code revert. Phase 3 Task 7 spec-review verifies the kill switch path.
 - Newest event at **bottom** (matching natural log-tail reading order); auto-scroll defaults to **on** but disables automatically when the user scrolls up.
 - Single peer ping to em-backend at slice completion (chat-noise-floor rule).
 

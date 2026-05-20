@@ -2,7 +2,7 @@
 
 **Goal:** Mount `ScanRunLiveEventsPanel` below the Findings + Evidence panels on `/scan-runs/:id`. Confirm SSE end-to-end happy path, disconnect-reconnect, polling fallback, terminal-status cleanup, and full-page E2E.
 
-**Blocking:** Em-backend must confirm SSE route + envelope shape + polling REST envelope + `Last-Event-ID` behaviour (open msg sent in plan-tree drafting). Phase-3 implementation cannot start until those answers land — Phase 1 + Phase 2 do not block.
+**Unblocked.** Em-backend confirmed all 4 contract answers on 2026-05-20 (SSE route, envelope, polling REST endpoint, `Last-Event-ID` honored). All URLs are now fixed in `00-overview.md` §Backend lock. Phase 3 may proceed once Phase 1 + Phase 2 land.
 
 ---
 
@@ -14,7 +14,7 @@
 
 **Behaviour:**
 - Render `<ScanRunLiveEventsPanel scanRunId={id} livePolling={isRunActive(run.status)} />` below the existing `<ScanRunEvidencePanel />`.
-- `livePolling` derived from same `isRunActive` helper used by Findings + Evidence panels (running / stopping / pausing).
+- `livePolling` derived from the existing `isRunActive` helper (`frontend/src/features/scan-runs/api.ts:15`). It currently returns `true` only for `running` or `stopping`. **`paused` returns `false`** — when the operator pauses a run, the SSE connection closes (per Task 5 behaviour); resuming reopens it via the `livePolling` flip false → true. This matches Findings + Evidence panel behaviour from 6C and is the canonical contract.
 - Order on page: header → target table → findings → evidence → live events.
 
 **Test:** new render assertion — `events-connection-status` testid present under the existing header + target + findings + evidence assertions.
@@ -69,10 +69,12 @@
 
 **Test:**
 - `running` → SSE connected, status `connected`.
-- Cancel the run (or refetch returns `succeeded` status) → `livePolling` flips to false → EventSource closed → status pill `closed`.
+- Cancel the run (or refetch returns `succeeded` / `done` status) → `livePolling` flips to false → EventSource closed → status pill `closed`; previously buffered events **stay visible** in the table.
+- Pause path: `running` → `paused` → `isRunActive` returns false → EventSource closed → status pill `closed`. Resume back to `running` → fresh EventSource opens, status `connecting → connected`. Buffer is **preserved across pause/resume** (no implicit clear).
+- Kill-switch path: with `localStorage.setItem("disable_live_events", "1")` set before render → no EventSource opened, status pill `disabled`, the disabled-hint message is rendered. No SSE network activity.
 - Mirrors the terminal-flush pattern from 6B + 6C target-runs/findings/evidence tests.
 
-**Commit:** `test(frontend): ScanRunDetail SSE terminal-status cleanup integration`.
+**Commit:** `test(frontend): ScanRunDetail SSE terminal + pause + kill-switch integration`.
 
 ---
 

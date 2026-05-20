@@ -23,18 +23,25 @@ export function ScanRunLiveEventsPanel({ scanRunId, livePolling }: Props): JSX.E
 ```
 
 **Behaviour:**
-- Header: title "Live events" + `<span data-testid="events-connection-status">{status}</span>` (one of `connecting | connected | reconnecting | polling-fallback | closed`).
-- Empty state: `<p>No events yet</p>` when `events.length === 0` and status is `connected | polling-fallback`.
-- Status-only states render their own messages (no table): `connecting` → "Connecting…", `reconnecting` → "Reconnecting…", `closed` → "Disconnected".
+- Header: title "Live events" + sticky `<span data-testid="events-connection-status">{status}</span>` always visible above the table region (one of `connecting | connected | reconnecting | polling-fallback | closed | disabled`).
+- **Buffer visibility:** the table region is **always rendered** when the buffer is non-empty, regardless of `status`. Accumulated events stay visible during `reconnecting` or `closed` (codex revision: `reconnecting/closed` must not hide already-received events).
+- Empty-buffer hints (rendered above the table region, never replacing the table when it has rows):
+  - `connecting` + empty: "Connecting…" hint.
+  - `reconnecting` + empty: "Reconnecting…" hint.
+  - `polling-fallback` + empty: "SSE unavailable — polling for events." hint.
+  - `connected` + empty: "No events yet" hint.
+  - `closed` + empty: "Disconnected" hint.
+  - `disabled` (localStorage kill switch active): "Live events disabled (set `localStorage.disable_live_events=0` and reload to re-enable)." hint.
 
 **Test matrix:**
-1. Renders title + status pill.
-2. `connecting` shows spinner-style message, no table.
-3. `connected` + empty buffer → "No events yet".
-4. `connected` + 1 event → table renders with one row.
-5. `reconnecting` shows "Reconnecting…", no table.
-6. `polling-fallback` + events → table renders, status pill shows fallback label.
-7. `closed` shows "Disconnected".
+1. Renders title + status pill in every status (including `disabled` via localStorage kill switch).
+2. `connecting` + empty buffer → "Connecting…" hint, status pill present, no table.
+3. `connected` + empty → "No events yet" hint.
+4. `connected` + 1 event → table renders with one row + status pill present, no hint.
+5. `reconnecting` + 3 events → **table still renders with those 3 rows**, status pill shows `reconnecting`, no hint (table not hidden by status).
+6. `closed` + 3 events → **table still renders with those 3 rows**, status pill shows `closed`, no hint.
+7. `polling-fallback` + events → table renders, status pill shows fallback label.
+8. `disabled` + empty → kill-switch hint shown, no table, status pill `disabled`.
 
 **Commit:** `feat(frontend): ScanRunLiveEventsPanel skeleton + status indicator`.
 
