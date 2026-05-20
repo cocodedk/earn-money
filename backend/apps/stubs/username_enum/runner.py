@@ -19,9 +19,11 @@ from __future__ import annotations
 
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.auth.forms import discover_forms
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
 
 from ..runners import guarded_runner
+from .fetcher import fetch_for_discovery
 
 
 @guarded_runner("2.1")
@@ -37,7 +39,27 @@ def run(
         )
         return
 
-    # Slice 02 chunks 2+ — form discovery + probe + normalize + diff
-    # land here. The skeleton intentionally returns silently when RoE
-    # permits so the test suite can assert "no refusal event".
+    target = target_run.target
+    outcome = fetch_for_discovery(target.base_url)
+    if not outcome.ok:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id="2.1",
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "transport_error", "error": outcome.error},
+        )
+        return
+
+    forms = discover_forms(
+        outcome.body, outcome.final_url,
+        response_content_type=outcome.content_type,
+    )
+    if not forms:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id="2.1",
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "no_auth_form_found"},
+        )
+        return
+
+    # Slice 02 chunks 3+ — probe + normalize + diff + finding land here.
     return
