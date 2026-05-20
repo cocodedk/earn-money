@@ -61,6 +61,24 @@ describe("Table", () => {
     );
     expect(screen.getByText("Name")).toHaveStyle({ width: "100px" });
   });
+
+  it("sets data-testid on each row when rowTestId is provided", () => {
+    render(
+      <Table<Row>
+        columns={columns}
+        rows={[
+          { id: "1", name: "A" },
+          { id: "2", name: "B" },
+          { id: "3", name: "C" },
+        ]}
+        rowKey={(r) => r.id}
+        rowTestId={(r) => `thing-row-${r.id}`}
+      />,
+    );
+    expect(screen.getByTestId("thing-row-1")).toBeInTheDocument();
+    expect(screen.getByTestId("thing-row-2")).toBeInTheDocument();
+    expect(screen.getByTestId("thing-row-3")).toBeInTheDocument();
+  });
 });
 
 describe("TableSkeleton", () => {
