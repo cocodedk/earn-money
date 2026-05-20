@@ -1,7 +1,8 @@
 """EvidenceViewSet — read-only list/retrieve.
 
-Filters on list:
+Filters on list (AND semantics — chain via Django ORM `.filter()`):
   ?scan_run=<uuid>    scope to one run
+  ?project=<uuid>     scope to one project (via scan_run.project)
   ?target=<uuid>      scope to one target
   ?source=<value>     header | cookie | html | …
   ?finding=<uuid>     evidence linked to a specific finding
@@ -22,6 +23,8 @@ class EvidenceViewSet(viewsets.ReadOnlyModelViewSet):
         params = self.request.query_params
         if params.get("scan_run"):
             qs = qs.filter(scan_run_id=params["scan_run"])
+        if params.get("project"):
+            qs = qs.filter(scan_run__project_id=params["project"])
         if params.get("target"):
             qs = qs.filter(target_id=params["target"])
         if params.get("source"):

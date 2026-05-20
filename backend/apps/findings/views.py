@@ -1,9 +1,13 @@
 """FindingViewSet — read-only list/retrieve + operator-triage @action.
 
-Filters on list:
+Filters on list (AND semantics — chain via Django ORM `.filter()`):
   ?scan_run=<uuid>    scope to one run
+  ?project=<uuid>     scope to one project (via scan_run.project)
+  ?target=<uuid>      scope to one target
+  ?stub_slug=<slug>   e.g. "1.1" (alias: ?stub=<slug>)
+  ?severity=<value>   info | low | medium | high | critical
+  ?confidence=<value> low | medium | high
   ?status=<value>     candidate | confirmed | rejected | stale
-  ?stub_slug=<slug>   e.g. "1.1"
 
 PATCH /api/findings/<id>/status/ flips the triage status. Body shape
 `{"status": "<value>"}` — other fields silently dropped (narrow
@@ -33,10 +37,19 @@ class FindingViewSet(viewsets.ReadOnlyModelViewSet):
         params = self.request.query_params
         if params.get("scan_run"):
             qs = qs.filter(scan_run_id=params["scan_run"])
+        if params.get("project"):
+            qs = qs.filter(scan_run__project_id=params["project"])
+        if params.get("target"):
+            qs = qs.filter(target_id=params["target"])
+        stub = params.get("stub_slug") or params.get("stub")
+        if stub:
+            qs = qs.filter(stub_slug=stub)
+        if params.get("severity"):
+            qs = qs.filter(severity=params["severity"])
+        if params.get("confidence"):
+            qs = qs.filter(confidence=params["confidence"])
         if params.get("status"):
             qs = qs.filter(status=params["status"])
-        if params.get("stub_slug"):
-            qs = qs.filter(stub_slug=params["stub_slug"])
         return qs
 
     @action(detail=True, methods=["patch"])
