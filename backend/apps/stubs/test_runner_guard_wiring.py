@@ -58,6 +58,7 @@ _STUB_MODULES = (
     "apps.stubs.verbose_api_errors",
     "apps.stubs.sql_orm_errors",
     "apps.stubs.well_known_paths",
+    "apps.stubs.username_enum",
 )
 
 
