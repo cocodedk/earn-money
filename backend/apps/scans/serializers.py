@@ -12,10 +12,25 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from apps.programs.exceptions import (
+    AmbiguousPolicy,
+    AmbiguousProgram,
+    ManualOnly,
+    OutOfScope,
+    ProgramFrozen,
+    ReconDisabled,
+)
+from apps.programs.preflight import preflight_scan_run
 from apps.stubs.registry import get_registry
 from apps.targets.models import ScanTarget
 
 from .models import ScanRun, ScanTargetRun
+
+
+_PREFLIGHT_REFUSALS = (
+    ReconDisabled, OutOfScope, AmbiguousProgram, ManualOnly,
+    AmbiguousPolicy, ProgramFrozen,
+)
 
 
 class ScanRunSerializer(serializers.ModelSerializer):
@@ -65,6 +80,21 @@ class ScanRunSerializer(serializers.ModelSerializer):
         if len(targets) != len(set(target_ids)):
             raise serializers.ValidationError(
                 {"target_ids": "All target_ids must belong to the project."}
+            )
+        # Pre-flight: refuse out-of-scope / manual-only / frozen / kill-
+        # switched scan-runs BEFORE any row is persisted. Phase 1 stubs
+        # are all active, so `active=True`.
+        try:
+            preflight_scan_run(
+                [t.base_url for t in targets], active=True,
+            )
+        except _PREFLIGHT_REFUSALS as exc:
+            raise serializers.ValidationError(
+                {"target_ids": f"scope-enforcement refused: {type(exc).__name__}: {exc}"}
+            )
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                {"target_ids": f"malformed target URL: {exc}"}
             )
         attrs["_targets"] = targets
         return attrs
