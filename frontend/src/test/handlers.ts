@@ -14,6 +14,9 @@ export const handlers = [
       results: [makeScanTargetRun()],
     }),
   ),
+  http.get("/api/scan-runs/:id/events/", () =>
+    HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
+  ),
   http.get("/api/evidence/", () =>
     HttpResponse.json({ count: 0, next: null, previous: null, results: [] }),
   ),
