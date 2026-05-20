@@ -11,6 +11,7 @@ export const ROUTES = {
   scanRunsNew: "/scan-runs/new",
   scanRunDetail: "/scan-runs/:id",
   findings: "/findings",
+  findingDetail: "/findings/:findingId",
   evidence: "/evidence",
   settings: "/settings",
 } as const;
