@@ -3,6 +3,7 @@ import styles from "./Layout.module.css";
 import { navItems } from "./nav";
 import { CurrentProjectChip } from "../components/CurrentProjectChip";
 import { ConnectionPill } from "../components/ConnectionPill";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export function Layout() {
   return (
@@ -31,6 +32,7 @@ export function Layout() {
             <CurrentProjectChip />
           </div>
           <div className={styles.topbarRight}>
+            <ThemeToggle />
             <ConnectionPill />
           </div>
         </header>
