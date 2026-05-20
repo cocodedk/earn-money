@@ -8,4 +8,4 @@
 * Dedup keys:
   * 1.19: `(target_id, signal_kind, fingerprint(error_excerpt_redacted))`.
   * WKP: `(target_id, family, candidate_path, signal_kind)`.
-* `Event.log()` emits one row per state change in the same transaction per [[project-event-log-medium-done-well]]. **Event types needed**: `FINDING_CREATED` (NEW — must be added to `backend/apps/events/types.py` `EventType` enum; current enum has `FINDING_STATUS_CHANGED` but no creation event). Add in slice WKP-A's apps.py step, with a test that asserts the enum value exists. Existing `FINDING_STATUS_CHANGED` covers `candidate → confirmed → stale` transitions.
+* `Event.log()` emits one row per state change in the same transaction per [[project-event-log-medium-done-well]]. **Event types needed**: `FINDING_CREATED` (NEW — must be added to `backend/apps/events/types.py` `EventType` enum; current enum has `FINDING_STATUS_CHANGED` but no creation event). Added in slice WKP-A step 5 (single owner; not duplicated in 19-B), with a test that asserts the enum value exists + round-trips through `Event.log()`. Existing `FINDING_STATUS_CHANGED` covers `candidate → confirmed → stale` transitions.
