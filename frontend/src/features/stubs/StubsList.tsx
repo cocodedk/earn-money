@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { stubDetailPath } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
@@ -8,6 +8,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { ListPageGuard } from "../../components/ListPageGuard";
 import { useStubsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
+import { StubsFiltersBar, applyStubFilters } from "./StubsFiltersBar";
 import type { StubSummary } from "../../types/api";
 
 function buildColumns(): TableColumn<StubSummary>[] {
@@ -45,17 +46,32 @@ function buildColumns(): TableColumn<StubSummary>[] {
 
 export function StubsList() {
   const query = useStubsQuery();
+  const [params] = useSearchParams();
   const columns = useMemo(buildColumns, []);
+  const stubs = query.data ?? [];
+  const filtered = useMemo(
+    () => applyStubFilters(stubs, params),
+    [stubs, params],
+  );
   return (
     <>
       <PageHeader title="Stubs" />
+      <StubsFiltersBar stubs={stubs} />
       <ListPageGuard query={query} errorBody="Could not load stubs.">
         <Table<StubSummary>
           columns={columns}
-          rows={query.data ?? []}
+          rows={filtered}
           rowKey={(s) => s.slug}
           isLoading={query.isLoading}
-          emptyState={<EmptyState message="No stubs found." />}
+          emptyState={
+            <EmptyState
+              message={
+                stubs.length === 0
+                  ? "No stubs found."
+                  : "No stubs match the current filters."
+              }
+            />
+          }
         />
       </ListPageGuard>
     </>

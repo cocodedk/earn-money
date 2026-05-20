@@ -78,8 +78,10 @@ describe("ScanRunsList — state branches", () => {
     withDeps();
     withPaginated("/api/scan-runs/", [makeScanRun()]);
     renderWithProviders(<ScanRunsList />, { route: "/scan-runs" });
-    expect(await screen.findByText("Local Lab")).toBeInTheDocument();
-    expect(screen.getByText("1.1")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("cell", { name: "Local Lab" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "1.1" })).toBeInTheDocument();
     expect(screen.getByTestId("status-queued")).toBeInTheDocument();
   });
 
