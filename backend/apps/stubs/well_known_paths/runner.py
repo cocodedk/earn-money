@@ -26,6 +26,7 @@ from django.db import transaction
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program, get_registry
 from apps.programs.preflight import host_from_url
+from apps.programs.rate_limit import acquire_for
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.scope_check import enforce_scope
 from apps.targets.models import ScanTarget
@@ -66,6 +67,7 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
                       scan_run=scan_run, stub_id="1.20")
     except OutOfScope:
         return  # baseline rejected → nothing else to do
+    acquire_for(program)  # honor RoE rate limit before any HTTP
     baseline = fetch_response(baseline_url, max_bytes=_TEXT_FAMILY_CAP)
     footprint = soft_404.footprint_for(status=baseline.status, body=baseline.body)
 
@@ -87,6 +89,7 @@ def _scan_family(
                           scan_run=scan_run, stub_id="1.20")
         except OutOfScope:
             continue  # event already logged; skip this candidate
+        acquire_for(program)  # rate limit before HTTP
         snapshot = fetch_response(url, max_bytes=max_bytes)
         evidence = save_response_evidence(
             scan_run, target,
