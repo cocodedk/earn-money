@@ -24,7 +24,7 @@ import { server } from "../../test/server";
 import { ScanRunDetail } from "./ScanRunDetail";
 import { makeScanRun } from "./__fixtures__/scan-run";
 
-const ID = "s1111111-1111-1111-1111-111111111111";
+const ID = "11111111-1111-1111-1111-111111111111";
 
 function wrap() {
   const client = new QueryClient();
@@ -89,16 +89,37 @@ git commit -m "feat(frontend): render Findings + Evidence panels in ScanRunDetai
 **Files:**
 - Modify: `frontend/src/features/scan-runs/ScanRunDetail.findings-evidence.test.tsx` (grew in Task 8)
 
-Add four more tests:
+Add four more tests. **Integration scope:** these tests prove that `ScanRunDetail` correctly wires `isRunActive(run.status)` into both panels' `livePolling`. They do **not** re-prove the cancel-vs-cache flush mechanics — those live in `api.findings.test.tsx`/`api.evidence.test.tsx` (Phase 1, Tasks 4–5). Keep each integration assertion narrow.
 
-1. **Happy path with data** — server returns 2 findings + 3 evidence; assert both tables render with correct row counts and a specific cell value (e.g. finding title appears, evidence source appears).
-2. **Both panels poll while running** — server returns `status: "running"` scan run + 0 findings + 0 evidence initially, then 1 finding after first poll tick; assert finding row appears within 2.5 s of mount.
-3. **Terminal flush** — server starts with `status: "running"` + empty results, then transitions to `done`; assert the panels re-fetch (use the same `let scanRun = ...` mutable pattern as 6B's `ScanRunDetail.target-runs.test.tsx`).
-4. **Both panels show "Could not load …" on error** — server returns 500 for both endpoints; assert two callouts present.
+1. **Happy path with data** — server returns 2 findings + 3 evidence; assert `screen.findAllByTestId(/^finding-row-/)` returns 2 elements AND `screen.findAllByTestId(/^evidence-row-/)` returns 3 elements AND `screen.findByText(/Findings \(2\)/)` AND `screen.findByText(/Evidence \(3\)/)`.
 
-Each test uses `vi.useFakeTimers()` + `vi.useRealTimers()` flip-flop per the established pattern. File size target: under 200 lines. If approaching, split into two files: `ScanRunDetail.findings-panel.test.tsx` and `ScanRunDetail.evidence-panel.test.tsx`.
+2. **Both panels poll while running** — server returns scan run with `status: "running"` plus 0 findings + 0 evidence initially. After mounting, flip the server stub so the next poll returns 1 finding (e.g. via the `let phase: "pre" | "post" = "pre"` pattern from `api.target-runs.flush.test.tsx:12,49,85`). Then:
+   ```ts
+   vi.useFakeTimers();
+   // mount via renderWithProviders
+   await waitFor(() => expect(screen.queryByTestId(`finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa`)).toBeNull());
+   phase = "post";
+   await vi.advanceTimersByTimeAsync(2100); // one poll tick past 2s
+   vi.useRealTimers();
+   await screen.findByTestId(`finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa`);
+   ```
 
-- [ ] **Step 1: Add the four tests** — mirror `ScanRunDetail.target-runs.test.tsx` (176 lines) for the transition pattern.
+3. **Terminal flush narrow scope** — server starts with `status: "running"`, then flips parent to `done`. Assert: both panels each issue **one** extra fetch after the parent flip (use a `let fcalls = 0` and `let ecalls = 0` counter per route handler; compare `fcalls` and `ecalls` to their pre-flip values plus one). Use the mutable parent pattern:
+   ```ts
+   let scanRun = makeScanRun({ id: SCAN_RUN_ID, status: "running" });
+   server.use(
+     msw.get(`/api/scan-runs/${SCAN_RUN_ID}/`, () => HttpResponse.json(scanRun)),
+   );
+   // ...mount, settle, then:
+   scanRun = makeScanRun({ id: SCAN_RUN_ID, status: "done" });
+   client.invalidateQueries({ queryKey: scanRunKey(SCAN_RUN_ID) });
+   ```
+
+4. **Both panels show error callout on 500** — server returns `HttpResponse.error()` for both endpoints, assert `screen.findAllByText(/Could not load/)` returns at least 2 callouts.
+
+Each test that polls uses `vi.useFakeTimers()` + `vi.useRealTimers()` flip-flop per the established pattern (see `api.findings.test.tsx` Task 4 for the verbatim flip pattern).
+
+- [ ] **Step 1: Add the four tests** — copy the mutable parent and counter patterns from `frontend/src/features/scan-runs/ScanRunDetail.target-runs.test.tsx` lines 1–80 (the `let scanRun = ...` + `let calls = 0` setup). File size target after the four additions: ~190 lines under 200. If approaching the cap, split into two files (`...findings-integration.test.tsx` + `...evidence-integration.test.tsx`) — but in one commit, same task.
 
 - [ ] **Step 2: Run tests**
 
@@ -124,35 +145,59 @@ git commit -m "test(frontend): ScanRunDetail findings/evidence integration — h
 **Files:**
 - Modify: `frontend/src/features/scan-runs/ScanRunDetail.e2e.test.tsx` (currently 94 lines from 6B)
 
-Extend the existing E2E test to also assert the Findings and Evidence headings appear. One new test, no replacement.
+Extend the existing E2E file with one new test. The new test asserts the cross-cutting structural wiring (one element from each of the four sections) using **testids** rather than heading text, because heading text is already exercised by the unit tests at Phase 2 / integration tests at Task 9 — re-asserting heading-text strings at E2E layer is redundant.
 
-- [ ] **Step 1: Add a new test case** — "renders all four sections together"
+- [ ] **Step 1: Add a new test case** — verbatim:
 
 ```tsx
 it("renders header + targets + findings + evidence sections", async () => {
-  // Set up MSW with scan run + 1 target run + 1 finding + 1 evidence
-  // Render <ScanRunDetail />
-  // Assert: heading "Scan run · {id_prefix}" present
-  // Assert: "Targets" heading or target-row-{id} present
-  // Assert: "Findings (1)" present
-  // Assert: "Evidence (1)" present
+  const id = "11111111-1111-1111-1111-111111111111";
+  server.use(
+    msw.get(`/api/scan-runs/${id}/`, () =>
+      HttpResponse.json(
+        makeScanRun({ id, status: "done", finished_at: "2026-05-20T08:30:00Z" }),
+      ),
+    ),
+    msw.get(`/api/scan-runs/${id}/target-runs/`, () =>
+      HttpResponse.json({
+        count: 1, next: null, previous: null,
+        results: [makeScanTargetRun({ id: "33333333-3333-3333-3333-333333333333" })],
+      }),
+    ),
+    msw.get("/api/findings/", () =>
+      HttpResponse.json({
+        count: 1, next: null, previous: null,
+        results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa" })],
+      }),
+    ),
+    msw.get("/api/evidence/", () =>
+      HttpResponse.json({
+        count: 1, next: null, previous: null,
+        results: [makeEvidence({ id: "eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb" })],
+      }),
+    ),
+  );
+  renderWithProviders(<App />, { route: `/scan-runs/${id}` });
+
+  // One observable per section — testids only (heading-text covered at lower layers):
+  await screen.findByText(new RegExp(id.slice(0, 8)));                                  // header
+  await screen.findByTestId("target-run-row-33333333-3333-3333-3333-333333333333");     // 6B target table
+  await screen.findByTestId("finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa");        // 6C findings
+  await screen.findByTestId("evidence-row-eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb");       // 6C evidence
 });
 ```
+
+The imports for `makeFinding` / `makeEvidence` / `makeScanTargetRun` / `makeScanRun` / `msw` / `HttpResponse` / `server` / `renderWithProviders` / `App` / `screen` either already exist in the existing E2E file (from 6A+6B) or need adding alongside this test. Inspect the current file first to avoid duplicate imports.
 
 - [ ] **Step 2: Verify file size**
 
 Run: `wc -l frontend/src/features/scan-runs/ScanRunDetail.e2e.test.tsx`
-Expected: under 200.
-
-If at 190+, **split — do not strip existing assertions**. The existing 6A+6B E2E coverage is load-bearing. Splitting rule:
-- Existing two tests stay in `ScanRunDetail.e2e.test.tsx` (header + table + truncation).
-- New "all four sections" test moves to `ScanRunDetail.e2e.findings-evidence.test.tsx`.
-- Shared MSW setup either inlines into each file (preferred, mirrors 6B per-file pattern) or extracts to `__fixtures__/scan-run-detail-e2e.ts`.
+Expected: ~115 (94 baseline + ~21 new lines). Under 200, no split needed.
 
 - [ ] **Step 3: Run tests**
 
 Run: `npm test -C frontend -- ScanRunDetail.e2e.test.tsx --run`
-Expected: PASS
+Expected: PASS, 3/3 (the existing two from 6B + this new one)
 
 - [ ] **Step 4: Commit**
 
@@ -167,7 +212,7 @@ git commit -m "test(frontend): ScanRunDetail e2e — header + targets + findings
 
 - [ ] `npm test -C frontend -- --run` green; full suite.
 - [ ] `npm test -C frontend -- --coverage --run` shows 100 % on all 6C files.
-- [ ] No file over 200 lines (`ScanRunDetail.tsx` ~75, both panels ~70 each, integration test ~180, e2e ~110).
+- [ ] No file over 200 lines (`ScanRunDetail.tsx` ~75, both panels ~70 each, integration test ~190 single file OR ~120 + ~100 if split, e2e ~115).
 - [ ] `npm run -C frontend build` green.
 - [ ] Manual smoke: operator can launch dev server, open `/scan-runs/<active-run-id>`, see Findings and Evidence headings update during a real scan. (Can be deferred to PR review; not part of the per-commit gate.)
 - [ ] `/simplify` round clean across all 6C changes.

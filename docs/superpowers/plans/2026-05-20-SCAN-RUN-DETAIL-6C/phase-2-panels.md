@@ -4,6 +4,8 @@
 
 **Reference patterns:** `frontend/src/features/scan-runs/ScanRunTargetsTable.tsx` (64 lines) is the canonical template. Both new panels mirror its structure exactly: raw `<table>`, inline `fmt` helper, `<Callout>` for errors, truncation footer with testid, per-row `data-testid` for transition tests.
 
+**Parallelism note for the controller:** Tasks 6 and 7 share zero state (different files, different fixtures, different MSW routes — both already shipped in Phase 1). The subagent-driven-development controller MAY dispatch both implementer subagents in parallel. Merge order doesn't matter. Spec review and code-quality review of each task are independent.
+
 **Per-row testid convention:**
 - Findings panel: `data-testid="finding-row-{id}"`
 - Evidence panel: `data-testid="evidence-row-{id}"`
@@ -26,60 +28,53 @@
 
 - [ ] **Step 1: Write the failing test** — `ScanRunFindingsPanel.test.tsx`
 
-Test cases (~12):
-1. Renders heading "Findings (N)" where N is `data.count`
-2. Renders the seven columns: Title, Target, Category, Severity, Confidence, Status, Created
-3. Renders one row per finding in `data.results`
-4. Each row has `data-testid="finding-row-{id}"`
-5. Renders skeleton/`...` while `isLoading`
-6. Renders `<Callout>` with "Could not load findings" when query errors
-7. Renders empty state ("No findings yet for this run.") when `data.results.length === 0`
-8. Truncates timestamp: `created_at: "2026-05-20T08:00:00Z"` → `"2026-05-20"`
-9. Renders truncation footer with `data-testid="findings-truncation"` when `data.next !== null`
-10. Does NOT render truncation footer when `data.next === null`
-11. Truncation footer text reads `Showing first {results.length} of {count} findings` (mirrors shipped 6B `ScanRunTargetsTable.tsx` text exactly — no hardcoded `50`)
-12. Severity, confidence, status render as plain text in their cells (assert `getByText("low")` resolves inside `finding-row-{id}`)
+Use `renderWithProviders` from `frontend/src/test/renderWithProviders.tsx` for component tests, and `withPaginated()` from `frontend/src/test/helpers.tsx:13` for default 0-row server stubs. Mirror the pattern in `frontend/src/features/scan-runs/ScanRunTargetsTable.test.tsx`.
+
+**Full test checklist — write each test, do not collapse to "follows same shape":**
+
+- [ ] T1. `renders heading with count` — server returns 3 findings, assert `screen.findByText(/Findings \(3\)/)` resolves.
+- [ ] T2. `renders all seven column headers in order` — assert `Title`, `Target`, `Category`, `Severity`, `Confidence`, `Status`, `Created` text present in `<th>` elements.
+- [ ] T3. `renders one row per finding` — server returns 3 findings, assert `screen.findAllByTestId(/^finding-row-/)` returns 3 elements.
+- [ ] T4. `each row has data-testid="finding-row-{id}"` — assert `screen.getByTestId("finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa")` for a specific fixture.
+- [ ] T5. `renders loading state with data-testid="findings-loading"` — set up a `delay(2000)` server response, assert `screen.findByTestId("findings-loading")` resolves before the response arrives.
+- [ ] T6. `renders Callout when query errors` — server returns `HttpResponse.error()`, assert `screen.findByText(/Could not load findings/)` resolves.
+- [ ] T7. `renders empty state with data-testid="findings-empty"` — server returns `{count: 0, next: null, previous: null, results: []}`, assert `screen.findByTestId("findings-empty")` resolves AND heading reads "Findings (0)".
+- [ ] T8. `formats created_at to YYYY-MM-DD` — fixture `created_at: "2026-05-20T08:00:00Z"`, assert cell shows `"2026-05-20"` exactly (use `within(row).getByText("2026-05-20")`).
+- [ ] T9. `renders truncation footer when next !== null` — server returns `{count: 75, next: "/api/findings/?scan_run=...&page=2", previous: null, results: [makeFinding({id: "ffffffff-..."})]}` (1 row in `results`), assert `screen.findByTestId("findings-truncation")` resolves AND its `toHaveTextContent("Showing first 1 of 75 findings")` matches (text mirrors 6B `ScanRunTargetsTable.tsx:59` exactly — no hardcoded 50).
+- [ ] T10. `does NOT render truncation footer when next === null` — assert `screen.queryByTestId("findings-truncation")` returns `null`.
+- [ ] T11. `truncates target UUID to first 8 chars in mono` — fixture `target: "22222222-2222-..."`, assert the cell shows `<code>22222222</code>` (use `within(row).getByText("22222222")` and verify the parent is a `<code>` element).
+- [ ] T12. `renders severity/confidence/status as plain text` — fixture `severity: "high", confidence: "medium", status: "candidate"`, assert each text appears as plain text inside the row via `within(row).getByText("high")` / `"medium"` / `"candidate"` (no `<span data-testid="status-...">` wrapper — those would only appear if `StatusBadge` were used).
+
+Sample test scaffold (write all 12 in this style):
 
 ```tsx
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
-import { http, HttpResponse } from "msw";
+import { screen, within } from "@testing-library/react";
+import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
+import { renderWithProviders } from "../../test/renderWithProviders";
+import { withPaginated } from "../../test/helpers";
 import { ScanRunFindingsPanel } from "./ScanRunFindingsPanel";
 import { makeFinding } from "./__fixtures__/finding";
 
-function wrap(children: ReactNode) {
-  const client = new QueryClient();
-  return render(
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>,
-  );
-}
-
-const SCAN_RUN_ID = "s1111111-1111-1111-1111-111111111111";
+const SCAN_RUN_ID = "11111111-1111-1111-1111-111111111111";
 
 describe("ScanRunFindingsPanel", () => {
   it("renders heading with count", async () => {
-    server.use(
-      http.get("/api/findings/", () =>
-        HttpResponse.json({
-          count: 3, next: null, previous: null,
-          results: [
-            makeFinding({ id: "f1", title: "A" }),
-            makeFinding({ id: "f2", title: "B" }),
-            makeFinding({ id: "f3", title: "C" }),
-          ],
-        }),
-      ),
+    withPaginated("/api/findings/", [
+      makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa", title: "A" }),
+      makeFinding({ id: "ffffffff-bbbb-bbbb-bbbb-bbbbbbbbbbbb", title: "B" }),
+      makeFinding({ id: "ffffffff-cccc-cccc-cccc-cccccccccccc", title: "C" }),
+    ]);
+    renderWithProviders(
+      <ScanRunFindingsPanel scanRunId={SCAN_RUN_ID} livePolling={false} />,
     );
-    wrap(<ScanRunFindingsPanel scanRunId={SCAN_RUN_ID} livePolling={false} />);
     expect(await screen.findByText(/Findings \(3\)/)).toBeInTheDocument();
   });
 
-  // remaining 11 tests follow the same shape — see ScanRunTargetsTable.test.tsx
-  // for the verbatim style: each test sets up MSW, renders the panel, asserts
-  // one observable behaviour.
+  // ... write T2 through T12 each as its own `it(...)` block, one observable
+  // per test. For T6 (error), use server.use(msw.get("/api/findings/", () =>
+  // HttpResponse.error())) instead of withPaginated.
 });
 ```
 

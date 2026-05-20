@@ -9,10 +9,12 @@
 ### Task 1: Add Finding and Evidence types
 
 **Files:**
-- Modify: `frontend/src/types/api.ts` (currently 116 lines; new types push to ~150)
+- Modify: `frontend/src/types/api.ts` (currently 115 lines; new types push to ~150)
 - Test: none (pure type declarations have no runtime behaviour to test; coverage tooling does not measure `.d.ts`-equivalent constructs)
 
-- [ ] **Step 1: Append exact type declarations** (after `LifecycleAction` on line 115)
+**Note on TDD pattern:** Task 1 is type-only (no runtime behaviour). The standard failing-test → impl → pass loop does not apply. The "verify" step is `npm run typecheck` proving the rest of the codebase still type-checks after the additions.
+
+- [ ] **Step 1: Append exact type declarations to the end of the file** (order within `types/api.ts` doesn't matter — types are hoisted)
 
 ```ts
 export type Confidence = "low" | "medium" | "high";
@@ -82,9 +84,9 @@ import type { Finding } from "../../../types/api";
 
 export function makeFinding(over: Partial<Finding> = {}): Finding {
   return {
-    id: "f1111111-1111-1111-1111-111111111111",
-    scan_run: "s1111111-1111-1111-1111-111111111111",
-    target: "t1111111-1111-1111-1111-111111111111",
+    id: "ffffffff-1111-1111-1111-111111111111",
+    scan_run: "11111111-1111-1111-1111-111111111111",
+    target: "22222222-2222-2222-2222-222222222222",
     stub_slug: "1.1-headers",
     title: "Missing security header",
     category: "headers",
@@ -99,6 +101,8 @@ export function makeFinding(over: Partial<Finding> = {}): Finding {
 }
 ```
 
+Note: UUIDs use real hex chars only (`0-9a-f`) — Postgres `uuid` columns reject non-hex characters in input.
+
 - [ ] **Step 2: Write `__fixtures__/evidence.ts`** (~18 lines)
 
 ```ts
@@ -106,9 +110,9 @@ import type { Evidence } from "../../../types/api";
 
 export function makeEvidence(over: Partial<Evidence> = {}): Evidence {
   return {
-    id: "e1111111-1111-1111-1111-111111111111",
-    scan_run: "s1111111-1111-1111-1111-111111111111",
-    target: "t1111111-1111-1111-1111-111111111111",
+    id: "eeeeeeee-2222-2222-2222-222222222222",
+    scan_run: "11111111-1111-1111-1111-111111111111",
+    target: "22222222-2222-2222-2222-222222222222",
     finding: null,
     source: "http-headers",
     url: "https://target.cocode.dk/",
@@ -178,13 +182,17 @@ This hook mirrors `useScanRunTargetRunsQuery` (api.ts:71–97) line-for-line, bu
 
 - [ ] **Step 1: Write the failing test** — `api.findings.test.tsx`
 
+Use the existing `makeRenderHookWrapper()` from `frontend/src/test/renderWithProviders.tsx:18` (returns `{ client, Wrapper }` with retry disabled — every other hook test in this directory uses it). Use `withPaginated()` from `frontend/src/test/helpers.tsx:13` for the default 0-row server stub.
+
+The flush tests below are adapted **verbatim from `frontend/src/features/scan-runs/api.target-runs.flush.test.tsx`** (lines 9–119) — the only diffs are the route path, hook name, fixture, and the use of a URL searchParams matcher instead of a fixed path on `/api/scan-runs/r-1/target-runs/`.
+
 ```tsx
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, renderHook, waitFor } from "@testing-library/react";
-import { http, HttpResponse, delay } from "msw";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { http as msw, HttpResponse, delay } from "msw";
 import { server } from "../../test/server";
+import { makeRenderHookWrapper } from "../../test/renderWithProviders";
+import { withPaginated } from "../../test/helpers";
 import {
   useScanRunFindingsQuery,
   scanRunFindingsKey,
@@ -192,22 +200,13 @@ import {
 } from "./api";
 import { makeFinding } from "./__fixtures__/finding";
 
-const SCAN_RUN_ID = "s1111111-1111-1111-1111-111111111111";
-
-function wrapper(client: QueryClient) {
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
-}
+const SCAN_RUN_ID = "11111111-1111-1111-1111-111111111111";
 
 describe("useScanRunFindingsQuery", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
   it("hits /api/findings/?scan_run=<id>", async () => {
     let calledWith = "";
     server.use(
-      http.get("/api/findings/", ({ request }) => {
+      msw.get("/api/findings/", ({ request }) => {
         calledWith = new URL(request.url).searchParams.get("scan_run") ?? "";
         return HttpResponse.json({
           count: 1, next: null, previous: null,
@@ -215,100 +214,216 @@ describe("useScanRunFindingsQuery", () => {
         });
       }),
     );
-    const client = new QueryClient();
+    const { Wrapper } = makeRenderHookWrapper();
     const { result } = renderHook(
       () => useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: false }),
-      { wrapper: wrapper(client) },
+      { wrapper: Wrapper },
     );
-    vi.useRealTimers();
     await waitFor(() => expect(result.current.data?.count).toBe(1));
     expect(calledWith).toBe(SCAN_RUN_ID);
   });
 
-  it("polls every 2s when livePolling=true", async () => {
+  it("polls every 2s with livePolling: true", async () => {
+    vi.useFakeTimers();
     let calls = 0;
     server.use(
-      http.get("/api/findings/", () => {
+      msw.get("/api/findings/", () => {
         calls += 1;
         return HttpResponse.json({
           count: 0, next: null, previous: null, results: [],
         });
       }),
     );
-    const client = new QueryClient();
+    const { Wrapper } = makeRenderHookWrapper();
     renderHook(
       () => useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: true }),
-      { wrapper: wrapper(client) },
+      { wrapper: Wrapper },
     );
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(calls).toBeGreaterThanOrEqual(2);
     vi.useRealTimers();
-    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(1));
+  });
+
+  it("does NOT poll when livePolling: false", async () => {
     vi.useFakeTimers();
-    await vi.advanceTimersByTimeAsync(2100);
-    vi.useRealTimers();
-    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(2));
-  });
-
-  // Three flush cases mirror 6B's `api.target-runs.flush.test.tsx` exactly:
-
-  it("flush — no in-flight request: refetches and locks fresh data", async () => {
-    // 1. Mount with livePolling=true; let one fetch complete (cached data present).
-    // 2. Re-render with livePolling=false.
-    // 3. Assert: another fetch fires (refetchQueries on terminal flip) and the
-    //    cache shows the new value.
-  });
-
-  it("flush — in-flight with cached data: cancels then refetches", async () => {
-    // 1. Mount with livePolling=true; complete one fetch (cache has v1).
-    // 2. Start a second fetch but delay the response.
-    // 3. Re-render with livePolling=false BEFORE the in-flight resolves.
-    // 4. Assert: in-flight request was cancelled (server saw cancellation OR
-    //    promise rejected) AND a fresh fetch fires (refetchQueries) AND cache
-    //    settles to v2 (the post-flush response).
-  });
-
-  it("flush — in-flight with NO cached data: cancels then refetches (the 6B race fix)", async () => {
-    // 1. Mount with livePolling=true; FIRST fetch is delayed (no cache yet).
-    // 2. Re-render with livePolling=false BEFORE the first fetch resolves.
-    // 3. Assert: the in-flight initial fetch was cancelled AND a new fetch
-    //    fires (refetchQueries with type:"active" still triggers it) AND
-    //    cache settles. This is the case `invalidateQueries+cancelRefetch`
-    //    silently lost in 6B before the cancelQueries+refetchQueries fix.
-  });
-
-  it("flush — no flush on initial render (livePolling: false from start)", async () => {
-    // Mount with livePolling=false, never flip. Assert: exactly one fetch.
-    // Guards against firing flush on every render where prev.current === false.
-  });
-
-  it("disabled when scanRunId is undefined", () => {
-    const client = new QueryClient();
-    const { result } = renderHook(
-      () => useScanRunFindingsQuery(undefined, { livePolling: false }),
-      { wrapper: wrapper(client) },
-    );
-    expect(result.current.fetchStatus).toBe("idle");
-  });
-
-  it("cascades from SCAN_RUNS_KEY invalidation (key shape is child of SCAN_RUNS_KEY)", async () => {
     let calls = 0;
     server.use(
-      http.get("/api/findings/", () => {
+      msw.get("/api/findings/", () => {
         calls += 1;
         return HttpResponse.json({
           count: 0, next: null, previous: null, results: [],
         });
       }),
     );
-    const client = new QueryClient();
+    const { Wrapper } = makeRenderHookWrapper();
     renderHook(
       () => useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: false }),
-      { wrapper: wrapper(client) },
+      { wrapper: Wrapper },
     );
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(calls).toBe(1);
     vi.useRealTimers();
-    await waitFor(() => expect(calls).toBe(1));
+  });
+
+  it("flush — no in-flight: cache ends with fresh post-flush rows", async () => {
+    vi.useFakeTimers();
+    let phase: "pre" | "post" = "pre";
+    server.use(
+      msw.get("/api/findings/", () =>
+        HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [
+            makeFinding({
+              id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+              title: phase === "pre" ? "v1-title" : "v2-title",
+            }),
+          ],
+        }),
+      ),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { rerender, result } = renderHook(
+      ({ live }: { live: boolean }) =>
+        useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: live }),
+      { wrapper: Wrapper, initialProps: { live: true } },
+    );
+    await vi.advanceTimersByTimeAsync(2500);
+    phase = "post";
+    rerender({ live: false });
+    await vi.advanceTimersByTimeAsync(50);
+    vi.useRealTimers();
+    await waitFor(() =>
+      expect(result.current.data?.results[0].title).toBe("v2-title"),
+    );
+  });
+
+  it("flush — in-flight with cached data: cache ends fresh", async () => {
+    vi.useFakeTimers();
+    let phase: "pre" | "post" = "pre";
+    server.use(
+      msw.get("/api/findings/", async () => {
+        if (phase === "pre") {
+          return HttpResponse.json({
+            count: 1, next: null, previous: null,
+            results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa", title: "v1" })],
+          });
+        }
+        await delay(200);
+        return HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa", title: "v2" })],
+        });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { rerender, result } = renderHook(
+      ({ live }: { live: boolean }) =>
+        useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: live }),
+      { wrapper: Wrapper, initialProps: { live: true } },
+    );
+    await vi.advanceTimersByTimeAsync(2500);
+    phase = "post";
+    await vi.advanceTimersByTimeAsync(2000);
+    rerender({ live: false });
+    await vi.advanceTimersByTimeAsync(500);
+    vi.useRealTimers();
+    await waitFor(() =>
+      expect(result.current.data?.results[0].title).toBe("v2"),
+    );
+  });
+
+  it("flush — no-cached-data in-flight: cache ends fresh (round-5 edge case)", async () => {
+    vi.useFakeTimers();
+    let phase: "pre" | "post" = "pre";
+    server.use(
+      msw.get("/api/findings/", async () => {
+        if (phase === "pre") {
+          await delay(500);
+          return HttpResponse.json({
+            count: 1, next: null, previous: null,
+            results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa", title: "v1" })],
+          });
+        }
+        return HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa", title: "v2" })],
+        });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    const { rerender, result } = renderHook(
+      ({ live }: { live: boolean }) =>
+        useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: live }),
+      { wrapper: Wrapper, initialProps: { live: true } },
+    );
+    await vi.advanceTimersByTimeAsync(100);
+    phase = "post";
+    rerender({ live: false });
+    await vi.advanceTimersByTimeAsync(500);
+    vi.useRealTimers();
+    await waitFor(() =>
+      expect(result.current.data?.results[0].title).toBe("v2"),
+    );
+  });
+
+  it("never-flipped: no flush on first render (livePolling: false from start)", async () => {
+    let calls = 0;
+    server.use(
+      msw.get("/api/findings/", () => {
+        calls += 1;
+        return HttpResponse.json({
+          count: 0, next: null, previous: null, results: [],
+        });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    renderHook(
+      () => useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: false }),
+      { wrapper: Wrapper },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(1);
+  });
+
+  it("disabled when scanRunId is undefined — no network call", async () => {
+    let calls = 0;
+    server.use(
+      msw.get("/api/findings/", () => {
+        calls += 1;
+        return HttpResponse.json({
+          count: 0, next: null, previous: null, results: [],
+        });
+      }),
+    );
+    const { Wrapper } = makeRenderHookWrapper();
+    renderHook(
+      () => useScanRunFindingsQuery(undefined, { livePolling: false }),
+      { wrapper: Wrapper },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(0);
+  });
+
+  it("cascades from SCAN_RUNS_KEY invalidation (key is child of SCAN_RUNS_KEY)", async () => {
+    let calls = 0;
+    server.use(
+      msw.get("/api/findings/", () => {
+        calls += 1;
+        return HttpResponse.json({
+          count: 0, next: null, previous: null, results: [],
+        });
+      }),
+    );
+    const { Wrapper, client } = makeRenderHookWrapper();
+    renderHook(
+      () => useScanRunFindingsQuery(SCAN_RUN_ID, { livePolling: false }),
+      { wrapper: Wrapper },
+    );
+    await new Promise((r) => setTimeout(r, 20));
     const before = calls;
     await client.invalidateQueries({ queryKey: SCAN_RUNS_KEY });
-    await waitFor(() => expect(calls).toBe(before + 1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(before + 1);
   });
 });
 ```
@@ -379,7 +494,21 @@ git commit -m "feat(frontend): useScanRunFindingsQuery with polling + terminal f
 
 Identical structure to Task 4. Hits `/api/evidence/?scan_run=<id>`. Type: `Paginated<Evidence>`. Key: `scanRunEvidenceKey(id) = [...SCAN_RUNS_KEY, id, "evidence"]` (child of `SCAN_RUNS_KEY` so it cascades on scan-run invalidation, mirroring task 4 and the 6B target-runs key).
 
-- [ ] **Step 1: Write the failing test** — copy `api.findings.test.tsx`, change `findings` → `evidence`, `Finding` → `Evidence`, `makeFinding` → `makeEvidence`. Copy the **full** test matrix from Task 4: basic fetch with `?scan_run=<id>` assertion, 2 s polling, all four terminal-flush cases (no in-flight, in-flight + cache, in-flight + no cache, never-flipped), `enabled: false` when scanRunId undefined, and `SCAN_RUNS_KEY` cascade invalidation. ~8 tests total per hook.
+- [ ] **Step 1: Write the failing test** — start from `api.findings.test.tsx` (Task 4) and apply this explicit diff:
+  - Rename `findings` → `evidence` everywhere (descriptor strings, route paths, var names)
+  - Replace imports: `useScanRunFindingsQuery` → `useScanRunEvidenceQuery`, `scanRunFindingsKey` → `scanRunEvidenceKey`, `makeFinding` → `makeEvidence` from `./__fixtures__/evidence`
+  - Change `msw.get("/api/findings/", …)` → `msw.get("/api/evidence/", …)` in every server.use
+  - Change fixture overrides from `{ title: "v1" }` → `{ source: "v1-source" }` (Evidence has no `title`); the post-flush sentinel becomes `result.current.data?.results[0].source`
+
+  **Reduce flush coverage:** the four flush cases in Task 4's findings tests already prove the generic hook mechanics (cancel + refetch path through TanStack Query). Task 5 needs only **one** flush test — the no-in-flight happy case — because the evidence hook is structurally identical and a coverage tool already shows 100 % branches via Task 4. Skip the in-flight-with-cache and no-cached-data flush cases for the evidence hook (they re-prove TanStack Query plumbing already exercised in `api.findings.test.tsx` and `api.target-runs.flush.test.tsx`).
+
+  **Resulting evidence test matrix (6 tests, not 8):**
+  1. `hits /api/evidence/?scan_run=<id>` (basic fetch + URL assertion)
+  2. `polls every 2s with livePolling: true`
+  3. `does NOT poll when livePolling: false`
+  4. `flush — no in-flight: cache ends fresh post-flush` (1 of 3 flush cases)
+  5. `disabled when scanRunId is undefined — no network call`
+  6. `cascades from SCAN_RUNS_KEY invalidation`
 
 - [ ] **Step 2: Implement** — mirror the findings hook exactly. The shape difference (Evidence has no `severity`/`status`) doesn't matter at this layer — the hook just returns `Paginated<Evidence>`.
 

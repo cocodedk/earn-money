@@ -8,7 +8,7 @@
 
 **Key-cascade contract:** Both new keys are *children* of `SCAN_RUNS_KEY` (mirroring `scanRunTargetRunsKey` in `frontend/src/features/scan-runs/api.ts:66-67`). Invalidating `SCAN_RUNS_KEY` cascades to all three child keys (target-runs, findings, evidence) — lifecycle mutations on a scan run trigger automatic refetch of every panel without explicit per-key invalidation in the mutation hooks.
 
-**Backend lock:** em-backend on `main` ships `/api/findings/?scan_run=<uuid>` and `/api/evidence/?scan_run=<uuid>` with the documented filter logic in `backend/apps/findings/views.py` and `backend/apps/evidence/views.py`. Serializer shapes match the [[slice_3_reservoir]] `Finding` and `Evidence` types verbatim (verified 2026-05-20). DRF `PAGE_SIZE = 50` from 6B continues to apply.
+**Backend lock:** em-backend on `main` ships `/api/findings/?scan_run=<uuid>` and `/api/evidence/?scan_run=<uuid>` with the documented filter logic in `backend/apps/findings/views.py` and `backend/apps/evidence/views.py`. Serializer shapes match the slice-3 reservoir `Finding` and `Evidence` types verbatim (verified 2026-05-20). DRF `PAGE_SIZE = 50` from 6B continues to apply.
 
 **Reservoir reference:** `origin/feat/em-frontend-slice-3` already implements standalone `/findings` and `/evidence` pages with the same hooks. 6C **does not** merge or depend on that branch — we build fresh scan-run-scoped variants on `feat/em-frontend`. Slice-3 is read-only inspiration.
 
@@ -24,7 +24,7 @@
 
 - 100 % line + branch coverage on new and modified files.
 - `npm test`, `npm test -- --coverage`, `npm run build` all green.
-- `/simplify` rounds clean after each commit (per-commit gate; fix → re-run until quiet).
+- `/simplify` runs after **each** of the 10 commits (per-commit gate per CLAUDE.md commit-hygiene rule). Each round's fixes are their own commit. Do not batch `/simplify` to slice-end — that would push commit count past 10.
 - No new or modified file over 200 lines. `App.e2e.test.tsx` stays untouched (deferred refactor).
 - Operator can open `/scan-runs/:id` and see one row per finding and one row per evidence record for that run, both updating within 2 s while the parent run is `running`.
 - Truncation footer renders when backend returns `next !== null` (mirrors 6B target-table behaviour).
@@ -36,6 +36,15 @@
 - **Detail page navigation** — Title cells render as plain text (no `<Link to="/findings/:id">`). The `/findings/:id` and `/evidence/:id` routes don't exist on `feat/em-frontend` yet; wiring dead links would fail E2E.
 - **Actions column** — The MVP umbrella spec lists "Actions" on both panels without defining them; deferred to the slice that ships detail-page routes.
 - **Live events panel (SSE)** — 6D.
+
+### Tracked follow-ups (do NOT do in 6C)
+
+These were spotted by the plan-tree simplify pass and are recorded here so they aren't re-litigated mid-implementation:
+
+- **Extract `useScanRunChildQuery<T>(scanRunId, { endpoint, key, livePolling })` helper** — after Task 5 ships, three near-identical hooks exist (target-runs, findings, evidence). The right moment to extract is when 6D adds a fourth (SSE-events). Not now.
+- **Extract `formatCell.ts`** — `fmt(ts)` and `dash(v)` will live in three panel files after 6C. Post-6C cleanup commit: lift to `frontend/src/lib/formatCell.ts`.
+- **Extend shared `<Table>` with `rowTestId?: (row: T) => string` prop** — would replace three raw-`<table>` copies (target-table + both 6C panels) with one primitive. Defer until 6D so the refactor lands once with all four panels in view.
+- **Consolidated `/scan-runs/:id/summary/` endpoint** — while running, the page polls scan-run + target-runs + findings + evidence every 2 s (4 requests). A single summary endpoint would reduce that to one. Needs backend work; revisit after 6D when the SSE-vs-poll trade-off is clearer.
 
 ## TDD rules
 
