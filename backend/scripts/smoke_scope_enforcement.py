@@ -112,38 +112,11 @@ def main() -> int:
         print("FAIL: fetcher did NOT emit OUT_OF_SCOPE_REJECTED")
         rc = 1
 
-    print()
-    print("=== 4. LIVE algolia HTTP via stubs 1.1 / 1.2 / 1.3 / 1.20 ===")
-    print("    base_url=https://www.algolia.com")
-    from apps.evidence.models import Evidence
-    from apps.findings.models import Finding
-    for stub_slug in ("1.1", "1.2", "1.3", "1.20"):
-        live_run = ScanRun.objects.create(project=project, stub_slug=stub_slug)
-        live_tr = ScanTargetRun.objects.create(scan_run=live_run, target=target)
-        before_oos = Event.objects.filter(
-            scan_run=live_run, type=EventType.OUT_OF_SCOPE_REJECTED,
-        ).count()
-        live_fn = registered_runner(stub_slug)
-        try:
-            live_fn(live_run, live_tr)
-        except Exception as exc:
-            print(f"  {stub_slug}: FAIL — runner crashed "
-                  f"{type(exc).__name__}: {exc}")
-            rc = 1
-            continue
-        after_oos = Event.objects.filter(
-            scan_run=live_run, type=EventType.OUT_OF_SCOPE_REJECTED,
-        ).count()
-        if after_oos > before_oos:
-            print(f"  {stub_slug}: FAIL — emitted "
-                  f"{after_oos - before_oos} OUT_OF_SCOPE_REJECTED")
-            rc = 1
-            continue
-        ev = Evidence.objects.filter(scan_run=live_run).count()
-        fi = Finding.objects.filter(scan_run=live_run).count()
-        print(f"  {stub_slug}: PASS — evidence={ev} finding={fi}")
-
     project.delete()
+    # Live multi-stub algolia dispatch moved to `scripts/run_smoke.py`
+    # which exercises the full API + Celery path (what the dashboard
+    # uses). This script keeps the synchronous in-process checks that
+    # don't require a Celery worker.
     print()
     print("Cleaned up smoke project.")
     return rc

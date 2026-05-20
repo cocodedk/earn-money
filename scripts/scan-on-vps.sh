@@ -36,13 +36,22 @@ log "target  : ${URL}"
 log "stubs   : ${STUBS}"
 log "via     : ${VPS_HOST}:${VPS_PATH}"
 
+# POSIX single-quote escape: replace every `'` with `'\''` so values
+# can be safely embedded inside single quotes on the remote shell.
+# A URL like `https://foo'; rm -rf /` becomes `https://foo'\''; rm -rf /`
+# which the remote shell parses as a single literal.
+sq() { printf %s "$1" | sed "s/'/'\\\\''/g"; }
+URL_E=$(sq "$URL")
+STUBS_E=$(sq "$STUBS")
+PATH_E=$(sq "$VPS_PATH")
+
 # Single SSH call: enable flag → dispatch → disable flag (always).
-# `trap` inside the remote shell guarantees the flag is removed even
-# if python errors out, so a stale flag never leaves the VPS armed.
+# `trap` guarantees the flag is removed even if python errors out, so
+# a stale flag never leaves the VPS armed.
 ssh "${VPS_HOST}" "
 set -eu
-cd '${VPS_PATH}'
+cd '${PATH_E}'
 trap 'rm -f flags/RECON_ENABLED' EXIT INT TERM
 echo '# scan-on-vps live smoke flag' > flags/RECON_ENABLED
-docker compose exec -T backend python scripts/run_smoke.py '${URL}' --stubs '${STUBS}'
+docker compose exec -T backend python scripts/run_smoke.py '${URL_E}' --stubs '${STUBS_E}'
 "

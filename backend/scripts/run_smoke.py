@@ -34,6 +34,13 @@ DEFAULT_API = "http://localhost:8000"
 POLL_INTERVAL_S = 2.0
 POLL_TIMEOUT_S = 300.0  # 5 min — well_known_paths can iterate ~30 candidates
 
+# Terminal RunStatus values from apps.scans.models.RunStatus. Hard-coded
+# here to keep this script Django-free; if the enum gains a new terminal
+# state the script will hang at POLL_TIMEOUT_S, which is a clear signal
+# to update this set rather than a silent miss.
+_TERMINAL_STATUSES = frozenset({"done", "stopped", "failed"})
+_OK_STATUS = "done"
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -120,7 +127,7 @@ def _run_one(api, project: str, target: str, stub_slug: str) -> str:
     targets = final.get("target_run_count", 0)
     print(f"  {stub_slug}: {status} — "
           f"target_runs={targets} findings={findings}")
-    return "ok" if status == "done" else "fail"
+    return "ok" if status == _OK_STATUS else "fail"
 
 
 def _poll_until_terminal(api, run_id: str):
@@ -129,7 +136,7 @@ def _poll_until_terminal(api, run_id: str):
         r = api.get(f"/api/scan-runs/{run_id}/")
         r.raise_for_status()
         body = r.json()
-        if body["status"] in ("done", "stopped", "failed"):
+        if body["status"] in _TERMINAL_STATUSES:
             return body
         time.sleep(POLL_INTERVAL_S)
     return None

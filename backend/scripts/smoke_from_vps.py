@@ -58,16 +58,19 @@ def _load_program() -> dict:
 
 
 def _matches_any(host: str, patterns: list[str]) -> bool:
-    """Same semantics as apps/programs/scope.py::matches_any —
-    wildcards match suffix but NOT bare apex."""
-    host = host.lower().rstrip(".")
-    for entry in patterns:
-        e = entry.lower()
-        if e == host:
-            return True
-        if e.startswith("*.") and host.endswith("." + e[2:]):
-            return True
-    return False
+    """Delegates to the canonical matcher in `apps.programs.scope`.
+
+    `scope.py` is intentionally Django-free (pure dataclass + string
+    ops), so a thin `sys.path` insert lets the VPS reuse it without
+    pulling Django/DB deps. Keeping one matcher prevents drift if the
+    wildcard rule changes.
+    """
+    here = os.path.abspath(os.path.dirname(__file__))
+    app_root = os.path.dirname(here)
+    if app_root not in sys.path:
+        sys.path.insert(0, app_root)
+    from apps.programs.scope import matches_any, normalise_host
+    return matches_any(normalise_host(host), patterns)
 
 
 def main() -> int:
