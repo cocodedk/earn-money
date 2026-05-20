@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import httpx
+from httpx import Client
 
 
 _DEFAULT_TIMEOUT = 10.0
@@ -31,7 +32,7 @@ def fetch_for_discovery(base_url: str) -> FetchOutcome:
     """GET ``base_url`` and return enough metadata for
     `discover_forms()` to parse the body."""
     try:
-        with httpx.Client(
+        with Client(
             timeout=_DEFAULT_TIMEOUT,
             follow_redirects=True,
         ) as client:
