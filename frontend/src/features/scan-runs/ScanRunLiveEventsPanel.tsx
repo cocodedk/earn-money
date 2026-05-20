@@ -1,8 +1,11 @@
+import { useEffect, useRef, useState } from "react";
 import { useScanRunEvents } from "./useScanRunEvents";
 import type { ConnectionStatus } from "./useScanRunEvents.utils";
 import type { Event as ApiEvent, EventLevel } from "../../types/api";
 
 type Props = { scanRunId: string; livePolling: boolean };
+
+const SCROLL_THRESHOLD_PX = 20;
 
 const PILL_CLASS: Record<ConnectionStatus, string> = {
   connecting: "bg-amber-100 text-amber-800",
@@ -34,9 +37,15 @@ function fmtTarget(target: string | null): string {
   return target ? target.slice(0, 8) : "—";
 }
 
-function EventRow({ event }: { event: ApiEvent }): JSX.Element {
+function EventRow({
+  event,
+  rowRef,
+}: {
+  event: ApiEvent;
+  rowRef?: React.Ref<HTMLTableRowElement>;
+}): JSX.Element {
   return (
-    <tr data-testid={`event-row-${event.id}`}>
+    <tr ref={rowRef} data-testid={`event-row-${event.id}`}>
       <td>{new Date(event.created_at).toLocaleTimeString()}</td>
       <td className={`px-1 rounded ${LEVEL_CLASS[event.level]}`}>
         {event.level}
@@ -48,12 +57,34 @@ function EventRow({ event }: { event: ApiEvent }): JSX.Element {
   );
 }
 
+function isScrolledUp(el: HTMLElement): boolean {
+  return el.scrollTop < el.scrollHeight - el.clientHeight - SCROLL_THRESHOLD_PX;
+}
+
 export function ScanRunLiveEventsPanel({
   scanRunId,
   livePolling,
 }: Props): JSX.Element {
   const { events, status } = useScanRunEvents(scanRunId, { livePolling });
   const hasEvents = events.length > 0;
+
+  const [autoScroll, setAutoScroll] = useState(true);
+  const lastRowRef = useRef<HTMLTableRowElement | null>(null);
+  const prevLenRef = useRef(events.length);
+
+  useEffect(() => {
+    const prev = prevLenRef.current;
+    prevLenRef.current = events.length;
+    if (autoScroll && events.length > prev && lastRowRef.current) {
+      lastRowRef.current.scrollIntoView({ block: "end" });
+    }
+  }, [events.length, autoScroll]);
+
+  function onScroll(e: React.UIEvent<HTMLDivElement>): void {
+    if (isScrolledUp(e.currentTarget)) {
+      setAutoScroll(false);
+    }
+  }
 
   return (
     <section>
@@ -65,25 +96,42 @@ export function ScanRunLiveEventsPanel({
         >
           {status}
         </span>
+        <button
+          data-testid="events-autoscroll-toggle"
+          type="button"
+          onClick={() => setAutoScroll((v) => !v)}
+        >
+          Auto-scroll: {autoScroll ? "on" : "off"}
+        </button>
       </header>
       {!hasEvents && <p>{EMPTY_HINT[status]}</p>}
       {hasEvents && (
-        <table data-testid="events-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Level</th>
-              <th>Target</th>
-              <th>Event</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
-          </tbody>
-        </table>
+        <div
+          data-testid="events-scroll-container"
+          className="max-h-96 overflow-y-auto"
+          onScroll={onScroll}
+        >
+          <table data-testid="events-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Level</th>
+                <th>Target</th>
+                <th>Event</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e, i) => (
+                <EventRow
+                  key={e.id}
+                  event={e}
+                  rowRef={i === events.length - 1 ? lastRowRef : undefined}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
