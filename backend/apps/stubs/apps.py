@@ -38,3 +38,4 @@ class StubsConfig(AppConfig):
         from . import stack_traces  # noqa: F401  registers "1.16"
         from . import verbose_api_errors  # noqa: F401  registers "1.17"
         from . import sql_orm_errors  # noqa: F401  registers "1.19"
+        from . import well_known_paths  # noqa: F401  registers "1.20" (absorbs 1.21-1.25)
