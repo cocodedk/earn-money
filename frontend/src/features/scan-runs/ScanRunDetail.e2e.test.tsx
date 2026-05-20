@@ -5,6 +5,8 @@ import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { makeScanRun } from "./__fixtures__/scan-run";
 import { makeScanTargetRun } from "./__fixtures__/scan-target-run";
+import { makeFinding } from "./__fixtures__/finding";
+import { makeEvidence } from "./__fixtures__/evidence";
 import App from "../../App";
 
 describe("/scan-runs/:id e2e", () => {
@@ -90,5 +92,43 @@ describe("/scan-runs/:id e2e", () => {
     expect(await screen.findByTestId("targets-truncation")).toHaveTextContent(
       "Showing first 1 of 75 targets",
     );
+  });
+
+  it("renders header + targets + findings + evidence sections", async () => {
+    const id = "11111111-1111-1111-1111-111111111111";
+    server.use(
+      msw.get(`/api/scan-runs/${id}/`, () =>
+        HttpResponse.json(
+          makeScanRun({ id, status: "done", finished_at: "2026-05-20T08:30:00Z" }),
+        ),
+      ),
+      msw.get(`/api/scan-runs/${id}/target-runs/`, () =>
+        HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeScanTargetRun({ id: "33333333-3333-3333-3333-333333333333" })],
+        }),
+      ),
+      msw.get("/api/findings/", () =>
+        HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeFinding({ id: "ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa" })],
+        }),
+      ),
+      msw.get("/api/evidence/", () =>
+        HttpResponse.json({
+          count: 1, next: null, previous: null,
+          results: [makeEvidence({ id: "eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb" })],
+        }),
+      ),
+    );
+    renderWithProviders(<App />, { route: `/scan-runs/${id}` });
+
+    await screen.findByRole("heading", {
+      level: 1,
+      name: new RegExp(id.slice(0, 8)),
+    });
+    await screen.findByTestId("target-run-row-33333333-3333-3333-3333-333333333333");
+    await screen.findByTestId("finding-row-ffffffff-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    await screen.findByTestId("evidence-row-eeeeeeee-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
   });
 });
