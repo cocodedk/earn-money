@@ -1,0 +1,218 @@
+"""Contract tests for `_shared/auth/requests.build_probe_pair`.
+
+Per spec 2.1 §2.6: invalid + valid control requests share method,
+parameter names, content type, header set (except dynamic cookies
++ per-request CSRF), redirect policy, and User-Agent.
+"""
+from __future__ import annotations
+
+import pytest
+
+from apps.stubs._shared.auth.forms import AuthForm
+from apps.stubs._shared.auth.requests import (
+    SCANNER_USER_AGENT, ProbePair, build_probe_pair,
+)
+
+
+def _form(method: str = "POST", action: str = "https://x.test/login") -> AuthForm:
+    return AuthForm(
+        method=method,  # type: ignore[arg-type]
+        action_url=action,
+        content_type="application/x-www-form-urlencoded",
+        identifier_field="email",
+        password_field="password",
+        hidden_fields={"csrf": "tok-A"},
+        flow_hint="login",
+    )
+
+
+# ----- happy path ---------------------------------------------------
+
+def test_probe_pair_has_both_requests_when_valid_id_provided() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="scanner-deadbeef@example.invalid",
+        valid_identifier="scanner-fixture-1@example.invalid",
+        bogus_password="bogus-passphrase",
+    )
+    assert pair.valid_request is not None
+    assert isinstance(pair, ProbePair)
+
+
+def test_probe_pair_valid_request_is_none_without_valid_id() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="scanner-deadbeef@example.invalid",
+        valid_identifier=None,
+        bogus_password="bogus-passphrase",
+    )
+    assert pair.valid_request is None
+
+
+# ----- shape preservation -------------------------------------------
+
+def test_both_requests_share_method() -> None:
+    pair = build_probe_pair(
+        form=_form(method="POST"),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="bp",
+    )
+    assert pair.invalid_request.method == "POST"
+    assert pair.valid_request.method == "POST"
+
+
+def test_both_requests_share_content_type() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="bp",
+    )
+    inv_ct = pair.invalid_request.headers.get("content-type")
+    val_ct = pair.valid_request.headers.get("content-type")
+    assert inv_ct == val_ct
+    assert inv_ct == "application/x-www-form-urlencoded"
+
+
+def test_both_requests_carry_scanner_user_agent() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="bp",
+    )
+    assert pair.invalid_request.headers["user-agent"] == SCANNER_USER_AGENT
+    assert pair.valid_request.headers["user-agent"] == SCANNER_USER_AGENT
+
+
+def test_both_requests_share_parameter_names() -> None:
+    """Only the identifier VALUE differs; parameter names match."""
+    form = _form()
+    pair = build_probe_pair(
+        form=form,
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="bp",
+    )
+    inv_body = pair.invalid_request.content.decode()
+    val_body = pair.valid_request.content.decode()
+    assert "email=" in inv_body and "email=" in val_body
+    assert "password=" in inv_body and "password=" in val_body
+    assert "csrf=" in inv_body and "csrf=" in val_body
+
+
+def test_invalid_identifier_value_appears_only_in_invalid_request() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="scanner-deadbeef@example.invalid",
+        valid_identifier="real-user@example.invalid",
+        bogus_password="bp",
+    )
+    inv_body = pair.invalid_request.content.decode()
+    val_body = pair.valid_request.content.decode()
+    assert "scanner-deadbeef" in inv_body
+    assert "scanner-deadbeef" not in val_body
+    assert "real-user" in val_body
+    assert "real-user" not in inv_body
+
+
+def test_password_value_shared_between_both_requests() -> None:
+    """Spec 2.1 §2.6 — same bogus password in both probes keeps the
+    request shape comparable; only the identifier differs."""
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="shared-bogus-pw",
+    )
+    assert "password=shared-bogus-pw" in pair.invalid_request.content.decode()
+    assert "password=shared-bogus-pw" in pair.valid_request.content.decode()
+
+
+def test_hidden_fields_from_form_included() -> None:
+    """CSRF + hidden inputs from AuthForm.hidden_fields are encoded
+    into the request body."""
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier=None,
+        bogus_password="bp",
+    )
+    body = pair.invalid_request.content.decode()
+    assert "csrf=tok-A" in body
+
+
+def test_password_omitted_when_form_has_no_password_field() -> None:
+    """Reset / identifier-enum-only flows omit the password parameter."""
+    form = AuthForm(
+        method="POST", action_url="https://x.test/reset",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field="email", password_field=None,
+        hidden_fields={}, flow_hint="password_reset",
+    )
+    pair = build_probe_pair(
+        form=form,
+        invalid_identifier="inv@example.invalid",
+        valid_identifier=None,
+        bogus_password="bp",
+    )
+    body = pair.invalid_request.content.decode()
+    assert "password" not in body
+    assert "email=inv" in body
+
+
+# ----- CSRF refresh callback ----------------------------------------
+
+def test_csrf_refresh_overrides_form_hidden_values() -> None:
+    """If a callback is supplied, the per-request hidden values come
+    from it, not from form.hidden_fields. The form's stored CSRF
+    token is stale by submit time."""
+    fresh = {"csrf": "tok-FRESH", "next": "/dashboard"}
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier=None,
+        bogus_password="bp",
+        csrf_refresh=lambda: fresh,
+    )
+    body = pair.invalid_request.content.decode()
+    assert "csrf=tok-FRESH" in body
+    assert "next=%2Fdashboard" in body  # urlencoded
+
+
+def test_csrf_refresh_called_once_per_request() -> None:
+    """One refresh per submit, not one per pair — the spec invariant
+    matches per-request CSRF rotation."""
+    call_count = {"n": 0}
+
+    def refresh():
+        call_count["n"] += 1
+        return {"csrf": f"tok-{call_count['n']}"}
+
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier="val@example.invalid",
+        bogus_password="bp",
+        csrf_refresh=refresh,
+    )
+    # Two probes → two refresh calls.
+    assert call_count["n"] == 2
+    inv_body = pair.invalid_request.content.decode()
+    val_body = pair.valid_request.content.decode()
+    assert "csrf=tok-1" in inv_body
+    assert "csrf=tok-2" in val_body
+
+
+# ----- frozen dataclass ---------------------------------------------
+
+def test_probe_pair_is_frozen() -> None:
+    pair = build_probe_pair(
+        form=_form(),
+        invalid_identifier="inv@example.invalid",
+        valid_identifier=None,
+        bogus_password="bp",
+    )
+    with pytest.raises(Exception):
+        pair.form = None  # type: ignore[misc]
