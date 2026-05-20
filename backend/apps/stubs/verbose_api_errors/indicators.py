@@ -115,10 +115,10 @@ def detect_api_error_indicators(
         indicators.append(first_json)
     src = _first_match(_SOURCE_PATH_PATTERNS, body)
     if src is not None:
-        indicators.append(ApiErrorIndicator(kind="source_path", matched_value=src))
+        indicators.append(ApiErrorIndicator(kind="source_path", matched_value=_excerpt(src)))
     db = _first_match(_DATABASE_ERROR_PATTERNS, body)
     if db is not None:
-        indicators.append(ApiErrorIndicator(kind="database_error", matched_value=db))
+        indicators.append(ApiErrorIndicator(kind="database_error", matched_value=_excerpt(db)))
     return indicators
 
 
@@ -136,12 +136,12 @@ def detect_all_indicators(
     for pattern in _SOURCE_PATH_PATTERNS:
         for match in pattern.findall(body):
             indicators.append(
-                ApiErrorIndicator(kind="source_path", matched_value=match),
+                ApiErrorIndicator(kind="source_path", matched_value=_excerpt(match)),
             )
     for pattern in _DATABASE_ERROR_PATTERNS:
         for match in pattern.findall(body):
             indicators.append(
-                ApiErrorIndicator(kind="database_error", matched_value=match),
+                ApiErrorIndicator(kind="database_error", matched_value=_excerpt(match)),
             )
     return indicators
 

@@ -26,11 +26,6 @@ from __future__ import annotations
 import re
 
 
-_REPLACEMENT_KINDS = (
-    "jwt", "bearer", "api_key", "email", "url_creds", "secret",
-)
-
-
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # url_creds first — its capture would otherwise be eaten by
     # email or generic key=value patterns.
@@ -93,6 +88,7 @@ def redact(text: str) -> str:
         if kind == "bearer":
             text = pattern.sub(f"Bearer [REDACTED:{kind}]", text)
         elif kind == "secret":
+            # Preserve the "<key>=" prefix; replace only the captured value.
             text = pattern.sub(
                 lambda m: m.group(0).split(m.group(1))[0] + f"[REDACTED:{kind}]",
                 text,

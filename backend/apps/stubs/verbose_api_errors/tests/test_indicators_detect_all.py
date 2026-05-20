@@ -12,7 +12,9 @@ from ..indicators import (
 
 class RedactedMatchedValueTests(unittest.TestCase):
     """FU-1: matched_value snippets stored on indicators must be
-    scrubbed of secrets before they flow into Finding.data."""
+    scrubbed of secrets before they flow into Finding.data —
+    across ALL indicator kinds (json_debug_field, source_path,
+    database_error), not just JSON debug fields."""
 
     def test_jwt_in_json_field_redacted(self) -> None:
         body = (
@@ -34,6 +36,32 @@ class RedactedMatchedValueTests(unittest.TestCase):
         )
         assert "alice@example.com" not in snippet
         assert "[REDACTED:email]" in snippet
+
+
+class RedactedDatabaseErrorTests(unittest.TestCase):
+    """DB driver errors can span their captured content widely —
+    MSSQL's `Microsoft SQL Server ... error` regex consumes up to
+    200 chars between the anchors. If a password lands inside that
+    span, the matched_value must scrub it before persistence."""
+
+    def test_password_inside_mssql_span_redacted(self) -> None:
+        body = (
+            "Microsoft SQL Server failed connection with "
+            "password=hunter2supersecret reason error: invalid creds"
+        )
+        result = detect_api_error_indicators(body, "text/plain")
+        db = next(i for i in result if i.kind == "database_error")
+        assert "hunter2supersecret" not in db.matched_value
+        assert "[REDACTED:secret]" in db.matched_value
+
+    def test_password_in_mssql_span_detect_all(self) -> None:
+        body = (
+            "Microsoft SQL Server failed connection with "
+            "password=anothersecretvalue reason error: invalid creds"
+        )
+        result = detect_all_indicators(body, "text/plain")
+        db = next(i for i in result if i.kind == "database_error")
+        assert "anothersecretvalue" not in db.matched_value
 
 
 class DetectAllIndicatorsTests(unittest.TestCase):
