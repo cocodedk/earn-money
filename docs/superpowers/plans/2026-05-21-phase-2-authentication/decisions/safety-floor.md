@@ -1,6 +1,7 @@
 # Decision — Phase 2 RoE safety floor
 
-> Status: proposed; codex review pending.
+> Status: ready for slice 00 audit; operator sign-off still required for
+> live-program use.
 
 ## Problem
 
@@ -21,7 +22,7 @@ the wrong target, not against probing the right target unsafely.
 
 ## Decision
 
-Add three RoE knobs to `apps/programs/roe.py::RoE`, all defaulting to `False`:
+Add five RoE knobs to `apps/programs/roe.py::RoE`, all defaulting to `False`:
 
 | Knob | Gates |
 |------|-------|
@@ -36,6 +37,18 @@ Each Phase 2 runner reads the relevant knob in its `run()` body and emits
 Fixture programs (`programs/local/juice-shop`, `programs/local/dvwa`,
 `programs/local/webgoat`) get all five knobs set to `True` so the stubs
 can exercise their auth flows.
+
+Add one shared active-safety helper in `_shared/auth/safety.py` (specified in
+[`../shared-infra/F-active-safety.md`](../shared-infra/F-active-safety.md)).
+Every Phase 2 runner must declare a per-run probe budget before it builds
+requests. The helper refuses or aborts before more HTTP is sent when a stub:
+
+* would submit credentials or identifiers via a login/register/reset `GET`
+  form instead of `POST`;
+* has no fixture-validated target for the stub's flow;
+* sees CAPTCHA, WAF, account-lockout, MFA challenge, or rate-limit evidence;
+* would exceed the stub's active-submit cap for one scan run;
+* lacks the fixture credential or mailbox secret required for that flow.
 
 ## Why default `False`
 
@@ -53,6 +66,8 @@ in writing.
   per HTTP, not per runner-invocation (slice 01 fixes the per-iteration
   rate-limit gap noted in slice H of scope-enforcement).
 * The scope check + FROZEN re-check still fire.
+* The shared active-safety helper does not replace RoE. It is the second
+  gate after RoE and before request construction/execution.
 
 ## Migration path for `algolia/roe.md`
 
@@ -67,3 +82,23 @@ For Phase 2 to run against algolia, the operator must:
 3. Populate `authorized_test_accounts` with the negotiated identifiers.
 
 Default-deny means algolia stays passive-only until step 2 is done.
+
+## Credential and side-effect boundary
+
+`authorized_test_accounts` are identifiers, not credentials. A stub that needs
+a password, MFA recovery code, OAuth client, invitation code, or reset-mail
+capture must read an explicitly named fixture secret and fail closed when that
+secret is absent. Password-reset stubs may use `example.invalid` only for
+invalid-control submissions; any test that needs to read a reset token must use
+an operator-owned fixture mailbox/sink.
+
+## Tests added by this decision
+
+* RoE-disabled stubs emit `AUTH_PROBE_REFUSED` and make zero discovery or
+  submit requests.
+* Unsafe `GET` credential forms emit `AUTH_PROBE_REFUSED` with
+  `reason="unsafe_method"` and make zero submits.
+* CAPTCHA/WAF/lockout evidence aborts the current form and records a stale
+  outcome or event, never a confirmed finding.
+* Missing fixture secrets produce `AUTH_FIXTURE_REQUIRED`, not a best-effort
+  live-program probe.

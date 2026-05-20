@@ -37,12 +37,13 @@ mtime change). No process restart needed.
 If Phase 2 needs to revert post-merge:
 
 ```
-git revert -m 1 <squash-merge-sha>
+git revert <phase-2-squash-commit-sha>
 git push origin main
 ```
 
-The merge commit's parent links let `revert -m 1` undo the entire
-Phase 2 stack atomically. Phase 1 stubs continue to work.
+The Phase 2 PR is squash-merged, so the landed change is one normal commit,
+not a merge commit. Reverting that squash commit undoes the entire Phase 2
+stack atomically. Phase 1 stubs continue to work.
 
 ## Recovering from a half-shipped stub
 

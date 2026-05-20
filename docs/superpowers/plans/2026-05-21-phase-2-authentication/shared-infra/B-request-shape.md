@@ -34,11 +34,27 @@ Both requests in a `ProbePair` share:
 * Same redirect policy (controlled by the caller; default no-follow).
 * Same User-Agent (Phase 2 sets a stable scanner UA: `cookbook-scanner/v2 (+https://cocode.dk)`).
 
+Credential-bearing login/reset/register forms are submitted only when
+`form.method == "POST"`. If discovery finds a `GET` credential form, the
+runner records `AUTH_PROBE_REFUSED` with `reason="unsafe_method"` via
+[`F-active-safety`](F-active-safety.md) and sends no active request.
+
 Per-request dynamic re-fetch:
 
 * If the form has hidden CSRF inputs, the caller passes `csrf_refresh` so
   each submit gets a fresh token from a fresh GET. Without that, CSRF
   re-use will void the comparison.
+
+Execution isolation:
+
+* The invalid-control and valid-control submits use isolated cookie jars.
+  The only shared state is the static request shape and the per-request CSRF
+  values fetched by `csrf_refresh`.
+* Redirect following defaults to off for comparison probes. If a stub needs
+  redirects, it must compare the normalized final URL and redacted redirect
+  chain rather than raw response bytes.
+* The helper constructs request objects only. Network execution remains in
+  the runner after scope, RoE, rate-limit, and safety gates pass.
 
 ## Why centralise
 
@@ -52,5 +68,7 @@ CSRF-token diff for a real differentiator and emit a false positive.
 * Both requests carry identical headers + identical method + identical
   content type.
 * CSRF refresh callback fires once per request, not once per pair.
+* Invalid and valid requests do not share cookies or mutated session state.
+* `GET` credential form path refuses before request execution.
 * `_shared/http.guard` runs before any HTTP fires (already enforced at
   the runner layer; this helper is pre-network).

@@ -39,12 +39,19 @@ shared-infra/
   C-normalization.md         — strip dynamic values before diffing
   D-synthetic-ids.md         — invalid-control identifier generation
   E-roe-extensions.md        — `allow_active_login_probes` etc.
+  F-active-safety.md         — per-run budgets + abort classification
 
 tasks/
-  00-slice-AUDIT.md          — Phase 2 architecture audit (operator-vetted)
-  01-shared-infra.md         — implement _shared/auth/ end-to-end
-  02-stub-2-1.md … 23-stub-2-22.md — one slice per stub
-  24-phase-2-close.md        — closeout + spec-review summary
+  00-slice-AUDIT.md                              — pre-impl audit
+  01-shared-infra.md                             — _shared/auth/ build-out
+  02-stub-2-1-username-enumeration.md            — canary (worked example)
+  03-stub-template.md                            — template; copy per stub
+  ## Generated on-demand from the template above (NN-stub-2-N-<slug>.md):
+  ##   04-stub-2-2-weak-password-policy.md
+  ##   05-stub-2-3-missing-lockout.md
+  ##   06-stub-2-4-weak-rate-limiting.md
+  ##   ... through 24-stub-2-22-tenant-org-join-abuse.md
+  25-phase-2-close.md                            — closeout + aggregate spec-review
 
 verification.md              — gate before merging Phase 2
 merge-gate.md                — squash-merge criteria for the stack
@@ -61,11 +68,12 @@ rollback.md                  — kill-switch + per-program freeze pathway
   refuses (already enforced at preflight); `ambiguous` permits passive
   fingerprinting (stub 2.1's auth-form discovery is passive, but the
   controlled-probe step requires `rate-limited-OK`).
-* **Per-program RoE** — Phase 2 adds three RoE knobs:
-  `allow_active_login_probes`, `allow_password_reset_probes`,
-  `allow_oauth_probes`. **Default FALSE** for all three. Phase 2 stubs
-  refuse to send any active request unless the program's `roe.md`
-  explicitly enables the relevant knob.
+* **Per-program RoE** — Phase 2 adds five RoE knobs (full table in
+  [`decisions/safety-floor.md`](decisions/safety-floor.md)): one each
+  for login / password-reset / MFA / OAuth / registration active
+  probing. **Default FALSE** for all five. Phase 2 stubs refuse to
+  send any active request unless the program's `roe.md` explicitly
+  enables the relevant knob.
 * **Synthetic identifiers only** — every invalid-control identifier is
   generated per scan from `example.invalid` (emails) or `scanner_invalid_*`
   (usernames). No scraping. No customer lists.
@@ -78,13 +86,15 @@ rollback.md                  — kill-switch + per-program freeze pathway
 1. **Plan tree drafted** (this commit).
 2. **plan-tree-pipeline hardening** — codex xhigh validates the whole
    tree before any code lands.
-3. **Slice 01 (shared infra)** — TDD-built `apps/stubs/_shared/auth/`
+3. **Slice 00 architecture audit** — resolves fixture readiness, base-branch
+   prerequisites, and hard-rule traceability before any implementation slice.
+4. **Slice 01 (shared infra)** — TDD-built `apps/stubs/_shared/auth/`
    primitives. NO stubs registered yet.
-4. **Stub 2.1** as canary: implements + tests the slice-01 primitives
+5. **Stub 2.1** as canary: implements + tests the slice-01 primitives
    in anger. Stub-done + spec-review + /simplify before moving on.
-5. **Stubs 2.2 → 2.22** — iterate one stub per slice, reusing the
+6. **Stubs 2.2 → 2.22** — iterate one stub per slice, reusing the
    slice-01 infra. Each stub stacks its own branch on the tip.
-6. **Phase 2 closeout** — spec-review across all 22 stubs +
+7. **Phase 2 closeout** — spec-review across all 22 stubs +
    live smoke against authorised fixtures (juiceshop.cocode.dk,
    dvwa.cocode.dk, webgoat.cocode.dk).
 
@@ -98,25 +108,53 @@ own pace:
 * `EventType.AUTH_FINDING_CANDIDATE` — Finding emitted with status=candidate.
 * `EventType.AUTH_FIXTURE_REQUIRED` — stub refused live target because no
   fixture-validated invocation exists yet.
-* `Finding.category` values: `auth_username_enum`, `auth_weak_password`,
-  `auth_missing_lockout`, `auth_weak_ratelimit`, `auth_predictable_reset_token`,
-  ... (one per stub).
+* `Finding.category` values are fixed in the category map below (one per stub).
+
+| Stub | Finding.category |
+|------|------------------|
+| 2.1 | `auth_username_enum` |
+| 2.2 | `auth_weak_password` |
+| 2.3 | `auth_missing_lockout` |
+| 2.4 | `auth_weak_ratelimit` |
+| 2.5 | `auth_predictable_reset_token` |
+| 2.6 | `auth_reset_token_reuse` |
+| 2.7 | `auth_weak_reset_expiry` |
+| 2.8 | `auth_reset_poisoning` |
+| 2.9 | `auth_email_change_takeover` |
+| 2.10 | `auth_mfa_bypass` |
+| 2.11 | `auth_mfa_missing_sensitive_flow` |
+| 2.12 | `auth_weak_recovery_codes` |
+| 2.13 | `auth_mfa_reset_abuse` |
+| 2.14 | `auth_oauth_redirect_uri` |
+| 2.15 | `auth_oauth_missing_state` |
+| 2.16 | `auth_oauth_token_substitution` |
+| 2.17 | `auth_oauth_account_linking` |
+| 2.18 | `auth_login_csrf` |
+| 2.19 | `auth_duplicate_account_confusion` |
+| 2.20 | `auth_email_verification_bypass` |
+| 2.21 | `auth_invitation_abuse` |
+| 2.22 | `auth_tenant_org_join_abuse` |
 
 em-frontend gets a heads-up ping at the start of slice 01 (when the
 EventType + Finding-category names land), at slice canary done (2.1), and
 again at phase closeout.
 
-## Open questions (to settle before slice 01)
+## Pre-slice-01 audit decisions
 
-1. **Fixture target prep** — DVWA + WebGoat have known auth flows; do
-   they currently expose endpoints that map cleanly to the spec's auth-form
-   discovery heuristics? Probably yes (DVWA's `/login.php`, WebGoat's
-   `/login`), but worth confirming with a one-shot probe.
+1. **Fixture target prep** — Slice 00 must confirm the canary login form on
+   `juiceshop.cocode.dk` before slice 01 starts. DVWA and WebGoat are allowed
+   as per-stub fixture targets only after their concrete auth endpoints are
+   recorded in the relevant per-stub task/spec-review.
 2. **Identifier scope** — `roe.md` needs an `authorized_test_accounts`
-   field per program. Algolia's roe says `[]`. For Phase 2 we add fixture
-   accounts to the **fixture** programs (`programs/local/juice-shop`, etc.),
-   NOT to live HackerOne programs.
-3. **Headless browser** — auth-form rendering on SPAs (algolia.com is one)
-   needs JS execution. Phase 2 MVP stays text-only; deferred to Phase 3.
-   Stubs surface a `requires_js_rendering=true` reason instead of a finding
-   for SPA-heavy targets.
+   field per program. For Phase 2, fixture accounts are added only to
+   **fixture** programs (`programs/local/juice-shop`, etc.). Live HackerOne
+   programs keep `authorized_test_accounts: []` until the operator records
+   explicit program approval.
+3. **Headless browser** — auth-form rendering on SPAs needs JS execution.
+   Phase 2 MVP stays text-only; deferred to Phase 3. Stubs surface
+   `AUTH_FIXTURE_REQUIRED` with `reason="requires_js_rendering"` instead of
+   emitting a finding for SPA-heavy targets.
+4. **Reset email capture** — password-reset stubs that require observing a
+   token cannot run against live programs or `example.invalid` recipients.
+   They require a fixture mailbox/sink recorded in the per-stub task before
+   active reset-token testing begins.

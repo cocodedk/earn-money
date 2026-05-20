@@ -1,6 +1,6 @@
 # Decision — Shared `_shared/auth/` vs per-stub code
 
-> Status: proposed.
+> Status: ready for slice 00 audit.
 
 ## Rule of thumb
 
@@ -22,6 +22,7 @@ Everything else lives in the stub's own package.
 | Response normalisation + diff | `_shared/auth/normalize.py` | every comparison stub |
 | Synthetic identifier generation | `_shared/auth/identifiers.py` | every stub that submits identifiers |
 | Candidate login/reset/register paths | `_shared/auth/endpoints.py` | every stub that bounded-probes |
+| Active-probe budget + abort classification | `_shared/auth/safety.py` | every active Phase 2 stub |
 | Token entropy + Wiener attack | `apps/stubs/predictable_reset_tokens/` | 2.5 only |
 | OAuth state-param parsing | `apps/stubs/oauth_state_missing/` | 2.15 only |
 | MFA bypass heuristics | `apps/stubs/mfa_bypass/` | 2.10 only |
@@ -35,6 +36,9 @@ Everything else lives in the stub's own package.
   Finding status / confidence.
 * Per-stub `runner.py` — registers `@guarded_runner("2.N")` and wires
   the shared helpers together.
+* Per-stub probe choreography — the exact order of form discovery, control
+  selection, repeat confirmation, and finding classification stays local,
+  while `_shared/auth/safety.py` enforces common refusal/abort rules.
 
 ## Why this matters
 

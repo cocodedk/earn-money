@@ -16,6 +16,8 @@ def generate_invalid_identifier(
 * `kind="username"` → `scanner_invalid_<nonce>`.
 * `nonce` is auto-generated (16 hex chars from `secrets.token_hex(8)`)
   when omitted. Callers may inject a deterministic nonce for tests.
+* Explicit `nonce` must match `[0-9a-f]{1,32}`. The helper lowercases it
+  and raises `ValueError` for whitespace, path separators, `@`, or Unicode.
 
 ## Hard rules
 
@@ -27,6 +29,9 @@ def generate_invalid_identifier(
   These are the FIRST values an attacker tries, and emitting them
   in an authorised scan tells the SOC "this might be hostile".
 * No real users, no scraped emails, no leaked credentials. Period.
+* Field-length failures are handled by the caller before submission. The
+  helper never swaps to shorter words like `test` or `admin` to satisfy a
+  target's validation rule.
 
 ## Why one helper
 
@@ -43,3 +48,4 @@ hostname.
 * Two calls with the same explicit `nonce` are identical (test
   determinism).
 * `kind` outside the literal → `ValueError`.
+* Invalid nonce characters or non-ASCII nonce input → `ValueError`.

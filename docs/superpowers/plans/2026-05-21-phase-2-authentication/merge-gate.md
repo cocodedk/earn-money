@@ -7,12 +7,12 @@
 
 * `git log origin/main..feat/em-backend-phase-2` lists every Phase 2
   commit. Operator reviews the SHA list before authorising push.
-* All 11 verification.md gates green (slice 24 closeout report).
+* All 11 verification.md gates green (slice 25 closeout report).
 * No uncommitted files in the working tree.
 * No `.env` / `flags/RECON_ENABLED` / `identity/` artifacts staged.
 * `git status` clean.
-* Frontend tip merged in (per the operator-em-frontend coordination
-  pattern from scope-enforcement).
+* em-frontend ACK linked in the aggregate spec-review; any companion frontend
+  PR is merged or explicitly deferred by the operator.
 
 ## Push command
 
@@ -38,8 +38,9 @@ each per-stub review.
 
 * Half-merged Phase 2 state — if any stub fails verification it stays
   out of the merge entirely.
-* Cross-tier desync — em-frontend coordinates their UI changes against
-  the SAME stack tip, so the merge brings frontend + backend together.
+* Cross-tier desync — em-frontend ACKs the EventType + Finding.category
+  surface before backend merge, so the operator knows whether UI handling is
+  already merged or intentionally deferred.
 * Re-merge churn — one squash, one diff, one PR for code review.
 
 ## Rollback

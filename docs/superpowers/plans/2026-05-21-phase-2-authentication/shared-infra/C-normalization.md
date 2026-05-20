@@ -25,6 +25,7 @@ class NormalizedResponse:
     body_snippet: str         # ~512 chars near "error" / "invalid" / "incorrect"
     json_error_code: str | None
     json_error_fields: dict[str, str]   # field-level errors
+    abort_signal: Literal["captcha", "waf", "lockout", "rate_limit", "mfa"] | None
 
 def normalize(response: httpx.Response) -> NormalizedResponse
 def diff(a: NormalizedResponse, b: NormalizedResponse) -> list[Differentiator]
@@ -51,6 +52,16 @@ def diff(a: NormalizedResponse, b: NormalizedResponse) -> list[Differentiator]
 * Stable body-text snippets around the error area.
 * Content-type.
 * Headers that affect control flow (`Location`, `WWW-Authenticate`).
+* Abort signals used by [`F-active-safety`](F-active-safety.md), including
+  CAPTCHA, WAF, lockout, rate-limit, and MFA-challenge evidence.
+
+## Stability rule
+
+`diff()` reports observed differentiators, but confirmed findings require
+stub-level stability. A comparison stub may mark a finding `confirmed` only
+when the same differentiator class is observed in the stub's allowed repeat
+budget. If repeat budget is unavailable, the stub records `candidate` or
+`stale`, never `confirmed`.
 
 ## Tests
 
@@ -58,6 +69,8 @@ def diff(a: NormalizedResponse, b: NormalizedResponse) -> list[Differentiator]
 * Two responses with status 401 vs 404 diff to one `status_code` entry.
 * `Set-Cookie: session=...` differences are stripped.
 * `WWW-Authenticate: Basic realm=...` change → kept.
+* CAPTCHA / lockout body evidence sets `abort_signal` and prevents confirmed
+  classification in the runner.
 
 ## Why one module, not per-stub
 

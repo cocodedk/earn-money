@@ -17,8 +17,19 @@ class AuthForm:
     hidden_fields: dict[str, str]  # CSRF, request-id, etc. (values redacted in evidence)
     flow_hint: Literal["login", "password_reset", "registration", "oauth", "unknown"]
 
-def discover_forms(html_body: str, base_url: str) -> list[AuthForm]
-def discover_json_endpoint(...)  # JSON-only auth APIs
+def discover_forms(
+    html_body: str,
+    base_url: str,
+    *,
+    response_content_type: str = "text/html",
+) -> list[AuthForm]
+
+def discover_json_endpoints(
+    response_body: bytes,
+    base_url: str,
+    *,
+    response_content_type: str,
+) -> list[AuthForm]  # JSON-only auth APIs represented as AuthForm surfaces
 ```
 
 ## Detection signals (spec 2.1 §1)
@@ -52,6 +63,9 @@ not authoritative — stub-level logic still treats the form generically.
   preference (login before nav forms).
 * CSRF hidden inputs captured in `hidden_fields`.
 * Empty body / non-HTML content-type → `[]`.
+* JSON response with login/reset route metadata → JSON `AuthForm` surface.
+* `GET` credential form is discovered but marked for refusal by
+  [`F-active-safety`](F-active-safety.md); discovery itself stays passive.
 
 ## Why centralise
 

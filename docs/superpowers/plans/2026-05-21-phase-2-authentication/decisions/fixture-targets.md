@@ -1,6 +1,6 @@
 # Decision — Fixture targets for Phase 2
 
-> Status: proposed.
+> Status: ready for slice 00 audit.
 
 ## Problem
 
@@ -18,6 +18,9 @@ CLAUDE.md authorises four HTTPS endpoints:
 * `https://webgoat.cocode.dk/` — WebGoat, self-registration.
 
 All four allow "any HTTP technique". Phase 2's fixture work runs there.
+`target.cocode.dk` is treated as an alias of Juice Shop for smoke coverage,
+not a separate `programs/local/<slug>` entry, unless slice 00 discovers that
+its scope or auth surface differs from `juiceshop.cocode.dk`.
 
 ## Per-fixture roe.md
 
@@ -29,6 +32,15 @@ Each fixture becomes a registered Program at
 | juice-shop | 2.1 / 2.2 / 2.3 / 2.4 / 2.19 / 2.20 |
 | dvwa       | 2.1 / 2.2 / 2.3 / 2.4 (text-based) |
 | webgoat    | 2.1 / 2.10 / 2.11 / 2.12 / 2.13 / 2.18 (MFA + CSRF) |
+
+Password-reset and OAuth/SSO stubs are fixture-gated until slice 00 or the
+per-stub task records a concrete owned flow:
+
+| Surface | Fixture requirement before active testing |
+|---------|-------------------------------------------|
+| Password reset (2.5-2.9) | operator-owned mailbox/sink or fixture API that exposes reset tokens |
+| OAuth / SSO (2.14-2.18) | fixture OAuth client/provider config with owned redirect URIs |
+| Invitations / tenant joins (2.21-2.22) | owned fixture tenant/org and disposable invitation codes |
 
 Each fixture's `roe.md` sets:
 
@@ -62,6 +74,12 @@ operator action per fixture). The test account password is stored in
 the local `.env` under `FIXTURE_TEST_PASSWORD` and read by stubs that
 need a `valid_identifier` for the comparison oracle. NEVER committed.
 
+If a stub needs a second account, mailbox sink, OAuth client secret, MFA
+recovery code, invitation code, or tenant/org identifier, the per-stub task
+must name the exact secret variable it expects and the fixture setup step that
+creates it. Missing fixture secrets block the stub with `AUTH_FIXTURE_REQUIRED`;
+they never fall back to live HackerOne targets.
+
 ## What this enables
 
 * Every Phase 2 stub can demo end-to-end without touching a live H1
@@ -72,7 +90,7 @@ need a `valid_identifier` for the comparison oracle. NEVER committed.
 * Live HackerOne programs stay passive-only (Phase 1) until the
   operator explicitly opts in via `roe.md`.
 
-## Open thread (operator-vetoed)
+## Recorded operator decision
 
 * The three local fixtures are NOT publicly indexed. They're
   reachable from the open internet but Caddy on `target.cocode.dk`

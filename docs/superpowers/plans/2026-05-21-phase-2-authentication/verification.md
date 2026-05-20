@@ -14,6 +14,8 @@ Before any Phase 2 stub is claimed "done":
    covering every spec assertion (positive + negative).
 4. **/simplify clean**: zero high-confidence findings after each commit
    in the stub's slice.
+   The spec-review must also include the stub's RoE knob, `ProbeBudget`,
+   fixture target, required secrets, and abort-signal handling.
 
 ## Live gates
 
@@ -27,7 +29,13 @@ Before any Phase 2 stub is claimed "done":
    AUTH_PROBE_REFUSED with reason="roe_disabled" and NO active
    submits.
 
-## Phase-2-close gate (slice 24)
+For gates 5-7, the transcript must record request count, submit count,
+fixture program slug, EventType/Finding emitted, and the refusal/abort reason
+when no Finding is expected. CAPTCHA/WAF/lockout/rate-limit/MFA evidence is a
+passing stale/abort outcome only when the stub made no further submits after
+the signal.
+
+## Phase-2-close gate (slice 25)
 
 8. **Aggregate spec-review** at
    `docs/superpowers/spec-reviews/2026-05-21-phase-2-authentication.md`,

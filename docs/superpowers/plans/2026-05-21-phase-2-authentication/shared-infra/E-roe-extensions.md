@@ -42,15 +42,12 @@ fork the contract and risk drift.
 
 ## Existing-program migration
 
-Programs registered before Phase 2 lands:
+The fixture-program YAML for the five knobs lives in
+[`../decisions/fixture-targets.md`](../decisions/fixture-targets.md).
 
-* `programs/hackerone/algolia/roe.md` — operator updates to add the
-  five knobs explicitly. Default `False` for all five (algolia hasn't
-  authorised any active probing).
-* `programs/local/juice-shop/roe.md` — operator sets all five to
-  `True` (fixture target, full auth-flow exercise authorised).
-* `programs/local/dvwa/roe.md` — same.
-* `programs/local/webgoat/roe.md` — same.
+For live HackerOne programs (e.g. algolia), the operator manually
+updates `roe.md` to add the five knobs explicitly. Default `False` for
+all five until the program authorises active probing.
 
 ## Why default-deny instead of default-passive
 
@@ -65,8 +62,18 @@ per-program.
 
 * Default RoE has all five knobs `False`.
 * `_parse_roe` reads `allow_active_login_probes: true` correctly.
+* `_parse_roe` preserves explicit `false` values instead of treating
+  absence and false as the same parse branch.
 * `_parse_roe` raises `InvalidRoE` on non-bool input for any knob.
 * Existing roe.md files with no new fields still parse and have
   knobs default `False`.
 * Backward compatibility: every Phase 1 test that constructs RoE
   inline still works (defaults cover the new fields).
+
+## Runner contract
+
+The relevant RoE knob is checked after `@guarded_runner` has resolved the
+program and before any auth-form discovery or candidate-path bounded probe.
+RoE-disabled runs emit exactly one `AUTH_PROBE_REFUSED` event with the stub id,
+program slug, target URL, and `reason="roe_disabled"`, then return without
+network I/O.
