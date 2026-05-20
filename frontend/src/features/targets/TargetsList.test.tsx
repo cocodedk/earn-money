@@ -71,6 +71,15 @@ describe("TargetsList", () => {
     expect(screen.getByText("active")).toBeInTheDocument();
   });
 
+  it("renders an Open results link to /targets/:id/results for each row", async () => {
+    withProjects([PROJECT]);
+    withTargets([TARGET]);
+    renderWithProviders(<TargetsList />, { route: "/targets" });
+    expect(
+      await screen.findByRole("link", { name: "Open results" }),
+    ).toHaveAttribute("href", "/targets/t-1/results");
+  });
+
   it("renders a retired status badge with the muted palette", async () => {
     withProjects([PROJECT]);
     withTargets([{ ...TARGET, status: "retired" }]);

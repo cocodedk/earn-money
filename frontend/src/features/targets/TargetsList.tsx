@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ROUTES } from "../../app/routes";
+import { ROUTES, targetResultPath } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
 import { Table, type TableColumn } from "../../components/Table";
@@ -28,6 +28,15 @@ function buildColumns(
       key: "created_at",
       header: "Created at",
       cell: (t) => t.created_at.slice(0, 10),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      cell: (t) => (
+        <ButtonLink to={targetResultPath(t.id)} variant="secondary">
+          Open results
+        </ButtonLink>
+      ),
     },
   ];
 }
