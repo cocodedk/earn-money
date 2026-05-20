@@ -13,6 +13,7 @@ export type TableProps<T> = {
   columns: TableColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
+  rowTestId?: (row: T) => string;
   isLoading?: boolean;
   emptyState?: ReactNode;
 };
@@ -21,6 +22,7 @@ export function Table<T>({
   columns,
   rows,
   rowKey,
+  rowTestId,
   isLoading,
   emptyState,
 }: TableProps<T>) {
@@ -43,7 +45,10 @@ export function Table<T>({
       ) : (
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)}>
+            <tr
+              key={rowKey(row)}
+              data-testid={rowTestId ? rowTestId(row) : undefined}
+            >
               {columns.map((c) => (
                 <td key={c.key}>{c.cell(row)}</td>
               ))}
