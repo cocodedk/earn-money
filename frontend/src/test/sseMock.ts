@@ -13,6 +13,10 @@
 
 export class MockEventSource {
   static instances: MockEventSource[] = [];
+  // When false, newly-constructed instances do NOT auto-fire `onopen`. Tests
+  // that need to drive failure-without-open (reconnect/backoff) flip this off
+  // for the windows where they want full control over open vs fail.
+  static autoOpen = true;
 
   readonly url: string;
   readyState: 0 | 1 | 2 = 0;
@@ -23,6 +27,7 @@ export class MockEventSource {
   constructor(url: string) {
     this.url = url;
     MockEventSource.instances.push(this);
+    if (!MockEventSource.autoOpen) return;
     queueMicrotask(() => {
       if (this.readyState === 2) return;
       this.readyState = 1;
@@ -55,8 +60,10 @@ export function installMockEventSource(): () => void {
   const original = g.EventSource;
   g.EventSource = MockEventSource as unknown as typeof EventSource;
   MockEventSource.instances = [];
+  MockEventSource.autoOpen = true;
   return () => {
     g.EventSource = original as typeof EventSource | undefined;
     MockEventSource.instances = [];
+    MockEventSource.autoOpen = true;
   };
 }
