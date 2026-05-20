@@ -18,7 +18,6 @@ from typing import NamedTuple, Optional
 from .signatures import SIGNATURES, Confidence, Signature
 
 
-# Confidence-rank used for "strongest" selection. Higher wins.
 _CONFIDENCE_RANK: dict[Confidence, int] = {"low": 0, "medium": 1, "high": 2}
 
 
