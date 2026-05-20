@@ -1,4 +1,5 @@
 import { Callout } from "../../components/Callout";
+import { Table } from "../../components/Table";
 import { useScanRunEvidenceQuery } from "./api";
 import type { Evidence } from "../../types/api";
 
@@ -11,6 +12,16 @@ function fmt(ts: string): string {
 function dash(v: string | null): string {
   return v || "—";
 }
+
+const columns = [
+  { key: "source", header: "Source", cell: (e: Evidence) => e.source },
+  { key: "target", header: "Target", cell: (e: Evidence) => <code>{e.target.slice(0, 8)}</code> },
+  { key: "url", header: "URL", cell: (e: Evidence) => dash(e.url) },
+  { key: "method", header: "Method", cell: (e: Evidence) => dash(e.method) },
+  { key: "field", header: "Field", cell: (e: Evidence) => dash(e.field) },
+  { key: "matched_value", header: "Matched value", cell: (e: Evidence) => <code>{dash(e.matched_value)}</code> },
+  { key: "created_at", header: "Created at", cell: (e: Evidence) => fmt(e.created_at) },
+];
 
 export function ScanRunEvidencePanel({ scanRunId, livePolling }: Props) {
   const query = useScanRunEvidenceQuery(scanRunId, { livePolling });
@@ -34,32 +45,12 @@ export function ScanRunEvidencePanel({ scanRunId, livePolling }: Props) {
   return (
     <section>
       <h3>Evidence ({count})</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th>Target</th>
-            <th>URL</th>
-            <th>Method</th>
-            <th>Field</th>
-            <th>Matched value</th>
-            <th>Created at</th>
-          </tr>
-        </thead>
-        <tbody>
-          {results.map((e: Evidence) => (
-            <tr key={e.id} data-testid={`evidence-row-${e.id}`}>
-              <td>{e.source}</td>
-              <td><code>{e.target.slice(0, 8)}</code></td>
-              <td>{dash(e.url)}</td>
-              <td>{dash(e.method)}</td>
-              <td>{dash(e.field)}</td>
-              <td><code>{dash(e.matched_value)}</code></td>
-              <td>{fmt(e.created_at)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <Table<Evidence>
+        columns={columns}
+        rows={results}
+        rowKey={(e) => e.id}
+        rowTestId={(e) => `evidence-row-${e.id}`}
+      />
       {next !== null && (
         <p data-testid="evidence-truncation">
           Showing first {results.length} of {count} evidence
