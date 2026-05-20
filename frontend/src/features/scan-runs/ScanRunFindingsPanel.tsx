@@ -49,7 +49,7 @@ export function ScanRunFindingsPanel({ scanRunId, livePolling }: Props) {
               <td><code>{f.target.slice(0, 8)}</code></td>
               <td>{f.category}</td>
               <td>{f.severity}</td>
-              <td>{f.confidence}</td>
+              <td>{f.confidence || "—"}</td>
               <td>{f.status}</td>
               <td>{fmt(f.created_at)}</td>
             </tr>

@@ -175,4 +175,20 @@ describe("ScanRunFindingsPanel", () => {
     expect(within(row).getByText("medium")).toBeInTheDocument();
     expect(within(row).getByText("candidate")).toBeInTheDocument();
   });
+
+  it("renders blank confidence as em-dash", async () => {
+    withPaginated("/api/findings/", [
+      makeFinding({
+        id: "ffffffff-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        confidence: "",
+      }),
+    ]);
+    renderWithProviders(
+      <ScanRunFindingsPanel scanRunId={SCAN_RUN_ID} livePolling={false} />,
+    );
+    const row = await screen.findByTestId(
+      "finding-row-ffffffff-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    );
+    expect(within(row).getByText("—")).toBeInTheDocument();
+  });
 });
