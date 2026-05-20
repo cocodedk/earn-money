@@ -15,7 +15,7 @@ function BoolBadge({
 }) {
   if (ok === undefined) {
     return (
-      <span data-testid={testId} className="text-gray-500">
+      <span data-testid={testId} style={{ color: "var(--ink-muted)" }}>
         —
       </span>
     );
@@ -23,7 +23,7 @@ function BoolBadge({
   return (
     <span
       data-testid={testId}
-      className={ok ? "text-green-700" : "text-red-700"}
+      style={{ color: ok ? "var(--ok)" : "var(--err)" }}
     >
       {ok ? "up" : "down"}
     </span>
@@ -35,7 +35,7 @@ function StatusBadge({ value }: { value: string | undefined }) {
   return (
     <span
       data-testid="settings-backend-status"
-      className={ok ? "text-green-700" : "text-amber-700"}
+      style={{ color: ok ? "var(--ok)" : "var(--warn)" }}
     >
       {value ?? "—"}
     </span>
