@@ -49,3 +49,8 @@ class EventType(models.TextChoices):
     # so the origin was never reached. Surfaces in the dashboard as
     # an explanatory banner instead of a silent "0 findings" outcome.
     EDGE_BLOCKING_DETECTED = "scan.edge_blocking_detected", "Edge / WAF blocked probes before origin"
+    # Phase 2 — authentication scanning. Reserved here in slice 01;
+    # first emit lands in slice 02 (stub 2.1 canary).
+    AUTH_PROBE_REFUSED = "auth.probe_refused", "Active auth probe refused by RoE / safety gate"
+    AUTH_FINDING_CANDIDATE = "auth.finding_candidate", "Auth Finding emitted with status=candidate"
+    AUTH_FIXTURE_REQUIRED = "auth.fixture_required", "Stub refused live target — fixture validation missing"

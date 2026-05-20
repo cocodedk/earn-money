@@ -25,3 +25,11 @@ class RoE:
     authorized_test_environments: list[str] = field(default_factory=list)
     authorized_test_accounts: list[str] = field(default_factory=list)
     special_notes: str = ""
+    # Phase 2 active-probe gates. All default False so a program never
+    # implicitly authorises active auth-flow probing — the operator must
+    # opt in per-flow by editing roe.md.
+    allow_active_login_probes: bool = False
+    allow_password_reset_probes: bool = False
+    allow_mfa_probes: bool = False
+    allow_oauth_probes: bool = False
+    allow_registration_probes: bool = False
