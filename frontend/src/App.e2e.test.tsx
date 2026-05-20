@@ -301,5 +301,8 @@ describe("end-to-end slice 1", () => {
       await screen.findByText(/Scan run · r-e2e/),
     ).toBeInTheDocument();
     expect(await screen.findByText("Local Lab")).toBeInTheDocument();
+    expect(
+      await screen.findByTestId("events-connection-status"),
+    ).toBeInTheDocument();
   });
 });
