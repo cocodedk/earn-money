@@ -1,59 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Event as ApiEvent } from "../../types/api";
+import { usePollingFallback } from "./useScanRunEvents.polling";
+import {
+  type ConnectionStatus,
+  DEFAULT_MAX_BUFFER,
+  MAX_SSE_ATTEMPTS,
+  type ScanRunEventsOptions,
+  type UseScanRunEventsResult,
+  backoffMs,
+  isApiEvent,
+  isKillSwitchOn,
+  mergeEvent,
+} from "./useScanRunEvents.utils";
 
-export type ConnectionStatus =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "polling-fallback"
-  | "closed"
-  | "disabled";
-
-export interface UseScanRunEventsResult {
-  events: ApiEvent[];
-  status: ConnectionStatus;
-  reconnect: () => void;
-  clear: () => void;
-}
-
-interface Options {
-  livePolling?: boolean;
-  maxBuffer?: number;
-}
-
-const KILL_SWITCH_KEY = "disable_live_events";
-const DEFAULT_MAX_BUFFER = 500;
-const MAX_SSE_ATTEMPTS = 5;
-const BACKOFF_CAP_MS = 30_000;
-
-function isKillSwitchOn(): boolean {
-  return localStorage.getItem(KILL_SWITCH_KEY) === "1";
-}
-
-function isApiEvent(value: unknown): value is ApiEvent {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.id === "string" && typeof v.type === "string";
-}
-
-function mergeEvent(prev: ApiEvent[], next: ApiEvent, cap: number): ApiEvent[] {
-  const idx = prev.findIndex((e) => e.id === next.id);
-  if (idx >= 0) {
-    const copy = prev.slice();
-    copy[idx] = next;
-    return copy;
-  }
-  const appended = [...prev, next];
-  return appended.length > cap ? appended.slice(appended.length - cap) : appended;
-}
-
-function backoffMs(attempt: number): number {
-  return Math.min(1000 * 2 ** attempt, BACKOFF_CAP_MS);
-}
+export type { ConnectionStatus, UseScanRunEventsResult } from "./useScanRunEvents.utils";
 
 export function useScanRunEvents(
   scanRunId: string | undefined,
-  options?: Options,
+  options?: ScanRunEventsOptions,
 ): UseScanRunEventsResult {
   const livePolling = Boolean(options?.livePolling);
   const maxBuffer = options?.maxBuffer ?? DEFAULT_MAX_BUFFER;
@@ -63,6 +27,11 @@ export function useScanRunEvents(
   const [openToken, setOpenToken] = useState(0);
   const attemptsRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const eventsRef = useRef<ApiEvent[]>([]);
+
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
 
   const clearRetryTimer = useCallback(() => {
     if (retryTimerRef.current !== null) {
@@ -129,14 +98,24 @@ export function useScanRunEvents(
     };
   }, [scanRunId, livePolling, maxBuffer, openToken, clearRetryTimer]);
 
+  usePollingFallback({
+    scanRunId,
+    enabled: status === "polling-fallback" && livePolling,
+    maxBuffer,
+    eventsRef,
+    setEvents,
+  });
+
   const reconnect = useCallback(() => {
     clearRetryTimer();
     attemptsRef.current = 0;
+    setStatus("connecting");
     setOpenToken((n) => n + 1);
   }, [clearRetryTimer]);
 
   const clear = useCallback(() => {
     setEvents([]);
+    eventsRef.current = [];
   }, []);
 
   return { events, status, reconnect, clear };
