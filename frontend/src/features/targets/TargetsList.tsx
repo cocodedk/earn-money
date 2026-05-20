@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES, targetResultPath } from "../../app/routes";
 import { ButtonLink } from "../../components/Button";
 import { PageHeader } from "../../components/PageHeader";
@@ -9,6 +9,7 @@ import { ListPageGuard } from "../../components/ListPageGuard";
 import { useProjectNameLookup } from "../projects/useProjectNameLookup";
 import { useTargetsQuery } from "./api";
 import { StatusBadge } from "./StatusBadge";
+import { TargetsFiltersBar, applyTargetFilters } from "./TargetsFiltersBar";
 import type { Target } from "../../types/api";
 
 function buildColumns(
@@ -45,7 +46,25 @@ export function TargetsList() {
   const targets = useTargetsQuery();
   const projectName = useProjectNameLookup();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const columns = useMemo(() => buildColumns(projectName), [projectName]);
+  const rows = targets.data?.results ?? [];
+  const filtered = useMemo(
+    () => applyTargetFilters(rows, params),
+    [rows, params],
+  );
+  const emptyState =
+    rows.length === 0 ? (
+      <EmptyState
+        message="No targets yet."
+        action={{
+          label: "Create target",
+          onClick: () => navigate(ROUTES.targetsNew),
+        }}
+      />
+    ) : (
+      <EmptyState message="No targets match the current filters." />
+    );
   return (
     <>
       <PageHeader
@@ -56,21 +75,14 @@ export function TargetsList() {
           </ButtonLink>
         }
       />
+      <TargetsFiltersBar />
       <ListPageGuard query={targets} errorBody="Could not load targets.">
         <Table<Target>
           columns={columns}
-          rows={targets.data?.results ?? []}
+          rows={filtered}
           rowKey={(t) => t.id}
           isLoading={targets.isLoading}
-          emptyState={
-            <EmptyState
-              message="No targets yet."
-              action={{
-                label: "Create target",
-                onClick: () => navigate(ROUTES.targetsNew),
-              }}
-            />
-          }
+          emptyState={emptyState}
         />
       </ListPageGuard>
     </>

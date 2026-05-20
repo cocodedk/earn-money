@@ -66,9 +66,9 @@ describe("TargetsList", () => {
       await screen.findByText("https://dvwa.cocode.dk"),
     ).toBeInTheDocument();
     expect(screen.getByText("dvwa.cocode.dk")).toBeInTheDocument();
-    expect(screen.getByText("Local Lab")).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Local Lab" })).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
-    expect(screen.getByText("active")).toBeInTheDocument();
+    expect(screen.getByTestId("status-active")).toBeInTheDocument();
   });
 
   it("renders an Open results link to /targets/:id/results for each row", async () => {
