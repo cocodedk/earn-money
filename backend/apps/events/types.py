@@ -1,0 +1,41 @@
+"""Typed event keys.
+
+Every emit-site uses a value from this enum. Adding a new event type
+means adding it here first, then writing the test that asserts a caller
+emits it. Freeform strings are refused at the model layer via choices=.
+
+New types land alongside the feature that emits them — keep the enum
+lean. See [[project-event-log-medium-done-well]] for the rule.
+"""
+from __future__ import annotations
+
+from django.db import models
+
+
+class EventType(models.TextChoices):
+    # Sanity / test fixture — kept for system-test events and tests.
+    SYSTEM_TEST = "system.test", "System test event"
+    # Project lifecycle
+    PROJECT_CREATED = "project.created", "Project created"
+    PROJECT_UPDATED = "project.updated", "Project updated"
+    PROJECT_DELETED = "project.deleted", "Project deleted"
+    # Target lifecycle
+    TARGET_CREATED = "target.created", "Target created"
+    TARGET_UPDATED = "target.updated", "Target updated"
+    TARGET_DELETED = "target.deleted", "Target deleted"
+    # Scan-run lifecycle
+    SCAN_RUN_CREATED = "scan_run.created", "Scan run created"
+    SCAN_RUN_STARTED = "scan_run.started", "Scan run started"
+    SCAN_RUN_PAUSED = "scan_run.paused", "Scan run paused"
+    SCAN_RUN_RESUMED = "scan_run.resumed", "Scan run resumed"
+    SCAN_RUN_STOPPED = "scan_run.stopped", "Scan run stopped"
+    SCAN_RUN_STOPPED_FINAL = "scan_run.stopped_final", "Scan run finalised after stop"
+    SCAN_RUN_DONE = "scan_run.done", "Scan run completed"
+    # Per-target progress emitted by the worker simulator (will be reused
+    # by real stub runners once they land).
+    SCAN_TARGET_RUN_STARTED = "scan_target_run.started", "Scan target run started"
+    SCAN_TARGET_RUN_DONE = "scan_target_run.done", "Scan target run completed"
+    SCAN_TARGET_RUN_STOPPED = "scan_target_run.stopped", "Scan target run stopped"
+    SCAN_TARGET_RUN_FAILED = "scan_target_run.failed", "Scan target run failed"
+    # Finding triage by the operator (candidate → confirmed/rejected/stale).
+    FINDING_STATUS_CHANGED = "finding.status_changed", "Finding status changed"

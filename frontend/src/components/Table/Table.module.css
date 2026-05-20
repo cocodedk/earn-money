@@ -1,0 +1,18 @@
+.table {
+  @apply w-full text-sm border-collapse;
+}
+.table th {
+  @apply text-left font-medium px-3 h-10 border-b border-gray-200 bg-gray-50;
+}
+.table td {
+  @apply px-3 h-10 border-b border-gray-100;
+}
+.table tr:hover td {
+  @apply bg-gray-50;
+}
+.skeletonRow td {
+  @apply py-2;
+}
+.skeletonCell {
+  @apply block h-4 w-full bg-gray-100 rounded;
+}

@@ -1,0 +1,21 @@
+.callout {
+  @apply rounded border-l-4 px-4 py-3 flex flex-col gap-2;
+}
+.title {
+  @apply font-medium;
+}
+.body {
+  @apply text-sm;
+}
+.action {
+  @apply mt-1;
+}
+.info {
+  @apply border-blue-500 bg-blue-50 text-blue-900;
+}
+.warning {
+  @apply border-yellow-500 bg-yellow-50 text-yellow-900;
+}
+.error {
+  @apply border-red-500 bg-red-50 text-red-900;
+}

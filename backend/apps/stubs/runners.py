@@ -1,0 +1,57 @@
+"""Stub runner registry.
+
+Each cookbook stub gets a runner: a callable that takes
+`(scan_run, target_run)` and does the stub's work — fetches HTTP,
+runs signatures, writes Evidence + Finding rows, lets the worker emit
+the surrounding start/done events.
+
+Registration is a decorator-driven pattern. Runner modules call
+`@register("1.1")` at import time; the Stubs app's `ready()` hook is
+where future runner modules will be imported so registration fires.
+
+The dispatcher (`apps.scans.tasks._do_work`) calls `get(stub_slug)`.
+If the slug isn't registered, the simulator's sleep fallback runs —
+useful for stubs that haven't been implemented yet.
+"""
+from __future__ import annotations
+
+from typing import Callable, Protocol
+
+from apps.scans.models import ScanRun, ScanTargetRun
+
+
+class StubRunner(Protocol):
+    """Every stub runner has the same signature."""
+
+    def __call__(
+        self, scan_run: ScanRun, target_run: ScanTargetRun
+    ) -> None: ...  # pragma: no cover — Protocol body, never executed
+
+
+_REGISTRY: dict[str, StubRunner] = {}
+
+
+def register(stub_slug: str) -> Callable[[StubRunner], StubRunner]:
+    """Decorator: `@register("1.1")` makes the function the runner for
+    cookbook stub 1.1. Re-registering the same slug overrides the
+    previous entry — useful for tests."""
+
+    def decorator(fn: StubRunner) -> StubRunner:
+        _REGISTRY[stub_slug] = fn
+        return fn
+
+    return decorator
+
+
+def get(stub_slug: str) -> StubRunner | None:
+    return _REGISTRY.get(stub_slug)
+
+
+def registered_slugs() -> list[str]:
+    return sorted(_REGISTRY.keys())
+
+
+def _clear_for_testing() -> None:
+    """Reset the registry. Test fixtures only — production code never
+    calls this."""
+    _REGISTRY.clear()

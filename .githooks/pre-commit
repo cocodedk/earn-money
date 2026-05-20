@@ -1,7 +1,10 @@
 #!/bin/sh
 set -eu
 
-LEAK_PATTERNS='^(identity/platforms\.md|RECON_ENABLED|.*\.sqlite|.*\.db|recon/outputs/|\.env)$'
+# Sensitive-path leak guard — always on, regardless of project phase.
+# These paths are gitignored for a reason; the hook refuses to stage them
+# even if the gitignore is bypassed.
+LEAK_PATTERNS='^(identity/platforms\.md|RECON_ENABLED|.*\.sqlite|.*\.db|recon/outputs/|\.env|archive/v1/identity/platforms\.md|archive/v1/recon/outputs/|archive/v1/RECON_ENABLED)$'
 
 if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; then
   echo "pre-commit: refusing — staged files include sensitive operational paths." >&2
@@ -12,5 +15,7 @@ if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; the
   exit 1
 fi
 
-# Run the smoke check.
-make smoke
+# `make smoke` is intentionally disabled during the cookbook-v2 fresh-start.
+# v1 code lives under archive/v1/ — to run the v1 lint + mypy + test suite:
+#   cd archive/v1 && make smoke
+# Re-enable here when cookbook-v2 code lands and has its own smoke target.

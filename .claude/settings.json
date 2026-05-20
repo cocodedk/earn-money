@@ -1,0 +1,76 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-session-start-hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-drain-inbox.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-drain-inbox.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-drain-inbox.py"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-precompact-hook.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/0-projects/claude-email/scripts/chat-drain-on-bash-commit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // \"\"' | grep -qE '^[[:space:]]*git[[:space:]]+commit($|[[:space:]])' && echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Per CLAUDE.md: run /simplify until the review returns no actionable findings before moving on. Each simplify round'\\''s fixes are their own commit.\"}}' || true"
+          },
+          {
+            "type": "command",
+            "command": "payload=$(cat); echo \"$payload\" | jq -r '.tool_input.command // \"\"' | grep -qE '^[[:space:]]*git[[:space:]]+commit($|[[:space:]])' && echo \"$payload\" | $HOME/0-projects/claude-email/scripts/chat-drain-inbox.py || true"
+          }
+        ]
+      }
+    ]
+  }
+}

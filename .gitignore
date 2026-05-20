@@ -1,18 +1,23 @@
 # --- Operational secrets and state — NEVER commit ---
 # Identity, payouts, KYC, VPS details
 identity/platforms.md
+archive/v1/identity/platforms.md
 
 # Local kill-switch — must be set per-clone, never tracked
 RECON_ENABLED
+archive/v1/RECON_ENABLED
 
 # Per-program state databases
 programs/**/db.sqlite
 programs/**/db.sqlite-*
+archive/v1/programs/**/db.sqlite
+archive/v1/programs/**/db.sqlite-*
 *.sqlite
 *.db
 
 # Raw recon artifacts — may contain target PII, tokens, response bodies
 recon/outputs/
+archive/v1/recon/outputs/
 
 # Local environment overrides
 .env
@@ -20,9 +25,11 @@ recon/outputs/
 !.env.example
 .envrc
 
-# Claude Code / MCP — per-session config containing absolute paths and
-# operator-specific hook scripts; never commit.
-.claude/
+# Claude Code / MCP — share hook config so worktrees inherit it, but
+# keep all runtime state (cron, task list, locks) per-checkout.
+.claude/*
+!.claude/settings.json
+.claude/settings.local.json
 .mcp.json
 
 # --- OS, editor, language artifacts ---
@@ -49,11 +56,13 @@ node_modules/
 # Logs — but freeze-acks.log is an audit trail and must be committable
 *.log
 !programs/**/freeze-acks.log
+!archive/v1/programs/**/freeze-acks.log
 
 # Drafts contain real evidence pointers (target URLs, asset names, paths
 # into recon/outputs/). Never commit. Operator's edited drafts stay
 # local; submitted reports live on the platform, not in this repo.
 reports/drafts/
+archive/v1/reports/drafts/
 
 # Local scratch
 scratch/
@@ -70,5 +79,12 @@ dist/
 .venv/
 demo_coderabbit.py
 
+# Cookbook scanner platform (dockerized-env) — runtime/build outputs
+backend/staticfiles/
+backend/db.sqlite3
+frontend/dist/
+frontend/coverage/
+
 # Brainstorming visual companion sessions
 .superpowers/
+**/.coverage

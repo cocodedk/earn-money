@@ -1,0 +1,6 @@
+.chip {
+  @apply inline-flex items-center gap-2 text-sm text-gray-700;
+}
+.switch {
+  @apply text-blue-700 hover:underline;
+}
