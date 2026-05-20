@@ -1,9 +1,36 @@
 .header {
-  @apply flex items-center justify-between py-4 border-b border-gray-200;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 2.25rem 0 1rem 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rule-hair);
 }
+
+.header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 4rem;
+  height: 2px;
+  background: var(--accent);
+}
+
 .title {
-  @apply text-3xl font-semibold;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink-strong);
 }
+
 .action {
-  @apply flex items-center gap-2;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.125rem;
 }

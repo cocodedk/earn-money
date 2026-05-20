@@ -1,7 +1,10 @@
 import { ReactNode } from "react";
+import styles from "./MetaList.module.css";
 
+// Children must be <MetaRow> only — they are flattened into a 2-col CSS grid
+// by the parent. Interstitial nodes break the label/value rhythm.
 export function MetaList({ children }: { children: ReactNode }) {
-  return <div className="mt-4 flex flex-col gap-2">{children}</div>;
+  return <div className={styles.list}>{children}</div>;
 }
 
 export function MetaRow({
@@ -12,9 +15,9 @@ export function MetaRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex gap-4 text-sm">
-      <span className="w-32 font-medium text-gray-600">{label}</span>
-      <span>{children}</span>
-    </div>
+    <>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.value}>{children}</span>
+    </>
   );
 }

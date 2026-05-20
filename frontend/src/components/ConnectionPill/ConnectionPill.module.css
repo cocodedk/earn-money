@@ -1,12 +1,36 @@
 .pill {
-  @apply inline-flex items-center gap-2 text-sm text-gray-700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  --pill-dot: var(--ink-soft);
 }
+
 .dot {
-  @apply h-2 w-2 rounded-full bg-gray-400 transition-opacity duration-200;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: var(--radius-pill);
+  background: var(--pill-dot);
+  transition: background-color var(--dur-base) var(--ease-out);
 }
-.pill[data-connected="true"] .dot {
-  @apply bg-green-500;
+
+.pill[data-connected="true"] {
+  border-color: var(--ok-ring);
+  color: var(--ok-ink);
+  --pill-dot: var(--ok);
 }
-.pill[data-connected="false"] .dot {
-  @apply bg-red-500;
+
+.pill[data-connected="false"] {
+  border-color: var(--err-ring);
+  color: var(--err-ink);
+  --pill-dot: var(--err);
 }
