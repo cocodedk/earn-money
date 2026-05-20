@@ -1,7 +1,13 @@
+import { useSyncExternalStore } from "react";
 import { PageHeader } from "../../components/PageHeader";
 import { MetaList, MetaRow } from "../../components/MetaList";
 import { Callout } from "../../components/Callout";
 import { useSystemHealth } from "../../lib/useConnectionStatus";
+import {
+  getThemeSnapshot,
+  subscribeTheme,
+  type Theme,
+} from "../../app/theme";
 
 const FRONTEND_VERSION =
   (import.meta.env.VITE_FRONTEND_VERSION as string | undefined) ?? "dev";
@@ -15,7 +21,7 @@ function BoolBadge({
 }) {
   if (ok === undefined) {
     return (
-      <span data-testid={testId} className="text-gray-500">
+      <span data-testid={testId} style={{ color: "var(--ink-muted)" }}>
         —
       </span>
     );
@@ -23,7 +29,7 @@ function BoolBadge({
   return (
     <span
       data-testid={testId}
-      className={ok ? "text-green-700" : "text-red-700"}
+      style={{ color: ok ? "var(--ok)" : "var(--err)" }}
     >
       {ok ? "up" : "down"}
     </span>
@@ -35,10 +41,30 @@ function StatusBadge({ value }: { value: string | undefined }) {
   return (
     <span
       data-testid="settings-backend-status"
-      className={ok ? "text-green-700" : "text-amber-700"}
+      style={{ color: ok ? "var(--ok)" : "var(--warn)" }}
     >
       {value ?? "—"}
     </span>
+  );
+}
+
+function ThemeRow() {
+  const snapshot = useSyncExternalStore(
+    subscribeTheme,
+    getThemeSnapshot,
+    () => "system:light",
+  );
+  const [current, resolved] = snapshot.split(":") as [Theme, "light" | "dark"];
+  return (
+    <MetaRow label="Theme">
+      <span data-testid="settings-theme-current">{current}</span>{" "}
+      <span
+        data-testid="settings-theme-resolved"
+        style={{ color: "var(--ink-muted)" }}
+      >
+        (resolved: {resolved})
+      </span>
+    </MetaRow>
   );
 }
 
@@ -75,6 +101,7 @@ export function Settings() {
             {query.data?.version ?? "—"}
           </code>
         </MetaRow>
+        <ThemeRow />
       </MetaList>
     </>
   );

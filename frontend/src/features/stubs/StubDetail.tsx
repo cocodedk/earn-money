@@ -25,7 +25,11 @@ function StubBody({ stub }: { stub: Stub }) {
       </MetaList>
       <pre
         role="article"
-        className="mt-6 whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded border border-gray-200"
+        className="mt-6 whitespace-pre-wrap font-mono text-sm p-4 rounded"
+        style={{
+          background: "var(--surface-sunken)",
+          border: "1px solid var(--rule-hair)",
+        }}
       >
         {stub.body}
       </pre>

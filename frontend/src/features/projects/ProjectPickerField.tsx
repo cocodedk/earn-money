@@ -39,7 +39,8 @@ export function ProjectPickerField({
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="rounded border border-gray-300 px-3 py-2 text-sm"
+          className="rounded px-3 py-2 text-sm"
+          style={{ border: "1px solid var(--rule-soft)" }}
         >
           <option value="">
             {projects.isLoading ? "Loading projects…" : "Select a project…"}

@@ -6,7 +6,9 @@ export function ComingSoon({ name }: ComingSoonProps) {
   return (
     <>
       <PageHeader title={name} />
-      <p className="mt-6 text-gray-600">Not built yet.</p>
+      <p className="mt-6" style={{ color: "var(--ink-muted)" }}>
+        Not built yet.
+      </p>
     </>
   );
 }

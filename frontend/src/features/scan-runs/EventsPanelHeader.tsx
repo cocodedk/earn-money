@@ -1,13 +1,5 @@
 import type { ConnectionStatus } from "./useScanRunEvents.utils";
-
-const PILL_CLASS: Record<ConnectionStatus, string> = {
-  connecting: "bg-amber-100 text-amber-800",
-  connected: "bg-green-100 text-green-800",
-  reconnecting: "bg-amber-100 text-amber-800",
-  "polling-fallback": "bg-blue-100 text-blue-800",
-  closed: "bg-gray-100 text-gray-800",
-  disabled: "bg-red-100 text-red-800",
-};
+import styles from "./EventsPanelHeader.module.css";
 
 const KILL_SWITCH_TOOLTIP =
   "Live events disabled by kill switch — remove localStorage.disable_live_events and reload to re-enable.";
@@ -36,7 +28,8 @@ export function EventsPanelHeader({
       <h3>Live events</h3>
       <span
         data-testid="events-connection-status"
-        className={`sticky top-0 px-2 py-0.5 rounded text-xs font-medium ${PILL_CLASS[status]}`}
+        data-status={status}
+        className={styles.pill}
       >
         {status}
       </span>

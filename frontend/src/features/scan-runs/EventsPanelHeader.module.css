@@ -1,0 +1,30 @@
+.pill {
+  position: sticky;
+  top: 0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+}
+.pill[data-status="connecting"],
+.pill[data-status="reconnecting"] {
+  background: var(--warn-soft);
+  color: var(--warn-ink);
+}
+.pill[data-status="connected"] {
+  background: var(--ok-soft);
+  color: var(--ok-ink);
+}
+.pill[data-status="polling-fallback"] {
+  background: var(--info-soft);
+  color: var(--info-ink);
+}
+.pill[data-status="closed"] {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.pill[data-status="disabled"] {
+  background: var(--err-soft);
+  color: var(--err-ink);
+}

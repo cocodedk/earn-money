@@ -86,14 +86,9 @@ describe("ScanRunLiveEventsPanel — rows", () => {
     expect(cells[2].textContent).toBe("deadbeef");
   });
 
-  it("applies expected colour class for each level", () => {
-    const cases: Array<[EventLevel, string]> = [
-      ["debug", "text-gray-600"],
-      ["info", "text-blue-600"],
-      ["warning", "text-amber-600"],
-      ["error", "text-red-600"],
-    ];
-    for (const [level, expectedClass] of cases) {
+  it("tags each row's level cell with data-level={level}", () => {
+    const levels: EventLevel[] = ["debug", "info", "warning", "error"];
+    for (const level of levels) {
       const id = `eeeeeeee-0000-0000-0000-00000000000${level[0]}`;
       mockLiveEventsHook("connected", [makeEvent({ id, level })]);
       const { unmount } = renderLivePanel();
@@ -101,7 +96,7 @@ describe("ScanRunLiveEventsPanel — rows", () => {
         "cell",
       );
       expect(cells[1].textContent).toBe(level);
-      expect(cells[1].className).toContain(expectedClass);
+      expect(cells[1].getAttribute("data-level")).toBe(level);
       unmount();
     }
   });
