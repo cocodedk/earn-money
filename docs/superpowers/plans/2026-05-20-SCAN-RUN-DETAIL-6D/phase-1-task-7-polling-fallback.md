@@ -18,5 +18,7 @@
 3. `livePolling=false` while polling → status `closed`, polling stops.
 4. Unmount while polling → polling stops, no leaks.
 5. `clear()` while polling → buffer empties, polling continues.
+6. Parent run reaches terminal status (operator sets `livePolling=false` as a result) → polling stops; status `closed` (integration-level reinforcement also covered by Phase 3 Task 5).
+7. Polling tick returns a result containing an `id` already in the buffer → entry replaced in place (no duplicate row).
 
 **Commit:** `feat(frontend): useScanRunEvents polling fallback`.

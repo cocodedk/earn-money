@@ -79,7 +79,7 @@
 ### Task 6: E2E — full page including events
 
 **Files:**
-- Modify: `frontend/src/test/App.e2e.test.tsx` — extend the existing ScanRunDetail E2E case OR add a sibling case (whichever keeps the file under 220 lines after edit; pre-existing 217-line state).
+- Modify: `frontend/src/App.e2e.test.tsx` — extend the existing ScanRunDetail E2E case with the events assertion. File is at **305 lines pre-edit** (already over the 200-line cap); 6D adds one case (~10–15 lines) and does **not** split the file. The split lands in the table-primitive cleanup slice that follows 6D, per [`00-overview.md`](00-overview.md) §Definition of done.
 
 **Test:**
 - Navigate to `/scan-runs/<id>` for a running run.
@@ -94,10 +94,15 @@
 **Files:**
 - Create: `docs/superpowers/spec-reviews/2026-05-20-6D-scan-run-detail-live-events.md`
 
-Read the umbrella spec (sections 6 §Live events panel + 12 §Live events) end-to-end. Audit implementation against:
-- Detection-logic-equivalent: every spec'd row column + control + state is reachable in code or explicitly deferred.
-- Negative assertions: `Clear local view` does NOT delete backend events (verified by checking the hook never issues a DELETE).
-- Acceptance criteria: connection-status visible, reconnect works, polling fallback engages, newest event at bottom (consistent), auto-scroll toggle present.
+Read the umbrella spec (sections 6 §Live events panel + 12 §Live events) end-to-end. Use the **seven CLAUDE.md spec-review audit dimensions** as report headings (mirrors 6C's spec-review at `docs/superpowers/spec-reviews/2026-05-20-stub-1.17-verbose-api-errors.md`):
+
+1. **Detection-logic coverage** — every signal/state the spec lists (SSE message arrival, connection-status transitions, reconnect path, polling fallback engagement, auto-scroll on/off, clear semantics) is reachable in code.
+2. **Persistence contract** — N/A for read-only panel (no writes); explicitly note this.
+3. **Pass/fail positive assertions** — each row column rendered, each control present, each connection status reachable.
+4. **Pass/fail negative assertions** — `Clear local view` does NOT issue any network call (regression test in Task 5 + Task 6 of Phase 1); panel does not mutate backend events; no `DELETE` requests issued anywhere.
+5. **Acceptance criteria** — connection-status visible, reconnect works, polling fallback engages after 5 SSE failures, newest event at bottom (consistent across emit + clear + re-emit), auto-scroll toggle present and defaults to `on`.
+6. **Idempotence / determinism / bounded** — buffer cap exercised; dedupe-by-id exercised; no unbounded growth.
+7. **Transport-error tolerance** — SSE error → reconnect; 5 reconnect failures → polling fallback; polling tick error → handled (no crash).
 
 Record any deferrals in the report; create follow-up tasks for non-deferrals.
 

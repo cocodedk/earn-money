@@ -1,6 +1,6 @@
 # Scan Run Detail 6D — Live events SSE panel
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILLS: `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` for task orchestration; `superpowers:test-driven-development` for every implementation task (failing test first, no production code without a failing test); `superpowers:dispatching-parallel-agents` for the parallelizable scaffolding cluster in Phase 1 (Tasks 1-4). Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship the read-only Live events panel below the Findings + Evidence panels on `/scan-runs/:id`. The panel opens an `EventSource` against the per-scan-run SSE endpoint on mount, renders one row per event (time / level / target / event_type / message), maintains a sticky connection-status indicator, supports the three required controls (auto-scroll toggle / clear local view / reconnect), and falls back to a 2 s polling loop on `/api/events/?scan_run=<uuid>` when the SSE connection enters a terminal error state.
 
@@ -33,7 +33,7 @@
 
 | Phase | File | Ships |
 |-------|------|-------|
-| 1 | [phase-1-types-and-hook.md](phase-1-types-and-hook.md) | `Event` type + level enum; `useScanRunEvents(scanRunId)` hook with SSE primary + polling fallback + reconnect; MSW handlers for the SSE endpoint and the events REST endpoint |
+| 1 | [phase-1-types-and-hook.md](phase-1-types-and-hook.md) | `Event` type + level enum; `useScanRunEvents(scanRunId, options)` hook with SSE primary + polling fallback + reconnect; MSW handlers for the SSE endpoint and the events REST endpoint |
 | 2 | [phase-2-panel.md](phase-2-panel.md) | `ScanRunLiveEventsPanel` component (raw `<table>` mirroring 6B + 6C panels), per-row `data-testid`, sticky connection-status indicator, auto-scroll + clear + reconnect controls |
 | 3 | [phase-3-wire-app-e2e.md](phase-3-wire-app-e2e.md) | Wire panel into `ScanRunDetail` below Findings + Evidence; integration tests for SSE happy path / disconnect-reconnect / SSE-failed-polling-fallback / terminal-status / cancel-and-clear; E2E that asserts header + target table + findings + evidence + live events all render |
 
@@ -42,7 +42,7 @@
 - 100 % line + branch coverage on new and modified files.
 - `npm test`, `npm test -- --coverage`, `npm run build` all green.
 - `/simplify` runs after **each** commit (per-commit gate per CLAUDE.md commit-hygiene rule). Each round's fixes are their own commit.
-- No new or modified file over 200 lines. `App.e2e.test.tsx` pre-existing 217-line state stays untouched (deferred refactor — to be addressed in the table-primitive cleanup slice that follows 6D).
+- No new or modified file over 200 lines. `App.e2e.test.tsx` pre-existing 305-line state is already over the 200-line cap and is the deferred-refactor target for the table-primitive cleanup slice that follows 6D. Phase 3 Task 6 extends it by **one additional case** (mirroring 6C's pattern); the file is **not split inside 6D** — split lands in the cleanup slice along with the `<Table>` primitive lift.
 - Operator can open `/scan-runs/:id` and see events streaming live within ~250 ms of backend emit while the parent run is `running`. Disconnecting the network (DevTools offline) shows the disconnected status indicator and then re-streams on restore.
 - SSE reconnect: exponential backoff capped at 30 s; max 5 attempts before falling back to polling.
 - Polling fallback: 2 s interval, dedupe by `event.id`, stops when SSE reconnects or parent run enters terminal status.
@@ -70,7 +70,7 @@
 - 100 % line + branch coverage on the production code path (frontend `src/`). Coverage gates measured by `npm test -- --coverage`.
 - House style: per-row `data-testid="event-row-{id}"` (same convention as 6B + 6C).
 - Connection-status indicator testid: `data-testid="events-connection-status"` with values `connecting` | `connected` | `reconnecting` | `polling-fallback` | `closed`.
-- Controls testids: `data-testid="events-autoscroll-toggle"` / `events-clear-local"` / `events-reconnect"`.
+- Controls testids: `data-testid="events-autoscroll-toggle"` / `data-testid="events-clear-local"` / `data-testid="events-reconnect"`.
 - Inline timestamp formatter: `fmt(ts) = ts ? new Date(ts).toLocaleTimeString() : "—"` (HH:MM:SS for the live tail; **differs from 6C's date-only** because the events panel is a real-time view).
 
 ## Naming conventions

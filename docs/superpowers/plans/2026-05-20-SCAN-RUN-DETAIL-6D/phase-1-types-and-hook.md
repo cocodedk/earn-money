@@ -110,4 +110,4 @@ Tests opt in via `installMockEventSource()` in `beforeEach`, cleanup in `afterEa
 - [ ] `npm test -C frontend -- --coverage --run` shows 100 % on `useScanRunEvents.ts` + `sseMock.ts`.
 - [ ] `useScanRunEvents.ts` under 200 lines (split into `useScanRunEvents/sse.ts` + `useScanRunEvents/polling.ts` if approaching cap).
 - [ ] `/simplify` round clean after each of the 7 commits.
-- [ ] Em-backend has confirmed SSE route + envelope shape (Phase 3 blocker, not Phase 1).
+- [ ] Em-backend confirmation **requested** (not blocking Phase 1; full blocker list lives in [`phase-3-wire-app-e2e.md`](phase-3-wire-app-e2e.md) §Blocking — SSE route, envelope, polling REST envelope, `Last-Event-ID` behaviour).

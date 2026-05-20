@@ -4,7 +4,7 @@
 
 **Reference patterns:**
 - `ScanRunFindingsPanel` and `ScanRunEvidencePanel` (shipped in 6C) are the structural template.
-- Connection-status indicator is **new** — design follows the `ConnectionPill` pattern from `frontend/src/components/ConnectionPill.tsx` (status-coloured chip with text label).
+- Connection-status indicator is **new** — design follows the `ConnectionPill` pattern from `frontend/src/components/ConnectionPill/ConnectionPill.tsx` (folder layout: `ConnectionPill.tsx` + `ConnectionPill.module.css` + `ConnectionPill.test.tsx` + `index.ts` barrel). Mirror this layout for the new status indicator if it grows beyond a single file.
 
 ---
 
@@ -56,9 +56,11 @@ export function ScanRunLiveEventsPanel({ scanRunId, livePolling }: Props): JSX.E
 **Test matrix:**
 1. 3 events render in order with correct columns.
 2. Null `target` → "—".
-3. Each level renders with expected colour class.
-4. `event-row-{id}` testid on every row.
-5. Buffer cap eviction: emit 501 events with `maxBuffer=500` → 500 rows render, oldest evicted.
+3. Non-null `target` → first 8 hex chars rendered (asserts the truncation format from the §Behaviour bullet).
+4. Each level renders with expected colour class.
+5. `event-row-{id}` testid on every row.
+6. Buffer cap eviction: emit 501 events with `maxBuffer=500` → 500 rows render, oldest evicted.
+7. Ordering across `clear()` + re-emit: emit 3 events → clear → emit 2 more → 2 new events render at the top of the now-empty table (no carry-over from before clear).
 
 **Commit:** `feat(frontend): ScanRunLiveEventsPanel event rows + level colours`.
 
@@ -76,11 +78,13 @@ export function ScanRunLiveEventsPanel({ scanRunId, livePolling }: Props): JSX.E
 - When the user scrolls up manually (detect `scrollTop < scrollHeight - clientHeight - threshold`): toggle to `off` automatically.
 - When `off`: no auto-scroll on new events.
 
+**JSDOM note:** JSDOM does not implement `Element.prototype.scrollIntoView`. Tests must stub it via `vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})` in `beforeEach`, restored in `afterEach`. Without the stub the test will throw `TypeError: el.scrollIntoView is not a function`. Same applies to `scrollTop`/`scrollHeight`/`clientHeight` reads for the "user scrolled up" detection — assert via direct property write rather than user-event simulation.
+
 **Test matrix:**
 1. Toggle button click flips state and label.
-2. With `on` and new event → `scrollIntoView` called on last row.
-3. With `off` and new event → no scroll.
-4. Manual scroll up → toggle flips to `off` automatically.
+2. With `on` and new event → `scrollIntoView` spy called on last row.
+3. With `off` and new event → spy not called.
+4. Manual scroll up (simulated via setting `scrollTop` and dispatching `scroll`) → toggle flips to `off` automatically; spy not called on subsequent emit.
 
 **Commit:** `feat(frontend): ScanRunLiveEventsPanel auto-scroll toggle`.
 
