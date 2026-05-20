@@ -21,6 +21,7 @@ from django.db import transaction
 from apps.evidence.models import Evidence, EvidenceSource
 from apps.findings.confidence import max_confidence
 from apps.findings.models import Finding, FindingStatus, Severity
+from apps.findings.bulk import bulk_create_findings
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
@@ -61,7 +62,7 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
 
     with transaction.atomic():
         Evidence.objects.bulk_create(evidences)
-        Finding.objects.bulk_create(findings)
+        bulk_create_findings(findings)
 
 
 def _build_rows(
