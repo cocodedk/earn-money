@@ -41,3 +41,4 @@ class StubsConfig(AppConfig):
         from . import well_known_paths  # noqa: F401  registers "1.20" (absorbs 1.21-1.25)
         # Phase 2 — authentication.
         from . import username_enum  # noqa: F401  registers "2.1"
+        from . import weak_password_policy  # noqa: F401  registers "2.2"

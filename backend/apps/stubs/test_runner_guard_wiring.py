@@ -59,6 +59,7 @@ _STUB_MODULES = (
     "apps.stubs.sql_orm_errors",
     "apps.stubs.well_known_paths",
     "apps.stubs.username_enum",
+    "apps.stubs.weak_password_policy",
 )
 
 
