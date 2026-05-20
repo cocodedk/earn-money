@@ -1,4 +1,9 @@
-"""Gate tests for stub 2.5 (predictable-reset-token)."""
+"""Gate tests for stub 2.5 (predictable-reset-token).
+
+The fixture-secret + mailbox-backend gates moved into the detection
+chain (test_detection.py). This file covers only the two pre-flight
+gates: RoE knob + authorised test account.
+"""
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -36,9 +41,10 @@ def test_roe_disabled() -> None:
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(knob_on=False)):
         run(scan_run, target_run)
-    assert Event.objects.filter(
+    ev = Event.objects.get(
         scan_run=scan_run, type=EventType.AUTH_PROBE_REFUSED,
-    ).exists()
+    )
+    assert ev.data["reason"] == "roe_disabled"
 
 
 @pytest.mark.django_db
@@ -47,29 +53,7 @@ def test_no_authorized_accounts() -> None:
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=[])):
         run(scan_run, target_run)
-    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    ev = Event.objects.get(
+        scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED,
+    )
     assert ev.data["detail"] == "no_authorized_test_accounts"
-
-
-@pytest.mark.django_db
-def test_missing_secret(monkeypatch) -> None:
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.5")
-    monkeypatch.delenv("FIXTURE_MAILBOX_TOKEN", raising=False)
-    with patch.object(get_registry(), "find_for_host",
-                      return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
-    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
-    assert ev.data["missing_secret"] == "FIXTURE_MAILBOX_TOKEN"
-
-
-@pytest.mark.django_db
-def test_all_gates_pass(monkeypatch) -> None:
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.5")
-    monkeypatch.setenv("FIXTURE_MAILBOX_TOKEN", "fixture-value")
-    with patch.object(get_registry(), "find_for_host",
-                      return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
-    assert not Event.objects.filter(
-        scan_run=scan_run,
-        type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],
-    ).exists()
