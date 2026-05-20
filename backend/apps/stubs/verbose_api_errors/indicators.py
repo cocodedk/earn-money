@@ -26,6 +26,8 @@ import json
 import re
 from typing import Literal, NamedTuple
 
+from .redaction import redact
+
 
 Kind = Literal["json_debug_field", "source_path", "database_error"]
 
@@ -184,7 +186,8 @@ def _is_meaningful(value: object) -> bool:
 
 
 def _excerpt(value: object) -> str:
-    return str(value)[:_MATCHED_VALUE_CAP]
+    # Redact before capping — cap a scrubbed snippet, not a half-leaked secret.
+    return redact(str(value))[:_MATCHED_VALUE_CAP]
 
 
 def _first_match(

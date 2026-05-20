@@ -180,36 +180,5 @@ class EmptyTests(unittest.TestCase):
         assert detect_api_error_indicators(body, "application/json") == []
 
 
-class DetectAllIndicatorsTests(unittest.TestCase):
-    """detect_all_indicators(...) is the broader variant — the
-    signature builder uses it to populate plural hint arrays per
-    spec §"Persistence"."""
-
-    def test_empty_body_returns_empty(self) -> None:
-        assert detect_all_indicators("", "application/json") == []
-
-    def test_collects_all_database_matches(self) -> None:
-        # Two distinct DB-engine signatures in one body — both
-        # surface (first-match-per-kind would miss the second).
-        body = (
-            "ORA-00942: missing table\n"
-            "sqlite3.OperationalError: no such table: x"
-        )
-        result = detect_all_indicators(body, "text/plain")
-        db_values = {i.matched_value for i in result if i.kind == "database_error"}
-        assert len(db_values) >= 2
-
-    def test_collects_all_source_paths(self) -> None:
-        body = (
-            "Stack:\n  /app/main.py:42\n  /srv/handler.py:5\n"
-        )
-        result = detect_all_indicators(body, "text/plain")
-        paths = {i.matched_value for i in result if i.kind == "source_path"}
-        assert "/app/main.py:42" in paths
-        assert "/srv/handler.py:5" in paths
-
-    def test_collects_all_json_fields(self) -> None:
-        body = '{"stack": "x", "exception": "ValueError", "file": "/a"}'
-        result = detect_all_indicators(body, "application/json")
-        json_count = sum(1 for i in result if i.kind == "json_debug_field")
-        assert json_count == 3
+# detect_all_indicators + FU-1 redaction tests live in
+# test_indicators_detect_all.py.

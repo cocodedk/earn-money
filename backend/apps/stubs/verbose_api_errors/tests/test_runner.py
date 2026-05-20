@@ -135,3 +135,12 @@ class TransportFailureTests(TestCase):
         evidence = Evidence.objects.filter(scan_run=scan_run)
         assert evidence.count() == 2
         assert all(ev.data["status"] == 0 for ev in evidence)
+        # Transport-error rows have no body — excerpt empty, no
+        # truncation, no headers.
+        for ev in evidence:
+            assert ev.raw_excerpt == ""
+            assert ev.data["selected_headers"] == {}
+            assert ev.data["truncation"] is False
+
+
+# FU-1 Evidence-shape tests live in test_runner_evidence.py.

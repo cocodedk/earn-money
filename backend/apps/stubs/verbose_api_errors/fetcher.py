@@ -28,6 +28,8 @@ class ResponseSnapshot:
     body: str
     final_url: str
     content_type: str
+    headers: dict[str, str]  # lowercased header names → value
+    body_truncated: bool  # True when raw body exceeded _MAX_BODY_BYTES
 
 
 def fetch_response(url: str) -> ResponseSnapshot:
@@ -40,11 +42,17 @@ def fetch_response(url: str) -> ResponseSnapshot:
         ) as client:
             response = client.get(url)
     except (httpx.TransportError, httpx.TooManyRedirects):
-        return ResponseSnapshot(status=0, body="", final_url=url, content_type="")
+        return ResponseSnapshot(
+            status=0, body="", final_url=url, content_type="",
+            headers={}, body_truncated=False,
+        )
     raw_ct = response.headers.get("content-type", "")
+    raw_text = response.text or ""
     return ResponseSnapshot(
         status=response.status_code,
-        body=(response.text or "")[:_MAX_BODY_BYTES],
+        body=raw_text[:_MAX_BODY_BYTES],
         final_url=str(response.url),
         content_type=raw_ct.split(";", 1)[0].strip().lower(),
+        headers={k.lower(): v for k, v in response.headers.items()},
+        body_truncated=len(raw_text) > _MAX_BODY_BYTES,
     )
