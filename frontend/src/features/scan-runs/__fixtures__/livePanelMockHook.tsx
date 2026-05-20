@@ -13,14 +13,17 @@ export const SCAN_RUN_ID = "11111111-1111-1111-1111-111111111111";
 export function mockLiveEventsHook(
   status: ConnectionStatus,
   events: ApiEvent[],
-): void {
+): { reconnect: ReturnType<typeof vi.fn>; clear: ReturnType<typeof vi.fn> } {
+  const reconnect = vi.fn();
+  const clear = vi.fn();
   const result: UseScanRunEventsResult = {
     events,
     status,
-    reconnect: vi.fn(),
-    clear: vi.fn(),
+    reconnect,
+    clear,
   };
   vi.mocked(hookModule.useScanRunEvents).mockReturnValue(result);
+  return { reconnect, clear };
 }
 
 export function renderLivePanel() {

@@ -2,19 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useScanRunEvents } from "./useScanRunEvents";
 import type { ConnectionStatus } from "./useScanRunEvents.utils";
 import type { Event as ApiEvent, EventLevel } from "../../types/api";
+import { EventsPanelHeader } from "./EventsPanelHeader";
 
 type Props = { scanRunId: string; livePolling: boolean };
 
 const SCROLL_THRESHOLD_PX = 20;
-
-const PILL_CLASS: Record<ConnectionStatus, string> = {
-  connecting: "bg-amber-100 text-amber-800",
-  connected: "bg-green-100 text-green-800",
-  reconnecting: "bg-amber-100 text-amber-800",
-  "polling-fallback": "bg-blue-100 text-blue-800",
-  closed: "bg-gray-100 text-gray-800",
-  disabled: "bg-red-100 text-red-800",
-};
 
 const EMPTY_HINT: Record<ConnectionStatus, string> = {
   connecting: "Connecting…",
@@ -65,7 +57,9 @@ export function ScanRunLiveEventsPanel({
   scanRunId,
   livePolling,
 }: Props): JSX.Element {
-  const { events, status } = useScanRunEvents(scanRunId, { livePolling });
+  const { events, status, clear, reconnect } = useScanRunEvents(scanRunId, {
+    livePolling,
+  });
   const hasEvents = events.length > 0;
 
   const [autoScroll, setAutoScroll] = useState(true);
@@ -88,22 +82,13 @@ export function ScanRunLiveEventsPanel({
 
   return (
     <section>
-      <header className="flex items-center gap-2">
-        <h3>Live events</h3>
-        <span
-          data-testid="events-connection-status"
-          className={`sticky top-0 px-2 py-0.5 rounded text-xs font-medium ${PILL_CLASS[status]}`}
-        >
-          {status}
-        </span>
-        <button
-          data-testid="events-autoscroll-toggle"
-          type="button"
-          onClick={() => setAutoScroll((v) => !v)}
-        >
-          Auto-scroll: {autoScroll ? "on" : "off"}
-        </button>
-      </header>
+      <EventsPanelHeader
+        status={status}
+        autoScroll={autoScroll}
+        setAutoScroll={setAutoScroll}
+        clear={clear}
+        reconnect={reconnect}
+      />
       {!hasEvents && <p>{EMPTY_HINT[status]}</p>}
       {hasEvents && (
         <div
