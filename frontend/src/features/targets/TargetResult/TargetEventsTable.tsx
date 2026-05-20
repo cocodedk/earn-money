@@ -1,6 +1,5 @@
-import { Callout } from "../../../components/Callout";
-import { Table } from "../../../components/Table";
 import { useTargetEventsQuery } from "../api";
+import { TargetSection } from "./TargetSection";
 import type { Event as ApiEvent } from "../../../types/api";
 
 function fmtTime(ts: string): string {
@@ -20,35 +19,19 @@ const columns = [
 ];
 
 export function TargetEventsTable({ targetId }: { targetId: string }) {
-  const query = useTargetEventsQuery(targetId);
-
-  if (query.isError) {
-    return <Callout variant="error">Could not load events.</Callout>;
-  }
-  if (!query.data) {
-    return <div data-testid="target-events-loading">Loading events…</div>;
-  }
-  const { results, count, next } = query.data;
   return (
-    <section data-testid="target-events-section">
-      <h3>Events for target ({count})</h3>
-      {count === 0 ? (
-        <p data-testid="target-events-empty">No events yet for this target.</p>
-      ) : (
-        <>
-          <Table<ApiEvent>
-            columns={columns}
-            rows={results}
-            rowKey={(e) => e.id}
-            rowTestId={(e) => `target-event-row-${e.id}`}
-          />
-          {next !== null && (
-            <p data-testid="target-events-truncation">
-              Showing first {results.length} of {count} events
-            </p>
-          )}
-        </>
-      )}
-    </section>
+    <TargetSection<ApiEvent>
+      query={useTargetEventsQuery(targetId)}
+      columns={columns}
+      rowTestIdPrefix="target-event-row-"
+      copy={{
+        slug: "target-events",
+        heading: "Events for target",
+        errorMessage: "Could not load events.",
+        loadingMessage: "Loading events…",
+        emptyMessage: "No events yet for this target.",
+        truncationNoun: "events",
+      }}
+    />
   );
 }

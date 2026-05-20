@@ -1,11 +1,7 @@
-import { Callout } from "../../../components/Callout";
-import { Table } from "../../../components/Table";
 import { useTargetFindingsQuery } from "../api";
+import { fmtDate } from "./format";
+import { TargetSection } from "./TargetSection";
 import type { Finding } from "../../../types/api";
-
-function fmt(ts: string): string {
-  return ts.slice(0, 10);
-}
 
 const columns = [
   { key: "title", header: "Title", cell: (f: Finding) => f.title },
@@ -14,39 +10,23 @@ const columns = [
   { key: "severity", header: "Severity", cell: (f: Finding) => f.severity },
   { key: "confidence", header: "Confidence", cell: (f: Finding) => f.confidence || "—" },
   { key: "status", header: "Status", cell: (f: Finding) => f.status },
-  { key: "created_at", header: "Created at", cell: (f: Finding) => fmt(f.created_at) },
+  { key: "created_at", header: "Created at", cell: (f: Finding) => fmtDate(f.created_at) },
 ];
 
 export function TargetFindingsPanel({ targetId }: { targetId: string }) {
-  const query = useTargetFindingsQuery(targetId);
-
-  if (query.isError) {
-    return <Callout variant="error">Could not load findings.</Callout>;
-  }
-  if (!query.data) {
-    return <div data-testid="target-findings-loading">Loading findings…</div>;
-  }
-  const { results, count, next } = query.data;
   return (
-    <section data-testid="target-findings-section">
-      <h3>Findings for target ({count})</h3>
-      {count === 0 ? (
-        <p data-testid="target-findings-empty">No findings yet for this target.</p>
-      ) : (
-        <>
-          <Table<Finding>
-            columns={columns}
-            rows={results}
-            rowKey={(f) => f.id}
-            rowTestId={(f) => `target-finding-row-${f.id}`}
-          />
-          {next !== null && (
-            <p data-testid="target-findings-truncation">
-              Showing first {results.length} of {count} findings
-            </p>
-          )}
-        </>
-      )}
-    </section>
+    <TargetSection<Finding>
+      query={useTargetFindingsQuery(targetId)}
+      columns={columns}
+      rowTestIdPrefix="target-finding-row-"
+      copy={{
+        slug: "target-findings",
+        heading: "Findings for target",
+        errorMessage: "Could not load findings.",
+        loadingMessage: "Loading findings…",
+        emptyMessage: "No findings yet for this target.",
+        truncationNoun: "findings",
+      }}
+    />
   );
 }
