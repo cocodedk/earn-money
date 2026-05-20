@@ -7,7 +7,7 @@
   border-radius: var(--radius-sharp);
   background: var(--surface-raised);
   font-family: var(--font-body);
-  font-size: 0.8125rem;
+  font-size: var(--text-body);
   color: var(--ink-default);
   font-feature-settings: "ss01";
 }
@@ -15,7 +15,7 @@
 .chip > strong {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: 0.75rem;
+  font-size: var(--text-code);
   color: var(--ink-strong);
   letter-spacing: 0.01em;
 }
@@ -26,7 +26,7 @@
   border: 0;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 0.6875rem;
+  font-size: var(--text-micro);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;

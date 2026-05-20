@@ -21,7 +21,7 @@
   top: 1rem;
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: currentColor;
   opacity: 0.85;
 }
@@ -34,7 +34,7 @@
 }
 
 .body {
-  font-size: 0.8125rem;
+  font-size: var(--text-body);
   color: var(--ink-default);
 }
 

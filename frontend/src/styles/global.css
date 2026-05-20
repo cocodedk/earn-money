@@ -37,29 +37,40 @@
   --accent-soft: #fef3c7;
   --accent-ink: #78350f;
   --accent-ring: rgba(180, 83, 9, 0.22);
+  --accent-wash: rgba(180, 83, 9, 0.04);
 
   /* Status */
   --ok: #1f6e3a;
   --ok-soft: #e6f3e8;
   --ok-ink: #14532d;
+  --ok-ring: rgba(31, 110, 58, 0.3);
   --warn: #a16207;
   --warn-soft: #fef4c7;
   --warn-ink: #713f12;
   --err: #991b1b;
   --err-soft: #fde6e6;
   --err-ink: #7f1d1d;
+  --err-ring: rgba(153, 27, 27, 0.3);
+  --err-ring-soft: rgba(153, 27, 27, 0.18);
   --info: #1e3a8a;
   --info-soft: #e3e9fa;
   --info-ink: #1e3a8a;
 
-  /* Type */
+  /* Type families */
   --font-display: "Funnel Display", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Funnel Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
+  /* Type scale */
+  --text-micro: 0.6875rem;
+  --text-code: 0.75rem;
+  --text-body: 0.8125rem;
+  --text-default: 0.875rem;
+  --text-display: 1.875rem;
+
   /* Rhythm */
   --radius-sharp: 2px;
-  --radius-soft: 4px;
+  --radius-pill: 999px;
 
   /* Motion */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -124,6 +135,12 @@ body {
   }
   100% {
     background-position: 24px 0;
+  }
+}
+
+@keyframes em-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

@@ -12,8 +12,8 @@
       135deg,
       transparent 0,
       transparent 11px,
-      rgba(180, 83, 9, 0.035) 11px,
-      rgba(180, 83, 9, 0.035) 12px
+      var(--accent-wash) 11px,
+      var(--accent-wash) 12px
     ),
     var(--surface-raised);
   text-align: center;
@@ -34,7 +34,7 @@
   display: block;
   margin-bottom: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--text-code);
   letter-spacing: 0.2em;
   color: var(--accent);
 }

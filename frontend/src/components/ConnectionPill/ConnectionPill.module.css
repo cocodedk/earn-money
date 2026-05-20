@@ -4,49 +4,33 @@
   gap: 0.5rem;
   padding: 0.25rem 0.625rem;
   border: 1px solid var(--rule-soft);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-raised);
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-micro);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-muted);
+  --pill-dot: var(--ink-soft);
 }
 
 .dot {
-  position: relative;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: var(--ink-soft);
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: var(--radius-pill);
+  background: var(--pill-dot);
   transition: background-color var(--dur-base) var(--ease-out);
 }
 
 .pill[data-connected="true"] {
-  border-color: rgba(31, 110, 58, 0.3);
+  border-color: var(--ok-ring);
   color: var(--ok-ink);
-}
-
-.pill[data-connected="true"] .dot {
-  background: var(--ok);
-}
-
-.pill[data-connected="true"] .dot::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 999px;
-  background: var(--ok);
-  opacity: 0.35;
-  animation: em-pulse 1.8s ease-out infinite;
+  --pill-dot: var(--ok);
 }
 
 .pill[data-connected="false"] {
-  border-color: rgba(153, 27, 27, 0.3);
+  border-color: var(--err-ring);
   color: var(--err-ink);
-}
-
-.pill[data-connected="false"] .dot {
-  background: var(--err);
+  --pill-dot: var(--err);
 }
