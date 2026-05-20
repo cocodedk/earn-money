@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
-import { http as msw, HttpResponse, delay } from "msw";
+import { http as msw, HttpResponse } from "msw";
 import { server } from "../../test/server";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { withPaginated } from "../../test/helpers";
@@ -69,10 +69,7 @@ describe("ScanRunFindingsPanel", () => {
 
   it("renders loading state with data-testid=findings-loading", async () => {
     server.use(
-      msw.get("/api/findings/", async () => {
-        await delay(2000);
-        return HttpResponse.json({ count: 0, next: null, previous: null, results: [] });
-      }),
+      msw.get("/api/findings/", () => new Promise<Response>(() => {})),
     );
     renderWithProviders(
       <ScanRunFindingsPanel scanRunId={SCAN_RUN_ID} livePolling={false} />,

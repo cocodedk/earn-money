@@ -16,6 +16,7 @@ import type { ScanRun } from "../../types/api";
 function DetailBody({ run }: { run: ScanRun }) {
   const projectName = useProjectNameLookup();
   const stubName = useStubSlugLookup();
+  const livePolling = isRunActive(run.status);
   return (
     <>
       <PageHeader
@@ -38,18 +39,9 @@ function DetailBody({ run }: { run: ScanRun }) {
           {run.finished_at ? run.finished_at.slice(0, 19) : "—"}
         </MetaRow>
       </MetaList>
-      <ScanRunTargetsTable
-        scanRunId={run.id}
-        livePolling={isRunActive(run.status)}
-      />
-      <ScanRunFindingsPanel
-        scanRunId={run.id}
-        livePolling={isRunActive(run.status)}
-      />
-      <ScanRunEvidencePanel
-        scanRunId={run.id}
-        livePolling={isRunActive(run.status)}
-      />
+      <ScanRunTargetsTable scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunFindingsPanel scanRunId={run.id} livePolling={livePolling} />
+      <ScanRunEvidencePanel scanRunId={run.id} livePolling={livePolling} />
     </>
   );
 }

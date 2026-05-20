@@ -68,11 +68,11 @@ export const useStopScanRunMutation = makeLifecycleHook("stop");
 export const scanRunTargetRunsKey = (id: string) =>
   [...SCAN_RUNS_KEY, id, "target-runs"] as const;
 
-type TargetRunsOptions = { livePolling?: boolean };
+type ScanRunChildOptions = { livePolling?: boolean };
 
 export function useScanRunTargetRunsQuery(
   scanRunId: string | undefined,
-  options?: TargetRunsOptions,
+  options?: ScanRunChildOptions,
 ) {
   const client = useQueryClient();
   const livePolling = Boolean(options?.livePolling);
@@ -101,8 +101,6 @@ export function useScanRunTargetRunsQuery(
 export const scanRunFindingsKey = (id: string) =>
   [...SCAN_RUNS_KEY, id, "findings"] as const;
 
-type ScanRunChildOptions = { livePolling?: boolean };
-
 export function useScanRunFindingsQuery(
   scanRunId: string | undefined,
   options?: ScanRunChildOptions,
@@ -125,7 +123,9 @@ export function useScanRunFindingsQuery(
   return useQuery({
     queryKey: scanRunFindingsKey(scanRunId ?? ""),
     queryFn: () =>
-      http<Paginated<Finding>>(`/api/findings/?scan_run=${scanRunId}`),
+      http<Paginated<Finding>>(
+        `/api/findings/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
+      ),
     enabled: Boolean(scanRunId),
     refetchInterval: livePolling ? 2000 : false,
   });
@@ -156,7 +156,9 @@ export function useScanRunEvidenceQuery(
   return useQuery({
     queryKey: scanRunEvidenceKey(scanRunId ?? ""),
     queryFn: () =>
-      http<Paginated<Evidence>>(`/api/evidence/?scan_run=${scanRunId}`),
+      http<Paginated<Evidence>>(
+        `/api/evidence/?scan_run=${encodeURIComponent(scanRunId ?? "")}`,
+      ),
     enabled: Boolean(scanRunId),
     refetchInterval: livePolling ? 2000 : false,
   });
