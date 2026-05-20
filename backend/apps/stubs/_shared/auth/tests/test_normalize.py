@@ -186,13 +186,15 @@ def test_body_fingerprint_diff_reported_when_unique() -> None:
 
 def test_differentiator_carries_redacted_values() -> None:
     """Differentiator values are never raw token / cookie strings —
-    the diff layer pre-redacts."""
+    the diff layer pre-redacts. Field names are generic
+    (`value_a` / `value_b`) so the dataclass works for any
+    comparison stub, not just username-enum's invalid/valid framing."""
     a = normalize(_resp(status=200))
     b = normalize(_resp(status=403))
     out = diff(a, b)
     d = next(x for x in out if x.kind == "status_code")
-    assert d.invalid_value_redacted == "200"
-    assert d.valid_value_redacted == "403"
+    assert d.value_a == "200"
+    assert d.value_b == "403"
 
 
 # ----- classify_abort -----------------------------------------------

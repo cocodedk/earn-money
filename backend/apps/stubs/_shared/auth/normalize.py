@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Literal, Protocol
 
 from . import _normalize_abort as _abort
 from . import _normalize_parse as _parse
@@ -29,14 +29,32 @@ from . import _normalize_strip as _strip
 from .safety import AbortSignal
 
 
+class ResponseLike(Protocol):
+    """Structural type for the subset of httpx.Response that
+    `normalize` needs. Lets tests inject lightweight stand-ins
+    without depending on httpx in the test surface."""
+    status_code: int
+    url: str
+    headers: dict
+    text: str
+
+
 @dataclass(frozen=True)
 class Differentiator:
+    """One semantic difference between two probe responses.
+
+    Field names are generic so the dataclass can carry diff results
+    from any comparison stub (login enumeration, password reset,
+    OAuth callback, etc.). Stubs that need stub-specific framing
+    (e.g. "invalid_value" vs "valid_value" in 2.1's spec) map at
+    Finding-persistence time.
+    """
     kind: Literal[
         "status_code", "redirect_location", "json_error_code",
         "field_error", "body_text", "title_text",
     ]
-    invalid_value_redacted: str
-    valid_value_redacted: str
+    value_a: str
+    value_b: str
     explanation: str
 
 
@@ -54,7 +72,7 @@ class NormalizedResponse:
     abort_signal: AbortSignal | None = None
 
 
-def normalize(response: Any) -> NormalizedResponse:
+def normalize(response: ResponseLike) -> NormalizedResponse:
     """Build a `NormalizedResponse` from an httpx.Response-like object."""
     raw_body = response.text or ""
     headers = response.headers or {}
@@ -93,36 +111,36 @@ def diff(a: NormalizedResponse, b: NormalizedResponse) -> list[Differentiator]:
     if a.status != b.status:
         out.append(Differentiator(
             kind="status_code",
-            invalid_value_redacted=str(a.status),
-            valid_value_redacted=str(b.status),
+            value_a=str(a.status),
+            value_b=str(b.status),
             explanation="HTTP status differs between controls",
         ))
     if a.redirect_location != b.redirect_location:
         out.append(Differentiator(
             kind="redirect_location",
-            invalid_value_redacted=a.redirect_location or "",
-            valid_value_redacted=b.redirect_location or "",
+            value_a=a.redirect_location or "",
+            value_b=b.redirect_location or "",
             explanation="Redirect target differs between controls",
         ))
     if a.json_error_code != b.json_error_code:
         out.append(Differentiator(
             kind="json_error_code",
-            invalid_value_redacted=a.json_error_code or "",
-            valid_value_redacted=b.json_error_code or "",
+            value_a=a.json_error_code or "",
+            value_b=b.json_error_code or "",
             explanation="JSON error code differs between controls",
         ))
     if a.title != b.title:
         out.append(Differentiator(
             kind="title_text",
-            invalid_value_redacted=a.title or "",
-            valid_value_redacted=b.title or "",
+            value_a=a.title or "",
+            value_b=b.title or "",
             explanation="Response page title differs",
         ))
     if a.body_fingerprint != b.body_fingerprint and not _has_strong_signal(out):
         out.append(Differentiator(
             kind="body_text",
-            invalid_value_redacted=a.body_snippet,
-            valid_value_redacted=b.body_snippet,
+            value_a=a.body_snippet,
+            value_b=b.body_snippet,
             explanation="Response body text differs after normalization",
         ))
     return out

@@ -46,6 +46,10 @@ def coerce_str(value: Any) -> str:
 
 
 def coerce_optional_str(value: Any) -> str | None:
-    if value is None or value == "":
+    """Return None only when the value is None. An empty string is
+    preserved as `""` — for some bypass-test stubs an empty
+    `Location:` header is a real (malformed) signal that must not be
+    indistinguishable from an absent header."""
+    if value is None:
         return None
     return str(value)
