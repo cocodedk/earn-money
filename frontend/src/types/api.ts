@@ -113,3 +113,38 @@ export type CreateScanRunBody = {
 };
 
 export type LifecycleAction = "start" | "pause" | "resume" | "stop";
+
+export type Confidence = "low" | "medium" | "high";
+
+export type FindingStatus = "candidate" | "confirmed" | "rejected" | "stale";
+
+export type Finding = {
+  id: Uuid;
+  scan_run: Uuid;
+  target: Uuid;
+  stub_slug: string;
+  title: string;
+  category: string;
+  severity: Severity;
+  confidence: Confidence;
+  status: FindingStatus;
+  data: Record<string, unknown>;
+  created_at: Iso8601;
+  updated_at: Iso8601;
+};
+
+export type Evidence = {
+  id: Uuid;
+  scan_run: Uuid;
+  target: Uuid;
+  finding: Uuid | null;
+  source: string;
+  url: string | null;
+  method: string | null;
+  field: string | null;
+  matched_value: string | null;
+  raw_excerpt: string | null;
+  content_hash: string;
+  data: Record<string, unknown>;
+  created_at: Iso8601;
+};
