@@ -10,5 +10,4 @@ class FindingsConfig(AppConfig):
     label = "findings"
 
     def ready(self) -> None:
-        # Wire the post_save signal that emits FINDING_CREATED events.
         from . import signals  # noqa: F401

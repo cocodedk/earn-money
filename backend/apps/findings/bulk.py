@@ -17,8 +17,9 @@ from .models import Finding
 
 
 def bulk_create_findings(findings: list[Finding]) -> list[Finding]:
-    """Atomic bulk insert + per-row post_save emit. Returns the
-    inserted rows (matching `bulk_create`'s signature)."""
+    """Bulk insert + per-row post_save emit. Caller must wrap in
+    `transaction.atomic()` so the inserts and resulting Events land
+    together. Returns the inserted rows (matching `bulk_create`)."""
     created = Finding.objects.bulk_create(findings)
     for f in created:
         post_save.send(sender=Finding, instance=f, created=True)
