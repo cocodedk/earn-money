@@ -11,7 +11,6 @@ import type {
 } from "../../types/api";
 
 export const TARGETS_KEY = ["targets"] as const;
-export const targetKey = (id: string) => [...TARGETS_KEY, id] as const;
 
 export function useTargetsQuery() {
   return useQuery({
@@ -22,7 +21,7 @@ export function useTargetsQuery() {
 
 export function useTargetQuery(id: string | undefined) {
   return useQuery({
-    queryKey: targetKey(id ?? ""),
+    queryKey: [...TARGETS_KEY, id ?? ""] as const,
     queryFn: () => http<Target>(`/api/targets/${id}/`),
     enabled: Boolean(id),
   });
@@ -41,45 +40,29 @@ export function useCreateTargetMutation() {
 
 function useTargetChildQuery<T>(
   targetId: string | undefined,
-  config: {
-    endpoint: string;
-    queryKey: readonly [...typeof TARGETS_KEY, string, string];
-  },
+  child: string,
 ) {
+  const id = targetId ?? "";
   return useQuery({
-    queryKey: config.queryKey,
-    queryFn: () => http<Paginated<T>>(config.endpoint),
+    queryKey: [...TARGETS_KEY, id, child] as const,
+    queryFn: () =>
+      http<Paginated<T>>(`/api/${child}/?target=${encodeURIComponent(id)}`),
     enabled: Boolean(targetId),
   });
 }
 
-const childKey = (id: string, child: string) =>
-  [...TARGETS_KEY, id, child] as const;
-
 export function useTargetScanRunsQuery(targetId: string | undefined) {
-  return useTargetChildQuery<ScanRun>(targetId, {
-    endpoint: `/api/scan-runs/?target=${encodeURIComponent(targetId ?? "")}`,
-    queryKey: childKey(targetId ?? "", "scan-runs"),
-  });
+  return useTargetChildQuery<ScanRun>(targetId, "scan-runs");
 }
 
 export function useTargetFindingsQuery(targetId: string | undefined) {
-  return useTargetChildQuery<Finding>(targetId, {
-    endpoint: `/api/findings/?target=${encodeURIComponent(targetId ?? "")}`,
-    queryKey: childKey(targetId ?? "", "findings"),
-  });
+  return useTargetChildQuery<Finding>(targetId, "findings");
 }
 
 export function useTargetEvidenceQuery(targetId: string | undefined) {
-  return useTargetChildQuery<Evidence>(targetId, {
-    endpoint: `/api/evidence/?target=${encodeURIComponent(targetId ?? "")}`,
-    queryKey: childKey(targetId ?? "", "evidence"),
-  });
+  return useTargetChildQuery<Evidence>(targetId, "evidence");
 }
 
 export function useTargetEventsQuery(targetId: string | undefined) {
-  return useTargetChildQuery<Event>(targetId, {
-    endpoint: `/api/events/?target=${encodeURIComponent(targetId ?? "")}`,
-    queryKey: childKey(targetId ?? "", "events"),
-  });
+  return useTargetChildQuery<Event>(targetId, "events");
 }
