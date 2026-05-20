@@ -41,3 +41,7 @@ class EventType(models.TextChoices):
     FINDING_CREATED = "finding.created", "Finding created"
     # Finding triage by the operator (candidate → confirmed/rejected/stale).
     FINDING_STATUS_CHANGED = "finding.status_changed", "Finding status changed"
+    # Scope-enforcement: fetcher refused a candidate URL outside the
+    # resolved program's scope. Recon halts for that candidate; the
+    # event is the audit trail.
+    OUT_OF_SCOPE_REJECTED = "scan.out_of_scope_rejected", "Out-of-scope candidate URL rejected"

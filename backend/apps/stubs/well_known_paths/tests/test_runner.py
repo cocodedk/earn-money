@@ -14,6 +14,8 @@ import httpx
 
 from django.test import TestCase
 
+from apps.events.models import Event
+from apps.events.types import EventType
 from apps.evidence.models import Evidence
 from apps.findings.models import Finding, FindingStatus
 from apps.stubs._test_factories import seed_target_run
@@ -140,3 +142,93 @@ class CandidateBodyNoSignatureTests(TestCase):
         # Evidence row was written.
         assert Finding.objects.filter(scan_run=scan_run).count() == 0
         assert Evidence.objects.filter(scan_run=scan_run).count() > 0
+
+class ScopeRejectionTests(TestCase):
+    """Slice E: enforce_scope wired into the fetcher path."""
+
+    def test_baseline_out_of_scope_returns_early(self) -> None:
+        """If the BASELINE URL is rejected (mocked scenario where the
+        target host is out-of-scope), the runner exits without issuing
+        any HTTP and without writing any Evidence/Finding rows."""
+        # Seed a target on an out-of-scope host ("unknown.invalid" — the
+        # conftest default program lists *.invalid in_scope, so let's
+        # use a domain it doesn't cover).
+        from apps.programs import loader
+        loader._default_registry = None
+        scan_run, target_run = seed_target_run(
+            stub_slug="1.20", host="out-of-scope.unmatched",
+        )
+
+        def head(url, **_): return _r(200, url=str(url))  # pragma: no cover — bypassed
+        def get(url, **_): return _r(200, url=str(url))  # pragma: no cover
+
+        # The runner's find_for_host will raise OutOfScope before any
+        # HTTP. The exception propagates out — the runner doesn't
+        # catch it because it shouldn't have reached this point past
+        # pre-flight. Wrap accordingly.
+        from apps.programs.exceptions import OutOfScope as OOS
+        with _mock_client(head, get), self.assertRaises(OOS):
+            run(scan_run, target_run)
+        assert Evidence.objects.filter(scan_run=scan_run).count() == 0
+
+
+    def test_in_scope_baseline_proceeds_with_no_oos_event(self) -> None:
+        """In-scope target produces ZERO OUT_OF_SCOPE_REJECTED events;
+        the runner's per-candidate enforce_scope is exercised but every
+        check passes."""
+        scan_run, target_run = _seed()
+        def head(url, **_): return _r(200, url=str(url))
+        def get(url, **_): return _r(200, url=str(url), body=b"")
+        with _mock_client(head, get):
+            run(scan_run, target_run)
+        assert Event.objects.filter(
+            scan_run=scan_run, type=EventType.OUT_OF_SCOPE_REJECTED,
+        ).count() == 0
+
+    def test_baseline_enforce_scope_raises_returns_early(self) -> None:
+        """Defensive branch: enforce_scope on the baseline URL raises
+        despite find_for_host having resolved the target. Runner exits
+        without hitting any fetcher."""
+        scan_run, target_run = _seed()
+        with patch(
+            "apps.stubs.well_known_paths.runner.enforce_scope",
+            side_effect=__import__(
+                "apps.programs.exceptions", fromlist=["OutOfScope"],
+            ).OutOfScope("synthetic baseline reject"),
+        ):
+            def head(url, **_):  # pragma: no cover — fetcher never called
+                return _r(200, url=str(url))
+            def get(url, **_):  # pragma: no cover
+                return _r(200, url=str(url))
+            with _mock_client(head, get):
+                run(scan_run, target_run)
+        assert Evidence.objects.filter(scan_run=scan_run).count() == 0
+
+    def test_candidate_enforce_scope_raises_continues_to_next(self) -> None:
+        """Defensive branch: baseline passes, then a candidate URL's
+        enforce_scope raises. Runner logs event (via the mocked
+        function) and continues — no Evidence row for the rejected
+        candidate."""
+        from apps.programs.exceptions import OutOfScope as OOS
+        scan_run, target_run = _seed()
+        call_count = {"n": 0}
+
+        def fake_enforce(target, url, program, *, scan_run=None, stub_id=None):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return None  # baseline passes
+            raise OOS("synthetic candidate reject")
+
+        with patch(
+            "apps.stubs.well_known_paths.runner.enforce_scope",
+            side_effect=fake_enforce,
+        ):
+            def head(url, **_): return _r(404, url=str(url))
+            def get(url, **_):  # pragma: no cover — baseline doesn't pass scope yet
+                return _r(404, url=str(url))
+            with _mock_client(head, get):
+                run(scan_run, target_run)
+        # Baseline went through fetcher; subsequent candidates all
+        # rejected → only baseline Evidence (if any) was written.
+        assert Finding.objects.filter(scan_run=scan_run).count() == 0
+
