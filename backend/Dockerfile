@@ -8,9 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Build deps for psycopg + general tooling.
+# Build deps for psycopg + general tooling. `tzdata` so the TZ env
+# var (Europe/Copenhagen by default — set in docker-compose.yml) is
+# resolvable by Python's zoneinfo and C's localtime().
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential libpq-dev curl \
+        build-essential libpq-dev curl tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

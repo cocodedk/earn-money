@@ -106,7 +106,7 @@ CELERY_TASK_TIME_LIMIT = 60 * 30
 
 # --- Internationalization ---
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Copenhagen"
 USE_I18N = True
 USE_TZ = True
 
