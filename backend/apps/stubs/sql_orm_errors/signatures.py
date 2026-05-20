@@ -22,12 +22,13 @@ from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
+from .._shared.types import Confidence
+
 
 Family = Literal[
     "mysql", "postgresql", "sqlite", "mssql", "oracle",
     "mariadb", "orm", "driver", "generic_sql", "other",
 ]
-Confidence = Literal["low", "medium", "high"]
 PatternType = Literal["literal", "regex"]
 
 
