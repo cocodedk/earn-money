@@ -68,6 +68,14 @@ def _resp(status: int) -> MagicMock:
     return r
 
 
+@pytest.fixture(autouse=True)
+def _replacement_password(monkeypatch) -> None:
+    """Codex P1 — the runner now refuses to start without an
+    operator-configured replacement password. Set a dummy for every
+    detection test."""
+    monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD", "test-replacement")
+
+
 @pytest.mark.django_db
 def test_reuse_succeeds_emits_finding() -> None:
     """First /reset-password = 200, second /reset-password with the

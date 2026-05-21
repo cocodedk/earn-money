@@ -95,7 +95,9 @@ def test_no_expiry_marker_emits_finding() -> None:
     assert f.confidence == "low"
     assert f.status == FindingStatus.CANDIDATE
     assert f.data["requires_manual_review"] is True
-    assert "abc" in f.data["body_snippet"]
+    # Codex P1: token must NOT appear raw in persisted snippet.
+    assert "abc" not in f.data["body_snippet"]
+    assert "<redacted>" in f.data["body_snippet"]
     assert Event.objects.filter(
         scan_run=scan_run, type=EventType.AUTH_FINDING_CANDIDATE,
     ).exists()
@@ -191,3 +193,5 @@ def test_request_reset_fails_emits_refusal() -> None:
             p.stop()
     ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
     assert ev.data["detail"] == "no_reset_email_received"
+
+

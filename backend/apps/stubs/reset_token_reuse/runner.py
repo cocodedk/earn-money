@@ -16,7 +16,7 @@ has been consumed once. Detection chain:
 """
 from __future__ import annotations
 
-import secrets
+import os
 from datetime import datetime, timezone
 
 from apps.findings.models import Finding, FindingStatus, Severity
@@ -43,6 +43,13 @@ _STUB_ID = "2.6"
 _CATEGORY = "auth_reset_token_reuse"
 _CONFIDENCE = "high"
 
+# Codex P1 — the canary account's password gets RESET by this stub.
+# The operator must supply a known replacement so they can log back
+# in after the scan; using random values would silently lock them
+# out of any real-world canary. The env var is also the consent
+# signal that the operator has accepted the password-mutation risk.
+_REPLACEMENT_PASSWORD_ENV = "FIXTURE_RESET_REPLACEMENT_PASSWORD"
+
 
 @guarded_runner(_STUB_ID)
 def run(
@@ -62,6 +69,15 @@ def run(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.FIXTURE_REQUIRED,
             details={"detail": "no_authorized_test_accounts"},
+        )
+        return
+    replacement_password = os.environ.get(_REPLACEMENT_PASSWORD_ENV)
+    if not replacement_password:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.MISSING_SECRET,
+            details={"missing_secret": _REPLACEMENT_PASSWORD_ENV,
+                     "detail": "reset_replacement_password_required"},
         )
         return
     canary = program.roe.authorized_test_accounts[0]
@@ -90,6 +106,10 @@ def run(
             target, discovery.final_url, program,
             scan_run=scan_run, stub_id=_STUB_ID,
         )
+        enforce_scope(
+            target, discovery.form.action_url, program,
+            scan_run=scan_run, stub_id=_STUB_ID,
+        )
     except OutOfScope:
         return
 
@@ -106,10 +126,11 @@ def run(
         return
 
     # First consumption — should succeed on any normal target.
+    # Both consumptions use the OPERATOR-CONFIGURED replacement
+    # password so the canary remains usable post-scan (codex P1).
     acquire_for(program)
     first = complete_reset(
-        base_url=target.base_url, token=token,
-        password=f"scanner-rt-{secrets.token_hex(8)}",
+        base_url=target.base_url, token=token, password=replacement_password,
     )
     if first is None or not (200 <= first.status_code < 300):
         return  # Target rejected the first consumption — can't probe reuse.
@@ -117,8 +138,7 @@ def run(
     # Second consumption with SAME token — the load-bearing probe.
     acquire_for(program)
     second = complete_reset(
-        base_url=target.base_url, token=token,
-        password=f"scanner-rt2-{secrets.token_hex(8)}",
+        base_url=target.base_url, token=token, password=replacement_password,
     )
     if second is None or not (200 <= second.status_code < 300):
         return  # Token invalidated on first use → target is OK.
@@ -134,7 +154,7 @@ def _load_mailbox_or_refuse(
     scan_run: ScanRun, target_run: ScanTargetRun,
 ) -> MailboxBackend | None:
     try:
-        return load_mailbox_backend()
+        mailbox = load_mailbox_backend()
     except MailboxConfigError as exc:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
@@ -142,6 +162,17 @@ def _load_mailbox_or_refuse(
             details={"detail": "mailbox_unconfigured", "error": str(exc)},
         )
         return None
+    if mailbox is None:
+        # FIXTURE_MAILBOX_BACKEND=none → target doesn't send email;
+        # can't probe a reset-flow stub. Codex P2 — emit a refusal so
+        # operators see why the stub didn't run.
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "mailbox_required_for_reset"},
+        )
+        return None
+    return mailbox
 
 
 def _capture_token(

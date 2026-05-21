@@ -113,3 +113,42 @@ def test_out_of_scope_final_url_returns_silently() -> None:
     assert not Event.objects.filter(
         scan_run=scan_run, type=EventType.AUTH_FINDING_CANDIDATE,
     ).exists()
+
+
+@pytest.mark.django_db
+def test_off_scope_form_action_url_returns_silently() -> None:
+    """final_url in-scope but form.action_url off-scope → no probe
+    fires (codex P1). Without this guard the runner would send the
+    canary identifier + poisoning header to attacker.example."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.8")
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.reset_poisoning.runner.load_mailbox_backend",
+               return_value=MagicMock()), \
+         patch("apps.stubs.reset_poisoning.runner.fetch_and_find_reset_form",
+               return_value=DiscoveryOutcome(
+                   form=MagicMock(action_url="https://attacker.example/forgot"),
+                   final_url="https://x.example/", error=None,
+               )):
+        run(scan_run, target_run)
+    assert not Event.objects.filter(
+        scan_run=scan_run, type=EventType.AUTH_FINDING_CANDIDATE,
+    ).exists()
+    assert Event.objects.filter(
+        scan_run=scan_run, type=EventType.OUT_OF_SCOPE_REJECTED,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_mailbox_backend_returns_none_emits_refusal() -> None:
+    """FIXTURE_MAILBOX_BACKEND=none → load_mailbox_backend returns
+    None (target doesn't email) → AUTH_FIXTURE_REQUIRED detail=
+    mailbox_required_for_reset (codex P2)."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.8")
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.reset_poisoning.runner.load_mailbox_backend",
+               return_value=None):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "mailbox_required_for_reset"

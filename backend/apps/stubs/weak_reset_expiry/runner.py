@@ -25,6 +25,7 @@ Flow:
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from apps.findings.models import Finding, FindingStatus, Severity
@@ -112,6 +113,10 @@ def run(
             target, discovery.final_url, program,
             scan_run=scan_run, stub_id=_STUB_ID,
         )
+        enforce_scope(
+            target, discovery.form.action_url, program,
+            scan_run=scan_run, stub_id=_STUB_ID,
+        )
     except OutOfScope:
         return
 
@@ -129,18 +134,41 @@ def run(
 
     if _announces_expiry(message):
         return
+    body = message.body_text or message.body_html or ""
     _emit_finding(
         scan_run=scan_run, target=target,
         action_url=discovery.form.action_url,
-        body_snippet=(message.body_text or message.body_html or "")[:200],
+        body_snippet=_redact(body)[:200],
     )
+
+
+# Patterns that strip token-bearing material from a body snippet
+# before persistence. Codex P1: Finding.data is queryable and
+# exported, so live reset-tokens must never land in it.
+_QUERY_TOKEN_RE = re.compile(
+    r"([?&](?:token|code|t|k|reset_token|auth)=)[^\s&\"'<>]+",
+    flags=re.IGNORECASE,
+)
+_URL_PATH_TOKEN_RE = re.compile(
+    r"(https?://[^\s\"'<>?]+/(?:reset|token|verify)[/-])[A-Za-z0-9._-]+",
+    flags=re.IGNORECASE,
+)
+
+
+def _redact(body: str) -> str:
+    """Replace any token-bearing URL fragments with `<redacted>`.
+    Preserves the rest of the message for operator review without
+    exposing the live token."""
+    body = _QUERY_TOKEN_RE.sub(r"\1<redacted>", body)
+    body = _URL_PATH_TOKEN_RE.sub(r"\1<redacted>", body)
+    return body
 
 
 def _load_mailbox_or_refuse(
     scan_run: ScanRun, target_run: ScanTargetRun,
 ) -> MailboxBackend | None:
     try:
-        return load_mailbox_backend()
+        mailbox = load_mailbox_backend()
     except MailboxConfigError as exc:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
@@ -148,6 +176,14 @@ def _load_mailbox_or_refuse(
             details={"detail": "mailbox_unconfigured", "error": str(exc)},
         )
         return None
+    if mailbox is None:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "mailbox_required_for_reset"},
+        )
+        return None
+    return mailbox
 
 
 def _capture_message(

@@ -102,6 +102,10 @@ def run(
             target, discovery.final_url, program,
             scan_run=scan_run, stub_id=_STUB_ID,
         )
+        enforce_scope(
+            target, discovery.form.action_url, program,
+            scan_run=scan_run, stub_id=_STUB_ID,
+        )
     except OutOfScope:
         return
 
@@ -130,7 +134,7 @@ def _load_mailbox_or_refuse(
     scan_run: ScanRun, target_run: ScanTargetRun,
 ) -> MailboxBackend | None:
     try:
-        return load_mailbox_backend()
+        mailbox = load_mailbox_backend()
     except MailboxConfigError as exc:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
@@ -138,6 +142,14 @@ def _load_mailbox_or_refuse(
             details={"detail": "mailbox_unconfigured", "error": str(exc)},
         )
         return None
+    if mailbox is None:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "mailbox_required_for_reset"},
+        )
+        return None
+    return mailbox
 
 
 def _capture_link(
