@@ -117,6 +117,14 @@ services:
       RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      # Phase 2 fixture env (mirrors backend service). Active scan
+      # work runs in the worker, so it needs these too.
+      FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
+      FIXTURE_MAILBOX_IMAP_HOST: ${FIXTURE_MAILBOX_IMAP_HOST:-}
+      FIXTURE_MAILBOX_IMAP_PORT: ${FIXTURE_MAILBOX_IMAP_PORT:-993}
+      FIXTURE_MAILBOX_IMAP_USER: ${FIXTURE_MAILBOX_IMAP_USER:-}
+      FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
+      FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
