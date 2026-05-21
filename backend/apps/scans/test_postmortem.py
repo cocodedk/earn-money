@@ -107,6 +107,20 @@ def test_origin_server_does_not_match(run_pair):
     assert detect_edge_blocking(sr) is None
 
 
+def test_non_cdn_finding_with_blocking_evidence_falls_to_unknown_waf(run_pair):
+    """Only non-CDN Finding (apache origin server) iterates without
+    a match; blocking evidence is present, so the runner falls
+    through to `unknown_waf`. Exercises the loop's `match→False→
+    continue` branch."""
+    sr, t = run_pair
+    _finding(sr, t, technology="apache_httpd")
+    for _ in range(5):
+        _evidence(sr, t, status=403)
+    out = detect_edge_blocking(sr)
+    assert out is not None
+    assert out["edge"] == "unknown_waf"
+
+
 def test_blocked_count_only_counts_4xx(run_pair):
     """Only 4xx counts as blocked; 5xx and 2xx don't. With 5 total
     evidence rows (4× 4xx + 1× 5xx) the 80% threshold is met → dict

@@ -83,14 +83,8 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     from apps.evidence.models import Evidence
     from apps.findings.models import Finding
 
-    edge: str | None = None
-    for f in Finding.objects.filter(scan_run=scan_run).only("data"):
-        data = f.data or {}
-        edge = _match_edge(str(data.get("technology", "")))
-        if edge:
-            break
-
-    # One round-trip: total + 4xx-only count in a single aggregate.
+    # Evidence ratio is the precondition; short-circuit here so the
+    # common non-blocked-scan path doesn't pay for the Finding query.
     counts = Evidence.objects.filter(scan_run=scan_run).aggregate(
         total=Count("id"),
         blocked=Count("id", filter=Q(
@@ -99,9 +93,15 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     )
     total = counts["total"]
     blocked = counts["blocked"]
-
     if not _has_blocking_evidence(blocked, total):
         return None
+
+    edge: str | None = None
+    for f in Finding.objects.filter(scan_run=scan_run).only("data"):
+        data = f.data or {}
+        edge = _match_edge(str(data.get("technology", "")))
+        if edge:
+            break
     if edge is None:
         edge = "unknown_waf"
 
