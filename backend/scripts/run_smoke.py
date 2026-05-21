@@ -163,6 +163,9 @@ def _print_post_scan_events(api, run_id: str) -> None:
     interesting = {
         EventType.EDGE_BLOCKING_DETECTED.value,
         EventType.OUT_OF_SCOPE_REJECTED.value,
+        EventType.AUTH_PROBE_REFUSED.value,
+        EventType.AUTH_FINDING_CANDIDATE.value,
+        EventType.AUTH_FIXTURE_REQUIRED.value,
     }
     r = api.get(f"/api/scan-runs/{run_id}/events/")
     if r.status_code != 200:
