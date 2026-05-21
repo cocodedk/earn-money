@@ -20,6 +20,11 @@
 //   * /sensitive-action accepts the ordinary session token even
 //     when the account has MFA enabled (no X-MFA-Step-Up check) —
 //     detectable by stub 2.10 (mfa-bypass).
+//   * /mfa/recovery-codes/generate issues sequential 4-digit codes
+//     — detectable by stub 2.12 (weak-recovery-codes).
+//   * /mfa/disable removes MFA from the account without requiring
+//     the current TOTP or current password — detectable by stub
+//     2.13 (mfa-reset-abuse).
 
 const crypto = require("crypto");
 const express = require("express");
@@ -197,6 +202,18 @@ app.post("/sensitive-action", (req, res) => {
     status: "sensitive_action_performed",
     email: me, mfaEnabled: mfaState.get(me) === true,
   });
+});
+
+// Stub 2.13 surface: MFA can be disabled without re-auth.
+// Intentional vuln — the endpoint flips `mfaEnabled` back to false
+// on the authed account without asking for a current TOTP code or
+// current password. A hijacked session can rip MFA off the account,
+// then a normal reset takes over.
+app.post("/mfa/disable", (req, res) => {
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  mfaState.delete(me);
+  return res.status(200).json({ status: "mfa_disabled", email: me });
 });
 
 // Stub 2.12 surface: weak recovery codes.
