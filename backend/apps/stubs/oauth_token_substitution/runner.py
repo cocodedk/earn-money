@@ -122,7 +122,7 @@ def _emit_token_sub_finding(
             "requires_manual_review": True,
         }
     finding = Finding.objects.create(
-        scan_run=scan_run, target=target, stub_slug="2.16",
+        scan_run=scan_run, target=target, stub_slug=_STUB_ID,
         title="OAuth token/code substitution possible",
         category="oauth_token_substitution",
         severity=sev,
@@ -130,4 +130,4 @@ def _emit_token_sub_finding(
         status=FindingStatus.CANDIDATE,
         data=data,
     )
-    log_finding_candidate(finding, stub_id="2.16")
+    log_finding_candidate(finding, stub_id=_STUB_ID)

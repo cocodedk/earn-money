@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Literal
 from urllib.parse import urlparse
 
+from apps.stubs._shared.url import origin
+
 
 class ValidationResult(str, Enum):
     ACCEPTED_UNTRUSTED_REDIRECT = "accepted_untrusted_redirect"
@@ -40,20 +42,15 @@ def classify_redirect_response(
     headers: dict = getattr(response, "headers", {})
     body: str = getattr(response, "text", "") or ""
 
-    scanner_parsed = urlparse(scanner_origin)
-
     # 3xx — check if Location points to scanner origin
     if 300 <= status_code < 400:
         location = headers.get("Location", "")
         if location:
-            loc_parsed = urlparse(location)
-            loc_origin = f"{loc_parsed.scheme}://{loc_parsed.netloc}"
-            scanner_origin_norm = f"{scanner_parsed.scheme}://{scanner_parsed.netloc}"
-            if loc_origin == scanner_origin_norm:
+            if origin(location) == origin(scanner_origin):
                 return RedirectUriClassification(
                     validation_result=ValidationResult.ACCEPTED_UNTRUSTED_REDIRECT,
                     status="confirmed", confidence="high",
-                    location_origin=loc_parsed.netloc, oauth_error=None,
+                    location_origin=urlparse(location).netloc, oauth_error=None,
                 )
 
     # 4xx — look for OAuth error phrases

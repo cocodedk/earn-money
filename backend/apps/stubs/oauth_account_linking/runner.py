@@ -61,11 +61,12 @@ def run(
 
     target = target_run.target
     fixture_url = os.environ.get("FIXTURE_OAUTH_ACCOUNT_LINK_URL", target.base_url)
+    base = fixture_url.rstrip("/")
     accounts = program.roe.authorized_test_accounts
 
     with httpx.Client(follow_redirects=False, timeout=10) as http:
         login = http.post(
-            fixture_url.rstrip("/") + "/login",
+            base + "/login",
             json={
                 "username": accounts[0],
                 "password": os.environ.get("FIXTURE_OAUTH_ACCOUNT_LINK_PASS_A", "pass-a"),
@@ -87,7 +88,7 @@ def run(
         if json_body is not None:
             request_kwargs["json"] = json_body
         request = httpx.Request(
-            method, fixture_url.rstrip("/") + path,
+            method, base + path,
             **request_kwargs,
         )
         resp = submit_probe(request)
@@ -101,7 +102,7 @@ def run(
 
         flaw = classify_link_flaw(
             resp,
-            endpoint_url=fixture_url.rstrip("/") + path,
+            endpoint_url=base + path,
             no_csrf_sent=no_csrf_sent,
         )
         if flaw is not None:
@@ -113,7 +114,7 @@ def run(
 
 def _emit_link_finding(*, scan_run: "ScanRun", target: "ScanTarget", flaw) -> None:
     finding = Finding.objects.create(
-        scan_run=scan_run, target=target, stub_slug="2.17",
+        scan_run=scan_run, target=target, stub_slug=_STUB_ID,
         title=f"Account-linking flaw: {flaw.kind.value}",
         category="oauth_account_linking_flaws",
         severity=Severity.MEDIUM,
@@ -126,4 +127,4 @@ def _emit_link_finding(*, scan_run: "ScanRun", target: "ScanTarget", flaw) -> No
             "requires_manual_review": True,
         },
     )
-    log_finding_candidate(finding, stub_id="2.17")
+    log_finding_candidate(finding, stub_id=_STUB_ID)

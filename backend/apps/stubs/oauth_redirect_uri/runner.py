@@ -143,7 +143,7 @@ def _emit_finding_redirect(
 ) -> None:
     severity = Severity.HIGH if classification.status == "confirmed" else Severity.MEDIUM
     finding = Finding.objects.create(
-        scan_run=scan_run, target=target, stub_slug="2.14",
+        scan_run=scan_run, target=target, stub_slug=_STUB_ID,
         title="OAuth redirect URI validation weakness",
         category="oauth_redirect_uri_issues",
         severity=severity,
@@ -156,4 +156,4 @@ def _emit_finding_redirect(
             "requires_manual_review": True,
         },
     )
-    log_finding_candidate(finding, stub_id="2.14")
+    log_finding_candidate(finding, stub_id=_STUB_ID)

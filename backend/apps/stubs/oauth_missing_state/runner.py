@@ -19,16 +19,17 @@ from ..runners import guarded_runner
 
 
 _FIXTURE_SECRET_ENV = "FIXTURE_OAUTH_CLIENT_SECRET"
+_STUB_ID = "2.15"
 
 
-@guarded_runner("2.15")
+@guarded_runner(_STUB_ID)
 def run(
     scan_run: ScanRun, target_run: ScanTargetRun,
     *, program: Program,
 ) -> None:
     if not program.roe.allow_oauth_probes:
         record_refusal(
-            scan_run=scan_run, target_run=target_run, stub_id="2.15",
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.ROE_DISABLED,
             details={"knob": "allow_oauth_probes"},
         )
@@ -36,7 +37,7 @@ def run(
 
     if not program.roe.authorized_test_accounts:
         record_refusal(
-            scan_run=scan_run, target_run=target_run, stub_id="2.15",
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.FIXTURE_REQUIRED,
             details={"detail": "no_authorized_test_accounts"},
         )
@@ -44,7 +45,7 @@ def run(
 
     if not os.environ.get(_FIXTURE_SECRET_ENV):
         record_refusal(
-            scan_run=scan_run, target_run=target_run, stub_id="2.15",
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.MISSING_SECRET,
             details={"missing_secret": _FIXTURE_SECRET_ENV},
         )
@@ -52,13 +53,14 @@ def run(
 
     target = target_run.target
     fixture_url = os.environ.get("FIXTURE_OAUTH_STATE_MISSING_URL", target.base_url)
+    base = fixture_url.rstrip("/")
     acquire_for(program)
     # Missing-state detection must inspect the first 302 Location; do not follow redirects.
-    request = httpx.Request("GET", fixture_url.rstrip("/") + "/auth/example")
+    request = httpx.Request("GET", base + "/auth/example")
     resp = submit_probe(request)
     if resp is None:
         record_refusal(
-            scan_run=scan_run, target_run=target_run, stub_id="2.15",
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.TRANSPORT_ERROR,
             details={"detail": "target_unreachable"},
         )
@@ -67,7 +69,7 @@ def run(
     authorization_url = resp.headers.get("Location", "")
     if not authorization_url:
         return
-    authorization_url = urljoin(fixture_url.rstrip("/") + "/", authorization_url)
+    authorization_url = urljoin(base + "/", authorization_url)
 
     from .classify import inspect_authorization_url
     inspection = inspect_authorization_url(authorization_url)
@@ -86,7 +88,7 @@ def _emit_finding(
     authorization_url: str, confidence: str,
 ) -> None:
     finding = Finding.objects.create(
-        scan_run=scan_run, target=target, stub_slug="2.15",
+        scan_run=scan_run, target=target, stub_slug=_STUB_ID,
         title="OAuth authorization request missing state parameter",
         category="oauth_state_missing",
         severity=Severity.MEDIUM,
@@ -94,4 +96,4 @@ def _emit_finding(
         status=FindingStatus.CANDIDATE,
         data={"authorization_url": authorization_url, "requires_manual_review": True},
     )
-    log_finding_candidate(finding, stub_id="2.15")
+    log_finding_candidate(finding, stub_id=_STUB_ID)

@@ -55,7 +55,6 @@ def run_substitution_test(
             "response_type": "code",
             "state": secrets.token_hex(8),
         },
-        allow_redirects=False,
     )
     location = auth_resp.headers.get("Location", "")
     code_a = parse_qs(urlparse(location).query).get("code", [None])[0]

@@ -11,12 +11,7 @@ class AccountLinkingFlawKind(str, Enum):
     LINK_OVER_GET = "link_over_get"
     MISSING_CSRF_ON_LINK = "missing_csrf_on_link"
     MISSING_STATE = "missing_state"
-    STATIC_OR_REUSED_STATE = "static_or_reused_state"
-    STATE_NOT_BOUND_TO_SESSION = "state_not_bound_to_session"
     CALLBACK_ACCEPTS_CLIENT_IDENTITY = "callback_accepts_client_identity"
-    LINKING_WITHOUT_LOCAL_SESSION = "linking_without_local_session"
-    LINKING_WITHOUT_FRESH_AUTH = "linking_without_fresh_auth"
-    UNSAFE_CROSS_ACCOUNT_LINK = "unsafe_cross_account_link"
 
 
 _LINK_PATH_HINTS = frozenset({
