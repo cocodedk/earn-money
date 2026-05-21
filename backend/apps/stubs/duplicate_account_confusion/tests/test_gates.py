@@ -52,34 +52,17 @@ def test_no_authorized_accounts() -> None:
 
 
 @pytest.mark.django_db
-def test_missing_secret(monkeypatch) -> None:
+def test_all_gates_pass_proceeds_to_detection() -> None:
+    """RoE + authorized_test_accounts present → runner proceeds to
+    the detection chain (covered by test_detection.py). No
+    FIXTURE_TEST_PASSWORD gate — the stub uses a throwaway password
+    and never tries to log in."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.19")
-    monkeypatch.delenv("FIXTURE_TEST_PASSWORD", raising=False)
-    with patch.object(get_registry(), "find_for_host",
-                      return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
-    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
-    assert ev.data["missing_secret"] == "FIXTURE_TEST_PASSWORD"
-
-
-@pytest.mark.django_db
-def test_all_gates_pass_proceeds_to_detection(monkeypatch) -> None:
-    """All gates passing → runner proceeds to the detection chain
-    (covered by test_detection.py). This test asserts only that the
-    pre-flight refusal events DO NOT fire when env + RoE + accounts
-    are all in place."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.19")
-    monkeypatch.setenv("FIXTURE_TEST_PASSWORD", "fixture-value")
-    # Mock register_via_api to short-circuit the detection chain
-    # (which would otherwise try real HTTP and fall back to a
-    # transport-error refusal).
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=["scanner@example.invalid"])), \
          patch("apps.stubs.duplicate_account_confusion.runner.register_via_api",
                return_value=None):
         run(scan_run, target_run)
-    # Transport-error refusal fires from the detection chain — that's
-    # expected, not a gate failure. The gate-specific refusals don't fire.
     assert not Event.objects.filter(
         scan_run=scan_run,
         type=EventType.AUTH_PROBE_REFUSED,

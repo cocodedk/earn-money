@@ -1,22 +1,17 @@
 """Registration-POST helper for stub 2.19.
 
-Tries common JSON registration endpoints (`/api/Users`, `/register`,
-`/api/register`, `/api/v1/register`, `/api/auth/register`) in order
-and returns the first non-error response. None on transport failure.
+Tries the candidate register paths from
+`_shared/auth/endpoints.candidate_register_paths()` in order and
+returns the first non-404/405 response. None on transport failure.
 """
 from __future__ import annotations
 
 import httpx
 from httpx import Client
 
+from apps.stubs._shared.auth.endpoints import candidate_register_paths
 
-_REGISTER_PATHS: tuple[str, ...] = (
-    "/api/Users",            # Juice Shop
-    "/api/register",
-    "/api/v1/register",
-    "/api/auth/register",
-    "/register",
-)
+
 _DEFAULT_TIMEOUT = 10.0
 
 
@@ -26,7 +21,7 @@ def register_via_api(
     """Try the candidate paths in order. Return the first response —
     whatever its status. None on transport failure for all paths."""
     last_response: httpx.Response | None = None
-    for path in _REGISTER_PATHS:
+    for path in candidate_register_paths():
         url = base_url.rstrip("/") + path
         try:
             with Client(

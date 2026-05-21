@@ -35,6 +35,12 @@ _RESET_PATHS: tuple[str, ...] = (
 )
 
 _REGISTER_PATHS: tuple[str, ...] = (
+    # JSON API variants first — modern targets answer here.
+    "/api/Users",          # Juice Shop
+    "/api/register",
+    "/api/v1/register",
+    "/api/auth/register",
+    # HTML form-action variants.
     "/register",
     "/signup",
     "/sign-up",

@@ -20,8 +20,6 @@ the request-construction layer differs.
 """
 from __future__ import annotations
 
-import os
-
 from apps.events.models import Event
 from apps.events.types import EventType
 from apps.findings.models import Finding, FindingStatus, Severity
@@ -35,7 +33,12 @@ from ..runners import guarded_runner
 from .submit import register_via_api
 
 
-_FIXTURE_SECRET_ENV = "FIXTURE_TEST_PASSWORD"
+# Both register POSTs use a throwaway password — the stub never
+# tries to log in with these credentials. The detection signal is
+# whether the registration RESPONSE differs between a new and an
+# existing email, not whether the account can subsequently sign in.
+# `FIXTURE_TEST_PASSWORD` is therefore NOT a prerequisite for 2.19;
+# only RoE + authorized_test_accounts gate this stub.
 _THROWAWAY_PASSWORD = "scanner-throwaway-passphrase"
 
 
@@ -57,13 +60,6 @@ def run(
             scan_run=scan_run, target_run=target_run, stub_id="2.19",
             reason=RefusalReason.FIXTURE_REQUIRED,
             details={"detail": "no_authorized_test_accounts"},
-        )
-        return
-    if not os.environ.get(_FIXTURE_SECRET_ENV):
-        record_refusal(
-            scan_run=scan_run, target_run=target_run, stub_id="2.19",
-            reason=RefusalReason.MISSING_SECRET,
-            details={"missing_secret": _FIXTURE_SECRET_ENV},
         )
         return
 
