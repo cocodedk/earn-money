@@ -63,24 +63,6 @@ def _has_emitted(scan_run_id: str, candidate_url: str) -> bool:
     return False
 
 
-def is_in_scope(candidate_url: str, program: Program) -> bool:
-    """Pure predicate — True iff ``candidate_url``'s host is allowed
-    by ``program`` (in-scope AND not on the out_of_scope deny-list).
-
-    No side effects: emits no events, raises no exceptions for normal
-    out-of-scope verdicts. Malformed URLs (non-HTTP scheme, no host)
-    are treated as not-in-scope. Used by fetchers that need to gate
-    each redirect hop without spamming OUT_OF_SCOPE_REJECTED.
-    """
-    try:
-        host = _host_from_candidate(candidate_url)
-    except ValueError:
-        return False
-    if matches_any(host, program.scope.out_of_scope):
-        return False
-    return matches_any(host, program.scope.in_scope)
-
-
 def enforce_scope(
     target: Any,
     candidate_url: str,
