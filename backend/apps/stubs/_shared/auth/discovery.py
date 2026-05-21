@@ -34,7 +34,13 @@ class FetchOutcome:
     """Result of the discovery GET. `body` is the response text (empty
     on transport error). `content_type` is the bare media type with no
     charset parameter. `error` distinguishes transport failures (e.g.,
-    `ConnectError`) from scope refusals (`redirect_off_scope`)."""
+    `ConnectError`) from scope refusals (`redirect_off_scope`).
+
+    `final_url` is the last URL we successfully reached on the happy
+    path, the off-scope redirect target on `redirect_off_scope`, or
+    the URL we were about to GET when the transport error fired (not
+    necessarily the URL that previously succeeded in a chain).
+    """
     ok: bool
     status: int
     body: str
