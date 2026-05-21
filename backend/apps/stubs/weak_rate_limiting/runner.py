@@ -100,6 +100,13 @@ def run(
             details={"detail": "no_login_form_found"},
         )
         return
+    try:
+        enforce_scope(
+            target, login_form.action_url, program,
+            scan_run=scan_run, stub_id=_STUB_ID,
+        )
+    except OutOfScope:
+        return
 
     attempts = _run_attempt_loop(form=login_form)
     if attempts is None:

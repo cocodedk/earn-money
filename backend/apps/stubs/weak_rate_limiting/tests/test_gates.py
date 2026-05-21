@@ -113,3 +113,31 @@ def test_out_of_scope_final_url_returns_silently() -> None:
     assert not Event.objects.filter(
         scan_run=scan_run, type=EventType.AUTH_FINDING_CANDIDATE,
     ).exists()
+
+
+@pytest.mark.django_db
+def test_off_scope_form_action_url_returns_silently() -> None:
+    """Discovery returns a login form whose action_url points off-
+    scope → runner refuses to submit, no Finding, OUT_OF_SCOPE_REJECTED
+    event emitted by enforce_scope."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.4")
+    body = (
+        "<html><body>"
+        "<form action='https://attacker.example/login' method='POST'>"
+        "<input type='text' name='username'>"
+        "<input type='password' name='password'>"
+        "</form></body></html>"
+    )
+    outcome = FetchOutcome(
+        ok=True, status=200, body=body, content_type="text/html",
+        final_url="https://x.example/", error=None,
+    )
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.weak_rate_limiting.runner.fetch_for_discovery",
+               return_value=outcome):
+        run(scan_run, target_run)
+    from apps.findings.models import Finding
+    assert not Finding.objects.filter(scan_run=scan_run).exists()
+    assert Event.objects.filter(
+        scan_run=scan_run, type=EventType.OUT_OF_SCOPE_REJECTED,
+    ).exists()

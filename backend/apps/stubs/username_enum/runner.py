@@ -97,6 +97,7 @@ def run(
         _probe_one_form(
             scan_run=scan_run, target_run=target_run, form=form,
             valid_identifier=valid_identifier, state=state,
+            program=program,
         )
 
 
@@ -115,6 +116,7 @@ def _probe_one_form(
     form: AuthForm,
     valid_identifier: str | None,
     state: ProbeState,
+    program: Program,
 ) -> None:
     refusal = check_can_probe(form, _BUDGET, state)
     if refusal is not None:
@@ -122,6 +124,13 @@ def _probe_one_form(
             scan_run=scan_run, target_run=target_run, stub_id="2.1",
             reason=refusal, details={"action_url": form.action_url},
         )
+        return
+    try:
+        enforce_scope(
+            target_run.target, form.action_url, program,
+            scan_run=scan_run, stub_id="2.1",
+        )
+    except OutOfScope:
         return
 
     pair = build_probe_pair(
