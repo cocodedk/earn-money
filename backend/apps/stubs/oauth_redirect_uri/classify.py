@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 from apps.stubs._shared.url import origin
 
@@ -50,7 +50,7 @@ def classify_redirect_response(
                 return RedirectUriClassification(
                     validation_result=ValidationResult.ACCEPTED_UNTRUSTED_REDIRECT,
                     status="confirmed", confidence="high",
-                    location_origin=urlparse(location).netloc, oauth_error=None,
+                    location_origin=urlsplit(location).netloc, oauth_error=None,
                 )
 
     # 4xx — look for OAuth error phrases

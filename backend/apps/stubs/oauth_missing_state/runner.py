@@ -16,6 +16,7 @@ from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
 from apps.targets.models import ScanTarget
 
 from ..runners import guarded_runner
+from .classify import inspect_authorization_url
 
 
 _FIXTURE_SECRET_ENV = "FIXTURE_OAUTH_CLIENT_SECRET"
@@ -71,7 +72,6 @@ def run(
         return
     authorization_url = urljoin(base + "/", authorization_url)
 
-    from .classify import inspect_authorization_url
     inspection = inspect_authorization_url(authorization_url)
     if not inspection.is_oauth_authorization_request or inspection.has_state:
         return

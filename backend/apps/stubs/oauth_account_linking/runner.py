@@ -30,7 +30,7 @@ _CANDIDATE_PROBES = [
 ]
 
 
-@guarded_runner("2.17")
+@guarded_runner(_STUB_ID)
 def run(
     scan_run: ScanRun, target_run: ScanTargetRun,
     *, program: Program,
