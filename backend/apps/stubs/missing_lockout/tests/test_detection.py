@@ -118,3 +118,18 @@ def test_transport_failure_mid_loop_no_finding() -> None:
                side_effect=sequence):
         run(scan_run, target_run)
     assert not Finding.objects.filter(scan_run=scan_run).exists()
+
+
+@pytest.mark.django_db
+def test_rate_limit_acquired_per_probe() -> None:
+    """Codex P1.3 generalised: `acquire_for(program)` is called once
+    per submit so the 5-attempt loop honours the program's RoE cap."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.missing_lockout.runner.fetch_for_discovery",
+               return_value=_outcome()), \
+         patch("apps.stubs.missing_lockout.runner.submit_probe",
+               return_value=_resp()), \
+         patch("apps.stubs.missing_lockout.runner.acquire_for") as acquire_p:
+        run(scan_run, target_run)
+    assert acquire_p.call_count == 5

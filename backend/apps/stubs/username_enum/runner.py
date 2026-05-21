@@ -16,6 +16,7 @@ from __future__ import annotations
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
+from apps.programs.rate_limit import acquire_for
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.discovery import fetch_for_discovery
 from apps.stubs._shared.auth.events import log_finding_candidate
@@ -142,6 +143,7 @@ def _probe_one_form(
         bogus_password=_BOGUS_PASSWORD,
     )
 
+    acquire_for(program)
     invalid_norm = _send_and_normalize(pair.invalid_request)
     state.record_submit()
     if invalid_norm is None:
@@ -156,6 +158,7 @@ def _probe_one_form(
 
     valid_norm: NormalizedResponse | None = None
     if pair.valid_request is not None:
+        acquire_for(program)
         valid_norm = _send_and_normalize(pair.valid_request)
         state.record_submit()
         if valid_norm is None or classify_abort(valid_norm) is not None:

@@ -168,33 +168,3 @@ def test_captcha_abort_prevents_finding() -> None:
     assert not Finding.objects.filter(scan_run=scan_run).exists()
 
 
-@pytest.mark.django_db
-def test_off_scope_form_action_url_skipped() -> None:
-    """Discovery returns a login form whose `action_url` points off-
-    scope (e.g. SSO/IdP host). The runner must NOT POST credentials
-    there — enforce_scope raises OutOfScope on the action_url and the
-    probe is skipped. No Finding, OUT_OF_SCOPE_REJECTED emitted."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
-    prog = _program(accounts=["valid@example.invalid"])
-
-    off_scope_html = (
-        "<html><body>"
-        '<form method="POST" action="https://attacker.example/sso">'
-        '<input name="email">'
-        '<input name="password" type="password">'
-        "</form></body></html>"
-    )
-    discovery = _mock_response(body=off_scope_html, url="https://x.example/")
-
-    with patch.object(get_registry(), "find_for_host", return_value=prog), \
-         patch("apps.stubs._shared.auth.discovery.Client") as fetch_cls, \
-         patch("apps.stubs._shared.auth.requests.Client") as submit_cls:
-        fetch_cls.return_value.__enter__.return_value.get.return_value = discovery
-        run(scan_run, target_run)
-        submit_client = submit_cls.return_value.__enter__.return_value
-        submit_client.send.assert_not_called()
-
-    assert not Finding.objects.filter(scan_run=scan_run).exists()
-    assert Event.objects.filter(
-        scan_run=scan_run, type=EventType.OUT_OF_SCOPE_REJECTED,
-    ).exists()

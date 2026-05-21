@@ -28,6 +28,7 @@ import time
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
+from apps.programs.rate_limit import acquire_for
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth._normalize_abort import classify_abort_body
 from apps.stubs._shared.auth.discovery import fetch_for_discovery
@@ -110,7 +111,9 @@ def run(
     except OutOfScope:
         return
 
-    attempts = _run_attempt_loop(canary=canary, form=login_form)
+    attempts = _run_attempt_loop(
+        canary=canary, form=login_form, program=program,
+    )
     if attempts is None:
         return
     _emit_finding(
@@ -119,14 +122,22 @@ def run(
     )
 
 
-def _run_attempt_loop(*, canary: str, form: AuthForm) -> int | None:
+def _run_attempt_loop(
+    *, canary: str, form: AuthForm, program: Program,
+) -> int | None:
     """Submit up to N failed-login attempts. Returns the count
     actually submitted on a clean sweep, or None when the target
     blocked us (lockout / rate-limit / CAPTCHA / WAF / MFA / transport
-    failure) — both mean no finding."""
+    failure) — both mean no finding.
+
+    Each submit acquires one RoE rate-limit token via
+    `acquire_for(program)` so the burst stays inside the program's
+    cap (codex P1.3 generalised across multi-probe stubs).
+    """
     for attempt in range(_MAX_FAILED_ATTEMPTS):
         if attempt > 0:
             time.sleep(_DELAY_BETWEEN_ATTEMPTS_S)
+        acquire_for(program)
         wrong = f"scanner-wrong-{secrets.token_hex(4)}"
         pair = build_probe_pair(
             form=form, invalid_identifier=canary,
