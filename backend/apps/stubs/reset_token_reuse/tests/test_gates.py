@@ -38,6 +38,7 @@ def _replacement_password_default(monkeypatch) -> None:
     PASSWORD env var. Set a dummy by default; the dedicated
     `test_missing_replacement_password` overrides via `delenv`."""
     monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD", "x")
+    monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD_2", "y")
 
 
 @pytest.mark.django_db
@@ -53,6 +54,22 @@ def test_missing_replacement_password(monkeypatch) -> None:
     ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
     assert ev.data["reason"] == "missing_fixture_secret"
     assert ev.data["missing_secret"] == "FIXTURE_RESET_REPLACEMENT_PASSWORD"
+
+
+@pytest.mark.django_db
+def test_missing_replay_password(monkeypatch) -> None:
+    """Without FIXTURE_RESET_REPLACEMENT_PASSWORD_2, the runner
+    refuses — without it the second consumption either reuses the
+    first password (suppressed by "new must differ" policy) or has
+    to derive a value that may violate target charset/length
+    constraints. Codex pass-3 P2."""
+    monkeypatch.delenv("FIXTURE_RESET_REPLACEMENT_PASSWORD_2", raising=False)
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.6")
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["missing_secret"] == "FIXTURE_RESET_REPLACEMENT_PASSWORD_2"
 
 
 @pytest.mark.django_db

@@ -1,9 +1,7 @@
-"""Codex P1 — token-redaction tests for stub 2.7.
+"""Codex P1 — query-string token redaction tests for stub 2.7.
 
-The body_snippet stored in Finding.data is queryable and exported.
-Live reset tokens must never appear in it. These tests assert the
-redaction regexes catch both query-string (`?token=...`) and
-path-style (`/reset/<token>`) tokens.
+`?token=...`, `?code=...`, etc. Path-style redaction tests live
+in `test_redaction_path.py` (split per the 200-line file cap).
 """
 from __future__ import annotations
 
@@ -48,12 +46,6 @@ _RESET_FORM = AuthForm(
 )
 
 
-def _outcome() -> DiscoveryOutcome:
-    return DiscoveryOutcome(
-        form=_RESET_FORM, final_url=_RESET_FORM.action_url, error=None,
-    )
-
-
 def _mailbox(body_text: str) -> FakeMailbox:
     return FakeMailbox(messages=[InboundMessage(
         to_address="scanner@example.invalid",
@@ -70,7 +62,9 @@ def _wire(mailbox: FakeMailbox):
         patch("apps.stubs.weak_reset_expiry.runner.load_mailbox_backend",
               return_value=mailbox),
         patch("apps.stubs.weak_reset_expiry.runner.fetch_and_find_reset_form",
-              return_value=_outcome()),
+              return_value=DiscoveryOutcome(
+                  form=_RESET_FORM, final_url=_RESET_FORM.action_url, error=None,
+              )),
         patch("apps.stubs.weak_reset_expiry.runner.request_reset",
               return_value=True),
     ]
@@ -88,7 +82,7 @@ def _run(scan_run, target_run, patches):
 
 @pytest.mark.django_db
 def test_query_token_redacted() -> None:
-    """Query-string `?token=<value>` is replaced with `?token=<redacted>`."""
+    """Query-string `?token=<value>` → `?token=<redacted>`."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
     _run(scan_run, target_run, _wire(
         _mailbox("Click https://x.example/reset?token=SECRET-XYZ"),
@@ -100,80 +94,10 @@ def test_query_token_redacted() -> None:
 
 @pytest.mark.django_db
 def test_query_code_param_redacted() -> None:
-    """Alternative query param name `code` is also redacted."""
+    """Alternative query-param name `code` is also redacted."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
     _run(scan_run, target_run, _wire(
         _mailbox("Click https://x.example/reset?code=SECRET-CODE"),
     ))
     f = Finding.objects.get(scan_run=scan_run)
     assert "SECRET-CODE" not in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_url_path_token_redacted() -> None:
-    """Path-style tokens (`/reset/<token>`) get redacted."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Click https://x.example/reset/SECRET-TOKEN-XYZ now."),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "SECRET-TOKEN-XYZ" not in f.data["body_snippet"]
-    assert "<redacted>" in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_url_verify_path_token_redacted() -> None:
-    """Path-style on `/verify/<token>` also captured by the path regex."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Visit https://x.example/verify/UNIQUE-NONCE to confirm."),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "UNIQUE-NONCE" not in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_non_token_url_preserved() -> None:
-    """A regular URL without a token shape stays intact in the snippet."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Visit https://x.example/home for more info."),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "https://x.example/home" in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_compound_reset_password_path_redacted() -> None:
-    """`/reset-password/<token>` is the common shape on Express/
-    Rails/Django apps. Codex re-review caught that the previous
-    pattern leaked the token here."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Click https://x.example/reset-password/SECRET-TOKEN-XYZ"),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "SECRET-TOKEN-XYZ" not in f.data["body_snippet"]
-    assert "<redacted>" in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_password_reset_path_redacted() -> None:
-    """`/password-reset/<token>` (reversed compound word) shape."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Click https://x.example/password-reset/SECRET-XYZ"),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "SECRET-XYZ" not in f.data["body_snippet"]
-
-
-@pytest.mark.django_db
-def test_forgot_password_path_redacted() -> None:
-    """`/forgot-password/<token>` shape."""
-    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
-    _run(scan_run, target_run, _wire(
-        _mailbox("Click https://x.example/forgot-password/SECRET-XYZ"),
-    ))
-    f = Finding.objects.get(scan_run=scan_run)
-    assert "SECRET-XYZ" not in f.data["body_snippet"]

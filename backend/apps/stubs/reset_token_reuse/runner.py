@@ -44,11 +44,20 @@ _CATEGORY = "auth_reset_token_reuse"
 _CONFIDENCE = "high"
 
 # Codex P1 — the canary account's password gets RESET by this stub.
-# The operator must supply a known replacement so they can log back
-# in after the scan; using random values would silently lock them
-# out of any real-world canary. The env var is also the consent
-# signal that the operator has accepted the password-mutation risk.
+# The operator must supply known replacement values so they can log
+# back in after the scan; using random values would silently lock
+# them out of any real-world canary. The env vars are also the
+# consent signal that the operator has accepted the password-
+# mutation risk.
+#
+# Codex pass-3 P2 — the SECOND consumption uses a DIFFERENT
+# operator-configured password so targets enforcing "new password
+# must differ from current" don't suppress the load-bearing signal.
+# Both values are operator-supplied (not derived) so any password
+# policy on the target — max length, charset restrictions, ban-
+# list — is the operator's to respect when they pick the values.
 _REPLACEMENT_PASSWORD_ENV = "FIXTURE_RESET_REPLACEMENT_PASSWORD"
+_REPLACEMENT_PASSWORD_2_ENV = "FIXTURE_RESET_REPLACEMENT_PASSWORD_2"
 
 
 @guarded_runner(_STUB_ID)
@@ -72,12 +81,21 @@ def run(
         )
         return
     replacement_password = os.environ.get(_REPLACEMENT_PASSWORD_ENV)
+    replacement_password_2 = os.environ.get(_REPLACEMENT_PASSWORD_2_ENV)
     if not replacement_password:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.MISSING_SECRET,
             details={"missing_secret": _REPLACEMENT_PASSWORD_ENV,
                      "detail": "reset_replacement_password_required"},
+        )
+        return
+    if not replacement_password_2:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.MISSING_SECRET,
+            details={"missing_secret": _REPLACEMENT_PASSWORD_2_ENV,
+                     "detail": "reset_replay_password_required"},
         )
         return
     canary = program.roe.authorized_test_accounts[0]
@@ -125,15 +143,12 @@ def run(
         )
         return
 
-    # First consumption — should succeed on any normal target.
-    # Both consumptions use OPERATOR-KNOWN passwords so the canary
-    # remains usable post-scan (codex P1). The second consumption
-    # uses a DIFFERENT known value (suffix "-2") so targets that
-    # enforce "new password must differ from current" don't reject
-    # the second reset on policy grounds (codex re-review P2). The
-    # canary ends at `<replacement>-2` which the operator can log
-    # in with after the scan.
-    second_password = f"{replacement_password}-2"
+    # First consumption — should succeed on any normal target. The
+    # second consumption uses a DIFFERENT operator-configured
+    # password so targets enforcing "new password must differ from
+    # current" don't suppress the load-bearing signal. Both values
+    # are operator-supplied (not derived), so any password policy
+    # on the target is the operator's to satisfy when picking them.
     acquire_for(program)
     first = complete_reset(
         base_url=target.base_url, token=token, password=replacement_password,
@@ -144,7 +159,7 @@ def run(
     # Second consumption with SAME token — the load-bearing probe.
     acquire_for(program)
     second = complete_reset(
-        base_url=target.base_url, token=token, password=second_password,
+        base_url=target.base_url, token=token, password=replacement_password_2,
     )
     if second is None or not (200 <= second.status_code < 300):
         return  # Token invalidated on first use → target is OK.

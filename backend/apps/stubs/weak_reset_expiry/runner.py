@@ -151,8 +151,10 @@ _QUERY_TOKEN_RE = re.compile(
 )
 
 # Path-style: capture full keyword chunk (so `/reset-password/<t>`
-# doesn't split into `/reset-` + `password`/<t>). Then redact the
-# next path segment in its entirety.
+# doesn't split into `/reset-` + `password`/<t>), then accept EITHER
+# `/` or `-` as the keyword→token separator. Codex re-review P1
+# caught that an earlier version dropped the `-` form, leaking
+# tokens in shapes like `/reset-SECRET` or `/verify-SECRET`.
 _URL_PATH_TOKEN_RE = re.compile(
     r"(https?://[^\s\"'<>?]+?/"
     r"(?:"
@@ -163,8 +165,8 @@ _URL_PATH_TOKEN_RE = re.compile(
     r"|confirm"
     r"|recover"
     r"|token"
-    r")/)"
-    r"[A-Za-z0-9._~+-]+",
+    r")[-/])"
+    r"[A-Za-z0-9._~+]+",
     flags=re.IGNORECASE,
 )
 

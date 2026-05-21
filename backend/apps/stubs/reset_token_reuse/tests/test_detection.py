@@ -74,6 +74,7 @@ def _replacement_password(monkeypatch) -> None:
     operator-configured replacement password. Set a dummy for every
     detection test."""
     monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD", "test-replacement")
+    monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD_2", "test-replay")
 
 
 @pytest.mark.django_db
