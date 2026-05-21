@@ -93,12 +93,18 @@ _ME_PATHS: tuple[str, ...] = (
 def verify_mfa_enrolled(
     *, base_url: str, bearer_token: str,
 ) -> bool | None:
-    """GET candidate `/me`-style paths and look for a truthy
-    `mfaEnabled` / `mfa_enabled` field in the body. Returns:
-    - True  → MFA confirmed enrolled
-    - False → endpoint responded but mfa flag false / missing
-    - None  → no usable response (404 everywhere, transport error)
-    Used as a precondition for stub 2.10 (codex P2.1)."""
+    """GET candidate `/me`-style paths and look for an MFA flag.
+    Returns:
+    - True  → endpoint explicitly says MFA is enrolled
+    - False → endpoint explicitly says MFA is NOT enrolled
+    - None  → can't confirm either way (no usable response, non-2xx,
+              malformed JSON, missing MFA field)
+
+    Codex pass-on-MFA P1: stub 2.13 treats False as "confirmed
+    disable" → high-confidence Finding. We must NOT conflate
+    "can't tell" with "explicitly off"; downgrade those to None
+    so the caller refuses with a fixture-required event instead
+    of emitting a false-positive bypass."""
     headers = {"authorization": f"Bearer {bearer_token}"}
     for path in _ME_PATHS:
         url = base_url.rstrip("/") + path
@@ -112,17 +118,26 @@ def verify_mfa_enrolled(
         if resp.status_code in (404, 405):
             continue
         if not (200 <= resp.status_code < 300):
-            return False
+            return None
         try:
             body = resp.json()
         except (ValueError, TypeError):
-            return False
+            return None
         if not isinstance(body, dict):
-            return False
+            return None
         for key in ("mfaEnabled", "mfa_enabled", "isMfaEnabled"):
-            if body.get(key) is True:
-                return True
-        return False
+            if key in body:
+                value = body[key]
+                if value is True:
+                    return True
+                if value is False:
+                    return False
+                # Other truthy/falsy types (string "true", int 1) are
+                # ambiguous — treat as can't-confirm.
+                return None
+        # No MFA-flag field at all — endpoint responded but didn't
+        # tell us anything about MFA state.
+        return None
     return None
 
 

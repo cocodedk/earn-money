@@ -94,6 +94,35 @@ def test_random_codes_no_finding() -> None:
 
 
 @pytest.mark.django_db
+def test_duplicate_codes_emit_finding() -> None:
+    """Eight copies of the same random-looking string → analyse_
+    tokens calls it `random`, but duplicates ARE a weak-code
+    signal. The duplicate-check fires first and emits a Finding
+    with signal=duplicate_codes (codex MFA-family P2)."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.12")
+    codes = ["ABCDEFGH12345"] * 8
+    _run(scan_run, target_run, _wire(codes))
+    f = Finding.objects.get(scan_run=scan_run)
+    assert f.category == "auth_weak_recovery_codes"
+    assert f.severity == "high"
+    assert f.data["signal"] == "duplicate_codes"
+    assert f.data["duplicate_count"] == 7
+    assert f.data["sample_size"] == 8
+
+
+@pytest.mark.django_db
+def test_partial_duplicates_emit_finding() -> None:
+    """Mostly-random codes but one duplicate pair → Finding fires
+    (any duplication breaks the security model)."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.12")
+    codes = ["aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "aaa"]
+    _run(scan_run, target_run, _wire(codes))
+    f = Finding.objects.get(scan_run=scan_run)
+    assert f.data["signal"] == "duplicate_codes"
+    assert f.data["duplicate_count"] == 1
+
+
+@pytest.mark.django_db
 def test_inconclusive_too_few_no_finding() -> None:
     """Need ≥2 codes for analysis; with exactly 2 random codes the
     verdict can still be inconclusive — no Finding either way."""

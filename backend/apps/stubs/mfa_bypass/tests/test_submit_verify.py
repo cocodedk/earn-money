@@ -60,12 +60,26 @@ def test_verify_mfa_enrolled_false() -> None:
         ) is False
 
 
-def test_verify_mfa_enrolled_no_flag_field() -> None:
+def test_verify_mfa_enrolled_no_flag_field_returns_none() -> None:
+    """No MFA-flag field → None (can't confirm). Previously False,
+    which would let stub 2.13 false-positive on a profile that
+    omits the field entirely (codex MFA-family P1)."""
     queue = [_resp_with_json(200, {"email": "x"})]
     with _patch_get(queue):
         assert verify_mfa_enrolled(
             base_url="https://x.example", bearer_token="t",
-        ) is False
+        ) is None
+
+
+def test_verify_mfa_enrolled_ambiguous_value_returns_none() -> None:
+    """`mfaEnabled` present but the value is neither True nor False
+    (e.g. "true" as a string) → None. The runner shouldn't act on
+    ambiguous types."""
+    queue = [_resp_with_json(200, {"mfaEnabled": "true"})]
+    with _patch_get(queue):
+        assert verify_mfa_enrolled(
+            base_url="https://x.example", bearer_token="t",
+        ) is None
 
 
 def test_verify_mfa_enrolled_404_skips() -> None:
@@ -79,29 +93,29 @@ def test_verify_mfa_enrolled_404_skips() -> None:
         ) is True
 
 
-def test_verify_mfa_enrolled_non_2xx_returns_false() -> None:
+def test_verify_mfa_enrolled_non_2xx_returns_none() -> None:
     queue = [_resp_with_json(500, {})]
     with _patch_get(queue):
         assert verify_mfa_enrolled(
             base_url="https://x.example", bearer_token="t",
-        ) is False
+        ) is None
 
 
-def test_verify_mfa_enrolled_non_dict_body_returns_false() -> None:
+def test_verify_mfa_enrolled_non_dict_body_returns_none() -> None:
     queue = [_resp_with_json(200, [1, 2, 3])]
     with _patch_get(queue):
         assert verify_mfa_enrolled(
             base_url="https://x.example", bearer_token="t",
-        ) is False
+        ) is None
 
 
-def test_verify_mfa_enrolled_invalid_json_returns_false() -> None:
+def test_verify_mfa_enrolled_invalid_json_returns_none() -> None:
     r = MagicMock(status_code=200)
     r.json.side_effect = ValueError("bad json")
     with _patch_get([r]):
         assert verify_mfa_enrolled(
             base_url="https://x.example", bearer_token="t",
-        ) is False
+        ) is None
 
 
 def test_verify_mfa_enrolled_all_404_returns_none() -> None:

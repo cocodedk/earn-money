@@ -153,6 +153,19 @@ def run(
         )
         return
 
+    # Codex MFA-family P2: duplicates are a weak-code signal that
+    # `analyse_tokens` doesn't surface (eight copies of the same
+    # value pass its random heuristic). Apply the recovery-code-
+    # specific check first; fall through to the shared analyser
+    # for sequential/prefix/low-entropy patterns.
+    duplicates = len(codes) - len(set(codes))
+    if duplicates > 0:
+        _emit_duplicate_finding(
+            scan_run=scan_run, target=target, sample_size=len(codes),
+            duplicate_count=duplicates,
+        )
+        return
+
     analysis = analyse_tokens(codes)
     if analysis.verdict != "predictable":
         return  # Codes look random → safe.
@@ -161,6 +174,28 @@ def run(
         scan_run=scan_run, target=target, analysis=analysis,
         sample_size=len(codes),
     )
+
+
+def _emit_duplicate_finding(
+    *, scan_run: ScanRun, target: ScanTarget,
+    sample_size: int, duplicate_count: int,
+) -> None:
+    finding = Finding.objects.create(
+        scan_run=scan_run, target=target, stub_slug=_STUB_ID,
+        title=f"Recovery codes contain {duplicate_count} duplicate(s)",
+        category=_CATEGORY,
+        severity=Severity.HIGH,
+        confidence="high",
+        status=FindingStatus.CANDIDATE,
+        data={
+            "verdict": "predictable",
+            "signal": "duplicate_codes",
+            "duplicate_count": duplicate_count,
+            "sample_size": sample_size,
+            "requires_manual_review": True,
+        },
+    )
+    log_finding_candidate(finding, stub_id=_STUB_ID)
 
 
 def _emit_finding(
