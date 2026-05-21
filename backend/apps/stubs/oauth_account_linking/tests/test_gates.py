@@ -1,7 +1,7 @@
 """Gate tests for stub 2.17 (oauth-account-linking)."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,6 +12,30 @@ from apps.programs.roe import RoE
 from apps.programs.scope import Scope
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.oauth_account_linking.runner import run
+
+_MODULE = "apps.stubs.oauth_account_linking.runner"
+
+
+def _login_client(ok: bool = True) -> MagicMock:
+    client = MagicMock()
+    login = MagicMock()
+    login.status_code = 200 if ok else 401
+    login.json.return_value = {"token": "tok-user-a", "userId": "user_a"}
+    client.__enter__.return_value = client
+    client.__exit__.return_value = None
+    client.post.return_value = login
+    return client
+
+
+def _no_op_response() -> MagicMock:
+    r = MagicMock()
+    r.status_code = 200
+    r.request = MagicMock()
+    r.request.method = "GET"
+    r.url = "http://x.example/settings/connections"
+    r.text = "{}"
+    r.headers = {}
+    return r
 
 
 def _program(*, knob_on: bool = True, accounts: list[str] | None = None) -> Program:
@@ -68,7 +92,9 @@ def test_all_gates_pass(monkeypatch) -> None:
     monkeypatch.setenv("FIXTURE_OAUTH_CLIENT_SECRET", "fixture-value")
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
+        with patch(f"{_MODULE}.httpx.Client", return_value=_login_client()):
+            with patch(f"{_MODULE}.submit_probe", return_value=_no_op_response()):
+                run(scan_run, target_run)
     assert not Event.objects.filter(
         scan_run=scan_run,
         type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],
