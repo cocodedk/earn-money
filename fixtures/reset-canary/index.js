@@ -14,7 +14,11 @@
 //   * Reset link's host is built from request `X-Forwarded-Host` /
 //     `Host` header without validation — detectable by stub 2.8
 //     (reset-poisoning).
+//   * /change-email accepts the new email with just a session token
+//     (no current-password reauth) — detectable by stub 2.9
+//     (account-takeover-via-email-change).
 
+const crypto = require("crypto");
 const express = require("express");
 const nodemailer = require("nodemailer");
 
@@ -97,6 +101,62 @@ app.post("/reset-password", (req, res) => {
   // only invariant. Stubs 2.6 (token-reuse) + 2.7 (weak-expiry) reach
   // here later.
   return res.status(200).json({ status: "password updated", email });
+});
+
+// ---------------------------------------------------------------------
+// Stub 2.9 surface: authenticated /change-email without re-auth.
+//
+// In-memory user + session state. Each user is {email, password}.
+// Sessions map an opaque bearer token → email (the authenticated user).
+const users = new Map();      // email -> password
+const sessions = new Map();   // token -> email
+
+function _newToken() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+app.post("/register", (req, res) => {
+  const email = (req.body && req.body.email) || "";
+  const password = (req.body && req.body.password) || "";
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password required" });
+  }
+  if (users.has(email)) return res.status(400).json({ error: "email taken" });
+  users.set(email, password);
+  return res.status(201).json({ status: "registered", email });
+});
+
+app.post("/login", (req, res) => {
+  const email = (req.body && req.body.email) || "";
+  const password = (req.body && req.body.password) || "";
+  if (!users.has(email) || users.get(email) !== password) {
+    return res.status(401).json({ error: "invalid credentials" });
+  }
+  const token = _newToken();
+  sessions.set(token, email);
+  return res.status(200).json({ token, email });
+});
+
+function _authedEmail(req) {
+  const h = req.headers["authorization"] || "";
+  const m = /^Bearer\s+(.+)$/.exec(h);
+  return m ? sessions.get(m[1]) || null : null;
+}
+
+app.post("/change-email", (req, res) => {
+  // Intentional vuln for stub 2.9: no current_password requirement.
+  // A valid session token is enough to swap the email on the account.
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  const newEmail = (req.body && req.body.new_email) || "";
+  if (!newEmail) return res.status(400).json({ error: "new_email required" });
+  const password = users.get(me);
+  users.delete(me);
+  users.set(newEmail, password);
+  for (const [t, e] of sessions.entries()) {
+    if (e === me) sessions.set(t, newEmail);
+  }
+  return res.status(200).json({ status: "email changed", email: newEmail });
 });
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
