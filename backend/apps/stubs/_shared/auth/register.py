@@ -1,15 +1,19 @@
-"""Registration-POST helper for stub 2.19.
+"""Shared registration-POST helper for Phase 2 stubs.
 
-Tries the candidate register paths from
-`_shared/auth/endpoints.candidate_register_paths()` in order and
-returns the first non-404/405 response. None on transport failure.
+`register_via_api()` tries the candidate paths from
+`candidate_register_paths()` in order and returns the first
+non-404/405 response. Returns None on transport failure for all
+paths.
+
+Originally lived under `duplicate_account_confusion/`; lifted here
+when stub 2.2 (weak-password-policy) became the second consumer.
 """
 from __future__ import annotations
 
 import httpx
 from httpx import Client
 
-from apps.stubs._shared.auth.endpoints import candidate_register_paths
+from .endpoints import candidate_register_paths
 
 
 _DEFAULT_TIMEOUT = 10.0
@@ -35,9 +39,6 @@ def register_via_api(
         except httpx.RequestError:
             continue
         last_response = resp
-        # 404 / 405 → wrong endpoint, try next. Anything else is
-        # informative even if it's a 4xx — the runner diffs against
-        # a sibling probe.
         if resp.status_code in (404, 405):
             continue
         return resp

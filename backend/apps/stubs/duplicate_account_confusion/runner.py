@@ -26,10 +26,10 @@ from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.normalize import diff, normalize
+from apps.stubs._shared.auth.register import register_via_api
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
 
 from ..runners import guarded_runner
-from .submit import register_via_api
 
 
 # Both register POSTs use a throwaway password — the stub never
