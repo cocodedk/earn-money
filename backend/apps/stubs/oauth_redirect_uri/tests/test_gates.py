@@ -1,7 +1,7 @@
 """Gate tests for stub 2.14 (oauth-redirect-uri)."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,8 +10,11 @@ from apps.events.types import EventType
 from apps.programs.loader import Program, get_registry
 from apps.programs.roe import RoE
 from apps.programs.scope import Scope
+from apps.stubs._shared.auth.discovery import FetchOutcome
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.oauth_redirect_uri.runner import run
+
+_MODULE = "apps.stubs.oauth_redirect_uri.runner"
 
 
 def _program(*, knob_on: bool = True, accounts: list[str] | None = None) -> Program:
@@ -66,9 +69,14 @@ def test_missing_secret(monkeypatch) -> None:
 def test_all_gates_pass(monkeypatch) -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.14")
     monkeypatch.setenv("FIXTURE_OAUTH_CLIENT_SECRET", "fixture-value")
+    _no_endpoints = FetchOutcome(
+        ok=True, status=200, body='{"authorization_endpoint":""}',
+        content_type="application/json", final_url="", error=None,
+    )
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
+        with patch(f"{_MODULE}.fetch_for_discovery", return_value=_no_endpoints):
+            run(scan_run, target_run)
     assert not Event.objects.filter(
         scan_run=scan_run,
         type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],
