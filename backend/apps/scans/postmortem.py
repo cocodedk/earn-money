@@ -34,11 +34,13 @@ _CDN_TECHNOLOGIES: frozenset[str] = frozenset(
 )
 
 # A scan whose Evidence is mostly 4xx is almost certainly being
-# blocked at an edge somewhere — even when no Finding identifies the
-# vendor. Threshold deliberately high (80%) to avoid flagging
-# normal scans whose well_known_paths probes return a 404 mix.
-_UNKNOWN_WAF_THRESHOLD = 0.8
-_UNKNOWN_WAF_MIN_EVIDENCE = 5
+# blocked at an edge somewhere. Threshold deliberately high (80%) to
+# avoid flagging normal scans whose well_known_paths probes return a
+# 404 mix. The same precondition now applies to BOTH identified-edge
+# and unknown_waf branches (codex P2.2): merely fingerprinting a CDN
+# isn't enough — there must be blocked-response evidence too.
+_BLOCKING_THRESHOLD = 0.8
+_BLOCKING_MIN_EVIDENCE = 5
 
 
 def _match_edge(value: str) -> str | None:
@@ -48,15 +50,26 @@ def _match_edge(value: str) -> str | None:
     return lo if lo in _CDN_TECHNOLOGIES else None
 
 
+def _has_blocking_evidence(blocked: int, total: int) -> bool:
+    """True if the evidence rows pass the blocked-response threshold
+    that distinguishes "edge actively blocking" from "edge present
+    but transparent". Used by both branches in
+    `detect_edge_blocking` so a Cloudflare-fronted site that returns
+    200s doesn't trip the EDGE_BLOCKING_DETECTED banner."""
+    if total < _BLOCKING_MIN_EVIDENCE:
+        return False
+    return blocked / total >= _BLOCKING_THRESHOLD
+
+
 def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     """Return a summary dict if the scan-run was edge-blocked, else None.
 
-    Two heuristics, in order:
-        1. A Finding identifies a known CDN/WAF (technology field
-           matches the server_headers stub's CDN signatures). Edge
-           name comes from that Finding.
-        2. No identifying Finding, but ≥80% of Evidence rows are 4xx
-           across at least 5 probes → ``edge="unknown_waf"``.
+    Decision shape:
+        - At least `_BLOCKING_MIN_EVIDENCE` evidence rows AND
+          `_BLOCKING_THRESHOLD` of them are 4xx — required precondition.
+        - Edge name: the first CDN/WAF technology that appears in a
+          Finding's `technology` field, else `unknown_waf` when the
+          ratio is met without an identifying Finding.
 
     Result shape:
         {
@@ -87,14 +100,10 @@ def detect_edge_blocking(scan_run: "ScanRun") -> dict | None:
     total = counts["total"]
     blocked = counts["blocked"]
 
+    if not _has_blocking_evidence(blocked, total):
+        return None
     if edge is None:
-        if (
-            total >= _UNKNOWN_WAF_MIN_EVIDENCE
-            and blocked / total >= _UNKNOWN_WAF_THRESHOLD
-        ):
-            edge = "unknown_waf"
-        else:
-            return None
+        edge = "unknown_waf"
 
     return {
         "edge": edge,

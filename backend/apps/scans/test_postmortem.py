@@ -69,9 +69,34 @@ def test_cloudflare_finding_detects(run_pair):
 def test_cloudfront_finding_detects(run_pair):
     sr, t = run_pair
     _finding(sr, t, technology="aws_cloudfront")
+    for _ in range(5):
+        _evidence(sr, t, status=403)
     out = detect_edge_blocking(sr)
     assert out is not None
     assert out["edge"] == "aws_cloudfront"
+
+
+def test_cdn_finding_without_blocking_evidence_returns_none(run_pair):
+    """Codex P2.2 — a Cloudflare/CloudFront/etc Finding is no longer
+    sufficient on its own. Sites behind a CDN that aren't actually
+    being blocked (all evidence 200) must NOT trigger the banner."""
+    sr, t = run_pair
+    _finding(sr, t, technology="cloudflare")
+    for _ in range(10):
+        _evidence(sr, t, status=200)
+    assert detect_edge_blocking(sr) is None
+
+
+def test_cdn_finding_with_partial_blocking_below_threshold_none(run_pair):
+    """CDN Finding + 6 evidence rows but only 1 is 4xx (below the
+    80% threshold) → None. Same precondition for identified and
+    unknown edges."""
+    sr, t = run_pair
+    _finding(sr, t, technology="cloudflare")
+    for _ in range(5):
+        _evidence(sr, t, status=200)
+    _evidence(sr, t, status=403)
+    assert detect_edge_blocking(sr) is None
 
 
 def test_origin_server_does_not_match(run_pair):
@@ -83,20 +108,24 @@ def test_origin_server_does_not_match(run_pair):
 
 
 def test_blocked_count_only_counts_4xx(run_pair):
+    """Only 4xx counts as blocked; 5xx and 2xx don't. With 5 total
+    evidence rows (4× 4xx + 1× 5xx) the 80% threshold is met → dict
+    returned with the correct blocked_count."""
     sr, t = run_pair
     _finding(sr, t, technology="cloudflare")
-    _evidence(sr, t, status=200)
-    _evidence(sr, t, status=403)
-    _evidence(sr, t, status=503)
-    _evidence(sr, t, status=404)
+    for _ in range(4):
+        _evidence(sr, t, status=403)
+    _evidence(sr, t, status=503)  # 5xx — not blocked-count
     out = detect_edge_blocking(sr)
-    assert out["blocked_count"] == 2  # 403 + 404 only
-    assert out["total_evidence"] == 4
+    assert out["blocked_count"] == 4
+    assert out["total_evidence"] == 5
 
 
 def test_case_insensitive_match(run_pair):
     sr, t = run_pair
     _finding(sr, t, technology="CLOUDFLARE")
+    for _ in range(5):
+        _evidence(sr, t, status=403)
     out = detect_edge_blocking(sr)
     assert out["edge"] == "cloudflare"
 
