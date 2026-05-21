@@ -14,11 +14,11 @@ import email
 import email.policy
 import imaplib
 import os
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 
+from ._poll import poll_until
 from .mailbox import InboundMessage, MailboxConfigError
 
 
@@ -59,14 +59,10 @@ class IMAPMailbox:
         self, to_address: str, *,
         since: datetime, timeout_s: float = 30.0,
     ) -> InboundMessage | None:
-        deadline = time.monotonic() + timeout_s
-        while True:
-            match = self._poll_once(to_address=to_address, since=since)
-            if match is not None:
-                return match
-            if time.monotonic() >= deadline:
-                return None
-            time.sleep(min(_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
+        return poll_until(
+            lambda: self._poll_once(to_address=to_address, since=since),
+            timeout_s=timeout_s, interval_s=_POLL_INTERVAL_S,
+        )
 
     def _poll_once(
         self, *, to_address: str, since: datetime,

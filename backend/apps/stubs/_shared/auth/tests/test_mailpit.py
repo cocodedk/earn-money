@@ -102,8 +102,8 @@ def test_wait_skips_message_older_than_since() -> None:
         _msg_entry(mid="old", created="2025-01-01T00:00:00Z"),
     ]})
     with _patch_client([search]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -117,8 +117,8 @@ def test_wait_handles_empty_search() -> None:
     search1 = _ok({"messages": []})
     search2 = _ok({"messages": []})
     with _patch_client([search1, search2]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep") as sleep_p, \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep") as sleep_p, \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 0.4, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -131,8 +131,8 @@ def test_wait_handles_search_transport_error() -> None:
     """search GET raises → poll returns None, loop continues until
     timeout."""
     with _patch_client([httpx.ConnectError("nope")]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -144,8 +144,8 @@ def test_wait_handles_search_non_200() -> None:
     """search GET returns 500 → treated as no-results, loop continues."""
     fail = MagicMock(status_code=500)
     with _patch_client([fail]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -159,8 +159,8 @@ def test_fetch_message_transport_error_returns_none() -> None:
         _msg_entry(mid="abc", created="2026-05-21T12:00:00.5Z"),
     ]})
     with _patch_client([search, httpx.ConnectError("boom")]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -175,8 +175,8 @@ def test_fetch_message_non_200_returns_none() -> None:
     ]})
     fail = MagicMock(status_code=404)
     with _patch_client([search, fail]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,
@@ -190,8 +190,8 @@ def test_unparseable_created_skipped() -> None:
         _msg_entry(mid="bad", created="not-a-date"),
     ]})
     with _patch_client([search]), \
-         patch("apps.stubs._shared.auth._mailpit.time.sleep"), \
-         patch("apps.stubs._shared.auth._mailpit.time.monotonic",
+         patch("apps.stubs._shared.auth._poll.time.sleep"), \
+         patch("apps.stubs._shared.auth._poll.time.monotonic",
                side_effect=[0.0, 1.0]):
         msg = MailpitMailbox(base_url="http://m").wait_for_message(
             "scanner@example.invalid", since=_NOW, timeout_s=0.5,

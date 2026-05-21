@@ -12,13 +12,13 @@ is faster than IMAP (1.0 s) because the API is local-network.
 from __future__ import annotations
 
 import os
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import httpx
 from httpx import Client
 
+from ._poll import poll_until
 from .mailbox import InboundMessage, MailboxConfigError
 
 
@@ -45,14 +45,10 @@ class MailpitMailbox:
         self, to_address: str, *,
         since: datetime, timeout_s: float = 30.0,
     ) -> InboundMessage | None:
-        deadline = time.monotonic() + timeout_s
-        while True:
-            msg = self._poll_once(to_address=to_address, since=since)
-            if msg is not None:
-                return msg
-            if time.monotonic() >= deadline:
-                return None
-            time.sleep(_POLL_INTERVAL_S)
+        return poll_until(
+            lambda: self._poll_once(to_address=to_address, since=since),
+            timeout_s=timeout_s, interval_s=_POLL_INTERVAL_S,
+        )
 
     def _poll_once(
         self, *, to_address: str, since: datetime,
