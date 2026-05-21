@@ -84,6 +84,9 @@ backend/staticfiles/
 backend/db.sqlite3
 frontend/dist/
 frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Brainstorming visual companion sessions
 .superpowers/
