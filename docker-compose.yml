@@ -86,6 +86,10 @@ services:
       FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
       FIXTURE_MAILBOX_MAILPIT_URL: ${FIXTURE_MAILBOX_MAILPIT_URL:-http://mailpit:8025}
       FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
+      FIXTURE_OAUTH_STATE_MISSING_URL: ${FIXTURE_OAUTH_STATE_MISSING_URL:-http://oauth-state-missing:3000}
+      FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
+      FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
+      FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
@@ -127,6 +131,10 @@ services:
       FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
       FIXTURE_MAILBOX_MAILPIT_URL: ${FIXTURE_MAILBOX_MAILPIT_URL:-http://mailpit:8025}
       FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
+      FIXTURE_OAUTH_STATE_MISSING_URL: ${FIXTURE_OAUTH_STATE_MISSING_URL:-http://oauth-state-missing:3000}
+      FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
+      FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
+      FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
@@ -206,6 +214,57 @@ services:
     depends_on:
       mailpit:
         condition: service_healthy
+
+  # --- Phase 2 OAuth/OIDC fixtures (stubs 2.14-2.17) -------------------
+  # Single Docker image, four scenario services differentiated by SCENARIO.
+  oauth-state-missing:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: state-missing
+      PUBLIC_BASE_URL: http://oauth-state-missing:3000
+    networks: [scanner-net]
+
+  oauth-redirect-uri-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: redirect-uri
+      PUBLIC_BASE_URL: http://oauth-redirect-uri-lab:3000
+    networks: [scanner-net]
+
+  oauth-token-substitution-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: token-sub
+      VULN_MODE: "true"
+      PUBLIC_BASE_URL: http://oauth-token-substitution-lab:3000
+    networks: [scanner-net]
+
+  oauth-account-linking-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: account-link
+      PUBLIC_BASE_URL: http://oauth-account-linking-lab:3000
+    networks: [scanner-net]
 
 networks:
   scanner-net:
