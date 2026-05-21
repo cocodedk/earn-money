@@ -9,8 +9,11 @@
 //   * Reset tokens are epoch-ms integers (sequential, low-entropy) —
 //     detectable by stub 2.5 (predictable-reset-tokens).
 //   * Tokens never expire — detectable by stub 2.7 (weak-expiry).
-//   * Tokens are single-issued per email but reuse-able after consumption
-//     (placeholder for stub 2.6 work).
+//   * Tokens are reusable after consumption (never invalidated) —
+//     detectable by stub 2.6 (reset-token-reuse).
+//   * Reset link's host is built from request `X-Forwarded-Host` /
+//     `Host` header without validation — detectable by stub 2.8
+//     (reset-poisoning).
 
 const express = require("express");
 const nodemailer = require("nodemailer");
@@ -54,7 +57,18 @@ app.post("/forgot-password", async (req, res) => {
   const token = String(Date.now());
   tokens.set(token, email);
 
-  const link = `${PUBLIC_BASE_URL}/reset-password?token=${token}`;
+  // Intentional vuln for stub 2.8: trust caller-supplied host
+  // headers when building the reset URL. X-Forwarded-Host wins
+  // over Host (mirrors the common Express-behind-proxy pattern
+  // where the proxy header is treated as authoritative).
+  const fwdHost = req.headers["x-forwarded-host"];
+  const reqHost = req.headers["host"];
+  const linkBase = fwdHost
+    ? `http://${fwdHost}`
+    : reqHost
+      ? `http://${reqHost}`
+      : PUBLIC_BASE_URL;
+  const link = `${linkBase}/reset-password?token=${token}`;
   try {
     await mailer.sendMail({
       from: "noreply@reset-canary.local",
