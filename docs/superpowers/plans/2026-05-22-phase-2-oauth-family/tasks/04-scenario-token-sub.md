@@ -32,6 +32,7 @@ const session = require('../lib/session');
 const { generateCode, generateState } = require('../lib/oauth-helpers');
 
 const VULN_MODE = process.env.VULN_MODE === 'true';
+const BASE_URL = process.env.PUBLIC_BASE_URL || 'http://oauth-token-substitution-lab:3000';
 
 // Synthetic users — fixed identities for scanner-owned test accounts
 const USERS = {
@@ -44,10 +45,21 @@ const _codes = new Map();
 
 const router = Router();
 
-router.post('/reset', (_req, res) => {
-  session.reset();
-  _codes.clear();
-  res.json({ ok: true });
+// reset() is called by server.js's /reset handler (see task 01).
+// Do NOT add router.post('/reset') here — server.js registers that first and it would shadow this.
+
+// GET /login — passive discovery surface with OAuth-looking link markup.
+// The real flow still requires POST /login first to obtain X-Session-Token.
+router.get('/login', (_req, res) => {
+  const params = new URLSearchParams({
+    client_id: 'token-sub-client',
+    redirect_uri: `${BASE_URL}/oauth/callback`,
+    response_type: 'code',
+    state: generateState(),
+  });
+  res.send(`<!doctype html><html><body>
+    <a href="/oauth/authorize?${params}">Continue with OAuth</a>
+  </body></html>`);
 });
 
 // POST /login — returns session token
@@ -71,7 +83,9 @@ router.get('/oauth/authorize', (req, res) => {
   const code = generateCode();
   _codes.set(code, { userId: sess.userId, sessionToken: token });
 
-  const dest = new URL(redirect_uri || 'http://localhost/callback');
+  let dest;
+  try { dest = new URL(redirect_uri || `${BASE_URL}/oauth/callback`); }
+  catch { return res.status(400).json({ error: 'invalid_redirect_uri' }); }
   dest.searchParams.set('code', code);
   if (state) dest.searchParams.set('state', state);
   res.redirect(302, dest.toString());
@@ -107,7 +121,8 @@ router.get('/me', (req, res) => {
   res.json({ userId: sess.userId, marker: user?.marker ?? 'unknown' });
 });
 
-module.exports = router;
+// Export both router and reset so server.js can clear _codes on POST /reset
+module.exports = { router, reset() { _codes.clear(); } };
 ```
 
 - [ ] **Step 2: Smoke-test**
@@ -116,6 +131,10 @@ module.exports = router;
 cd fixtures/oauth-lab
 SCENARIO=token-sub VULN_MODE=true PUBLIC_BASE_URL=http://localhost:3000 node server.js &
 sleep 1
+
+# Passive discovery page
+curl -s http://localhost:3000/login | grep "client_id=token-sub-client"
+# Expected: OAuth-looking authorize link present
 
 # Login as user_a
 TOK_A=$(curl -s -X POST http://localhost:3000/login \

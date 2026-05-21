@@ -49,7 +49,7 @@ Wire `FIXTURE_OAUTH_*_URL` into both `backend` and `worker` env blocks.
 ```
 backend/apps/stubs/oauth_missing_state/
   runner.py            # MODIFY: add detection chain after gate scaffold
-  classify.py          # CREATE: inspect_authorization_url(), classify_state_missing()
+  classify.py          # CREATE: inspect_authorization_url(), _not_oauth() helper
   tests/
     test_gates.py      # EXISTS: gate tests already pass — do not break
     test_classify.py   # CREATE: unit tests for classify.py

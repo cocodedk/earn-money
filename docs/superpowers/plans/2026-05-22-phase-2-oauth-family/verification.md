@@ -6,6 +6,7 @@
 - [ ] All four `SCENARIO=<name> node server.js` start without error
 - [ ] `GET /healthz` returns `{"ok":true}` on each scenario service
 - [ ] `POST /reset` returns `{"ok":true}` on each scenario service
+- [ ] Account-link fixture: link once, `POST /reset`, log in again, and verify `GET /__fixture/account-state` returns an empty `linkedProviders` list
 - [ ] Full test suite: `cd backend && python -m pytest apps/stubs/oauth_missing_state/ apps/stubs/oauth_redirect_uri/ apps/stubs/oauth_token_substitution/ apps/stubs/oauth_account_linking/ -v`
 - [ ] Coverage: `cd backend && python -m pytest ... --cov=apps/stubs/oauth_missing_state --cov=apps/stubs/oauth_redirect_uri --cov=apps/stubs/oauth_token_substitution --cov=apps/stubs/oauth_account_linking --cov-report=term-missing` — 100% on all four stubs
 - [ ] No regressions: `cd backend && python -m pytest --tb=short` — all 2170+ tests pass

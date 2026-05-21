@@ -30,10 +30,16 @@ const { Router } = require('express');
 const session = require('../lib/session');
 const { generateState, generateCode } = require('../lib/oauth-helpers');
 
-const USERS = {
-  user_a: { password: 'pass-a', linkedProviders: [] },
-  user_b: { password: 'pass-b', linkedProviders: [] },
-};
+const BASE_URL = process.env.PUBLIC_BASE_URL || 'http://oauth-account-linking-lab:3000';
+
+function makeUsers() {
+  return {
+    user_a: { password: 'pass-a', linkedProviders: [] },
+    user_b: { password: 'pass-b', linkedProviders: [] },
+  };
+}
+
+let USERS = makeUsers();
 
 // session_token → pending link state
 const _linkStates = new Map();
@@ -77,7 +83,7 @@ router.get('/settings/connections/link/mock', requireSession, (req, res) => {
 router.get('/auth/link/start', requireSession, (req, res) => {
   const params = new URLSearchParams({
     client_id: 'link-client',
-    redirect_uri: 'http://localhost:3000/auth/link/callback',
+    redirect_uri: `${BASE_URL}/auth/link/callback`,
     response_type: 'code',
     // intentionally omits state
   });
@@ -85,9 +91,11 @@ router.get('/auth/link/start', requireSession, (req, res) => {
 });
 
 // Mock auth endpoint — issues a code for linking
-router.get('/oauth/authorize-mock', (_req, res) => {
-  const { redirect_uri, state } = _req.query;
-  const dest = new URL(redirect_uri || 'http://localhost/cb');
+router.get('/oauth/authorize-mock', (req, res) => {
+  const { redirect_uri, state } = req.query;
+  let dest;
+  try { dest = new URL(redirect_uri || `${BASE_URL}/auth/link/callback`); }
+  catch { return res.status(400).json({ error: 'invalid_redirect_uri' }); }
   dest.searchParams.set('code', generateCode());
   if (state) dest.searchParams.set('state', state);
   res.redirect(302, dest.toString());
@@ -117,7 +125,7 @@ router.post('/auth/link/start-safe', requireSession, (req, res) => {
   _linkStates.set(req.sessionToken, state);
   const params = new URLSearchParams({
     client_id: 'link-client',
-    redirect_uri: 'http://localhost:3000/auth/link/callback-safe',
+    redirect_uri: `${BASE_URL}/auth/link/callback-safe`,
     response_type: 'code',
     state,
   });
@@ -141,7 +149,12 @@ router.get('/__fixture/account-state', requireSession, (req, res) => {
   res.json({ userId: req.sess.userId, linkedProviders: USERS[req.sess.userId].linkedProviders });
 });
 
-module.exports = router;
+function reset() {
+  USERS = makeUsers();
+  _linkStates.clear();
+}
+
+module.exports = { router, reset };
 ```
 
 - [ ] **Step 2: Smoke-test key paths**
@@ -167,6 +180,10 @@ curl -sv -H "X-Session-Token: $TOK" http://localhost:3000/auth/link/start 2>&1 |
 # Account state endpoint
 curl -s -H "X-Session-Token: $TOK" http://localhost:3000/__fixture/account-state
 # Expected: linkedProviders shows the mock link
+
+# Reset clears sessions and linked provider state
+curl -s -X POST http://localhost:3000/reset
+# Expected: {"ok":true,...}
 
 kill %1
 ```

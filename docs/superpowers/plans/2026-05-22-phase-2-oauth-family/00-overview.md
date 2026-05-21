@@ -33,6 +33,8 @@ pytest/httpx (tests), docker-compose (integration harness).
 | 09 | Stub 2.16 — oauth-token-substitution | `oauth_token_substitution/` detection chain |
 | 10 | Stub 2.17 — oauth-account-linking | `oauth_account_linking/` detection chain |
 
+**Parallelism:** Tasks 02–05 are independent (each touches one scenario file) and may run in parallel after Task 01 completes. Tasks 06a and 06b are also independent and may run in parallel.
+
 ## After all tasks
 
 Run `/codex-review` (gpt-5.5 xhigh) on the full OAuth family, then

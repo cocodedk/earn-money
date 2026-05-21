@@ -149,17 +149,20 @@ if (!SCENARIO || !KNOWN_SCENARIOS.includes(SCENARIO)) {
   process.exit(1);
 }
 
-// eslint-disable-next-line import/no-dynamic-require
-const scenarioRouter = require(`./scenarios/${SCENARIO}`);
-
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Scenarios may export { router, reset() } or just a router directly.
+const scenarioMod = require(`./scenarios/${SCENARIO}`);
+const scenarioRouter = scenarioMod.router || scenarioMod;
+const scenarioReset = typeof scenarioMod.reset === 'function' ? scenarioMod.reset : () => {};
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.get('/fixture-info', (_req, res) => res.json({ scenario: SCENARIO }));
 app.post('/reset', (_req, res) => {
   session.reset();
+  scenarioReset();
   res.json({ ok: true, message: 'in-memory state cleared' });
 });
 

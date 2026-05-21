@@ -42,6 +42,13 @@ router.get('/.well-known/openid-configuration', (_req, res) => {
   res.json({
     ...buildDiscoveryDoc(BASE_URL),
     authorization_endpoint: `${BASE_URL}/oauth/authorize/strict`,
+    // Fixture extension: scanner runners must probe these variants too.
+    authorization_endpoint_variants: [
+      `${BASE_URL}/oauth/authorize/loose-host-prefix`,
+      `${BASE_URL}/oauth/authorize/loose-path-prefix`,
+      `${BASE_URL}/oauth/authorize/foreign-origin`,
+      `${BASE_URL}/oauth/authorize/preserves-invalid`,
+    ],
   });
 });
 
@@ -119,7 +126,8 @@ router.get('/oauth/authorize/loose-path-prefix', (req, res) => {
 router.get('/oauth/authorize/foreign-origin', (req, res) => {
   const { redirect_uri } = req.query;
   if (!redirect_uri) return res.status(400).json({ error: 'missing_redirect_uri' });
-  const dest = new URL(redirect_uri);
+  let dest;
+  try { dest = new URL(redirect_uri); } catch { return res.status(400).json({ error: 'invalid_redirect_uri' }); }
   dest.searchParams.set('code', generateCode());
   res.redirect(302, dest.toString());
 });
@@ -159,7 +167,7 @@ curl -sI "http://localhost:3000/oauth/authorize/foreign-origin?client_id=test-cl
 
 # OIDC discovery
 curl -s http://localhost:3000/.well-known/openid-configuration | python3 -m json.tool
-# Expected: JSON with authorization_endpoint
+# Expected: JSON with authorization_endpoint and authorization_endpoint_variants
 
 kill %1
 ```
