@@ -13,13 +13,12 @@ remaining Phase 2 stubs follow:
 """
 from __future__ import annotations
 
-from apps.events.models import Event
-from apps.events.types import EventType
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.discovery import fetch_for_discovery
+from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.forms import AuthForm, discover_forms
 from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.normalize import (
@@ -213,8 +212,4 @@ def _emit(
             "valid_identifier_used": valid_identifier_used,
         },
     )
-    Event.log(
-        type=EventType.AUTH_FINDING_CANDIDATE,
-        scan_run=scan_run, target=target, subject=finding,
-        data={"finding_id": str(finding.id), "stub": "2.1"},
-    )
+    log_finding_candidate(finding, stub_id="2.1")

@@ -30,14 +30,15 @@ from __future__ import annotations
 import secrets
 import time
 
-from apps.events.models import Event
-from apps.events.types import EventType
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.discovery import fetch_for_discovery
-from apps.stubs._shared.auth.forms import AuthForm, discover_forms
+from apps.stubs._shared.auth.events import log_finding_candidate
+from apps.stubs._shared.auth.forms import (
+    AuthForm, discover_forms, pick_login_form,
+)
 from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.requests import build_probe_pair, submit_probe
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
@@ -88,7 +89,7 @@ def run(
         outcome.body, outcome.final_url,
         response_content_type=outcome.content_type,
     )
-    login_form = _pick_login_form(forms)
+    login_form = pick_login_form(forms)
     if login_form is None:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
@@ -104,14 +105,6 @@ def run(
         scan_run=scan_run, target=target, form=login_form,
         attempts=attempts,
     )
-
-
-def _pick_login_form(forms: list[AuthForm]) -> AuthForm | None:
-    """Login forms without a password field can't test throttling."""
-    for f in forms:
-        if f.flow_hint == "login" and f.password_field is not None:
-            return f
-    return None
 
 
 def _run_attempt_loop(*, form: AuthForm) -> int | None:
@@ -153,8 +146,4 @@ def _emit_finding(
             "requires_manual_review": True,
         },
     )
-    Event.log(
-        type=EventType.AUTH_FINDING_CANDIDATE,
-        scan_run=scan_run, target=target, subject=finding,
-        data={"finding_id": str(finding.id), "stub": _STUB_ID},
-    )
+    log_finding_candidate(finding, stub_id=_STUB_ID)

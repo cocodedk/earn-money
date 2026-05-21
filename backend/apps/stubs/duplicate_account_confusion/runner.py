@@ -20,11 +20,10 @@ the request-construction layer differs.
 """
 from __future__ import annotations
 
-from apps.events.models import Event
-from apps.events.types import EventType
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.normalize import diff, normalize
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
@@ -117,8 +116,4 @@ def _emit_finding(
             "existing_email_known": True,
         },
     )
-    Event.log(
-        type=EventType.AUTH_FINDING_CANDIDATE,
-        scan_run=scan_run, target=target, subject=finding,
-        data={"finding_id": str(finding.id), "stub": "2.19"},
-    )
+    log_finding_candidate(finding, stub_id="2.19")

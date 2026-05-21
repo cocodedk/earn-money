@@ -69,6 +69,19 @@ def discover_forms(
     return out
 
 
+def pick_login_form(forms: list[AuthForm]) -> AuthForm | None:
+    """First form with `flow_hint=login` AND a `password_field`.
+
+    Without a password field there's no credential surface to probe;
+    such forms are skipped. Used by every Phase 2 login stub
+    (lockout / rate-limit / etc.).
+    """
+    for f in forms:
+        if f.flow_hint == "login" and f.password_field is not None:
+            return f
+    return None
+
+
 def discover_json_endpoints(
     response_body: bytes, base_url: str,
     *, response_content_type: str,

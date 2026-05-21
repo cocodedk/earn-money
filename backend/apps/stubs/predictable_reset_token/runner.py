@@ -14,12 +14,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from apps.events.models import Event
-from apps.events.types import EventType
 from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.forms import AuthForm
 from apps.stubs._shared.auth.mailbox import (
     MailboxBackend, MailboxConfigError, extract_reset_token,
@@ -186,11 +185,7 @@ def _emit_finding(
             "action_url": form.action_url,
         },
     )
-    Event.log(
-        type=EventType.AUTH_FINDING_CANDIDATE,
-        scan_run=scan_run, target=target, subject=finding,
-        data={"finding_id": str(finding.id), "stub": "2.5"},
-    )
+    log_finding_candidate(finding, stub_id="2.5")
 
 
 def _emit_stale(
