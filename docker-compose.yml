@@ -167,6 +167,44 @@ services:
       - backend
       - frontend
 
+  # --- Phase 2 password-reset fixture ----------------------------------
+  # Mailpit: SMTP-in (1025) + web/REST API (8025) + IMAP (1143).
+  # Read-only IMAP is plaintext-only, so the backend reads via REST
+  # (a future MailpitBackend in _shared/auth/). Web UI on 8025 lets the
+  # operator eyeball captured mail during smoke runs.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    environment:
+      TZ: Europe/Copenhagen
+      MP_MAX_MESSAGES: "5000"
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit-data:/data
+    networks: [scanner-net]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/info"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # reset-canary: tiny intentionally-vulnerable target for stubs
+  # 2.5-2.9. Sends predictable-token reset emails through mailpit.
+  reset-canary:
+    image: earnmoney-reset-canary:dev
+    build:
+      context: ./fixtures/reset-canary
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      PUBLIC_BASE_URL: http://reset-canary:3000
+    networks: [scanner-net]
+    depends_on:
+      mailpit:
+        condition: service_healthy
+
 networks:
   scanner-net:
     driver: bridge
@@ -175,3 +213,4 @@ volumes:
   postgres-data:
   redis-data:
   frontend-node-modules:
+  mailpit-data:

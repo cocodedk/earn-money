@@ -1,0 +1,15 @@
+{
+  "name": "reset-canary",
+  "version": "0.1.0",
+  "description": "Tiny intentionally-vulnerable target for Phase-2 password-reset scanner stubs (2.5-2.9). Emits predictable reset tokens; ships emails through the Mailpit sidecar.",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "4.21.2",
+    "nodemailer": "6.9.16"
+  },
+  "license": "MIT"
+}
