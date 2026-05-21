@@ -17,6 +17,9 @@
 //   * /change-email accepts the new email with just a session token
 //     (no current-password reauth) — detectable by stub 2.9
 //     (account-takeover-via-email-change).
+//   * /sensitive-action accepts the ordinary session token even
+//     when the account has MFA enabled (no X-MFA-Step-Up check) —
+//     detectable by stub 2.10 (mfa-bypass).
 
 const crypto = require("crypto");
 const express = require("express");
@@ -157,6 +160,43 @@ app.post("/change-email", (req, res) => {
     if (e === me) sessions.set(t, newEmail);
   }
   return res.status(200).json({ status: "email changed", email: newEmail });
+});
+
+// ---------------------------------------------------------------------
+// Stub 2.10 surface: MFA bypass on a sensitive endpoint.
+//
+// `mfaEnabled` is tracked per email. /mfa/enroll flips it true (no
+// real TOTP — the canary is for back-end probe testing, not for
+// validating crypto). /sensitive-action is the INTENTIONALLY-
+// vulnerable endpoint: it accepts the ordinary session token even
+// when the account has MFA enabled, with no `X-MFA-Step-Up` check.
+const mfaState = new Map();  // email -> bool
+
+app.post("/mfa/enroll", (req, res) => {
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  mfaState.set(me, true);
+  return res.status(200).json({ status: "mfa_enrolled", email: me });
+});
+
+app.get("/me", (req, res) => {
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  return res.status(200).json({
+    email: me, mfaEnabled: mfaState.get(me) === true,
+  });
+});
+
+app.post("/sensitive-action", (req, res) => {
+  // Intentional vuln for stub 2.10: when mfaEnabled=true on the
+  // account, this endpoint is SUPPOSED to require an MFA step-up
+  // (header `X-MFA-Step-Up: <code>`). It doesn't check.
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  return res.status(200).json({
+    status: "sensitive_action_performed",
+    email: me, mfaEnabled: mfaState.get(me) === true,
+  });
 });
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
