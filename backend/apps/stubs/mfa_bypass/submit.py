@@ -125,19 +125,31 @@ def verify_mfa_enrolled(
             return None
         if not isinstance(body, dict):
             return None
-        for key in ("mfaEnabled", "mfa_enabled", "isMfaEnabled"):
-            if key in body:
-                value = body[key]
-                if value is True:
-                    return True
-                if value is False:
-                    return False
-                # Other truthy/falsy types (string "true", int 1) are
-                # ambiguous — treat as can't-confirm.
-                return None
-        # No MFA-flag field at all — endpoint responded but didn't
-        # tell us anything about MFA state.
+        return _read_mfa_flag(body)
+    return None
+
+
+_MFA_ALIASES: tuple[str, ...] = ("mfaEnabled", "mfa_enabled", "isMfaEnabled")
+
+
+def _read_mfa_flag(body: dict) -> bool | None:
+    """Walk every supported alias before bailing — an earlier
+    ambiguous value (string "true", null) must not shadow a later
+    explicit boolean (codex pass-2 P2)."""
+    saw_ambiguous = False
+    for key in _MFA_ALIASES:
+        if key not in body:
+            continue
+        value = body[key]
+        if value is True:
+            return True
+        if value is False:
+            return False
+        saw_ambiguous = True
+    if saw_ambiguous:
         return None
+    # No MFA-flag field at all — endpoint responded but didn't tell
+    # us anything about MFA state.
     return None
 
 

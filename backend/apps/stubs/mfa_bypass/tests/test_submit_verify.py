@@ -72,10 +72,41 @@ def test_verify_mfa_enrolled_no_flag_field_returns_none() -> None:
 
 
 def test_verify_mfa_enrolled_ambiguous_value_returns_none() -> None:
-    """`mfaEnabled` present but the value is neither True nor False
-    (e.g. "true" as a string) → None. The runner shouldn't act on
-    ambiguous types."""
+    """`mfaEnabled` present but neither True nor False (e.g.
+    "true" as a string) AND no other aliases → None."""
     queue = [_resp_with_json(200, {"mfaEnabled": "true"})]
+    with _patch_get(queue):
+        assert verify_mfa_enrolled(
+            base_url="https://x.example", bearer_token="t",
+        ) is None
+
+
+def test_verify_mfa_enrolled_explicit_after_ambiguous() -> None:
+    """Codex pass-2 P2: payload has `mfaEnabled: null` (ambiguous)
+    AND `isMfaEnabled: true` (explicit). Earlier alias must NOT
+    shadow the later boolean — return True."""
+    queue = [_resp_with_json(200, {"mfaEnabled": None, "isMfaEnabled": True})]
+    with _patch_get(queue):
+        assert verify_mfa_enrolled(
+            base_url="https://x.example", bearer_token="t",
+        ) is True
+
+
+def test_verify_mfa_enrolled_explicit_false_after_ambiguous() -> None:
+    """Same shape but the explicit alias is False — return False
+    (not None)."""
+    queue = [_resp_with_json(200, {"mfaEnabled": 1, "mfa_enabled": False})]
+    with _patch_get(queue):
+        assert verify_mfa_enrolled(
+            base_url="https://x.example", bearer_token="t",
+        ) is False
+
+
+def test_verify_mfa_enrolled_all_aliases_ambiguous_returns_none() -> None:
+    """Every alias present but all ambiguous → None."""
+    queue = [_resp_with_json(200, {
+        "mfaEnabled": None, "mfa_enabled": "true", "isMfaEnabled": 1,
+    })]
     with _patch_get(queue):
         assert verify_mfa_enrolled(
             base_url="https://x.example", bearer_token="t",
