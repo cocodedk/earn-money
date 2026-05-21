@@ -171,6 +171,34 @@ def test_transport_error_returns_outcome() -> None:
 
 
 @pytest.mark.django_db
+def test_single_client_reused_across_hops() -> None:
+    """Codex re-review found that per-hop `httpx.Client(...)` calls
+    dropped the cookie jar between redirects. The fetcher must build
+    ONE Client and reuse it across all hops so set-cookie on a 30x
+    replays on the next GET. Structural assertion via patch.call_count."""
+    _, target_run = seed_target_run(host="x.example", stub_slug="2.1")
+    queue = [
+        _resp(status=302, headers={"location": "/login"}, body=""),
+        _resp(status=302, headers={"location": "/login/step2"}, body=""),
+        _resp(status=200, body=_BODY, url="https://x.example/login/step2"),
+    ]
+    with patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
+        instance = MagicMock()
+        instance.__enter__ = MagicMock(return_value=instance)
+        instance.__exit__ = MagicMock(return_value=None)
+        instance.get = MagicMock(side_effect=queue)
+        client_cls.return_value = instance
+        outcome = fetch_for_discovery(
+            "https://x.example/",
+            target=target_run.target, program=_program(["x.example"]),
+        )
+    assert outcome.ok is True
+    assert outcome.status == 200
+    assert client_cls.call_count == 1
+    assert instance.get.call_count == 3  # all three hops on one client
+
+
+@pytest.mark.django_db
 def test_3xx_without_location_treated_as_final() -> None:
     """Response is 302 but has no Location header → treated as the
     final outcome (no infinite-loop bug)."""

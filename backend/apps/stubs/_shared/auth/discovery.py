@@ -61,42 +61,47 @@ def fetch_for_discovery(
     never issued.
     """
     current_url = base_url
-    for hop in range(max_redirects + 1):
-        if hop > 0:
-            try:
-                enforce_scope(
-                    target, current_url, program,
-                    scan_run=scan_run, stub_id=stub_id,
-                )
-            except OutOfScope:
-                return FetchOutcome(
-                    ok=False, status=0, body="", content_type="",
-                    final_url=current_url, error="redirect_off_scope",
-                )
-        try:
-            with Client(
-                timeout=_DEFAULT_TIMEOUT, follow_redirects=False,
-            ) as client:
+    # ONE Client across all hops so cookies set on a 30x response
+    # replay on the next GET — sites that set a session cookie at
+    # redirect time would otherwise return a different (or no)
+    # login form on the next hop (codex re-review P2 on commit
+    # d2262fa).
+    try:
+        with Client(
+            timeout=_DEFAULT_TIMEOUT, follow_redirects=False,
+        ) as client:
+            for hop in range(max_redirects + 1):
+                if hop > 0:
+                    try:
+                        enforce_scope(
+                            target, current_url, program,
+                            scan_run=scan_run, stub_id=stub_id,
+                        )
+                    except OutOfScope:
+                        return FetchOutcome(
+                            ok=False, status=0, body="", content_type="",
+                            final_url=current_url, error="redirect_off_scope",
+                        )
                 response = client.get(current_url)
-        except httpx.RequestError as exc:
-            return FetchOutcome(
-                ok=False, status=0, body="", content_type="",
-                final_url=current_url, error=type(exc).__name__,
-            )
-        location = response.headers.get("location")
-        if response.status_code in _REDIRECT_STATUSES and location:
-            current_url = urljoin(current_url, location)
-            continue
-        content_type = str(
-            response.headers.get("content-type", "")
-        ).split(";")[0].strip()
+                location = response.headers.get("location")
+                if response.status_code in _REDIRECT_STATUSES and location:
+                    current_url = urljoin(current_url, location)
+                    continue
+                content_type = str(
+                    response.headers.get("content-type", "")
+                ).split(";")[0].strip()
+                return FetchOutcome(
+                    ok=True,
+                    status=response.status_code,
+                    body=response.text or "",
+                    content_type=content_type,
+                    final_url=str(response.url),
+                    error=None,
+                )
+    except httpx.RequestError as exc:
         return FetchOutcome(
-            ok=True,
-            status=response.status_code,
-            body=response.text or "",
-            content_type=content_type,
-            final_url=str(response.url),
-            error=None,
+            ok=False, status=0, body="", content_type="",
+            final_url=current_url, error=type(exc).__name__,
         )
     return FetchOutcome(
         ok=False, status=0, body="", content_type="",
