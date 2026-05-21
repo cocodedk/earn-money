@@ -6,6 +6,7 @@ import { renderWithProviders } from "../../test/renderWithProviders";
 import { withPaginated } from "../../test/helpers";
 import { ScanRunFindingsPanel } from "./ScanRunFindingsPanel";
 import { makeFinding } from "./__fixtures__/finding";
+import type { Confidence } from "../../types/api";
 
 const SCAN_RUN_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -180,7 +181,7 @@ describe("ScanRunFindingsPanel", () => {
     withPaginated("/api/findings/", [
       makeFinding({
         id: "ffffffff-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        confidence: "",
+        confidence: "" as Confidence,
       }),
     ]);
     renderWithProviders(
