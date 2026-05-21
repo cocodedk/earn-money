@@ -89,8 +89,9 @@ def test_no_login_form_found() -> None:
 
 @pytest.mark.django_db
 def test_non_login_form_present_is_skipped() -> None:
-    """Body has a form but it's a search form (no password field) →
-    `_pick_login_form` returns None after iterating."""
+    """Body has an auth form but it's a password-reset (not a login)
+    → `_pick_login_form` returns None after iterating, runner emits
+    AUTH_FIXTURE_REQUIRED with detail=no_login_form_found."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
     search_only = (
         "<html><body>"

@@ -31,6 +31,7 @@ from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.targets.models import ScanTarget
 from apps.stubs._shared.auth._normalize_abort import classify_abort_body
 from apps.stubs._shared.auth.forms import AuthForm, discover_forms
 from apps.stubs._shared.auth.requests import build_probe_pair
@@ -138,7 +139,7 @@ def _run_attempt_loop(*, canary: str, form: AuthForm) -> int | None:
 
 
 def _emit_finding(
-    *, scan_run, target, form: AuthForm, attempts: int,
+    *, scan_run: ScanRun, target: ScanTarget, form: AuthForm, attempts: int,
 ) -> None:
     finding = Finding.objects.create(
         scan_run=scan_run, target=target, stub_slug=_STUB_ID,
