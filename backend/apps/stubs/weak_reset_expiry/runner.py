@@ -149,8 +149,22 @@ _QUERY_TOKEN_RE = re.compile(
     r"([?&](?:token|code|t|k|reset_token|auth)=)[^\s&\"'<>]+",
     flags=re.IGNORECASE,
 )
+
+# Path-style: capture full keyword chunk (so `/reset-password/<t>`
+# doesn't split into `/reset-` + `password`/<t>). Then redact the
+# next path segment in its entirety.
 _URL_PATH_TOKEN_RE = re.compile(
-    r"(https?://[^\s\"'<>?]+/(?:reset|token|verify)[/-])[A-Za-z0-9._-]+",
+    r"(https?://[^\s\"'<>?]+?/"
+    r"(?:"
+    r"reset(?:[-_]?password)?"
+    r"|password[-_]?reset"
+    r"|forgot(?:[-_]?password)?"
+    r"|verify"
+    r"|confirm"
+    r"|recover"
+    r"|token"
+    r")/)"
+    r"[A-Za-z0-9._~+-]+",
     flags=re.IGNORECASE,
 )
 

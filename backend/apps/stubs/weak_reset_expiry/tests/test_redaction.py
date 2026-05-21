@@ -141,3 +141,39 @@ def test_non_token_url_preserved() -> None:
     ))
     f = Finding.objects.get(scan_run=scan_run)
     assert "https://x.example/home" in f.data["body_snippet"]
+
+
+@pytest.mark.django_db
+def test_compound_reset_password_path_redacted() -> None:
+    """`/reset-password/<token>` is the common shape on Express/
+    Rails/Django apps. Codex re-review caught that the previous
+    pattern leaked the token here."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
+    _run(scan_run, target_run, _wire(
+        _mailbox("Click https://x.example/reset-password/SECRET-TOKEN-XYZ"),
+    ))
+    f = Finding.objects.get(scan_run=scan_run)
+    assert "SECRET-TOKEN-XYZ" not in f.data["body_snippet"]
+    assert "<redacted>" in f.data["body_snippet"]
+
+
+@pytest.mark.django_db
+def test_password_reset_path_redacted() -> None:
+    """`/password-reset/<token>` (reversed compound word) shape."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
+    _run(scan_run, target_run, _wire(
+        _mailbox("Click https://x.example/password-reset/SECRET-XYZ"),
+    ))
+    f = Finding.objects.get(scan_run=scan_run)
+    assert "SECRET-XYZ" not in f.data["body_snippet"]
+
+
+@pytest.mark.django_db
+def test_forgot_password_path_redacted() -> None:
+    """`/forgot-password/<token>` shape."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.7")
+    _run(scan_run, target_run, _wire(
+        _mailbox("Click https://x.example/forgot-password/SECRET-XYZ"),
+    ))
+    f = Finding.objects.get(scan_run=scan_run)
+    assert "SECRET-XYZ" not in f.data["body_snippet"]

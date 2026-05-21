@@ -126,8 +126,14 @@ def run(
         return
 
     # First consumption — should succeed on any normal target.
-    # Both consumptions use the OPERATOR-CONFIGURED replacement
-    # password so the canary remains usable post-scan (codex P1).
+    # Both consumptions use OPERATOR-KNOWN passwords so the canary
+    # remains usable post-scan (codex P1). The second consumption
+    # uses a DIFFERENT known value (suffix "-2") so targets that
+    # enforce "new password must differ from current" don't reject
+    # the second reset on policy grounds (codex re-review P2). The
+    # canary ends at `<replacement>-2` which the operator can log
+    # in with after the scan.
+    second_password = f"{replacement_password}-2"
     acquire_for(program)
     first = complete_reset(
         base_url=target.base_url, token=token, password=replacement_password,
@@ -138,7 +144,7 @@ def run(
     # Second consumption with SAME token — the load-bearing probe.
     acquire_for(program)
     second = complete_reset(
-        base_url=target.base_url, token=token, password=replacement_password,
+        base_url=target.base_url, token=token, password=second_password,
     )
     if second is None or not (200 <= second.status_code < 300):
         return  # Token invalidated on first use → target is OK.
