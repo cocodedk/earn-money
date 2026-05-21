@@ -1,9 +1,12 @@
-"""Probe-pair builder for Phase 2 comparison stubs.
+"""Probe-pair builder + executor for Phase 2 comparison stubs.
 
 `build_probe_pair()` constructs the two `httpx.Request` objects a
 comparison stub fires per discovered auth form: one with a synthetic
 invalid identifier, one with a scoped valid identifier (when the
-stub has fixture-validated access to one).
+stub has fixture-validated access to one). `submit_probe()` is the
+matched executor — a fresh `httpx.Client` per request enforces
+cookie-jar isolation, and a transport error returns `None` so the
+caller can record `transport_error` without re-raising.
 
 Spec 2.1 §2.6 — shape preservation rules:
 * Same HTTP method, parameter names, content type, header set

@@ -19,12 +19,12 @@ from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.exceptions import OutOfScope
 from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.auth.discovery import fetch_for_discovery
 from apps.stubs._shared.auth.forms import AuthForm, discover_forms
 from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.normalize import (
     NormalizedResponse, classify_abort, diff, normalize,
 )
-from apps.stubs._shared.auth.discovery import fetch_for_discovery
 from apps.stubs._shared.auth.requests import (
     ProbePair, build_probe_pair, submit_probe,
 )
