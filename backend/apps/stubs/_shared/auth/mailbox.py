@@ -137,19 +137,22 @@ def load_mailbox_backend() -> MailboxBackend | None:
     if not backend:
         raise MailboxConfigError(
             f"{_BACKEND_ENV} env var must be set "
-            f"(values: imap | mailosaur | catchall | none)"
+            f"(values: imap | mailpit | mailosaur | catchall | none)"
         )
     if backend == "none":
         return None
     if backend == "imap":
         from ._imap import IMAPMailbox
         return IMAPMailbox.from_env()
+    if backend == "mailpit":
+        from ._mailpit import MailpitMailbox
+        return MailpitMailbox.from_env()
     if backend in _NOT_YET_IMPLEMENTED:
         raise MailboxConfigError(
             f"FIXTURE_MAILBOX_BACKEND={backend!r}: backend spec'd but "
-            f"not yet implemented; use 'imap' or 'none' for now"
+            f"not yet implemented; use 'imap' / 'mailpit' / 'none'"
         )
     raise MailboxConfigError(
         f"FIXTURE_MAILBOX_BACKEND={backend!r}: unknown backend "
-        f"(values: imap | mailosaur | catchall | none)"
+        f"(values: imap | mailpit | mailosaur | catchall | none)"
     )
