@@ -91,13 +91,20 @@ def _bucket_for(program: Program) -> TokenBucket:
     """Get-or-create the bucket for one (platform, slug) pair.
 
     Capacity = `min(program.roe.max_requests_per_second, shared floor)`.
+
+    When the cached bucket's capacity differs from the current
+    effective cap, the bucket is REBUILT — otherwise an operator
+    lowering `max_requests_per_second` in `roe.md` would leave a
+    long-running worker bursting at the old higher rate until
+    restart (codex P2.1). The Program loader reloads `roe.md` on
+    mtime changes; this layer must respect those reloads.
     """
     key = (program.platform, program.slug)
+    cap = min(program.roe.max_requests_per_second, _floor_rps())
     with _buckets_lock:
         bucket = _buckets.get(key)
-        if bucket is not None:
+        if bucket is not None and int(bucket.capacity) == cap:
             return bucket
-        cap = min(program.roe.max_requests_per_second, _floor_rps())
         bucket = TokenBucket(capacity=cap, refill_per_sec=cap)
         _buckets[key] = bucket
         return bucket

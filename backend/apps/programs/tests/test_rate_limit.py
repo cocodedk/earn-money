@@ -170,3 +170,5 @@ def test_default_floor_applies_when_settings_unset() -> None:
     from apps.programs.rate_limit import _bucket_for
     bucket = _bucket_for(prog)
     assert bucket.capacity == 10.0  # floor = min(20, 10) = 10
+
+
