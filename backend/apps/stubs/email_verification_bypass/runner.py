@@ -59,11 +59,9 @@ _TOKEN_BODY_MARKERS: tuple[str, ...] = (
 )
 
 # Verification-required text in the REGISTRATION response. Presence
-# strengthens confidence (we have evidence the system DOES gate on
-# verification but failed to enforce it). Both compact-JSON and
-# whitespace-formatted variants ("k":v vs "k": v) are listed because
-# json.dumps() defaults to the spaced form and runners can see either.
-_VERIFY_REQUIRED_MARKERS: tuple[str, ...] = (
+# strengthens confidence (the system DOES gate on verification but
+# failed to enforce it). Substring scan — no JSON parse.
+_PLAIN_TEXT_MARKERS: tuple[str, ...] = (
     "verify your email",
     "email verification",
     "confirmation email",
@@ -72,14 +70,29 @@ _VERIFY_REQUIRED_MARKERS: tuple[str, ...] = (
     "account is inactive",
     "email not verified",
     '"requiresverification"',
+)
+
+# JSON field markers in compact form. Each is expanded at module
+# load to also match the whitespace-formatted variant (`"k": v` vs
+# `"k":v`) because json.dumps() defaults to spaced output.
+_JSON_FIELD_MARKERS_COMPACT: tuple[str, ...] = (
     '"emailverified":false',
-    '"emailverified": false',
     '"verified":false',
-    '"verified": false',
     '"isverified":false',
-    '"isverified": false',
     '"status":"pending"',
-    '"status": "pending"',
+)
+
+
+def _expand_spaced(markers: tuple[str, ...]) -> tuple[str, ...]:
+    """Pair each compact `"k":v` marker with a `"k": v` variant."""
+    return tuple(
+        m for base in markers
+        for m in (base, base.replace(":", ": ", 1))
+    )
+
+
+_VERIFY_REQUIRED_MARKERS: tuple[str, ...] = (
+    _PLAIN_TEXT_MARKERS + _expand_spaced(_JSON_FIELD_MARKERS_COMPACT)
 )
 
 

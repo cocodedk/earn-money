@@ -95,8 +95,9 @@ def test_verify_required_text_upgrades_confidence_to_high() -> None:
 
 @pytest.mark.django_db
 def test_json_emailverified_false_upgrades_confidence() -> None:
-    """Registration JSON body `emailVerified:false` and login succeeds
-    → confidence=high via the JSON-walk path."""
+    """Registration JSON body `emailVerified:false` (compact) and
+    login succeeds → confidence=high via the JSON-marker substring
+    set."""
     reg = _resp(
         status=201,
         body='{"data":{"id":7,"emailVerified":false}}',
@@ -161,11 +162,9 @@ def test_login_transport_failure_no_finding() -> None:
 
 
 @pytest.mark.django_db
-def test_invalid_json_registration_body_no_crash() -> None:
+def test_non_json_registration_body_no_crash() -> None:
     """Registration response with non-JSON body (e.g., HTML page) →
-    JSON-walk falls through cleanly; substring scan still wins if a
-    marker is present. Here neither path matches, so confidence stays
-    medium."""
+    substring scan finds no marker, confidence stays medium."""
     reg = _resp(status=201, body="<html><body>welcome</body></html>")
     login = _resp(status=200, headers={"Set-Cookie": "sid=x"})
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.20")

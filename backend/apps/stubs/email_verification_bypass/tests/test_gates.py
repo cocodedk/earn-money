@@ -1,7 +1,7 @@
 """Gate tests for stub 2.20 (email-verification-bypass)."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -56,7 +56,6 @@ def test_registration_fails_silent_no_finding() -> None:
 def test_registration_4xx_no_finding() -> None:
     """Registration returns 400 (email taken / validation error) →
     no account exists → stub stops, no login attempted."""
-    from unittest.mock import MagicMock
     reg = MagicMock(status_code=400, text="email taken")
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.20")
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
