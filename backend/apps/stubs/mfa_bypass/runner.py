@@ -45,7 +45,7 @@ from apps.targets.models import ScanTarget
 
 from ..email_change_takeover.submit import bearer_token_from
 from ..runners import guarded_runner
-from .submit import enroll_mfa, post_sensitive_action
+from .submit import enroll_mfa, post_sensitive_action, verify_mfa_enrolled
 
 
 _STUB_ID = "2.10"
@@ -126,6 +126,29 @@ def run(
             scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
             reason=RefusalReason.FIXTURE_REQUIRED,
             details={"detail": "mfa_enroll_endpoint_unreachable_or_rejected"},
+        )
+        return
+
+    # Codex P2.1 — confirm enrollment actually landed before
+    # claiming "bypass". Without this check, an enroll endpoint
+    # that returns 2xx but doesn't change state turns a non-MFA
+    # account into a high-confidence MFA-bypass false positive.
+    acquire_for(program)
+    enrolled = verify_mfa_enrolled(
+        base_url=target.base_url, bearer_token=token,
+    )
+    if enrolled is None:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "mfa_state_endpoint_unreachable"},
+        )
+        return
+    if enrolled is False:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "mfa_enrollment_did_not_land"},
         )
         return
 

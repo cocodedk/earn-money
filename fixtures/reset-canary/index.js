@@ -199,6 +199,23 @@ app.post("/sensitive-action", (req, res) => {
   });
 });
 
+// Stub 2.12 surface: weak recovery codes.
+// Intentional vuln — codes are 4-digit numeric strings drawn from
+// a small contiguous range, so the predictable-token analyser
+// flags them as sequential_integer + low_entropy.
+const recoveryCodes = new Map();  // email -> string[]
+
+app.post("/mfa/recovery-codes/generate", (req, res) => {
+  const me = _authedEmail(req);
+  if (!me) return res.status(401).json({ error: "auth required" });
+  const codes = [];
+  for (let i = 0; i < 8; i++) {
+    codes.push(String(1000 + i).padStart(4, "0"));
+  }
+  recoveryCodes.set(me, codes);
+  return res.status(200).json({ codes });
+});
+
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, () => {

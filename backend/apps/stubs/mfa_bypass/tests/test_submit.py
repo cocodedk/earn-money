@@ -80,3 +80,4 @@ def test_sensitive_authorization_header_propagates() -> None:
         assert "mfa" not in h.lower()
         assert "step-up" not in h.lower()
         assert "otp" not in h.lower()
+

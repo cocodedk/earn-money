@@ -119,6 +119,49 @@ def test_enroll_unreachable() -> None:
 
 
 @pytest.mark.django_db
+def test_mfa_state_endpoint_unreachable() -> None:
+    """verify_mfa_enrolled returns None → AUTH_FIXTURE_REQUIRED
+    detail=mfa_state_endpoint_unreachable (codex P2.1)."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.10")
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.mfa_bypass.runner.register_via_api",
+               return_value=MagicMock(status_code=201)), \
+         patch("apps.stubs.mfa_bypass.runner.login_via_api",
+               return_value=MagicMock(status_code=200)), \
+         patch("apps.stubs.mfa_bypass.runner.bearer_token_from",
+               return_value="tok"), \
+         patch("apps.stubs.mfa_bypass.runner.enroll_mfa",
+               return_value=MagicMock(status_code=200)), \
+         patch("apps.stubs.mfa_bypass.runner.verify_mfa_enrolled",
+               return_value=None):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "mfa_state_endpoint_unreachable"
+
+
+@pytest.mark.django_db
+def test_mfa_enrollment_did_not_land() -> None:
+    """verify_mfa_enrolled returns False → refuse. Without this
+    check, a non-MFA account would yield a high-confidence bypass
+    false positive (codex P2.1)."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.10")
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.mfa_bypass.runner.register_via_api",
+               return_value=MagicMock(status_code=201)), \
+         patch("apps.stubs.mfa_bypass.runner.login_via_api",
+               return_value=MagicMock(status_code=200)), \
+         patch("apps.stubs.mfa_bypass.runner.bearer_token_from",
+               return_value="tok"), \
+         patch("apps.stubs.mfa_bypass.runner.enroll_mfa",
+               return_value=MagicMock(status_code=200)), \
+         patch("apps.stubs.mfa_bypass.runner.verify_mfa_enrolled",
+               return_value=False):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "mfa_enrollment_did_not_land"
+
+
+@pytest.mark.django_db
 def test_sensitive_unreachable() -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.10")
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
@@ -130,6 +173,8 @@ def test_sensitive_unreachable() -> None:
                return_value="tok"), \
          patch("apps.stubs.mfa_bypass.runner.enroll_mfa",
                return_value=MagicMock(status_code=200)), \
+         patch("apps.stubs.mfa_bypass.runner.verify_mfa_enrolled",
+               return_value=True), \
          patch("apps.stubs.mfa_bypass.runner.post_sensitive_action",
                return_value=None):
         run(scan_run, target_run)
