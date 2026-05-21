@@ -24,15 +24,16 @@ from apps.stubs._shared.auth.identifiers import generate_invalid_identifier
 from apps.stubs._shared.auth.normalize import (
     NormalizedResponse, classify_abort, diff, normalize,
 )
-from apps.stubs._shared.auth.requests import ProbePair, build_probe_pair
+from apps.stubs._shared.auth.discovery import fetch_for_discovery
+from apps.stubs._shared.auth.requests import (
+    ProbePair, build_probe_pair, submit_probe,
+)
 from apps.stubs._shared.auth.safety import (
     ProbeBudget, ProbeState, RefusalReason, check_can_probe, record_refusal,
 )
 from apps.stubs._shared.scope_check import enforce_scope
 
 from ..runners import guarded_runner
-from .fetcher import fetch_for_discovery
-from .submit import submit_probe
 
 
 _BOGUS_PASSWORD = "scanner-bogus-passphrase"

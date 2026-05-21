@@ -33,14 +33,13 @@ from apps.programs.loader import Program
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 from apps.stubs._shared.auth._normalize_abort import classify_abort_body
+from apps.stubs._shared.auth.discovery import fetch_for_discovery
 from apps.stubs._shared.auth.forms import AuthForm, discover_forms
-from apps.stubs._shared.auth.requests import build_probe_pair
+from apps.stubs._shared.auth.requests import build_probe_pair, submit_probe
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
 from apps.stubs._shared.scope_check import enforce_scope
 
 from ..runners import guarded_runner
-from ..username_enum.fetcher import fetch_for_discovery
-from ..username_enum.submit import submit_probe
 
 
 _STUB_ID = "2.3"

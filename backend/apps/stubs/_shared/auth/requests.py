@@ -27,11 +27,27 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import httpx
+from httpx import Client
 
 from .forms import AuthForm
 
 
 SCANNER_USER_AGENT = "cookbook-scanner/v2 (+https://cocode.dk)"
+_DEFAULT_SUBMIT_TIMEOUT = 10.0
+
+
+def submit_probe(request: httpx.Request) -> httpx.Response | None:
+    """Send ``request`` via a fresh `httpx.Client` (isolated cookie
+    jar) and return the response. Returns None on transport error so
+    the caller can record `transport_error` without re-raising."""
+    try:
+        with Client(
+            timeout=_DEFAULT_SUBMIT_TIMEOUT,
+            follow_redirects=False,
+        ) as client:
+            return client.send(request)
+    except httpx.RequestError:
+        return None
 
 
 @dataclass(frozen=True)

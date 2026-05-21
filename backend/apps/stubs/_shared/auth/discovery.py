@@ -1,8 +1,9 @@
-"""Stub 2.1 fetcher — single GET of the target base URL.
+"""Passive discovery fetch — shared across Phase 2 auth stubs.
 
-Passive fetch (no credentials, no form submission). Used to discover
-auth forms before any active probe fires. The submit-time fetcher
-lands in slice 02 chunk 3.
+`fetch_for_discovery()` does one GET of the target base URL with
+no credentials and returns enough metadata for `discover_forms()`
+to parse the body. Originally lived under `username_enum/`; lifted
+here when stub 2.3 became the second consumer.
 """
 from __future__ import annotations
 

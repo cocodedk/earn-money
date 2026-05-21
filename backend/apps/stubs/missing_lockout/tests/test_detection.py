@@ -13,7 +13,7 @@ from apps.programs.roe import RoE
 from apps.programs.scope import Scope
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.missing_lockout.runner import run
-from apps.stubs.username_enum.fetcher import FetchOutcome
+from apps.stubs._shared.auth.discovery import FetchOutcome
 
 
 _LOGIN_HTML = """

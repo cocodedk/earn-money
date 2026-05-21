@@ -74,8 +74,8 @@ def test_finding_emitted_when_responses_differ() -> None:
     valid_resp = _mock_response(status=401, body="incorrect password")
 
     with patch.object(get_registry(), "find_for_host", return_value=prog), \
-         patch("apps.stubs.username_enum.fetcher.Client") as fetch_cls, \
-         patch("apps.stubs.username_enum.submit.Client") as submit_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as fetch_cls, \
+         patch("apps.stubs._shared.auth.requests.Client") as submit_cls:
         fetch_cls.return_value.__enter__.return_value.get.return_value = discovery
         submit_client = submit_cls.return_value.__enter__.return_value
         submit_client.send.side_effect = [invalid_resp, valid_resp]
@@ -106,8 +106,8 @@ def test_no_finding_when_responses_identical() -> None:
     valid_resp = _mock_response(status=401, body="invalid credentials")
 
     with patch.object(get_registry(), "find_for_host", return_value=prog), \
-         patch("apps.stubs.username_enum.fetcher.Client") as fetch_cls, \
-         patch("apps.stubs.username_enum.submit.Client") as submit_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as fetch_cls, \
+         patch("apps.stubs._shared.auth.requests.Client") as submit_cls:
         fetch_cls.return_value.__enter__.return_value.get.return_value = discovery
         submit_cls.return_value.__enter__.return_value.send.side_effect = [
             invalid_resp, valid_resp,
@@ -129,8 +129,8 @@ def test_invalid_only_probe_emits_candidate_when_unique_signal() -> None:
     invalid_resp = _mock_response(status=404, body="user not found")
 
     with patch.object(get_registry(), "find_for_host", return_value=prog), \
-         patch("apps.stubs.username_enum.fetcher.Client") as fetch_cls, \
-         patch("apps.stubs.username_enum.submit.Client") as submit_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as fetch_cls, \
+         patch("apps.stubs._shared.auth.requests.Client") as submit_cls:
         fetch_cls.return_value.__enter__.return_value.get.return_value = discovery
         submit_cls.return_value.__enter__.return_value.send.return_value = (
             invalid_resp
@@ -157,8 +157,8 @@ def test_captcha_abort_prevents_finding() -> None:
     )
 
     with patch.object(get_registry(), "find_for_host", return_value=prog), \
-         patch("apps.stubs.username_enum.fetcher.Client") as fetch_cls, \
-         patch("apps.stubs.username_enum.submit.Client") as submit_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as fetch_cls, \
+         patch("apps.stubs._shared.auth.requests.Client") as submit_cls:
         fetch_cls.return_value.__enter__.return_value.get.return_value = discovery
         submit_cls.return_value.__enter__.return_value.send.return_value = (
             captcha_resp

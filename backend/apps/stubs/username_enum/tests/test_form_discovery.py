@@ -37,7 +37,7 @@ def _program() -> Program:
 
 
 def _mock_httpx_get(*, body: str, status: int = 200, content_type: str = "text/html"):
-    """Patch httpx.Client used inside username_enum.fetcher."""
+    """Patch httpx.Client used inside _shared.auth.discovery."""
     from unittest.mock import MagicMock
     response = MagicMock()
     response.status_code = status
@@ -57,7 +57,7 @@ def test_no_forms_emits_fixture_required() -> None:
     response = _mock_httpx_get(body="<html><body></body></html>")
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
-         patch("apps.stubs.username_enum.fetcher.Client") as client_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
         client_cls.return_value.__enter__.return_value.get.return_value = response
         run(scan_run, target_run)
 
@@ -86,7 +86,7 @@ def test_login_form_discovered_emits_no_fixture_event() -> None:
     ))
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
-         patch("apps.stubs.username_enum.fetcher.Client") as client_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
         client_cls.return_value.__enter__.return_value.get.return_value = response
         run(scan_run, target_run)
 
@@ -106,7 +106,7 @@ def test_transport_error_emits_probe_refused() -> None:
     )
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
-         patch("apps.stubs.username_enum.fetcher.Client") as client_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
         client_cls.return_value.__enter__.return_value.get.side_effect = (
             httpx.ConnectError("no route to host")
         )
@@ -142,7 +142,7 @@ def test_cross_origin_redirect_refused() -> None:
     response.url = "https://login.evil.invalid/"
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
-         patch("apps.stubs.username_enum.fetcher.Client") as client_cls:
+         patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
         client_cls.return_value.__enter__.return_value.get.return_value = response
         run(scan_run, target_run)
 
