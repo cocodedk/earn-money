@@ -17,6 +17,13 @@ from __future__ import annotations
 
 
 _LOGIN_PATHS: tuple[str, ...] = (
+    # JSON API variants first — modern targets answer here.
+    "/rest/user/login",     # Juice Shop
+    "/api/login",
+    "/api/v1/login",
+    "/api/auth/login",
+    "/api/sessions",
+    # HTML form-action variants.
     "/login",
     "/signin",
     "/sign-in",
