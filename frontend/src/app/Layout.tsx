@@ -15,7 +15,7 @@ export function Layout() {
     <div className={styles.shell} data-collapsed={String(collapsed)}>
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          {!collapsed && <div className={styles.brand}>Cookbook scanner</div>}
+          <div className={styles.brand}>Cookbook scanner</div>
           <SidebarToggle />
         </div>
         <nav id="primary-navigation" aria-label="Primary">

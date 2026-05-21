@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import {
-  isCollapsed,
   setCollapsed,
   subscribeSidebar,
   getSnapshot,
@@ -20,7 +19,7 @@ export function SidebarToggle() {
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       aria-expanded={!collapsed}
       aria-controls="primary-navigation"
-      onClick={() => setCollapsed(!isCollapsed())}
+      onClick={() => setCollapsed(!collapsed)}
     >
       {collapsed ? (
         <ChevronsRight size={16} aria-hidden focusable="false" />

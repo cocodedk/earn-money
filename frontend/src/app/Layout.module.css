@@ -50,9 +50,11 @@
 .content {
   @apply flex-1 overflow-auto px-6 py-4;
 }
+.navLink[aria-current="page"] {
+  color: var(--ink-strong);
+}
 .navLink span[data-active="true"] {
   @apply font-medium;
-  color: var(--ink-strong);
 }
 
 .shell[data-collapsed="true"] {
@@ -62,6 +64,7 @@
   justify-content: center;
   padding-inline: 0;
 }
+.shell[data-collapsed="true"] .brand,
 .shell[data-collapsed="true"] .label {
   display: none;
 }

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
-import path from "node:path";
+import { URL as NodeURL } from "node:url";
 
 const html = fs.readFileSync(
-  path.resolve(process.cwd(), "index.html"),
+  new NodeURL("../../index.html", import.meta.url),
   "utf8",
 );
 
