@@ -14,11 +14,27 @@ export function Layout() {
           <ul className={styles.navList}>
             {navItems.map((item) => (
               <li key={item.to}>
-                <NavLink to={item.to} className={styles.navLink}>
+                <NavLink
+                  to={item.to}
+                  className={styles.navLink}
+                  data-testid={item.testid}
+                >
                   {({ isActive }) => (
-                    <span data-active={isActive ? "true" : "false"}>
-                      {item.label}
-                    </span>
+                    <>
+                      <item.icon
+                        className={styles.icon}
+                        size={16}
+                        strokeWidth={1.75}
+                        aria-hidden
+                        focusable="false"
+                      />
+                      <span
+                        className={styles.label}
+                        data-active={isActive ? "true" : "false"}
+                      >
+                        {item.label}
+                      </span>
+                    </>
                   )}
                 </NavLink>
               </li>

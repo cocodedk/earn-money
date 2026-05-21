@@ -17,11 +17,17 @@
   @apply flex flex-col;
 }
 .navLink {
-  @apply block px-4 py-2 text-sm;
+  @apply flex items-center gap-2 px-4 py-2 text-sm;
   color: var(--ink-default);
 }
 .navLink:hover {
   background: var(--surface-sunken);
+}
+.icon {
+  @apply shrink-0;
+}
+.label {
+  @apply truncate;
 }
 .main {
   @apply flex flex-col min-w-0 rounded-md overflow-hidden;

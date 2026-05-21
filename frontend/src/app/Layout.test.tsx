@@ -68,4 +68,24 @@ describe("Layout", () => {
     setup("/projects/new");
     expect(screen.getByText("Projects")).toHaveAttribute("data-active", "true");
   });
+
+  it("renders an icon for each of the seven nav items", () => {
+    const { container } = setup();
+    expect(container.querySelectorAll("nav svg")).toHaveLength(7);
+  });
+
+  it("exposes a stable testid on each nav link", () => {
+    setup();
+    [
+      "nav-projects",
+      "nav-targets",
+      "nav-stubs",
+      "nav-scan-runs",
+      "nav-findings",
+      "nav-evidence",
+      "nav-settings",
+    ].forEach((testid) => {
+      expect(screen.getByTestId(testid)).toBeInTheDocument();
+    });
+  });
 });
