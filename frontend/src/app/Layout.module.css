@@ -10,8 +10,12 @@
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
+.sidebarHeader {
+  @apply flex items-center justify-between px-3 pb-3;
+}
 .brand {
-  @apply px-4 pb-4 font-semibold text-sm;
+  @apply truncate font-semibold text-sm;
+  color: var(--ink-strong);
 }
 .navList {
   @apply flex flex-col;
@@ -49,4 +53,28 @@
 .navLink span[data-active="true"] {
   @apply font-medium;
   color: var(--ink-strong);
+}
+
+.shell[data-collapsed="true"] {
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+.shell[data-collapsed="true"] .sidebarHeader {
+  justify-content: center;
+  padding-inline: 0;
+}
+.shell[data-collapsed="true"] .label {
+  display: none;
+}
+.shell[data-collapsed="true"] .navLink {
+  justify-content: center;
+  padding-inline: 0;
+}
+.shell {
+  transition: grid-template-columns var(--dur-base) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }

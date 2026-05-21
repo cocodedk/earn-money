@@ -4,8 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "../test/renderWithProviders";
 import { Layout } from "./Layout";
+import { setCollapsed } from "./sidebar";
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  setCollapsed(false);
+  window.localStorage.clear();
+});
 
 function setup(initialRoute = "/projects") {
   return renderWithProviders(
@@ -87,5 +91,23 @@ describe("Layout", () => {
     ].forEach((testid) => {
       expect(screen.getByTestId(testid)).toBeInTheDocument();
     });
+  });
+
+  it("starts expanded; nav links carry no aria-label or title", () => {
+    setup();
+    const link = screen.getByTestId("nav-stubs");
+    expect(link).not.toHaveAttribute("aria-label");
+    expect(link).not.toHaveAttribute("title");
+  });
+
+  it("renders collapsed when localStorage holds the collapsed flag", () => {
+    window.localStorage.setItem("em.sidebar.collapsed", "true");
+    setCollapsed(true);
+    const { container } = setup();
+    expect(container.querySelector('[data-collapsed="true"]')).not.toBeNull();
+    const link = screen.getByTestId("nav-stubs");
+    expect(link).toHaveAttribute("aria-label", "Stubs");
+    expect(link).toHaveAttribute("title", "Stubs");
+    expect(screen.getByRole("link", { name: "Stubs" })).toBe(link);
   });
 });

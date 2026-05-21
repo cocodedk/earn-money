@@ -1,16 +1,24 @@
+import { useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import styles from "./Layout.module.css";
 import { navItems } from "./nav";
 import { CurrentProjectChip } from "../components/CurrentProjectChip";
 import { ConnectionPill } from "../components/ConnectionPill";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { SidebarToggle } from "../components/SidebarToggle";
+import { subscribeSidebar, getSnapshot } from "./sidebar";
 
 export function Layout() {
+  const snap = useSyncExternalStore(subscribeSidebar, getSnapshot, () => "false");
+  const collapsed = snap === "true";
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-collapsed={String(collapsed)}>
       <aside className={styles.sidebar}>
-        <div className={styles.brand}>Cookbook scanner</div>
-        <nav>
+        <div className={styles.sidebarHeader}>
+          {!collapsed && <div className={styles.brand}>Cookbook scanner</div>}
+          <SidebarToggle />
+        </div>
+        <nav id="primary-navigation" aria-label="Primary">
           <ul className={styles.navList}>
             {navItems.map((item) => (
               <li key={item.to}>
@@ -18,6 +26,8 @@ export function Layout() {
                   to={item.to}
                   className={styles.navLink}
                   data-testid={item.testid}
+                  aria-label={collapsed ? item.label : undefined}
+                  title={collapsed ? item.label : undefined}
                 >
                   {({ isActive }) => (
                     <>
