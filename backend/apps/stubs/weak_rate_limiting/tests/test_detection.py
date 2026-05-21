@@ -136,3 +136,38 @@ def test_transport_failure_no_finding() -> None:
                side_effect=sequence):
         run(scan_run, target_run)
     assert not Finding.objects.filter(scan_run=scan_run).exists()
+
+
+@pytest.mark.django_db
+def test_rate_limit_acquired_per_probe() -> None:
+    """Per codex P1.3 — `acquire_for(program)` must be called once
+    per submit so the 6-attempt loop honours the program's RoE cap.
+    `@guarded_runner` only consumes a single token at runner entry;
+    without per-probe acquisition the loop bursts past the cap."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.4")
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.weak_rate_limiting.runner.fetch_for_discovery",
+               return_value=_outcome()), \
+         patch("apps.stubs.weak_rate_limiting.runner.submit_probe",
+               return_value=_resp()), \
+         patch("apps.stubs.weak_rate_limiting.runner.acquire_for") as acquire_p:
+        run(scan_run, target_run)
+    assert acquire_p.call_count == 6
+
+
+@pytest.mark.django_db
+def test_rate_limit_acquired_per_probe_until_throttle() -> None:
+    """`acquire_for` is called per probe, NOT once up-front. When the
+    loop stops early (throttle at attempt 3), exactly 3 tokens have
+    been acquired."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.4")
+    sequence = [_resp(), _resp(), _resp(status=429, body="rate-limit"),
+                _resp(), _resp(), _resp()]
+    with patch.object(get_registry(), "find_for_host", return_value=_program()), \
+         patch("apps.stubs.weak_rate_limiting.runner.fetch_for_discovery",
+               return_value=_outcome()), \
+         patch("apps.stubs.weak_rate_limiting.runner.submit_probe",
+               side_effect=sequence), \
+         patch("apps.stubs.weak_rate_limiting.runner.acquire_for") as acquire_p:
+        run(scan_run, target_run)
+    assert acquire_p.call_count == 3
