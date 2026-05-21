@@ -98,6 +98,17 @@ def run(
                      "detail": "reset_replay_password_required"},
         )
         return
+    if replacement_password == replacement_password_2:
+        # Codex pass-4 P2: targets enforcing "new password must
+        # differ from current" would reject the second POST purely
+        # on policy, hiding a still-reusable token. Refuse before
+        # any consumption fires.
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id=_STUB_ID,
+            reason=RefusalReason.FIXTURE_REQUIRED,
+            details={"detail": "reset_replay_password_must_differ"},
+        )
+        return
     canary = program.roe.authorized_test_accounts[0]
 
     mailbox = _load_mailbox_or_refuse(scan_run, target_run)

@@ -166,7 +166,10 @@ _URL_PATH_TOKEN_RE = re.compile(
     r"|recover"
     r"|token"
     r")[-/])"
-    r"[A-Za-z0-9._~+]+",
+    # Token char class INCLUDES `-` so opaque hyphenated tokens
+    # like `SECRET-TOKEN-XYZ` are consumed in full, not split at
+    # the first dash (codex pass-4 P1).
+    r"[A-Za-z0-9._~+\-]+",
     flags=re.IGNORECASE,
 )
 

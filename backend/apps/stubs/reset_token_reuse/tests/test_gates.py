@@ -57,6 +57,22 @@ def test_missing_replacement_password(monkeypatch) -> None:
 
 
 @pytest.mark.django_db
+def test_replacement_passwords_must_differ(monkeypatch) -> None:
+    """Codex pass-4 P2 — both env vars set but identical → refuse
+    before posting. Otherwise a target enforcing "new password must
+    differ from current" would reject the second POST purely on
+    policy, hiding a still-reusable token."""
+    monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD", "same")
+    monkeypatch.setenv("FIXTURE_RESET_REPLACEMENT_PASSWORD_2", "same")
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.6")
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "reset_replay_password_must_differ"
+
+
+@pytest.mark.django_db
 def test_missing_replay_password(monkeypatch) -> None:
     """Without FIXTURE_RESET_REPLACEMENT_PASSWORD_2, the runner
     refuses — without it the second consumption either reuses the
