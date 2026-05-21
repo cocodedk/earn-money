@@ -12,6 +12,7 @@ from apps.programs.roe import RoE
 from apps.programs.scope import Scope
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.missing_lockout.runner import run
+from apps.stubs.username_enum.fetcher import FetchOutcome
 
 
 def _program(*, knob_on: bool = True, accounts: list[str] | None = None) -> Program:
@@ -36,9 +37,10 @@ def test_roe_disabled() -> None:
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(knob_on=False)):
         run(scan_run, target_run)
-    assert Event.objects.filter(
+    ev = Event.objects.get(
         scan_run=scan_run, type=EventType.AUTH_PROBE_REFUSED,
-    ).exists()
+    )
+    assert ev.data["reason"] == "roe_disabled"
 
 
 @pytest.mark.django_db
@@ -52,24 +54,80 @@ def test_no_authorized_accounts() -> None:
 
 
 @pytest.mark.django_db
-def test_missing_secret(monkeypatch) -> None:
+def test_transport_error_refusal() -> None:
+    """fetch_for_discovery transport-fails → AUTH_PROBE_REFUSED."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
-    monkeypatch.delenv("FIXTURE_TEST_PASSWORD", raising=False)
+    outcome = FetchOutcome(
+        ok=False, status=0, body="", content_type="",
+        final_url="https://x.example", error="ConnectError",
+    )
     with patch.object(get_registry(), "find_for_host",
-                      return_value=_program(accounts=["scanner@example.invalid"])):
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.missing_lockout.runner.fetch_for_discovery",
+               return_value=outcome):
         run(scan_run, target_run)
-    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
-    assert ev.data["missing_secret"] == "FIXTURE_TEST_PASSWORD"
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_PROBE_REFUSED)
+    assert ev.data["reason"] == "transport_error"
 
 
 @pytest.mark.django_db
-def test_all_gates_pass(monkeypatch) -> None:
+def test_no_login_form_found() -> None:
+    """Discovery returns no login form → AUTH_FIXTURE_REQUIRED."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
-    monkeypatch.setenv("FIXTURE_TEST_PASSWORD", "fixture-value")
+    outcome = FetchOutcome(
+        ok=True, status=200, body="<html><body>nothing here</body></html>",
+        content_type="text/html", final_url="https://x.example/", error=None,
+    )
     with patch.object(get_registry(), "find_for_host",
-                      return_value=_program(accounts=["scanner@example.invalid"])):
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.missing_lockout.runner.fetch_for_discovery",
+               return_value=outcome):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "no_login_form_found"
+
+
+@pytest.mark.django_db
+def test_non_login_form_present_is_skipped() -> None:
+    """Body has a form but it's a search form (no password field) →
+    `_pick_login_form` returns None after iterating."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
+    search_only = (
+        "<html><body>"
+        "<form action='/forgot-password' method='POST'>"
+        "<input type='email' name='email'>"
+        "</form></body></html>"
+    )
+    outcome = FetchOutcome(
+        ok=True, status=200, body=search_only,
+        content_type="text/html", final_url="https://x.example/", error=None,
+    )
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.missing_lockout.runner.fetch_for_discovery",
+               return_value=outcome):
+        run(scan_run, target_run)
+    ev = Event.objects.get(scan_run=scan_run, type=EventType.AUTH_FIXTURE_REQUIRED)
+    assert ev.data["detail"] == "no_login_form_found"
+
+
+@pytest.mark.django_db
+def test_out_of_scope_final_url_returns_silently() -> None:
+    """fetch_for_discovery's `final_url` resolves outside scope →
+    `enforce_scope` raises OutOfScope and the runner returns without
+    emitting AUTH_FINDING_CANDIDATE."""
+    scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.3")
+    outcome = FetchOutcome(
+        ok=True, status=200, body="<html><body>ok</body></html>",
+        content_type="text/html",
+        final_url="https://attacker.example/landed",
+        error=None,
+    )
+    with patch.object(get_registry(), "find_for_host",
+                      return_value=_program(accounts=["s@example.invalid"])), \
+         patch("apps.stubs.missing_lockout.runner.fetch_for_discovery",
+               return_value=outcome):
         run(scan_run, target_run)
     assert not Event.objects.filter(
-        scan_run=scan_run,
-        type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],
+        scan_run=scan_run, type=EventType.AUTH_FINDING_CANDIDATE,
     ).exists()
