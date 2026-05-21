@@ -1,7 +1,7 @@
 """Gate tests for stub 2.15 (oauth-missing-state)."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,6 +12,16 @@ from apps.programs.roe import RoE
 from apps.programs.scope import Scope
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.oauth_missing_state.runner import run
+
+_MODULE = "apps.stubs.oauth_missing_state.runner"
+
+
+def _no_op_response():
+    r = MagicMock()
+    r.status_code = 200
+    r.headers = {}
+    r.text = ""
+    return r
 
 
 def _program(*, knob_on: bool = True, accounts: list[str] | None = None) -> Program:
@@ -68,7 +78,8 @@ def test_all_gates_pass(monkeypatch) -> None:
     monkeypatch.setenv("FIXTURE_OAUTH_CLIENT_SECRET", "fixture-value")
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
+        with patch(f"{_MODULE}.submit_probe", return_value=_no_op_response()):
+            run(scan_run, target_run)
     assert not Event.objects.filter(
         scan_run=scan_run,
         type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],

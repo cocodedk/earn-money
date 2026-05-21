@@ -1,17 +1,19 @@
-"""Stub 2.15 runner — oauth-missing-state.
-
-Spec: docs/superpowers/specs/.../02-authentication/<spec>.md
-Skeleton — registers with `@guarded_runner` and gates on RoE +
-authorised test account + required fixture secret. Detection logic
-lands when the fixture is provisioned per program.
-"""
+"""Stub 2.15 runner — oauth-missing-state."""
 from __future__ import annotations
 
 import os
+from urllib.parse import urljoin
 
+import httpx
+
+from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.loader import Program
+from apps.programs.rate_limit import acquire_for
 from apps.scans.models import ScanRun, ScanTargetRun
+from apps.stubs._shared.auth.events import log_finding_candidate
+from apps.stubs._shared.auth.requests import submit_probe
 from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
+from apps.targets.models import ScanTarget
 
 from ..runners import guarded_runner
 
@@ -48,5 +50,48 @@ def run(
         )
         return
 
-    # Detection chain ships when the fixture is provisioned.
-    return
+    target = target_run.target
+    fixture_url = os.environ.get("FIXTURE_OAUTH_STATE_MISSING_URL", target.base_url)
+    acquire_for(program)
+    # Missing-state detection must inspect the first 302 Location; do not follow redirects.
+    request = httpx.Request("GET", fixture_url.rstrip("/") + "/auth/example")
+    resp = submit_probe(request)
+    if resp is None:
+        record_refusal(
+            scan_run=scan_run, target_run=target_run, stub_id="2.15",
+            reason=RefusalReason.TRANSPORT_ERROR,
+            details={"detail": "target_unreachable"},
+        )
+        return
+
+    authorization_url = resp.headers.get("Location", "")
+    if not authorization_url:
+        return
+    authorization_url = urljoin(fixture_url.rstrip("/") + "/", authorization_url)
+
+    from .classify import inspect_authorization_url
+    inspection = inspect_authorization_url(authorization_url)
+    if not inspection.is_oauth_authorization_request or inspection.has_state:
+        return
+
+    _emit_finding(
+        scan_run=scan_run, target=target,
+        authorization_url=authorization_url,
+        confidence=inspection.confidence,
+    )
+
+
+def _emit_finding(
+    *, scan_run: "ScanRun", target: "ScanTarget",
+    authorization_url: str, confidence: str,
+) -> None:
+    finding = Finding.objects.create(
+        scan_run=scan_run, target=target, stub_slug="2.15",
+        title="OAuth authorization request missing state parameter",
+        category="oauth_state_missing",
+        severity=Severity.MEDIUM,
+        confidence=confidence,
+        status=FindingStatus.CANDIDATE,
+        data={"authorization_url": authorization_url, "requires_manual_review": True},
+    )
+    log_finding_candidate(finding, stub_id="2.15")
