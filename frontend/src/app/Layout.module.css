@@ -1,11 +1,14 @@
 .shell {
-  @apply h-full grid;
-  grid-template-columns: 240px 1fr;
+  @apply h-full grid gap-3 p-3;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  background: var(--surface-canvas);
 }
 .sidebar {
-  @apply flex flex-col py-4;
-  background: var(--surface-sunken);
-  border-right: 1px solid var(--rule-hair);
+  @apply flex flex-col py-3 rounded-md;
+  background: var(--surface-raised);
+  border: 1px solid var(--rule-hair);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 .brand {
   @apply px-4 pb-4 font-semibold text-sm;
@@ -21,7 +24,9 @@
   background: var(--surface-sunken);
 }
 .main {
-  @apply flex flex-col min-w-0;
+  @apply flex flex-col min-w-0 rounded-md overflow-hidden;
+  border: 1px solid var(--rule-hair);
+  background: var(--surface-raised);
 }
 .topbar {
   @apply h-14 flex items-center justify-between px-6;
