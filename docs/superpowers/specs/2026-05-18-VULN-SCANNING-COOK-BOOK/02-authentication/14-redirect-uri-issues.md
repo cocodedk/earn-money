@@ -6,8 +6,8 @@
 phase: 2
 spec: 14
 slug: redirect-uri-issues
-status: pending     # pending | in-progress | blocked | done
-fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+status: done     # pending | in-progress | blocked | done
+fixture: oauth-lab        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 2.14 Redirect URI issues

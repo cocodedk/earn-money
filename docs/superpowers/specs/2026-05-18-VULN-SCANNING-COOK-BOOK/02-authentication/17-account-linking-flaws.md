@@ -7,8 +7,8 @@
 phase: 2
 spec: 17
 slug: account-linking-flaws
-status: pending     # pending | in-progress | blocked | done
-fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+status: done     # pending | in-progress | blocked | done
+fixture: oauth-lab        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 2.17 Account linking flaws

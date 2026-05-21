@@ -6,8 +6,8 @@
 phase: 2
 spec: 15
 slug: state-parameter-missing
-status: pending     # pending | in-progress | blocked | done
-fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+status: done     # pending | in-progress | blocked | done
+fixture: oauth-lab        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 2.15 State parameter missing
