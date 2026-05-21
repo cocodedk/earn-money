@@ -56,7 +56,10 @@ def run(
         return
 
     target = target_run.target
-    outcome = fetch_for_discovery(target.base_url)
+    outcome = fetch_for_discovery(
+        target.base_url, target=target, program=program,
+        scan_run=scan_run, stub_id="2.1",
+    )
     if not outcome.ok:
         record_refusal(
             scan_run=scan_run, target_run=target_run, stub_id="2.1",

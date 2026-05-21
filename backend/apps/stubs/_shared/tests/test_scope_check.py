@@ -170,3 +170,5 @@ def test_emit_cache_evicts_oldest_when_full(monkeypatch) -> None:
     # url-a was evicted; url-c is the most-recent.
     assert ("run-a", "url-a") not in scope_check._emit_cache
     assert ("run-a", "url-c") in scope_check._emit_cache
+
+
