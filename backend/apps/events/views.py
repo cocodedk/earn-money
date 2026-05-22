@@ -19,7 +19,7 @@ from .serializers import EventSerializer
 
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
-    """Filters (AND semantics):
+    """Filters (AND across keys; OR within repeated values of the same key):
       ?target=<uuid>           events for one ScanTarget
       ?scan_run=<uuid>         events for one ScanRun
       ?type=<str>              events of one EventType

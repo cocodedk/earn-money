@@ -70,10 +70,8 @@ class EventListTests(_Fixtures):
 
     def test_filter_by_multiple_types(self) -> None:
         r = self.client.get(
-            reverse("event-list") + (
-                f"?type={EventType.SCAN_TARGET_RUN_STARTED}"
-                f"&type={EventType.SCAN_TARGET_RUN_DONE}"
-            ),
+            reverse("event-list"),
+            {"type": [EventType.SCAN_TARGET_RUN_STARTED, EventType.SCAN_TARGET_RUN_DONE]},
         )
         assert r.json()["count"] == 3
 
