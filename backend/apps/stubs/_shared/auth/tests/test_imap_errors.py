@@ -1,14 +1,13 @@
 """Error-path tests for `_shared/auth/_imap`.
 
 Covers the branches not reached by test_mailbox_imap.py:
-- OSError on IMAP4_SSL connect → MailboxConfigError (lines 73-74)
-- logout raises IMAP4.error / OSError → swallowed (lines 96-97)
-- conn.fetch returns non-OK → _fetch_and_parse returns None (line 103)
-- _extract_rfc822_payload payload is None when no tuple entry (line 106)
-- _extract_rfc822_payload: entry not a tuple (116->115), tuple payload
-  not bytes (118->115), loop exhausted → None (line 120)
-- _parse_arrived with no Date header → utcnow fallback (lines 150-151)
-- _decoded_text fallback when get_content() raises (lines 172-175)
+- OSError on IMAP4_SSL connect → MailboxConfigError
+- logout raises IMAP4.error / OSError → swallowed
+- conn.fetch returns non-OK → _fetch_and_parse returns None
+- _extract_rfc822_payload payload is None when no tuple entry
+- _extract_rfc822_payload: entry not a tuple, tuple payload not bytes, loop exhausted → None
+- _parse_arrived with no Date header → utcnow fallback
+- _decoded_text fallback when get_content() raises
 """
 from __future__ import annotations
 
@@ -27,13 +26,7 @@ from apps.stubs._shared.auth._imap import (
     _decoded_text,
 )
 from apps.stubs._shared.auth.mailbox import MailboxConfigError
-
-
-def _patch_imaplib(imap_mock: MagicMock):
-    return patch(
-        "apps.stubs._shared.auth._imap.imaplib.IMAP4_SSL",
-        return_value=imap_mock,
-    )
+from apps.stubs._shared.auth.tests._imap_helpers import _patch_imaplib
 
 
 def test_oserror_on_connect_raises_mailbox_config_error() -> None:

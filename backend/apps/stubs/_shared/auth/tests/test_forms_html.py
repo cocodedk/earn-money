@@ -1,8 +1,8 @@
 """Edge-case tests for `_shared/auth/_forms_html`.
 
 Covers uncovered branches:
-- line 53: method not in GET/POST → coerced to POST
-- branch 81->77: find_named_input with type_filter where name is None
+- method not in GET/POST → coerced to POST
+- find_named_input with type_filter where name is None
 """
 from __future__ import annotations
 

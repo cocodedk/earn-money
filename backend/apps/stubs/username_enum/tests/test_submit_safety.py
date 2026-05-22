@@ -5,47 +5,17 @@
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from apps.events.models import Event
 from apps.events.types import EventType
 from apps.findings.models import Finding
-from apps.programs.loader import Program, get_registry
-from apps.programs.roe import RoE
-from apps.programs.scope import Scope
+from apps.programs.loader import get_registry
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.username_enum.runner import run
-
-
-def _program(*, accounts: list[str] | None = None) -> Program:
-    return Program(
-        platform="hackerone", slug="algolia",
-        scope=Scope(
-            platform="hackerone", slug="algolia",
-            policy="rate-limited-OK",
-            in_scope=["x.example"], out_of_scope=[],
-        ),
-        roe=RoE(
-            max_requests_per_second=10,
-            allow_active_login_probes=True,
-            authorized_test_accounts=accounts or [],
-        ),
-    )
-
-
-def _mock_response(
-    *, status: int = 200, body: str = "",
-    content_type: str = "text/html",
-    url: str = "https://x.example/login",
-) -> MagicMock:
-    r = MagicMock()
-    r.status_code = status
-    r.text = body
-    r.headers = {"content-type": content_type}
-    r.url = url
-    return r
+from apps.stubs.username_enum.tests._helpers import _mock_response, _program
 
 
 _IN_SCOPE_LOGIN_HTML = (

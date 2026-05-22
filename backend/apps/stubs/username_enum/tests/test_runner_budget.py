@@ -1,54 +1,24 @@
 """Tests for stub 2.1 runner budget + probe-check + valid-norm paths.
 
-Covers uncovered lines/branches:
-- line 96: break when forms exceed max_forms budget
-- lines 124-128: check_can_probe returns UNSAFE_METHOD refusal
-- line 165: valid probe returns None → valid_norm set to None
-- branch 189->195: valid_norm is None + body has no "not found" signal
+Covers uncovered branches:
+- break when forms exceed max_forms budget
+- check_can_probe returns UNSAFE_METHOD refusal
+- valid probe returns None → valid_norm set to None
+- valid_norm is None + body has no "not found" signal
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from apps.events.models import Event
 from apps.events.types import EventType
 from apps.findings.models import Finding
-from apps.programs.loader import Program, get_registry
-from apps.programs.roe import RoE
-from apps.programs.scope import Scope
+from apps.programs.loader import get_registry
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.username_enum.runner import run
-
-
-def _program(*, accounts: list[str] | None = None) -> Program:
-    return Program(
-        platform="hackerone", slug="algolia",
-        scope=Scope(
-            platform="hackerone", slug="algolia",
-            policy="rate-limited-OK",
-            in_scope=["x.example"], out_of_scope=[],
-        ),
-        roe=RoE(
-            max_requests_per_second=10,
-            allow_active_login_probes=True,
-            authorized_test_accounts=accounts or [],
-        ),
-    )
-
-
-def _mock_response(
-    *, status: int = 200, body: str = "",
-    content_type: str = "text/html",
-    url: str = "https://x.example/login",
-) -> MagicMock:
-    r = MagicMock()
-    r.status_code = status
-    r.text = body
-    r.headers = {"content-type": content_type}
-    r.url = url
-    return r
+from apps.stubs.username_enum.tests._helpers import _mock_response, _program
 
 
 # Three forms on the page — exceeds max_forms=2 so the third is skipped
@@ -83,7 +53,7 @@ _LOGIN_HTML = (
 @pytest.mark.django_db
 def test_forms_beyond_budget_break_loop() -> None:
     """Three auth forms discovered, budget max_forms=2 → loop breaks
-    after two forms; the third is never processed.  No crash."""
+    after two forms; the third is never processed."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program()
     discovery_resp = _mock_response(
@@ -101,14 +71,16 @@ def test_forms_beyond_budget_break_loop() -> None:
             invalid_resp
         )
         run(scan_run, target_run)
-    # Run completed without error — verifies the break path was reached
-    # (the third form would have 'recover' hint which fires no finding)
+
+    # Budget capped at 2 forms → exactly 2 submits (one invalid probe per form)
+    assert submit_cls.return_value.__enter__.return_value.send.call_count == 2
+    assert not Finding.objects.filter(scan_run=scan_run).exists()
 
 
 @pytest.mark.django_db
 def test_unsafe_method_get_password_form_emits_refused() -> None:
     """A GET form with a password field → check_can_probe returns
-    UNSAFE_METHOD → record_refusal fires (lines 124-128)."""
+    UNSAFE_METHOD → record_refusal fires."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
     discovery_resp = _mock_response(
@@ -130,9 +102,9 @@ def test_unsafe_method_get_password_form_emits_refused() -> None:
 @pytest.mark.django_db
 def test_valid_probe_transport_error_falls_back_to_invalid_only() -> None:
     """When the valid probe returns None (transport error), valid_norm
-    is set to None (line 165) and the runner falls back to invalid-only.
+    is set to None and the runner falls back to invalid-only.
     With a generic 'bad credentials' body (no 'not found'), no finding
-    is emitted (branch 189->195)."""
+    is emitted."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
     discovery_resp = _mock_response(body=_LOGIN_HTML, url="https://x.example/")
@@ -154,15 +126,14 @@ def test_valid_probe_transport_error_falls_back_to_invalid_only() -> None:
         )
         submit_cls.return_value.__enter__.return_value.send.side_effect = _send
         run(scan_run, target_run)
-    # No "not found" in body → no finding (branch 189->195)
     assert not Finding.objects.filter(scan_run=scan_run).exists()
 
 
 @pytest.mark.django_db
 def test_valid_probe_captcha_falls_back_to_invalid_only_no_finding() -> None:
     """When the valid probe returns a CAPTCHA-abort response, valid_norm
-    is set to None (line 165 else-branch) and the runner falls back to
-    invalid-only. Generic body → branch 189->195 → no finding."""
+    is set to None and the runner falls back to invalid-only.
+    Generic body → no finding."""
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
     discovery_resp = _mock_response(body=_LOGIN_HTML, url="https://x.example/")

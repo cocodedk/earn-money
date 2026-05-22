@@ -3,13 +3,13 @@
 test_forms.py is already over the 200-line cap; JSON-discovery edge
 cases live here.
 
-Covers lines 103, 106, 111, 114, 117, 120:
-- body decodes to a non-dict (line 103)
-- routes is not a list (line 106)
-- a route entry is not a dict (line 111)
-- a route entry has no 'path' key or path is not a string (line 114)
-- route path yields flow_hint == 'unknown' → skipped (line 117)
-- route method is not GET/POST → skipped (line 120)
+Covers:
+- body decodes to a non-dict
+- routes is not a list
+- a route entry is not a dict
+- a route entry has no 'path' key or path is not a string
+- route path yields flow_hint == 'unknown' → skipped
+- route method is not GET/POST → skipped
 """
 from __future__ import annotations
 
@@ -42,17 +42,13 @@ def test_routes_not_a_list_returns_empty() -> None:
 
 
 def test_route_entry_not_a_dict_skipped() -> None:
-    """A route entry that is an integer (not a dict) is skipped."""
-    assert discover_json_endpoints(
+    """A route entry that is an integer (not a dict) is skipped while
+    the subsequent valid route is still extracted."""
+    result = discover_json_endpoints(
         _body({"routes": [42, {"path": "/login", "method": "POST"}]}), BASE,
         response_content_type="application/json",
-    ) != []  # the second valid route still produces a result
-    # Verify the integer entry didn't crash and the valid route was found
-    result = discover_json_endpoints(
-        _body({"routes": [42]}), BASE,
-        response_content_type="application/json",
     )
-    assert result == []
+    assert len(result) == 1
 
 
 def test_route_missing_path_skipped() -> None:

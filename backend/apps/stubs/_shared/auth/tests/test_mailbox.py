@@ -5,6 +5,7 @@ exercised separately in `test_mailbox_imap.py`.
 """
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -39,7 +40,7 @@ def _msg(
 
 def test_inbound_message_is_frozen() -> None:
     msg = _msg()
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         msg.subject = "altered"  # type: ignore[misc]
 
 

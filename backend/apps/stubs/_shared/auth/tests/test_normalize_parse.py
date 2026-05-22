@@ -4,7 +4,7 @@
 for the underlying parse helpers live here.
 
 Covers:
-- parse_json_errors when body decodes to a non-dict (line 33)
+- parse_json_errors when body decodes to a non-dict
 """
 from __future__ import annotations
 
