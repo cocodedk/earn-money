@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
-from apps.stubs._shared.body_match import contains_any_lowered
+from apps.stubs._shared.body_match import contains_any, contains_any_lowered
 from apps.stubs._shared.types import Confidence
 
 
@@ -20,6 +20,8 @@ _INVITE_PATH_HINTS = frozenset({
     "invite", "invitation", "invitations", "join", "accept",
     "team", "workspace", "organization", "tenant", "members",
 })
+# Narrower than _INVITE_PATH_HINTS: body keywords need higher specificity to
+# avoid false-positive matches on generic pages that share path-hint words.
 _INVITE_BODY_KEYWORDS = frozenset({
     "invite", "invitation", "join", "workspace", "tenant",
 })
@@ -52,7 +54,7 @@ def classify_invite_surface(
     status_code: int = getattr(response, "status_code", 0)
     if status_code not in (200, 201):
         return None
-    if not any(h in endpoint_url.lower() for h in _INVITE_PATH_HINTS):
+    if not contains_any(endpoint_url, _INVITE_PATH_HINTS):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
     if not contains_any_lowered(body, _INVITE_BODY_KEYWORDS):

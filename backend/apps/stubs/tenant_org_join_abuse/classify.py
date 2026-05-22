@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
-from apps.stubs._shared.body_match import contains_any_lowered
+from apps.stubs._shared.body_match import contains_any, contains_any_lowered
 from apps.stubs._shared.types import Confidence
 
 
@@ -48,7 +48,7 @@ def classify_join_surface(
     status_code: int = getattr(response, "status_code", 0)
     if status_code not in (200, 201):
         return None
-    if not any(h in endpoint_url.lower() for h in _WORKSPACE_PATH_HINTS):
+    if not contains_any(endpoint_url, _WORKSPACE_PATH_HINTS):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
     if not contains_any_lowered(body, _JOIN_SURFACE_KEYWORDS):
@@ -106,7 +106,7 @@ def classify_rejected_join(
     if status_code in (200, 201):
         body: str = (getattr(response, "text", "") or "").lower()
         if _SEPARATE_TENANT_MARKER in body:
-            method = getattr(getattr(response, "request", None), "method", "POST") or "POST"
+            method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
             return TenantJoinFlawClassification(
                 kind=TenantJoinFlawKind.SEPARATE_TENANT_CREATED,
                 endpoint_url=endpoint_url,
