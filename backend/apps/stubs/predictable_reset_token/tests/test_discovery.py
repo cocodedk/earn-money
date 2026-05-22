@@ -6,7 +6,7 @@ branches in discovery.py lines 30-74.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -14,6 +14,7 @@ from apps.stubs.predictable_reset_token.discovery import (
     DiscoveryOutcome,
     fetch_and_find_reset_form,
 )
+from apps.stubs.predictable_reset_token.tests._helpers import _mock_response
 
 
 _RESET_HTML = (
@@ -37,15 +38,6 @@ _RESET_PATH_HTML = (
     '<input name="email" type="email">'
     "</form></body></html>"
 )
-
-
-def _mock_response(*, body: str, url: str = "https://x.example/",
-                   content_type: str = "text/html") -> MagicMock:
-    r = MagicMock()
-    r.text = body
-    r.url = url
-    r.headers = {"content-type": content_type}
-    return r
 
 
 def test_reset_form_found_at_base_url() -> None:

@@ -1,6 +1,8 @@
 """Shared helpers for predictable_reset_token tests."""
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 from apps.programs.loader import Program
 from apps.programs.roe import RoE
 from apps.programs.scope import Scope
@@ -50,3 +52,16 @@ class _DrainingMailbox:
 
     def wait_for_message(self, addr, *, since, timeout_s=30.0):
         return self._messages.pop(0) if self._messages else None
+
+
+def _mock_response(
+    *,
+    body: str,
+    url: str = "https://x.example/",
+    content_type: str = "text/html",
+) -> MagicMock:
+    r = MagicMock()
+    r.text = body
+    r.url = url
+    r.headers = {"content-type": content_type}
+    return r

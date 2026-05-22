@@ -28,8 +28,7 @@ _LOGIN_HTML = (
 )
 
 
-def _set_up_login_target(scan_run, target_run):
-    """Stage the discovery response + mock submit responses for one test."""
+def _set_up_login_target():
     return _mock_response(body=_LOGIN_HTML, url="https://x.example/")
 
 
@@ -41,7 +40,7 @@ def test_finding_emitted_when_responses_differ() -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
 
-    discovery = _set_up_login_target(scan_run, target_run)
+    discovery = _set_up_login_target()
     invalid_resp = _mock_response(status=404, body="user not found")
     valid_resp = _mock_response(status=401, body="incorrect password")
 
@@ -71,9 +70,7 @@ def test_no_finding_when_responses_identical() -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
 
-    discovery = _set_up_login_target(scan_run, target_run)
-    identical = _mock_response(status=401, body="invalid credentials")
-    # send.side_effect needs 2 separate calls returning same shape
+    discovery = _set_up_login_target()
     invalid_resp = _mock_response(status=401, body="invalid credentials")
     valid_resp = _mock_response(status=401, body="invalid credentials")
 
@@ -97,7 +94,7 @@ def test_invalid_only_probe_emits_candidate_when_unique_signal() -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=[])  # no scoped valid id
 
-    discovery = _set_up_login_target(scan_run, target_run)
+    discovery = _set_up_login_target()
     invalid_resp = _mock_response(status=404, body="user not found")
 
     with patch.object(get_registry(), "find_for_host", return_value=prog), \
@@ -123,7 +120,7 @@ def test_captcha_abort_prevents_finding() -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.1")
     prog = _program(accounts=["valid@example.invalid"])
 
-    discovery = _set_up_login_target(scan_run, target_run)
+    discovery = _set_up_login_target()
     captcha_resp = _mock_response(
         status=200, body="<html><body>Please complete the CAPTCHA</body></html>",
     )

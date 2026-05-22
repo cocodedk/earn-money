@@ -16,7 +16,7 @@ import pytest
 
 from apps.events.models import Event
 from apps.events.types import EventType
-from apps.findings.models import Finding, FindingStatus
+from apps.findings.models import Finding, FindingStatus, Severity
 from apps.programs.loader import get_registry
 from apps.stubs._shared.auth.mailbox import InboundMessage
 from apps.stubs._test_factories import seed_target_run
@@ -64,7 +64,7 @@ def test_sequential_integer_tokens_emit_critical_finding(monkeypatch) -> None:
 
     finding = Finding.objects.get(scan_run=scan_run)
     assert finding.category == "auth_predictable_reset_token"
-    assert finding.severity == "critical"
+    assert finding.severity == Severity.CRITICAL
     assert finding.confidence == "high"
     assert finding.data["signal"] == "sequential_integer"
     assert Event.objects.filter(

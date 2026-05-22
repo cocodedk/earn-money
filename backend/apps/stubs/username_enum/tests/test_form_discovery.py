@@ -14,37 +14,10 @@ import pytest
 
 from apps.events.models import Event
 from apps.events.types import EventType
-from apps.programs.loader import Program, get_registry
-from apps.programs.roe import RoE
-from apps.programs.scope import Scope
+from apps.programs.loader import get_registry
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.username_enum.runner import run
-
-
-def _program() -> Program:
-    return Program(
-        platform="hackerone", slug="algolia",
-        scope=Scope(
-            platform="hackerone", slug="algolia",
-            policy="rate-limited-OK",
-            in_scope=["x.example"], out_of_scope=[],
-        ),
-        roe=RoE(
-            max_requests_per_second=10,
-            allow_active_login_probes=True,
-        ),
-    )
-
-
-def _mock_httpx_get(*, body: str, status: int = 200, content_type: str = "text/html"):
-    """Patch httpx.Client used inside _shared.auth.discovery."""
-    from unittest.mock import MagicMock
-    response = MagicMock()
-    response.status_code = status
-    response.text = body
-    response.headers = {"content-type": content_type}
-    response.url = "https://x.example/"
-    return response
+from apps.stubs.username_enum.tests._helpers import _mock_response, _program
 
 
 @pytest.mark.django_db
@@ -54,7 +27,7 @@ def test_no_forms_emits_fixture_required() -> None:
     scan_run, target_run = seed_target_run(
         host="x.example", stub_slug="2.1",
     )
-    response = _mock_httpx_get(body="<html><body></body></html>")
+    response = _mock_response(body="<html><body></body></html>")
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \
          patch("apps.stubs._shared.auth.discovery.Client") as client_cls:
@@ -77,7 +50,7 @@ def test_login_form_discovered_emits_no_fixture_event() -> None:
     scan_run, target_run = seed_target_run(
         host="x.example", stub_slug="2.1",
     )
-    response = _mock_httpx_get(body=(
+    response = _mock_response(body=(
         "<html><body>"
         '<form method="POST" action="/login">'
         '<input name="email">'
@@ -132,7 +105,7 @@ def test_cross_origin_redirect_refused() -> None:
         host="x.example", stub_slug="2.1",
     )
     # Same body content + form, but final URL is on a different host.
-    response = _mock_httpx_get(body=(
+    response = _mock_response(body=(
         "<html><body>"
         '<form method="POST" action="/login">'
         '<input name="email">'

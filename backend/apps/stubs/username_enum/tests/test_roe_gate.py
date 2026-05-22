@@ -12,26 +12,10 @@ import pytest
 
 from apps.events.models import Event
 from apps.events.types import EventType
-from apps.programs.loader import Program, get_registry
-from apps.programs.roe import RoE
-from apps.programs.scope import Scope
+from apps.programs.loader import get_registry
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.username_enum.runner import run
-
-
-def _program(*, login_probes: bool) -> Program:
-    return Program(
-        platform="hackerone", slug="algolia",
-        scope=Scope(
-            platform="hackerone", slug="algolia",
-            policy="rate-limited-OK",
-            in_scope=["x.example"], out_of_scope=[],
-        ),
-        roe=RoE(
-            max_requests_per_second=10,
-            allow_active_login_probes=login_probes,
-        ),
-    )
+from apps.stubs.username_enum.tests._helpers import _program
 
 
 @pytest.mark.django_db

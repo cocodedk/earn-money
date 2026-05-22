@@ -9,7 +9,9 @@ import pytest
 
 from apps.stubs._shared.auth._imap import IMAPMailbox
 from apps.stubs._shared.auth.mailbox import MailboxConfigError
-from apps.stubs._shared.auth.tests._imap_helpers import _patch_imaplib
+from apps.stubs._shared.auth.tests._imap_helpers import (
+    _fake_imap_returning, _patch_imaplib,
+)
 
 
 SAMPLE_RESET_EMAIL = (
@@ -22,19 +24,6 @@ SAMPLE_RESET_EMAIL = (
     b"\r\n"
     b"Click here to reset: https://target.invalid/reset?token=samp-tok\r\n"
 )
-
-
-def _fake_imap_returning(*, search_uids: bytes, fetch_body: bytes) -> MagicMock:
-    imap = MagicMock()
-    imap.login.return_value = ("OK", [b"Logged in"])
-    imap.select.return_value = ("OK", [b"1"])
-    imap.search.return_value = ("OK", [search_uids])
-    imap.fetch.return_value = (
-        "OK",
-        [(b"1 (RFC822 {123}", fetch_body), b")"],
-    )
-    imap.logout.return_value = ("BYE", [b""])
-    return imap
 
 
 def test_wait_for_message_returns_parsed_inbound() -> None:
