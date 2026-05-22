@@ -5,13 +5,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from apps.stubs._shared.types import Confidence
+
 
 class InviteFlawKind(str, Enum):
     SENSITIVE_PREVIEW = "sensitive_invite_preview"
     RECIPIENT_NOT_BOUND = "recipient_not_bound"
     INVITE_REUSABLE = "invite_reusable"
     ROLE_ESCALATION = "role_escalation"
-    TENANT_NOT_BOUND = "tenant_not_bound"
 
 
 _INVITE_PATH_HINTS = frozenset({
@@ -33,7 +34,7 @@ class InviteFlawClassification:
     kind: InviteFlawKind
     endpoint_url: str
     http_method: str
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     status: Literal["candidate", "confirmed", "rejected", "stale"]
     observed_fields: list[str] = field(default_factory=list)
     requested_role: str | None = None
@@ -88,10 +89,9 @@ def classify_preview_exposure(
     )
 
 
-def classify_wrong_recipient(
-    response: object, endpoint_url: str,
+def _classify_accept_signal(
+    response: object, endpoint_url: str, *, kind: InviteFlawKind,
 ) -> InviteFlawClassification | None:
-    """Detect when an unrelated authenticated session successfully accepts an invite."""
     status_code: int = getattr(response, "status_code", 0)
     if status_code not in (200, 201):
         return None
@@ -100,32 +100,26 @@ def classify_wrong_recipient(
         return None
     method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
     return InviteFlawClassification(
-        kind=InviteFlawKind.RECIPIENT_NOT_BOUND,
+        kind=kind,
         endpoint_url=endpoint_url,
         http_method=method,
         confidence="high",
         status="confirmed",
     )
+
+
+def classify_wrong_recipient(
+    response: object, endpoint_url: str,
+) -> InviteFlawClassification | None:
+    """Detect when an unrelated authenticated session successfully accepts an invite."""
+    return _classify_accept_signal(response, endpoint_url, kind=InviteFlawKind.RECIPIENT_NOT_BOUND)
 
 
 def classify_reuse(
     response: object, endpoint_url: str,
 ) -> InviteFlawClassification | None:
     """Detect when a previously-used invite token is accepted again."""
-    status_code: int = getattr(response, "status_code", 0)
-    if status_code not in (200, 201):
-        return None
-    body: str = (getattr(response, "text", "") or "").lower()
-    if not any(s in body for s in _ACCEPT_SIGNALS):
-        return None
-    method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
-    return InviteFlawClassification(
-        kind=InviteFlawKind.INVITE_REUSABLE,
-        endpoint_url=endpoint_url,
-        http_method=method,
-        confidence="high",
-        status="confirmed",
-    )
+    return _classify_accept_signal(response, endpoint_url, kind=InviteFlawKind.INVITE_REUSABLE)
 
 
 def classify_role_escalation(

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from apps.stubs._shared.types import Confidence
+
 
 class TenantJoinFlawKind(str, Enum):
     UNAUTHORIZED_JOIN = "unauthorized_tenant_join"
@@ -33,7 +35,7 @@ class TenantJoinFlawClassification:
     kind: TenantJoinFlawKind
     endpoint_url: str
     http_method: str
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     status: Literal["candidate", "confirmed", "rejected", "stale"]
     observed_fields: list[str] = field(default_factory=list)
 
@@ -68,10 +70,9 @@ def classify_join_success(
     if status_code not in (200, 201):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
-    # Reject if safe-path markers are present
     if _SEPARATE_TENANT_MARKER in body:
         return None
-    if any(m in body for m in ("tenant_org_join_abuse_pending_approval",)):
+    if any(m in body for m in _REJECT_MARKERS):
         return None
     if not any(m in body for m in _SUCCESS_MARKERS):
         return None
@@ -93,12 +94,9 @@ def classify_rejected_join(
     body: str = (getattr(response, "text", "") or "").lower()
 
     if status_code in (401, 403):
-        kind = TenantJoinFlawKind.INVITE_REQUIRED
-        if any(m in body for m in _REJECT_MARKERS):
-            kind = TenantJoinFlawKind.INVITE_REQUIRED
         method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
         return TenantJoinFlawClassification(
-            kind=kind,
+            kind=TenantJoinFlawKind.INVITE_REQUIRED,
             endpoint_url=endpoint_url,
             http_method=method,
             confidence="high",

@@ -85,6 +85,11 @@ class TestClassifyJoinSuccess:
         result = classify_join_success(r, "http://x.test/api/workspaces/acme/join", tenant_id="acme")
         assert result is None
 
+    def test_invite_required_marker_is_none(self):
+        r = _resp(200, '{"TENANT_ORG_JOIN_ABUSE_INVITE_REQUIRED":true}', method="POST")
+        result = classify_join_success(r, "http://x.test/api/workspaces/acme/join", tenant_id="acme")
+        assert result is None
+
     def test_200_without_success_markers_is_none(self):
         r = _resp(200, '{"status":"ok"}', method="POST")
         result = classify_join_success(r, "http://x.test/api/workspaces/acme/join", tenant_id="acme")

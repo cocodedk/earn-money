@@ -76,8 +76,9 @@ def run(
     session_headers = {"X-Session-Token": login.json().get("token", "")}
 
     # Probe 1: surface discovery (authenticated)
+    invite_surface_url = base + "/fixture/invitations"
     acquire_for(program)
-    surface_req = httpx.Request("GET", base + "/fixture/invitations", headers=session_headers)
+    surface_req = httpx.Request("GET", invite_surface_url, headers=session_headers)
     surface_resp = submit_probe(surface_req)
     if surface_resp is None:
         record_refusal(
@@ -86,7 +87,8 @@ def run(
             details={"detail": "target_unreachable:/fixture/invitations"},
         )
         return
-    classify_invite_surface(surface_resp, base + "/fixture/invitations")
+    # reachability check — surface classification is passive context, not a finding emitter
+    classify_invite_surface(surface_resp, invite_surface_url)
 
     # Probe 2: preview exposure (unauthenticated GET to invite token URL)
     acquire_for(program)
