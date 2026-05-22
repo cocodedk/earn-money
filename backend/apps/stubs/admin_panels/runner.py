@@ -23,7 +23,7 @@ from apps.scans.models import ScanRun, ScanTargetRun
 
 from .._shared.hashing import body_hash
 from .._shared.url import origin
-from ..runners import register
+from ..runners import guarded_runner
 from .candidates import CANDIDATE_PATHS
 from .fetcher import fetch_evidence
 from .runner_persistence import build_rows
@@ -46,7 +46,7 @@ _ADMIN_PATH_TERMS = (
 )
 
 
-@register("1.8")
+@guarded_runner("1.8")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     bundle = fetch_evidence(target.base_url)

@@ -25,7 +25,7 @@ from apps.findings.bulk import bulk_create_findings
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .fetcher import fetch_evidence
 from .matcher import extract_version, find_first_match, match_signatures
 from .signatures import SIGNATURES
@@ -44,7 +44,7 @@ _EVIDENCE_SOURCE_BY_SIG_SOURCE = {
 }
 
 
-@register("1.4")
+@guarded_runner("1.4")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     bundle = fetch_evidence(target.base_url)

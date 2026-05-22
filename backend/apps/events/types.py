@@ -41,3 +41,16 @@ class EventType(models.TextChoices):
     FINDING_CREATED = "finding.created", "Finding created"
     # Finding triage by the operator (candidate → confirmed/rejected/stale).
     FINDING_STATUS_CHANGED = "finding.status_changed", "Finding status changed"
+    # Scope-enforcement: fetcher refused a candidate URL outside the
+    # resolved program's scope. Recon halts for that candidate; the
+    # event is the audit trail.
+    OUT_OF_SCOPE_REJECTED = "scan.out_of_scope_rejected", "Out-of-scope candidate URL rejected"
+    # Post-scan signal: a known CDN/WAF returned 4xx for most probes
+    # so the origin was never reached. Surfaces in the dashboard as
+    # an explanatory banner instead of a silent "0 findings" outcome.
+    EDGE_BLOCKING_DETECTED = "scan.edge_blocking_detected", "Edge / WAF blocked probes before origin"
+    # Phase 2 — authentication scanning. Reserved here in slice 01;
+    # first emit lands in slice 02 (stub 2.1 canary).
+    AUTH_PROBE_REFUSED = "auth.probe_refused", "Active auth probe refused by RoE / safety gate"
+    AUTH_FINDING_CANDIDATE = "auth.finding_candidate", "Auth Finding emitted with status=candidate"
+    AUTH_FIXTURE_REQUIRED = "auth.fixture_required", "Stub refused live target — fixture validation missing"

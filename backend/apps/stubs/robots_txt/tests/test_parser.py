@@ -172,11 +172,8 @@ class SupportedButUnconsumedDirectiveTests(unittest.TestCase):
         )
         result = parse_robots(body)
         assert result.groups[0].disallows == ("/admin",)
-        # None of crawl-delay/host/clean-param are warnings.
-        for warning in result.warnings:
-            assert "crawl-delay" not in warning.lower()
-            assert "host" not in warning.lower()
-            assert "clean-param" not in warning.lower()
+        # None of crawl-delay/host/clean-param produce warnings — list empty.
+        assert result.warnings == ()
 
 
 class SitemapEdgeCaseTests(unittest.TestCase):

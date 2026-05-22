@@ -27,7 +27,7 @@ from django.db import transaction
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import classify
 from .fetcher import fetch_response
 from .runner_evidence import save_response_evidence
@@ -37,7 +37,7 @@ from .runner_findings import emit_finding
 _PROBE_SENTINEL = "scanner_sql_orm_error_probe_%27"
 
 
-@register("1.19")
+@guarded_runner("1.19")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     base_url = target.base_url

@@ -26,7 +26,7 @@ from apps.findings.bulk import bulk_create_findings
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .banners import scan_banners
 from .fetcher import fetch_evidence
 from .parsers.package_json import parse_package_json
@@ -43,7 +43,7 @@ _PATH_PARSERS: dict[str, Callable[[str], list[dict[str, str]]]] = {
 }
 
 
-@register("1.5")
+@guarded_runner("1.5")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     bundle = fetch_evidence(target.base_url)

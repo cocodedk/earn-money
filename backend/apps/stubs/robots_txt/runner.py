@@ -30,7 +30,7 @@ from apps.findings.models import Finding, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import FetchOutcome, Verdict, classify_response
 from .fetcher import fetch_robots
 from .parser import ParsedRobots, parse_robots
@@ -41,7 +41,7 @@ _FINDING_SOURCE = "robots_txt"
 _RAW_EXCERPT_CAP = 200
 
 
-@register("1.11")
+@guarded_runner("1.11")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     outcome = fetch_robots(target.base_url)

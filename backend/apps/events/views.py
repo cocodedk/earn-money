@@ -1,18 +1,7 @@
-"""SSE event-stream view — `/sse/scan-runs/<uuid>/events/`.
+"""Event REST ViewSet and SSE event-stream view.
 
-Server-Sent Events feed of the Event log scoped to one scan run. The
-generator polls the DB on a short interval, yields any new rows in
-SSE frame format, and closes the stream cleanly when the ScanRun
-reaches a terminal status.
-
-MVP design — polling generator running in the request thread. Real
-production scale would migrate to Django Channels + Redis pub/sub
-once we hit worker-saturation concerns. For one operator on one box
-the polling generator is plenty.
-
-Reconnect support: the SSE spec's `Last-Event-ID` header is honoured.
-Clients reconnecting after a drop send the header; the server resumes
-from events strictly after that anchor.
+REST: EventViewSet — read-only list/retrieve at /api/events/.
+SSE:  scan_run_event_stream — streaming feed at /sse/scan-runs/<uuid>/events/.
 """
 from __future__ import annotations
 
@@ -21,11 +10,33 @@ import time
 from typing import Iterator
 
 from django.http import Http404, HttpRequest, StreamingHttpResponse
+from rest_framework import viewsets
 
 from apps.scans.models import RunStatus, ScanRun
 
 from .models import Event
 from .serializers import EventSerializer
+
+
+class EventViewSet(viewsets.ReadOnlyModelViewSet):
+    """Filters (AND semantics):
+      ?target=<uuid>    events for one ScanTarget
+      ?scan_run=<uuid>  events for one ScanRun
+      ?type=<str>       events of a specific EventType
+    """
+
+    serializer_class = EventSerializer
+
+    def get_queryset(self):  # type: ignore[override]
+        qs = Event.objects.all()
+        params = self.request.query_params
+        if params.get("target"):
+            qs = qs.filter(target_id=params["target"])
+        if params.get("scan_run"):
+            qs = qs.filter(scan_run_id=params["scan_run"])
+        if params.get("type"):
+            qs = qs.filter(type=params["type"])
+        return qs
 
 
 SSE_POLL_INTERVAL = 0.5  # seconds between server-side polls

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.events",
     "apps.findings",
     "apps.evidence",
+    "apps.programs",
     "apps.stubs",
 ]
 
@@ -106,7 +107,7 @@ CELERY_TASK_TIME_LIMIT = 60 * 30
 
 # --- Internationalization ---
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Europe/Copenhagen"
+TIME_ZONE = "UTC"  # API timestamps serialize with "Z"; container TZ stays Copenhagen
 USE_I18N = True
 USE_TZ = True
 
@@ -146,6 +147,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --- Cookbook tree (read-only file source for the Stubs API) ---
 # Mounted into the backend container at /cookbook (see docker-compose.yml).
 COOKBOOK_ROOT = os.environ.get("COOKBOOK_ROOT", "/cookbook")
+
+
+# --- Scope-enforcement: programs tree + RECON_ENABLED kill-switch ---
+# Both are mounted as read-only directories from the host. The flag-
+# file approach lets the operator halt all recon by deleting one file
+# without touching any process. See docker-compose.yml for the mounts;
+# `apps.programs.flags` enforces the contract.
+PROGRAMS_ROOT = Path(os.environ.get("PROGRAMS_ROOT", "/programs"))
+RECON_ENABLED_PATH = Path(
+    os.environ.get("RECON_ENABLED_PATH", "/flags/RECON_ENABLED")
+)
 
 
 # --- App version (surfaced by /api/health/) ---

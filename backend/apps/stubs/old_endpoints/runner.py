@@ -23,7 +23,7 @@ from apps.findings.bulk import bulk_create_findings
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import Verdict, classify_probe
 from .fetcher import CONTROL_MARKER, fetch_evidence
 
@@ -31,7 +31,7 @@ from .fetcher import CONTROL_MARKER, fetch_evidence
 _FINDING_SOURCE = "old_endpoints"
 
 
-@register("1.9")
+@guarded_runner("1.9")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     bundle = fetch_evidence(target.base_url)

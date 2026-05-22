@@ -28,7 +28,7 @@ from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
-from ..runners import register
+from ..runners import guarded_runner
 from .classify import FetchOutcome, Verdict, classify_response
 from .fetcher import fetch_sitemap
 from .parser import ParsedSitemap, parse_sitemap_xml
@@ -48,7 +48,7 @@ _SEEDS: tuple[str, ...] = (
 )
 
 
-@register("1.12")
+@guarded_runner("1.12")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     outcome, parsed, verdict = _probe_seeds(target.base_url)

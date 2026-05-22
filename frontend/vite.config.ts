@@ -8,6 +8,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     cors: true,
+    allowedHosts: (
+      process.env.VITE_ALLOWED_HOSTS ?? "localhost"
+    ).split(","),
     hmr: { protocol: "ws", host: "localhost", port: 80, clientPort: 80 },
   },
   test: {

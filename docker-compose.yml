@@ -73,11 +73,36 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       COOKBOOK_ROOT: /cookbook
+      PROGRAMS_ROOT: /programs
+      RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      # Phase 2 fixture env. Defaults empty; absence of any one only
+      # disables the dependent stub, not the whole stack.
+      FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
+      FIXTURE_MAILBOX_IMAP_HOST: ${FIXTURE_MAILBOX_IMAP_HOST:-}
+      FIXTURE_MAILBOX_IMAP_PORT: ${FIXTURE_MAILBOX_IMAP_PORT:-993}
+      FIXTURE_MAILBOX_IMAP_USER: ${FIXTURE_MAILBOX_IMAP_USER:-}
+      FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
+      FIXTURE_MAILBOX_MAILPIT_URL: ${FIXTURE_MAILBOX_MAILPIT_URL:-http://mailpit:8025}
+      FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
+      FIXTURE_OAUTH_STATE_MISSING_URL: ${FIXTURE_OAUTH_STATE_MISSING_URL:-http://oauth-state-missing:3000}
+      FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
+      FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
+      FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
+      FIXTURE_INVITATION_TOKEN: ${FIXTURE_INVITATION_TOKEN:-fixture-invite-token-001}
+      FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
+      FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
+      FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
+      # Programs registry (scope.md / roe.md per program). Read-only.
+      - ./programs:/programs:ro
+      # Kill-switch flag *directory*. Single-file bind mounts break
+      # when the host file is absent (Docker creates a directory); the
+      # loader checks for the file inside this dir at runtime.
+      - ./flags:/flags:ro
     networks: [scanner-net]
     depends_on:
       postgres:
@@ -97,11 +122,32 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       COOKBOOK_ROOT: /cookbook
+      PROGRAMS_ROOT: /programs
+      RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      # Phase 2 fixture env (mirrors backend service). Active scan
+      # work runs in the worker, so it needs these too.
+      FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
+      FIXTURE_MAILBOX_IMAP_HOST: ${FIXTURE_MAILBOX_IMAP_HOST:-}
+      FIXTURE_MAILBOX_IMAP_PORT: ${FIXTURE_MAILBOX_IMAP_PORT:-993}
+      FIXTURE_MAILBOX_IMAP_USER: ${FIXTURE_MAILBOX_IMAP_USER:-}
+      FIXTURE_MAILBOX_IMAP_PASSWORD: ${FIXTURE_MAILBOX_IMAP_PASSWORD:-}
+      FIXTURE_MAILBOX_MAILPIT_URL: ${FIXTURE_MAILBOX_MAILPIT_URL:-http://mailpit:8025}
+      FIXTURE_TEST_PASSWORD: ${FIXTURE_TEST_PASSWORD:-}
+      FIXTURE_OAUTH_STATE_MISSING_URL: ${FIXTURE_OAUTH_STATE_MISSING_URL:-http://oauth-state-missing:3000}
+      FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
+      FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
+      FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
+      FIXTURE_INVITATION_TOKEN: ${FIXTURE_INVITATION_TOKEN:-fixture-invite-token-001}
+      FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
+      FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
+      FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
+      - ./programs:/programs:ro
+      - ./flags:/flags:ro
     networks: [scanner-net]
     depends_on:
       backend:
@@ -121,6 +167,10 @@ services:
     environment:
       VITE_API_BASE: /api
       TZ: Europe/Copenhagen
+      # Comma-separated host allowlist for Vite's host check. Local
+      # dev defaults to "localhost"; VPS deployments set this in
+      # .env (e.g. VITE_ALLOWED_HOSTS=h1.cocode.dk,localhost).
+      VITE_ALLOWED_HOSTS: ${VITE_ALLOWED_HOSTS:-localhost}
 
   nginx:
     image: nginx:1.27-alpine
@@ -135,6 +185,119 @@ services:
       - backend
       - frontend
 
+  # --- Phase 2 password-reset fixture ----------------------------------
+  # Mailpit: SMTP-in (1025) + web/REST API (8025) + IMAP (1143).
+  # Read-only IMAP is plaintext-only, so the backend reads via REST
+  # (a future MailpitBackend in _shared/auth/). Web UI on 8025 lets the
+  # operator eyeball captured mail during smoke runs.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    environment:
+      TZ: Europe/Copenhagen
+      MP_MAX_MESSAGES: "5000"
+      MP_DATABASE: /data/mailpit.db
+    volumes:
+      - mailpit-data:/data
+    networks: [scanner-net]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/info"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # reset-canary: tiny intentionally-vulnerable target for stubs
+  # 2.5-2.9. Sends predictable-token reset emails through mailpit.
+  reset-canary:
+    image: earnmoney-reset-canary:dev
+    build:
+      context: ./fixtures/reset-canary
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      PUBLIC_BASE_URL: http://reset-canary:3000
+    networks: [scanner-net]
+    depends_on:
+      mailpit:
+        condition: service_healthy
+
+  # --- Phase 2 OAuth/OIDC fixtures (stubs 2.14-2.17) -------------------
+  # Single Docker image, four scenario services differentiated by SCENARIO.
+  oauth-state-missing:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: state-missing
+      PUBLIC_BASE_URL: http://oauth-state-missing:3000
+    networks: [scanner-net]
+
+  oauth-redirect-uri-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: redirect-uri
+      PUBLIC_BASE_URL: http://oauth-redirect-uri-lab:3000
+    networks: [scanner-net]
+
+  oauth-token-substitution-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: token-sub
+      VULN_MODE: "true"
+      PUBLIC_BASE_URL: http://oauth-token-substitution-lab:3000
+    networks: [scanner-net]
+
+  oauth-account-linking-lab:
+    image: earnmoney-oauth-lab:dev
+    build:
+      context: ./fixtures/oauth-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: account-link
+      PUBLIC_BASE_URL: http://oauth-account-linking-lab:3000
+    networks: [scanner-net]
+
+  # --- Phase 2 invitation / tenant-join fixtures (stubs 2.21-2.22) -------
+  # Single Docker image, two scenario services differentiated by SCENARIO.
+  invitation-abuse-lab:
+    image: earnmoney-invite-tenant-lab:dev
+    build:
+      context: ./fixtures/invite-tenant-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: invitation-abuse
+    networks: [scanner-net]
+
+  tenant-org-join-abuse-lab:
+    image: earnmoney-invite-tenant-lab:dev
+    build:
+      context: ./fixtures/invite-tenant-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: tenant-org-join
+    networks: [scanner-net]
+
 networks:
   scanner-net:
     driver: bridge
@@ -143,3 +306,4 @@ volumes:
   postgres-data:
   redis-data:
   frontend-node-modules:
+  mailpit-data:

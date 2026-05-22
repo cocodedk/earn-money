@@ -30,7 +30,7 @@ from apps.targets.models import ScanTarget
 
 from .._shared.hashing import body_hash
 
-from ..runners import register
+from ..runners import guarded_runner
 from .extractors.robots_txt import parse_robots_txt
 from .extractors.sitemap_xml import parse_sitemap_xml
 from .fetcher import COMMON_PATHS, fetch_evidence
@@ -42,7 +42,7 @@ _ROBOTS_PATH = "/robots.txt"
 _SITEMAP_PATH = "/sitemap.xml"
 
 
-@register("1.6")
+@guarded_runner("1.6")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     bundle = fetch_evidence(target.base_url)

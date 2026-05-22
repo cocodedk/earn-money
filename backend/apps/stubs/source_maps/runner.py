@@ -18,7 +18,7 @@ from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 
 from .._shared.url import origin
-from ..runners import register
+from ..runners import guarded_runner
 from .fetcher import fetch_url
 from .parser import Asset, extract_source_mapping_url, parse_html_assets
 from .resolver import resolve_map_url
@@ -26,7 +26,7 @@ from .runner_evidence import save_asset_evidence, save_html_evidence
 from .runner_findings import emit_finding
 
 
-@register("1.14")
+@guarded_runner("1.14")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     target = target_run.target
     base_url = target.base_url
