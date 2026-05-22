@@ -68,6 +68,15 @@ class EventListTests(_Fixtures):
         )
         assert r.json()["count"] == 1
 
+    def test_filter_by_multiple_types(self) -> None:
+        r = self.client.get(
+            reverse("event-list") + (
+                f"?type={EventType.SCAN_TARGET_RUN_STARTED}"
+                f"&type={EventType.SCAN_TARGET_RUN_DONE}"
+            ),
+        )
+        assert r.json()["count"] == 3
+
     def test_unknown_target_returns_empty(self) -> None:
         r = self.client.get(
             reverse("event-list"), {"target": str(uuid.uuid4())}

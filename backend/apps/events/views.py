@@ -20,9 +20,10 @@ from .serializers import EventSerializer
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
     """Filters (AND semantics):
-      ?target=<uuid>    events for one ScanTarget
-      ?scan_run=<uuid>  events for one ScanRun
-      ?type=<str>       events of a specific EventType
+      ?target=<uuid>           events for one ScanTarget
+      ?scan_run=<uuid>         events for one ScanRun
+      ?type=<str>              events of one EventType
+      ?type=<a>&type=<b>       events matching any of the listed types (OR)
     """
 
     serializer_class = EventSerializer
@@ -34,8 +35,9 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(target_id=params["target"])
         if params.get("scan_run"):
             qs = qs.filter(scan_run_id=params["scan_run"])
-        if params.get("type"):
-            qs = qs.filter(type=params["type"])
+        types = params.getlist("type")
+        if types:
+            qs = qs.filter(type__in=types)
         return qs
 
 
