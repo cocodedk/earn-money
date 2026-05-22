@@ -31,7 +31,7 @@ export function AuthEventPill({ event }: { event: Event }) {
         type="button"
         className={styles.pill}
         aria-expanded={expanded}
-        aria-controls={expanded ? detailId : undefined}
+        aria-controls={detailId}
         onClick={() => setExpanded((v) => !v)}
       >
         <span className={styles.label}>{label}</span>
