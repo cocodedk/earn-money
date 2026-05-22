@@ -1,0 +1,10 @@
+{
+  "name": "invite-tenant-lab",
+  "version": "0.1.0",
+  "description": "Intentionally-vulnerable invitation and tenant-join fixture for Phase-2 stubs 2.21-2.22.",
+  "main": "server.js",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "4.21.2" },
+  "license": "MIT"
+}

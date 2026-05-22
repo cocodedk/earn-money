@@ -6,8 +6,8 @@
 phase: 2
 spec: 22
 slug: tenant-org-join-abuse
-status: pending     # pending | in-progress | blocked | done
-fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+status: done     # pending | in-progress | blocked | done
+fixture: tenant-org-join-abuse-lab        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 2.22 Tenant/org join abuse

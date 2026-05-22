@@ -6,8 +6,8 @@
 phase: 2
 spec: 21
 slug: invitation-abuse
-status: pending     # pending | in-progress | blocked | done
-fixture: tbd        # juice-shop | dvwa | webgoat | <name> | tbd
+status: done     # pending | in-progress | blocked | done
+fixture: invitation-abuse-lab        # juice-shop | dvwa | webgoat | <name> | tbd
 ----------------------------------------------------------------
 
 # 2.21 Invitation abuse

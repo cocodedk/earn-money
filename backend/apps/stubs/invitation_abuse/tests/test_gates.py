@@ -1,7 +1,7 @@
 """Gate tests for stub 2.21 (invitation-abuse)."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -62,13 +62,32 @@ def test_missing_secret(monkeypatch) -> None:
     assert ev.data["missing_secret"] == "FIXTURE_INVITATION_TOKEN"
 
 
+def _noop_client() -> MagicMock:
+    client = MagicMock()
+    login = MagicMock()
+    login.status_code = 200
+    login.json.return_value = {"token": "tok", "userId": "scanner"}
+    client.__enter__.return_value = client
+    client.__exit__.return_value = None
+    client.post.return_value = login
+    return client
+
+
 @pytest.mark.django_db
 def test_all_gates_pass(monkeypatch) -> None:
     scan_run, target_run = seed_target_run(host="x.example", stub_slug="2.21")
     monkeypatch.setenv("FIXTURE_INVITATION_TOKEN", "fixture-value")
+    noop_resp = MagicMock()
+    noop_resp.status_code = 404
+    noop_resp.text = "{}"
+    noop_resp.request = MagicMock()
+    noop_resp.request.method = "GET"
+    _mod = "apps.stubs.invitation_abuse.runner"
     with patch.object(get_registry(), "find_for_host",
                       return_value=_program(accounts=["scanner@example.invalid"])):
-        run(scan_run, target_run)
+        with patch(f"{_mod}.httpx.Client", return_value=_noop_client()):
+            with patch(f"{_mod}.submit_probe", return_value=noop_resp):
+                run(scan_run, target_run)
     assert not Event.objects.filter(
         scan_run=scan_run,
         type__in=[EventType.AUTH_PROBE_REFUSED, EventType.AUTH_FIXTURE_REQUIRED],

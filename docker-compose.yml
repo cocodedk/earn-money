@@ -90,6 +90,10 @@ services:
       FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
       FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
       FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
+      FIXTURE_INVITATION_TOKEN: ${FIXTURE_INVITATION_TOKEN:-fixture-invite-token-001}
+      FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
+      FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
+      FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
@@ -135,6 +139,10 @@ services:
       FIXTURE_OAUTH_REDIRECT_URI_URL: ${FIXTURE_OAUTH_REDIRECT_URI_URL:-http://oauth-redirect-uri-lab:3000}
       FIXTURE_OAUTH_TOKEN_SUB_URL: ${FIXTURE_OAUTH_TOKEN_SUB_URL:-http://oauth-token-substitution-lab:3000}
       FIXTURE_OAUTH_ACCOUNT_LINK_URL: ${FIXTURE_OAUTH_ACCOUNT_LINK_URL:-http://oauth-account-linking-lab:3000}
+      FIXTURE_INVITATION_TOKEN: ${FIXTURE_INVITATION_TOKEN:-fixture-invite-token-001}
+      FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
+      FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
+      FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
@@ -264,6 +272,30 @@ services:
       PORT: "3000"
       SCENARIO: account-link
       PUBLIC_BASE_URL: http://oauth-account-linking-lab:3000
+    networks: [scanner-net]
+
+  # --- Phase 2 invitation / tenant-join fixtures (stubs 2.21-2.22) -------
+  # Single Docker image, two scenario services differentiated by SCENARIO.
+  invitation-abuse-lab:
+    image: earnmoney-invite-tenant-lab:dev
+    build:
+      context: ./fixtures/invite-tenant-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: invitation-abuse
+    networks: [scanner-net]
+
+  tenant-org-join-abuse-lab:
+    image: earnmoney-invite-tenant-lab:dev
+    build:
+      context: ./fixtures/invite-tenant-lab
+      dockerfile: Dockerfile
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+      SCENARIO: tenant-org-join
     networks: [scanner-net]
 
 networks:
