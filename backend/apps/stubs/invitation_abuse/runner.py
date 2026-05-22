@@ -16,7 +16,6 @@ from apps.targets.models import ScanTarget
 
 from ..runners import guarded_runner
 from .classify import (
-    classify_invite_surface,
     classify_preview_exposure,
     classify_wrong_recipient,
 )
@@ -87,8 +86,6 @@ def run(
             details={"detail": "target_unreachable:/fixture/invitations"},
         )
         return
-    # reachability check — surface classification is passive context, not a finding emitter
-    classify_invite_surface(surface_resp, invite_surface_url)
 
     # Probe 2: preview exposure (unauthenticated GET to invite token URL)
     acquire_for(program)

@@ -15,7 +15,7 @@ from apps.stubs._shared.auth.safety import RefusalReason, record_refusal
 from apps.targets.models import ScanTarget
 
 from ..runners import guarded_runner
-from .classify import classify_join_success, classify_join_surface
+from .classify import classify_join_success
 
 
 _FIXTURE_SECRET_ENV = "FIXTURE_TENANT_ID"
@@ -84,8 +84,6 @@ def run(
             details={"detail": f"target_unreachable:/workspace/{tenant_id}"},
         )
         return
-    # reachability check — surface classification is passive context, not a finding emitter
-    classify_join_surface(surface_resp, f"{base}/workspace/{tenant_id}")
 
     # Probe 2: attempt unauthorized join
     join_url = f"{base}/api/workspaces/{tenant_id}/join"

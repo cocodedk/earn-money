@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from apps.stubs._shared.body_match import contains_any_lowered
 from apps.stubs._shared.types import Confidence
 
 
@@ -50,7 +51,7 @@ def classify_join_surface(
     if not any(h in endpoint_url.lower() for h in _WORKSPACE_PATH_HINTS):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
-    if not any(kw in body for kw in _JOIN_SURFACE_KEYWORDS):
+    if not contains_any_lowered(body, _JOIN_SURFACE_KEYWORDS):
         return None
     method: str = getattr(getattr(response, "request", None), "method", "GET") or "GET"
     return TenantJoinFlawClassification(
@@ -72,9 +73,9 @@ def classify_join_success(
     body: str = (getattr(response, "text", "") or "").lower()
     if _SEPARATE_TENANT_MARKER in body:
         return None
-    if any(m in body for m in _REJECT_MARKERS):
+    if contains_any_lowered(body, _REJECT_MARKERS):
         return None
-    if not any(m in body for m in _SUCCESS_MARKERS):
+    if not contains_any_lowered(body, _SUCCESS_MARKERS):
         return None
     method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
     return TenantJoinFlawClassification(
@@ -91,7 +92,6 @@ def classify_rejected_join(
 ) -> TenantJoinFlawClassification | None:
     """Detect when the server correctly rejects an unauthorized join attempt."""
     status_code: int = getattr(response, "status_code", 0)
-    body: str = (getattr(response, "text", "") or "").lower()
 
     if status_code in (401, 403):
         method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
@@ -103,14 +103,16 @@ def classify_rejected_join(
             status="rejected",
         )
 
-    if status_code in (200, 201) and _SEPARATE_TENANT_MARKER in body:
-        method = getattr(getattr(response, "request", None), "method", "POST") or "POST"
-        return TenantJoinFlawClassification(
-            kind=TenantJoinFlawKind.SEPARATE_TENANT_CREATED,
-            endpoint_url=endpoint_url,
-            http_method=method,
-            confidence="high",
-            status="rejected",
-        )
+    if status_code in (200, 201):
+        body: str = (getattr(response, "text", "") or "").lower()
+        if _SEPARATE_TENANT_MARKER in body:
+            method = getattr(getattr(response, "request", None), "method", "POST") or "POST"
+            return TenantJoinFlawClassification(
+                kind=TenantJoinFlawKind.SEPARATE_TENANT_CREATED,
+                endpoint_url=endpoint_url,
+                http_method=method,
+                confidence="high",
+                status="rejected",
+            )
 
     return None

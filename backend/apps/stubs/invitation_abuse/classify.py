@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from apps.stubs._shared.body_match import contains_any_lowered
 from apps.stubs._shared.types import Confidence
 
 
@@ -18,6 +19,9 @@ class InviteFlawKind(str, Enum):
 _INVITE_PATH_HINTS = frozenset({
     "invite", "invitation", "invitations", "join", "accept",
     "team", "workspace", "organization", "tenant", "members",
+})
+_INVITE_BODY_KEYWORDS = frozenset({
+    "invite", "invitation", "join", "workspace", "tenant",
 })
 _PREVIEW_FIELDS = frozenset({
     "workspace", "tenant", "organization", "role", "invited_by",
@@ -51,7 +55,7 @@ def classify_invite_surface(
     if not any(h in endpoint_url.lower() for h in _INVITE_PATH_HINTS):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
-    if not any(word in body for word in ("invite", "invitation", "join", "workspace", "tenant")):
+    if not contains_any_lowered(body, _INVITE_BODY_KEYWORDS):
         return None
     method: str = getattr(getattr(response, "request", None), "method", "GET") or "GET"
     return InviteFlawClassification(
@@ -92,11 +96,12 @@ def classify_preview_exposure(
 def _classify_accept_signal(
     response: object, endpoint_url: str, *, kind: InviteFlawKind,
 ) -> InviteFlawClassification | None:
+    """Return a confirmed high-confidence finding when the response signals invite acceptance."""
     status_code: int = getattr(response, "status_code", 0)
     if status_code not in (200, 201):
         return None
     body: str = (getattr(response, "text", "") or "").lower()
-    if not any(s in body for s in _ACCEPT_SIGNALS):
+    if not contains_any_lowered(body, _ACCEPT_SIGNALS):
         return None
     method: str = getattr(getattr(response, "request", None), "method", "POST") or "POST"
     return InviteFlawClassification(
