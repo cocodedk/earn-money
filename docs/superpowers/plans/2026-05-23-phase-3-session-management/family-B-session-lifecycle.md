@@ -23,11 +23,12 @@ fixation, no-rotation, no-invalidation, and long-lived sessions.
 | # | Task | Produces |
 |---|------|---------|
 | 01 | Fixture: `session-lifecycle-lab` | `fixtures/session-lifecycle-lab/` |
-| 02 | Stub 3.5 — session_fixation | `stubs/session_fixation/` |
-| 03 | Stub 3.6 — no_rotation_after_login | `stubs/no_rotation_after_login/` |
-| 04 | Stub 3.7 — no_invalidation_after_logout | `stubs/no_invalidation_after_logout/` |
-| 05 | Stub 3.8 — long_lived_sessions | `stubs/long_lived_sessions/` |
-| 06 | docker-compose wiring | `docker-compose.yml` service block |
+| 02 | Shared session lifecycle helpers | `_shared/session/session_lifecycle.py` + tests |
+| 03 | Stub 3.5 — session_fixation | `stubs/session_fixation/` |
+| 04 | Stub 3.6 — no_rotation_after_login | `stubs/no_rotation_after_login/` |
+| 05 | Stub 3.7 — no_invalidation_after_logout | `stubs/no_invalidation_after_logout/` |
+| 06 | Stub 3.8 — long_lived_sessions | `stubs/long_lived_sessions/` |
+| 07 | docker-compose wiring | `docker-compose.yml` service block |
 
 ---
 
@@ -129,7 +130,107 @@ git commit -m "feat(fixtures): session-lifecycle-lab — lifecycle routes for st
 
 ---
 
-## Task 02: Stub 3.5 — session_fixation
+## Task 02: Shared session lifecycle helpers
+
+**Files:**
+- Create: `backend/apps/stubs/_shared/session/session_lifecycle.py`
+- Create: `backend/apps/stubs/_shared/session/tests/test_session_lifecycle.py`
+
+Both stubs 3.5 and 3.6 need the same pre/post cookie comparison logic. Lifting it to shared avoids a cross-stub import anti-pattern.
+
+- [ ] **Step 2.1: Write failing tests**
+
+```python
+"""Tests for shared session lifecycle comparison helpers."""
+from __future__ import annotations
+from apps.stubs._shared.session.cookie_parser import parse_set_cookie
+from apps.stubs._shared.session.session_lifecycle import compare_session_cookies, CompareResult
+
+
+def _c(header):
+    return parse_set_cookie(header)
+
+
+def test_same_value_is_fixed():
+    pre = [_c("sid=x; Path=/")]
+    post = [_c("sid=x; Path=/")]
+    r = compare_session_cookies(pre, post)
+    assert r.fixed_names == ["sid"]
+
+
+def test_different_value_not_fixed():
+    pre = [_c("sid=x; Path=/")]
+    post = [_c("sid=y; Path=/")]
+    r = compare_session_cookies(pre, post)
+    assert r.fixed_names == []
+
+
+def test_no_pre_cookie_empty_fixed():
+    r = compare_session_cookies([], [_c("sid=x; Path=/")])
+    assert r.no_pre_cookie is True
+
+
+def test_none_value_skipped():
+    # cookie with no value at all should not trigger a false positive
+    pre = [_c("sid")]
+    post = [_c("sid")]
+    r = compare_session_cookies(pre, post)
+    assert r.fixed_names == []
+```
+
+- [ ] **Step 2.2: Implement `session_lifecycle.py`**
+
+```python
+"""Shared pre/post login session-cookie comparison for stubs 3.5 and 3.6."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+
+
+@dataclass(frozen=True)
+class CompareResult:
+    fixed_names: list[str]
+    no_pre_cookie: bool
+
+
+def compare_session_cookies(
+    pre_cookies: list[ParsedCookie],
+    post_cookies: list[ParsedCookie],
+) -> CompareResult:
+    pre_session = {
+        c.name: c.value_redacted
+        for c in pre_cookies
+        if c.sensitivity != Sensitivity.LOW and c.value_redacted is not None
+    }
+    if not pre_session:
+        return CompareResult(fixed_names=[], no_pre_cookie=True)
+
+    post_session = {
+        c.name: c.value_redacted
+        for c in post_cookies
+        if c.sensitivity != Sensitivity.LOW and c.value_redacted is not None
+    }
+
+    fixed = [
+        name for name, pre_val in pre_session.items()
+        if post_session.get(name) == pre_val
+    ]
+    return CompareResult(fixed_names=fixed, no_pre_cookie=False)
+```
+
+- [ ] **Step 2.3: Run tests + commit**
+
+```bash
+cd backend && python -m pytest apps/stubs/_shared/session/tests/test_session_lifecycle.py -v
+git add backend/apps/stubs/_shared/session/
+git commit -m "feat(session): shared session lifecycle helper — pre/post cookie comparison"
+```
+
+---
+
+## Task 03: Stub 3.5 — session_fixation
 
 **Files:**
 - Create: `backend/apps/stubs/session_fixation/__init__.py`
@@ -154,7 +255,7 @@ Returns: `FixationResult` with `status`, `confidence`, `affected_names: list[str
   - No pre-cookie → `NOT_APPLICABLE`
   - Non-session cookies ignored
 
-- [ ] **Step 2.2: Write `classify.py`**
+- [ ] **Step 3.2: Write `classify.py`**
 
 ```python
 """Stub 3.5 — Session fixation classification."""
@@ -163,7 +264,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
-from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+from apps.stubs._shared.session.cookie_parser import ParsedCookie
+from apps.stubs._shared.session.session_lifecycle import compare_session_cookies
 
 
 class FixationStatus(str, Enum):
@@ -184,33 +286,23 @@ def classify_fixation(
     pre_cookies: list[ParsedCookie],
     post_cookies: list[ParsedCookie],
 ) -> FixationResult:
-    pre_session = {
-        c.name: c.value_redacted
-        for c in pre_cookies if c.sensitivity != Sensitivity.LOW
-    }
-    if not pre_session:
+    result = compare_session_cookies(pre_cookies, post_cookies)
+    if result.no_pre_cookie:
         return FixationResult(status=FixationStatus.NOT_APPLICABLE, confidence="high")
-
-    post_session = {
-        c.name: c.value_redacted
-        for c in post_cookies if c.sensitivity != Sensitivity.LOW
-    }
-
-    fixed = [
-        name for name, pre_val in pre_session.items()
-        if post_session.get(name) == pre_val
-    ]
-    if fixed:
+    if result.fixed_names:
         return FixationResult(
-            status=FixationStatus.CONFIRMED, confidence="high", affected_names=fixed,
+            status=FixationStatus.CONFIRMED, confidence="high",
+            affected_names=result.fixed_names,
         )
     return FixationResult(status=FixationStatus.REJECTED, confidence="high")
 ```
 
-- [ ] **Step 2.3: Write runner** — uses `submit_probe` for GET then POST, guards on
-  `program.roe.allow_active_session_lifecycle_checks`
+- [ ] **Step 3.3: Write runner** — uses `submit_probe` for GET then POST, guards on
+  `program.roe.allow_active_session_lifecycle_checks`.
+  **Critical:** if GET returns `None`, skip the POST entirely (no pre-cookie fingerprint
+  to compare against). Pattern: `get_resp = submit_probe(get_req); if get_resp is None: return`
 
-- [ ] **Step 2.4: Run all tests + commit**
+- [ ] **Step 3.4: Run all tests + commit**
 
 ```bash
 cd backend && python -m pytest apps/stubs/session_fixation/ -v
@@ -220,7 +312,7 @@ git commit -m "feat(stubs): 3.5 session-fixation — pre/post login session comp
 
 ---
 
-## Task 03: Stub 3.6 — no_rotation_after_login
+## Task 04: Stub 3.6 — no_rotation_after_login
 
 **Files:** `backend/apps/stubs/no_rotation_after_login/`
 
@@ -234,10 +326,11 @@ Same as fixation but focused on session ID rotation (not the seeded-value attack
 This differs from fixation in that the pre-login cookie is organically set by the server
 (not seeded by the attacker). The distinction matters only for report copy.
 
-- [ ] **Step 3.1: Write classify tests** (same structure as 3.5 but status messages differ)
-- [ ] **Step 3.2: Write `classify.py`** (can import `classify_fixation` and delegate)
-- [ ] **Step 3.3: Write runner + tests**
-- [ ] **Step 3.4: Run + commit**
+- [ ] **Step 4.1: Write classify tests** (same structure as 3.5 but distinct status type/messages)
+- [ ] **Step 4.2: Write `classify.py`** — import `compare_session_cookies` from
+  `_shared/session/session_lifecycle` (NOT from stub 3.5; stubs must not import each other)
+- [ ] **Step 4.3: Write runner + tests**
+- [ ] **Step 4.4: Run + commit**
 
 ```bash
 git add backend/apps/stubs/no_rotation_after_login/
@@ -246,7 +339,7 @@ git commit -m "feat(stubs): 3.6 no-rotation-after-login — session ID rotation 
 
 ---
 
-## Task 04: Stub 3.7 — no_invalidation_after_logout
+## Task 05: Stub 3.7 — no_invalidation_after_logout
 
 **Files:** `backend/apps/stubs/no_invalidation_after_logout/`
 
@@ -261,12 +354,12 @@ Guard: `program.roe.allow_active_session_lifecycle_checks` must be True.
 
 `classify.py` input: `pre_logout_status: int`, `post_logout_status: int`
 
-- [ ] **Step 4.1: Write classify tests**:
+- [ ] **Step 5.1: Write classify tests**:
   - 200 → 200 after logout → `CONFIRMED` / `high`
   - 200 → 401 after logout → `REJECTED` / `high`
   - 200 → 403 after logout → `REJECTED` / `high`
 
-- [ ] **Step 4.2: Write `classify.py`**:
+- [ ] **Step 5.2: Write `classify.py`**:
 
 ```python
 """Stub 3.7 — No session invalidation after logout classification."""
@@ -293,13 +386,13 @@ class InvalidationResult:
 def classify_invalidation(
     pre_logout_status: int, post_logout_status: int,
 ) -> InvalidationResult:
-    if pre_logout_status not in range(200, 300):
+    if not (200 <= pre_logout_status < 300):
         return InvalidationResult(
             status=InvalidationStatus.NOT_APPLICABLE, confidence="high",
             pre_logout_status=pre_logout_status,
             post_logout_status=post_logout_status,
         )
-    if post_logout_status in range(200, 300):
+    if 200 <= post_logout_status < 300:
         return InvalidationResult(
             status=InvalidationStatus.CONFIRMED, confidence="high",
             pre_logout_status=pre_logout_status,
@@ -312,7 +405,7 @@ def classify_invalidation(
     )
 ```
 
-- [ ] **Step 4.3: Write runner + tests**, **Step 4.4: Run + commit**
+- [ ] **Step 5.3: Write runner + tests**, **Step 5.4: Run + commit**
 
 ```bash
 git add backend/apps/stubs/no_invalidation_after_logout/
@@ -321,7 +414,7 @@ git commit -m "feat(stubs): 3.7 no-invalidation-after-logout — session revocat
 
 ---
 
-## Task 05: Stub 3.8 — long_lived_sessions
+## Task 06: Stub 3.8 — long_lived_sessions
 
 **Files:** `backend/apps/stubs/long_lived_sessions/`
 
@@ -340,21 +433,24 @@ Default threshold: 86400 seconds (24 hours). Configurable via `max_session_age_s
 
 `classify.py` input: `ParsedCookie`, `max_session_age_seconds: int = 86400`
 
-- [ ] **Step 5.1: Write classify tests**:
+- [ ] **Step 6.1: Write classify tests**:
   - `Max-Age=2592000` (30d) → `CONFIRMED` / `high`
   - `Max-Age=1800` (30min) → `REJECTED` / `high`
   - No `Max-Age`, no `Expires` → `NOT_APPLICABLE`
   - `Max-Age=86400` exactly → `REJECTED` (not greater-than)
   - `Max-Age=86401` → `CONFIRMED`
+  - Only `Expires` set to far future → `CONFIRMED` (verify Expires-only path works)
 
-- [ ] **Step 5.2: Write `classify.py`**:
+- [ ] **Step 6.2: Write `classify.py`**:
 
 ```python
 """Stub 3.8 — Long-lived session detection classification."""
 from __future__ import annotations
+
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from enum import Enum
-from typing import Literal
+from typing import Literal, Optional
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
 
@@ -372,7 +468,7 @@ class LongLivedResult:
     status: LongLivedStatus
     confidence: Literal["low", "medium", "high"]
     cookie_name: str
-    observed_max_age: int | None
+    observed_max_age: Optional[int]
 
 
 def classify_cookie(
@@ -389,7 +485,16 @@ def classify_cookie(
             status=LongLivedStatus.NOT_APPLICABLE, confidence="low",
             cookie_name=cookie.name, observed_max_age=None,
         )
-    age = cookie.max_age or 0
+    # Max-Age takes precedence; fall back to Expires if absent
+    if cookie.max_age is not None:
+        age = cookie.max_age
+    else:
+        age = _expires_to_seconds(cookie.expires)
+    if age is None:
+        return LongLivedResult(
+            status=LongLivedStatus.NOT_APPLICABLE, confidence="low",
+            cookie_name=cookie.name, observed_max_age=None,
+        )
     if age > max_session_age_seconds:
         return LongLivedResult(
             status=LongLivedStatus.CONFIRMED, confidence="high",
@@ -399,9 +504,21 @@ def classify_cookie(
         status=LongLivedStatus.REJECTED, confidence="high",
         cookie_name=cookie.name, observed_max_age=age,
     )
+
+
+def _expires_to_seconds(expires: Optional[str]) -> Optional[int]:
+    if not expires:
+        return None
+    try:
+        import datetime
+        dt = parsedate_to_datetime(expires)
+        remaining = int((dt - datetime.datetime.now(tz=datetime.timezone.utc)).total_seconds())
+        return max(remaining, 0)
+    except Exception:
+        return None
 ```
 
-- [ ] **Step 5.3: Write runner + tests**, **Step 5.4: Run + commit**
+- [ ] **Step 6.3: Write runner + tests**, **Step 6.4: Run + commit**
 
 ```bash
 git add backend/apps/stubs/long_lived_sessions/
@@ -410,7 +527,7 @@ git commit -m "feat(stubs): 3.8 long-lived-sessions — session lifetime detecti
 
 ---
 
-## Task 06: docker-compose wiring
+## Task 07: docker-compose wiring
 
 ```yaml
   session-lifecycle-lab:

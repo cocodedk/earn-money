@@ -442,11 +442,12 @@ cd backend && python -m pytest apps/stubs/_shared/session/tests/test_cookie_pars
 """Shared cookie-attribute parser for Phase-3 session-management stubs."""
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
+
+from apps.stubs._shared.hashing import body_hash
 
 
 class Sensitivity(str, Enum):
@@ -474,6 +475,7 @@ _HIGH_NAMES: frozenset[str] = frozenset({
     "session", "sid", "auth", "access_token", "refresh_token",
     "id_token", "jwt", "token",
 })
+_HIGH_NAMES_LOWER: frozenset[str] = frozenset(n.lower() for n in _HIGH_NAMES)
 _MEDIUM_PATTERN = re.compile(
     r"(session|sess|auth|token|login|remember|sso)", re.IGNORECASE
 )
@@ -542,7 +544,7 @@ def parse_set_cookie(header: str) -> ParsedCookie:
 def is_sensitive_cookie(name: str) -> Sensitivity:
     if name in _FRAMEWORK_NAMES:
         return Sensitivity.HIGH
-    if name.lower() in {n.lower() for n in _HIGH_NAMES}:
+    if name.lower() in _HIGH_NAMES_LOWER:
         return Sensitivity.HIGH
     if _CSRF_PATTERN.search(name):
         return Sensitivity.LOW
@@ -557,11 +559,11 @@ def _classify_category(name: str) -> CookieCategory:
     nl = name.lower()
     if nl in ("session", "sid"):
         return CookieCategory.SESSION
-    if nl in ("auth",):
+    if nl == "auth":
         return CookieCategory.AUTH
-    if "access_token" in nl:
+    if nl == "access_token":
         return CookieCategory.ACCESS_TOKEN
-    if "refresh_token" in nl:
+    if nl == "refresh_token":
         return CookieCategory.REFRESH_TOKEN
     if "remember" in nl:
         return CookieCategory.REMEMBER_ME
@@ -573,7 +575,7 @@ def _classify_category(name: str) -> CookieCategory:
 
 
 def _redact(value: str) -> str:
-    h = hashlib.sha256(value.encode()).hexdigest()[:8]
+    h = body_hash(value)[:8]
     return f"<redacted:{h}>"
 
 
