@@ -107,7 +107,7 @@ the reversed list — consumers don't re-sort.
   - `auth.finding_candidate` → red (alert) — possible vuln pending verify.
 - Collapsed: type-coloured chip, type label (humanised — e.g. `Probe refused`), timestamp.
 - Click / Enter / Space toggles `expanded`. Expanded state reveals `event.message`
-  and a `<details>`-style payload view (pretty-printed JSON of `event.payload`).
+  and a `<details>`-style payload view (pretty-printed JSON of `event.data`).
 - Reuses tokens from `StatusBadge.module.css` and CSS vars for the colour variants.
   No new colour values — picks from existing severity tokens.
 - ARIA: pill is a `button` (`aria-expanded`), expanded region is `aria-hidden` when
@@ -129,7 +129,8 @@ not in DOM).
 - A target with zero auth events does NOT render the panel; the page looks identical to
   the pre-slice layout.
 - Pills are coloured per the severity table above.
-- Click / Enter / Space on a pill toggles expand, showing `event.message` and payload.
+- Click / Enter / Space on a pill toggles expand, showing `event.message` and the
+  pretty-printed `event.data` JSON.
 - When `next !== null`, the "+N more in the full events feed below." footer hint is
   present (plain text, no scroll behaviour).
 - 100% line + branch coverage on the new files (panel, pill, query hook).
@@ -147,7 +148,7 @@ not in DOM).
   - collapsed shows type label + timestamp
   - click toggles expanded
   - keyboard: Enter and Space both toggle
-  - expanded reveals `event.message` and payload
+  - expanded reveals `event.message` and pretty-printed `event.data`
   - `aria-expanded` reflects state
 - `frontend/src/features/targets/api.test.ts`
   - `useTargetAuthEventsQuery` builds the correct URL with three `?type=` params
