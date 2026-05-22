@@ -32,7 +32,7 @@ def _mock_get(responses: dict[str, httpx.Response]):
         for suffix, response in ordered:
             if url.endswith(suffix):
                 return response
-        return resp("", status_code=404, url=url)
+        return resp("", status_code=404, url=url)  # pragma: no cover — test fixtures always match
     return side_effect
 
 

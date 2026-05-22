@@ -18,6 +18,8 @@ def _make_http(login_marker="user_a_marker", callback_marker="user_a_marker",
         elif "/oauth/callback" in url:
             r.status_code = 200 if callback_ok else 400
             r.json.return_value = {"marker": callback_marker, "userId": "user_a"}
+        else:  # pragma: no cover — only /login and /oauth/callback are POSTed
+            pass
         return r
     def get(url, **kwargs):
         r = MagicMock()
@@ -25,7 +27,7 @@ def _make_http(login_marker="user_a_marker", callback_marker="user_a_marker",
         if "/oauth/authorize" in url:
             r.status_code = 302
             r.headers = {"Location": "http://localhost/cb?code=code-abc"}
-        elif "/me" in url:
+        elif "/me" in url:  # pragma: no cover — /me not called by run_substitution_test
             r.json.return_value = {"userId": "user_a", "marker": login_marker}
         return r
     http.post = post
@@ -100,7 +102,7 @@ def test_login_b_failure_returns_candidate():
             call_count["n"] += 1
             r.status_code = 200 if call_count["n"] == 1 else 401
             r.json.return_value = {"token": "tok", "userId": "user_a"}
-        elif "/oauth/callback" in url:
+        elif "/oauth/callback" in url:  # pragma: no cover — login_b fails; callback never POSTed
             r.status_code = 200
             r.json.return_value = {"marker": "x"}
         return r

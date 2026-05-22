@@ -166,3 +166,24 @@ def test_probe_pair_is_frozen() -> None:
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         pair.form = None  # type: ignore[misc]
+
+
+def test_identifier_field_omitted_when_form_has_no_identifier_field() -> None:
+    """branch 111->113: when form.identifier_field is None (password-only
+    form, e.g. sudo-confirm or second-step), the identifier param is
+    absent from the request but the password param is present."""
+    form = AuthForm(
+        method="POST", action_url="https://x.test/sudo",
+        content_type="application/x-www-form-urlencoded",
+        identifier_field=None, password_field="password",
+        hidden_fields={}, flow_hint="unknown",
+    )
+    pair = build_probe_pair(
+        form=form,
+        invalid_identifier="scanner@example.invalid",
+        valid_identifier=None,
+        bogus_password="bogus",
+    )
+    body = pair.invalid_request.content.decode()
+    assert "password=bogus" in body
+    assert "scanner@example.invalid" not in body

@@ -70,7 +70,7 @@ def _emails_with_tokens(tokens: list[str]) -> list[InboundMessage]:
     ]
 
 
-def _wire_mocks(*, mailbox_messages):
+def _wire_mocks(*, mailbox_messages):  # pragma: no cover — helper defined but tests use inline patches
     """Common patch stack: registry + discovery + submit + mailbox."""
     return [
         patch.object(get_registry(), "find_for_host", return_value=_program()),
@@ -106,7 +106,7 @@ def test_sequential_integer_tokens_emit_critical_finding(monkeypatch) -> None:
 
     def _draining_wait_for(addr, *, since, timeout_s=30.0):
         if not mailbox.messages:
-            return None
+            return None  # pragma: no cover — list is exactly _TOKEN_SAMPLE_SIZE long
         msg = mailbox.messages.pop(0)
         return msg
 
@@ -142,7 +142,7 @@ def test_random_uuid_tokens_emit_no_finding(monkeypatch) -> None:
 
     def _draining_wait_for(addr, *, since, timeout_s=30.0):
         if not mailbox.messages:
-            return None
+            return None  # pragma: no cover — list is exactly _TOKEN_SAMPLE_SIZE long
         return mailbox.messages.pop(0)
 
     with patch.object(get_registry(), "find_for_host", return_value=_program()), \

@@ -176,3 +176,10 @@ def test_load_mailbox_backend_catchall_not_implemented_yet(monkeypatch) -> None:
     monkeypatch.setenv("FIXTURE_MAILBOX_BACKEND", "catchall")
     with pytest.raises(MailboxConfigError, match="not yet implemented"):
         load_mailbox_backend()
+
+
+def test_extract_reset_token_returns_none_when_reset_url_has_no_recognized_param() -> None:
+    """The reset URL is found but its query string contains none of the
+    recognised token param names (token / code / t / k) → returns None."""
+    msg = _msg(body_text="Click: https://x.test/reset?session_id=irrelevant")
+    assert extract_reset_token(msg) is None

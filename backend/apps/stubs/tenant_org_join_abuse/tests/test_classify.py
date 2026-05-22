@@ -122,3 +122,8 @@ class TestClassifyRejectedJoin:
         r = _resp(200, '{"workspace_member":true}', method="POST")
         result = classify_rejected_join(r, "http://x.test/api/workspaces/acme/join")
         assert result is None
+
+    def test_non_standard_status_is_none(self):
+        r = _resp(404, '{"error":"not_found"}', method="POST")
+        result = classify_rejected_join(r, "http://x.test/api/workspaces/acme/join")
+        assert result is None

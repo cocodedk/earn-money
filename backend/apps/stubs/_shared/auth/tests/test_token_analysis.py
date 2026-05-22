@@ -121,3 +121,33 @@ def test_result_carries_entropy_bits_per_char() -> None:
     out = analyse_tokens(_strong_hex(8))
     # hex tokens have ~4 bits / char (16 symbols, log2(16)=4).
     assert 3.5 <= out.entropy_bits_per_char <= 4.1
+
+
+# ----- internal helper edge cases -----------------------------------
+
+def test_sequential_check_false_when_multiple_prefixes() -> None:
+    """Tokens with different prefixes (rt-1 vs tok-2) are not sequential.
+    Exercises line 103: len(prefixes) != 1 → return False."""
+    from apps.stubs._shared.auth.token_analysis import _is_sequential_integer
+    assert _is_sequential_integer(["rt-1", "tok-2", "rt-3"]) is False
+
+
+def test_longest_common_prefix_empty_list() -> None:
+    """_longest_common_prefix([]) returns '' — exercises line 111."""
+    from apps.stubs._shared.auth.token_analysis import _longest_common_prefix
+    assert _longest_common_prefix([]) == ""
+
+
+def test_longest_common_prefix_one_token_is_prefix_of_all() -> None:
+    """When shortest token is a prefix of all others, the full shortest
+    token is returned — exercises line 116 (return shortest)."""
+    from apps.stubs._shared.auth.token_analysis import _longest_common_prefix
+    # "abc" is a prefix of all three; no char mismatch found in the loop
+    assert _longest_common_prefix(["abc", "abcd", "abcde"]) == "abc"
+
+
+def test_entropy_zero_when_all_tokens_empty() -> None:
+    """_entropy_bits_per_char([]) returns 0.0 when joined text is empty —
+    exercises line 123."""
+    from apps.stubs._shared.auth.token_analysis import _entropy_bits_per_char
+    assert _entropy_bits_per_char([""]) == 0.0
