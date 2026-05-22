@@ -1,27 +1,42 @@
 .shell {
-  @apply h-full grid;
-  grid-template-columns: 240px 1fr;
+  @apply h-full grid gap-3 p-3;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  background: var(--surface-canvas);
 }
 .sidebar {
-  @apply flex flex-col py-4;
-  background: var(--surface-sunken);
-  border-right: 1px solid var(--rule-hair);
+  @apply flex flex-col py-3 rounded-md;
+  background: var(--surface-raised);
+  border: 1px solid var(--rule-hair);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.sidebarHeader {
+  @apply flex items-center justify-between px-3 pb-3;
 }
 .brand {
-  @apply px-4 pb-4 font-semibold text-sm;
+  @apply truncate font-semibold text-sm;
+  color: var(--ink-strong);
 }
 .navList {
   @apply flex flex-col;
 }
 .navLink {
-  @apply block px-4 py-2 text-sm;
+  @apply flex items-center gap-2 px-4 py-2 text-sm;
   color: var(--ink-default);
 }
 .navLink:hover {
   background: var(--surface-sunken);
 }
+.icon {
+  @apply shrink-0;
+}
+.label {
+  @apply truncate;
+}
 .main {
-  @apply flex flex-col min-w-0;
+  @apply flex flex-col min-w-0 rounded-md overflow-hidden;
+  border: 1px solid var(--rule-hair);
+  background: var(--surface-raised);
 }
 .topbar {
   @apply h-14 flex items-center justify-between px-6;
@@ -35,7 +50,34 @@
 .content {
   @apply flex-1 overflow-auto px-6 py-4;
 }
+.navLink[aria-current="page"] {
+  color: var(--ink-strong);
+}
 .navLink span[data-active="true"] {
   @apply font-medium;
-  color: var(--ink-strong);
+}
+
+.shell[data-collapsed="true"] {
+  grid-template-columns: var(--sidebar-w-collapsed) 1fr;
+}
+.shell[data-collapsed="true"] .sidebarHeader {
+  justify-content: center;
+  padding-inline: 0;
+}
+.shell[data-collapsed="true"] .brand,
+.shell[data-collapsed="true"] .label {
+  display: none;
+}
+.shell[data-collapsed="true"] .navLink {
+  justify-content: center;
+  padding-inline: 0;
+}
+.shell {
+  transition: grid-template-columns var(--dur-base) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }

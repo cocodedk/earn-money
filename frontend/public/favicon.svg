@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .bg { fill: #0a0a0a; }
+    .fg { fill: #b45309; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #14130f; }
+      .fg { fill: #f59e0b; }
+    }
+  </style>
+  <rect class="bg" width="32" height="32" rx="6"/>
+  <!-- EM monogram: amber "E" + "M" on dark canvas -->
+  <path class="fg" d="M7 8h8v2.6H9.6v3H14v2.6H9.6v3.2H15V22H7V8z"/>
+  <path class="fg" d="M17 8h2.4l3.1 6.4L25.6 8H28v14h-2.4v-8.6l-2.9 5.6h-1.4l-2.9-5.6V22H17V8z"/>
+</svg>

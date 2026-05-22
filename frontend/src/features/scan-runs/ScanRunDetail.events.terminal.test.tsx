@@ -3,7 +3,6 @@ import {
   expect,
   it,
   vi,
-  beforeEach,
   afterEach,
 } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";

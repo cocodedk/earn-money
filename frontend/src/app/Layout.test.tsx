@@ -4,8 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders } from "../test/renderWithProviders";
 import { Layout } from "./Layout";
+import { setCollapsed } from "./sidebar";
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  setCollapsed(false);
+  window.localStorage.clear();
+});
 
 function setup(initialRoute = "/projects") {
   return renderWithProviders(
@@ -67,5 +71,43 @@ describe("Layout", () => {
   it("keeps the parent active on a child route", () => {
     setup("/projects/new");
     expect(screen.getByText("Projects")).toHaveAttribute("data-active", "true");
+  });
+
+  it("renders an icon for each of the seven nav items", () => {
+    const { container } = setup();
+    expect(container.querySelectorAll("nav svg")).toHaveLength(7);
+  });
+
+  it("exposes a stable testid on each nav link", () => {
+    setup();
+    [
+      "nav-projects",
+      "nav-targets",
+      "nav-stubs",
+      "nav-scan-runs",
+      "nav-findings",
+      "nav-evidence",
+      "nav-settings",
+    ].forEach((testid) => {
+      expect(screen.getByTestId(testid)).toBeInTheDocument();
+    });
+  });
+
+  it("starts expanded; nav links carry no aria-label or title", () => {
+    setup();
+    const link = screen.getByTestId("nav-stubs");
+    expect(link).not.toHaveAttribute("aria-label");
+    expect(link).not.toHaveAttribute("title");
+  });
+
+  it("renders collapsed when localStorage holds the collapsed flag", () => {
+    window.localStorage.setItem("em.sidebar.collapsed", "true");
+    setCollapsed(true);
+    const { container } = setup();
+    expect(container.querySelector('[data-collapsed="true"]')).not.toBeNull();
+    const link = screen.getByTestId("nav-stubs");
+    expect(link).toHaveAttribute("aria-label", "Stubs");
+    expect(link).toHaveAttribute("title", "Stubs");
+    expect(screen.getByRole("link", { name: "Stubs" })).toBe(link);
   });
 });
