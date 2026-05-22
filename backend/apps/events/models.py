@@ -62,7 +62,7 @@ class Event(UUIDModel):
         ]
 
     def save(self, *args: Any, **kwargs: Any) -> None:
-        if self.pk and Event.objects.filter(pk=self.pk).exists():
+        if not self._state.adding:
             raise RuntimeError(
                 "Event is append-only — existing rows cannot be updated."
             )

@@ -19,9 +19,7 @@ from .serializers import EventSerializer
 
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read-only list/retrieve for Event rows.
-
-    Filters (AND semantics):
+    """Filters (AND semantics):
       ?target=<uuid>    events for one ScanTarget
       ?scan_run=<uuid>  events for one ScanRun
       ?type=<str>       events of a specific EventType

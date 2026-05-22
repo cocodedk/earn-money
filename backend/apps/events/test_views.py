@@ -1,6 +1,8 @@
 """API tests for the EventViewSet — read-only list/retrieve."""
 from __future__ import annotations
 
+import uuid
+
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -12,31 +14,32 @@ from apps.targets.models import ScanTarget
 
 
 class _Fixtures(APITestCase):
-    def setUp(self) -> None:
-        self.project = Project.objects.create(name="acme")
-        self.target_a = ScanTarget.objects.create(
-            project=self.project,
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.project = Project.objects.create(name="acme")
+        cls.target_a = ScanTarget.objects.create(
+            project=cls.project,
             base_url="https://dvwa.cocode.dk",
             host="dvwa.cocode.dk",
         )
-        self.target_b = ScanTarget.objects.create(
-            project=self.project,
+        cls.target_b = ScanTarget.objects.create(
+            project=cls.project,
             base_url="https://webgoat.cocode.dk",
             host="webgoat.cocode.dk",
         )
-        self.run_a = ScanRun.objects.create(project=self.project, stub_slug="1.1")
-        self.run_b = ScanRun.objects.create(project=self.project, stub_slug="1.2")
-        self.ev_a1 = Event.log(
+        cls.run_a = ScanRun.objects.create(project=cls.project, stub_slug="1.1")
+        cls.run_b = ScanRun.objects.create(project=cls.project, stub_slug="1.2")
+        cls.ev_a1 = Event.log(
             type=EventType.SCAN_TARGET_RUN_STARTED,
-            scan_run=self.run_a, target=self.target_a,
+            scan_run=cls.run_a, target=cls.target_a,
         )
-        self.ev_a2 = Event.log(
+        cls.ev_a2 = Event.log(
             type=EventType.SCAN_TARGET_RUN_DONE,
-            scan_run=self.run_a, target=self.target_a,
+            scan_run=cls.run_a, target=cls.target_a,
         )
-        self.ev_b = Event.log(
+        cls.ev_b = Event.log(
             type=EventType.SCAN_TARGET_RUN_STARTED,
-            scan_run=self.run_b, target=self.target_b,
+            scan_run=cls.run_b, target=cls.target_b,
         )
 
 
@@ -66,7 +69,6 @@ class EventListTests(_Fixtures):
         assert r.json()["count"] == 1
 
     def test_unknown_target_returns_empty(self) -> None:
-        import uuid
         r = self.client.get(
             reverse("event-list"), {"target": str(uuid.uuid4())}
         )
@@ -87,6 +89,5 @@ class EventRetrieveTests(_Fixtures):
         assert r.json()["type"] == EventType.SCAN_TARGET_RUN_STARTED
 
     def test_retrieve_unknown_404(self) -> None:
-        import uuid
         r = self.client.get(reverse("event-detail", args=[str(uuid.uuid4())]))
         assert r.status_code == 404
