@@ -26,7 +26,9 @@ from apps.stubs._shared.auth._imap import (
     _decoded_text,
 )
 from apps.stubs._shared.auth.mailbox import MailboxConfigError
-from apps.stubs._shared.auth.tests._imap_helpers import _patch_imaplib
+from apps.stubs._shared.auth.tests._imap_helpers import (
+    _fake_imap_returning, _patch_imaplib,
+)
 
 
 def test_oserror_on_connect_raises_mailbox_config_error() -> None:
@@ -51,10 +53,7 @@ def test_oserror_on_connect_raises_mailbox_config_error() -> None:
 def test_logout_error_is_swallowed() -> None:
     """When conn.logout() raises IMAP4.error, the exception is caught
     and the outer function still returns normally (no propagation)."""
-    imap = MagicMock()
-    imap.login.return_value = ("OK", [b""])
-    imap.select.return_value = ("OK", [b"1"])
-    imap.search.return_value = ("OK", [b""])  # no results → returns None
+    imap = _fake_imap_returning(search_uids=b"", fetch_body=b"")
     imap.logout.side_effect = imaplib.IMAP4.error("already logged out")
 
     with _patch_imaplib(imap):
@@ -72,10 +71,7 @@ def test_logout_error_is_swallowed() -> None:
 
 def test_logout_oserror_is_swallowed() -> None:
     """An OSError from logout is also swallowed."""
-    imap = MagicMock()
-    imap.login.return_value = ("OK", [b""])
-    imap.select.return_value = ("OK", [b"1"])
-    imap.search.return_value = ("OK", [b""])
+    imap = _fake_imap_returning(search_uids=b"", fetch_body=b"")
     imap.logout.side_effect = OSError("broken pipe")
 
     with _patch_imaplib(imap):
@@ -94,12 +90,8 @@ def test_logout_oserror_is_swallowed() -> None:
 def test_fetch_non_ok_returns_none() -> None:
     """When conn.fetch() returns a non-OK status, _fetch_and_parse
     returns None — the UID is silently skipped."""
-    imap = MagicMock()
-    imap.login.return_value = ("OK", [b""])
-    imap.select.return_value = ("OK", [b"1"])
-    imap.search.return_value = ("OK", [b"1"])
-    imap.fetch.return_value = ("NO", [])  # non-OK
-    imap.logout.return_value = ("BYE", [b""])
+    imap = _fake_imap_returning(search_uids=b"1", fetch_body=b"")
+    imap.fetch.return_value = ("NO", [])
 
     with _patch_imaplib(imap):
         mb = IMAPMailbox(
@@ -141,13 +133,8 @@ def test_fetch_with_null_payload_returns_none() -> None:
     """When the FETCH response has OK status but data contains no valid
     RFC822 payload, _fetch_and_parse returns None and the outer loop
     ends with None."""
-    imap = MagicMock()
-    imap.login.return_value = ("OK", [b""])
-    imap.select.return_value = ("OK", [b"1"])
-    imap.search.return_value = ("OK", [b"1"])
-    # fetch returns OK but with no usable payload (just a bytes entry)
+    imap = _fake_imap_returning(search_uids=b"1", fetch_body=b"")
     imap.fetch.return_value = ("OK", [b"no tuple here"])
-    imap.logout.return_value = ("BYE", [b""])
 
     with _patch_imaplib(imap):
         mb = IMAPMailbox(
