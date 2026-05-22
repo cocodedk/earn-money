@@ -9,6 +9,8 @@
 
 - [ ] **Step 1: Add a new e2e test**
 
+Before adding the test, ensure the file imports or declares `userEvent`, `makeEvent`, `PROJECT`, `TARGET`, and `TARGET_ID`. Prefer the existing fixtures already used in this e2e file. If `PROJECT` is absent, add it near `TARGET` by copying the same project fixture shape used by the target-result testkit, preserving the project id referenced by `TARGET`.
+
 At the end of the existing top-level `describe("end-to-end · target result", …)` block:
 
 ```tsx
@@ -47,8 +49,6 @@ At the end of the existing top-level `describe("end-to-end · target result", �
     ).toHaveTextContent(/"fixture": "dvwa-admin"/);
   });
 ```
-
-If `PROJECT` is not yet declared at the top of this file, add it near `TARGET` with the same shape used in `frontend/src/features/targets/TargetResult/__fixtures__/testkit.tsx`.
 
 - [ ] **Step 2: Run the e2e**
 

@@ -24,10 +24,12 @@ const TARGET_ID = "22222222-2222-2222-2222-222222222222";
 
 describe("useTargetAuthEventsQuery", () => {
   it("requests /api/events/ with target + three ?type= params", async () => {
+    let calls = 0;
     let target = "";
     let types: string[] = [];
     server.use(
       msw.get("/api/events/", ({ request }) => {
+        calls += 1;
         const url = new URL(request.url);
         target = url.searchParams.get("target") ?? "";
         types = url.searchParams.getAll("type");
@@ -44,6 +46,7 @@ describe("useTargetAuthEventsQuery", () => {
       wrapper: Wrapper,
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(calls).toBe(1);
     expect(target).toBe(TARGET_ID);
     expect(types).toEqual([
       "auth.probe_refused",

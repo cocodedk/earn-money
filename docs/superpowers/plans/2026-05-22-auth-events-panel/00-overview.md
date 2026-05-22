@@ -4,11 +4,19 @@
 
 **Goal:** Surface the three Phase 2 auth events (`AUTH_PROBE_REFUSED`, `AUTH_FIXTURE_REQUIRED`, `AUTH_FINDING_CANDIDATE`) on the target result page as colour-coded expand-in-place pills, so the operator can triage them at a glance even after the full events feed has paginated.
 
-**Architecture:** New `TargetAuthEventsPanel` slot above `TargetEventsTable` on `TargetResult`. Dedicated `useTargetAuthEventsQuery(targetId)` issues a single paginated request with multi-value `?type=` and reverses the backend's oldest-first results client-side. Reuses existing component patterns: `TargetSection` for the wrapper feel, a new `AuthEventPill` for the per-event row.
+**Architecture:** New `TargetAuthEventsPanel` slot above `TargetEventsTable` on `TargetResult`. Dedicated `useTargetAuthEventsQuery(targetId)` issues a single paginated request with multi-value `?type=` and reverses the backend's oldest-first results client-side. Reuses existing component patterns: a `TargetSection`-style wrapper feel and a new `AuthEventPill` for the per-event row.
 
 **Tech Stack:** React + TypeScript + Vite + Vitest + Testing Library + MSW + React Query. CSS Modules for styling. Tokens from existing CSS variables.
 
 **Spec:** `docs/superpowers/specs/2026-05-22-auth-events-panel-design.md`
+
+---
+
+## Preconditions
+
+- Work on branch `feat/em-frontend-auth-events-panel` before Task 1. If the branch does not exist, create it from the intended base before writing the first failing test.
+- The backend events API is expected to support repeated `type` query params and to return the first page oldest-first with a reliable `count` and `next`.
+- Each task intentionally ends in a small commit. Rollback is therefore a reverse-order `git revert`; revert Task 5 and Task 4 first to remove page exposure while preserving lower-level code, or revert all task commits to remove the feature entirely.
 
 ---
 
@@ -27,6 +35,8 @@
 **Modify:**
 - `frontend/src/features/targets/TargetResult.tsx` — render `TargetAuthEventsPanel` between `TargetEvidencePanel` and `TargetEventsTable`
 - `frontend/src/features/targets/TargetResult.test.tsx` — extend happy-path test to assert the new panel slot
+- `frontend/src/features/targets/TargetResult/TargetEvidencePanel.tsx` — only if it lacks a stable outer-section selector for the slot-order test
+- `frontend/src/features/targets/TargetResult/TargetEventsTable.tsx` — only if it lacks a stable outer-section selector for the slot-order test
 - `frontend/src/App.e2e.target-result.test.tsx` — extend the e2e to land on a target with one auth event
 
 ## Tasks (execute in order)

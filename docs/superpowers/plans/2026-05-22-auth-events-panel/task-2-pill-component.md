@@ -55,7 +55,7 @@ Expected: FAIL — `AuthEventPill` not defined.
 
 ```tsx
 // AuthEventPill.tsx
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Event } from "../../../types/api";
 import styles from "./AuthEventPill.module.css";
 
@@ -76,15 +76,18 @@ function fmtTime(ts: string): string {
 }
 
 export function AuthEventPill({ event }: { event: Event }) {
+  const detailId = useId();
   const [expanded, setExpanded] = useState(false);
   const variant = VARIANTS[event.type] ?? "info";
   const label = LABELS[event.type] ?? event.type;
+  const payload = event.data ?? {};
   return (
     <div className={styles.row} data-variant={variant}>
       <button
         type="button"
         className={styles.pill}
         aria-expanded={expanded}
+        aria-controls={expanded ? detailId : undefined}
         onClick={() => setExpanded((v) => !v)}
       >
         <span className={styles.label}>{label}</span>
@@ -93,9 +96,9 @@ export function AuthEventPill({ event }: { event: Event }) {
         </span>
       </button>
       {expanded && (
-        <div className={styles.detail} data-testid="auth-event-pill-detail">
+        <div id={detailId} className={styles.detail} data-testid="auth-event-pill-detail">
           <p>{event.message}</p>
-          <pre>{JSON.stringify(event.data, null, 2)}</pre>
+          <pre>{JSON.stringify(payload, null, 2)}</pre>
         </div>
       )}
     </div>
@@ -112,7 +115,7 @@ export function AuthEventPill({ event }: { event: Event }) {
   gap: 0.5rem;
   padding: 0.25rem 0.75rem;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill, 999px);
   background: transparent;
   font-family: var(--font-mono);
   font-size: var(--text-small);
@@ -123,7 +126,7 @@ export function AuthEventPill({ event }: { event: Event }) {
 .row[data-variant="alert"]   .pill { color: var(--color-alert);   border-color: var(--color-alert); }
 .label { font-weight: 600; }
 .time  { opacity: 0.7; }
-.detail { padding: 0.5rem; background: var(--color-surface-elev-1); border-radius: var(--radius-card); }
+.detail { padding: 0.5rem; background: var(--color-surface-elev-1); border-radius: var(--radius-card, 0.5rem); }
 .detail pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
 ```
 
@@ -134,75 +137,11 @@ cd frontend && npx vitest run src/features/targets/TargetResult/AuthEventPill.te
 ```
 Expected: PASS.
 
-- [ ] **Step 5: Add variant + interaction + a11y tests**
+- [ ] **Step 5: Add variant + interaction + a11y tests, run with coverage**
 
-Append to `AuthEventPill.test.tsx`:
+Continue in [task-2-pill-component-tests.md](task-2-pill-component-tests.md). Return here for Step 6 (commit).
 
-```tsx
-  it.each([
-    ["auth.probe_refused", "warning"],
-    ["auth.fixture_required", "info"],
-    ["auth.finding_candidate", "alert"],
-  ])("event type %s renders variant %s", (type, variant) => {
-    const { container } = render(
-      <AuthEventPill event={makeEvent({ type })} />,
-    );
-    expect(container.querySelector(`[data-variant="${variant}"]`)).not.toBeNull();
-  });
-
-  it("click toggles expanded and reveals message + payload", async () => {
-    const { default: userEvent } = await import("@testing-library/user-event");
-    const ue = userEvent.setup();
-    render(
-      <AuthEventPill
-        event={makeEvent({
-          type: "auth.fixture_required",
-          message: "needs juiceshop creds",
-          data: { fixture: "juiceshop-admin" },
-        })}
-      />,
-    );
-    const btn = screen.getByRole("button");
-    expect(screen.queryByTestId("auth-event-pill-detail")).toBeNull();
-    await ue.click(btn);
-    expect(btn).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("needs juiceshop creds")).toBeInTheDocument();
-    expect(screen.getByTestId("auth-event-pill-detail")).toHaveTextContent(
-      /"fixture": "juiceshop-admin"/,
-    );
-    await ue.click(btn);
-    expect(btn).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("Enter and Space both toggle expand", async () => {
-    const { default: userEvent } = await import("@testing-library/user-event");
-    const ue = userEvent.setup();
-    render(<AuthEventPill event={makeEvent({ type: "auth.probe_refused" })} />);
-    const btn = screen.getByRole("button");
-    btn.focus();
-    await ue.keyboard("{Enter}");
-    expect(btn).toHaveAttribute("aria-expanded", "true");
-    await ue.keyboard(" ");
-    expect(btn).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("falls back to raw type and info variant for an unknown event type", () => {
-    const { container } = render(
-      <AuthEventPill event={makeEvent({ type: "auth.unknown" })} />,
-    );
-    expect(screen.getByText("auth.unknown")).toBeInTheDocument();
-    expect(container.querySelector('[data-variant="info"]')).not.toBeNull();
-  });
-```
-
-- [ ] **Step 6: Run tests with coverage**
-
-```bash
-cd frontend && npx vitest run src/features/targets/TargetResult/AuthEventPill.test.tsx --coverage
-```
-Expected: all PASS; `AuthEventPill.tsx` at 100% line + branch.
-
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add frontend/src/features/targets/TargetResult/AuthEventPill.tsx \

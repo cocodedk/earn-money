@@ -91,3 +91,6 @@ frontend/vite.config.d.ts
 # Brainstorming visual companion sessions
 .superpowers/
 **/.coverage
+
+# plan-tree-pipeline per-tree session marker (Stage 0–5 resume bookkeeping)
+docs/superpowers/plans/**/.pipeline-state
