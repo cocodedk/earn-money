@@ -99,7 +99,10 @@ def _execute_agent_session(session_id: str) -> None:
         _finalize_target_run(target_run, scan_run, run_status)
     finally:
         if driver is not None:
-            asyncio.run(driver.stop())
+            try:
+                asyncio.run(driver.stop())
+            except Exception:
+                logger.exception("Failed to stop browser driver for session %s", session_id)
 
 
 def _start_target_run(target_run, scan_run) -> None:

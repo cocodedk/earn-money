@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-from django.test import TestCase
-
 from apps.agent.models import AgentSession, SessionStatus
 from apps.agent.tasks import run_agent_session
 from apps.events.models import Event
@@ -41,7 +39,7 @@ def _create_session_for_task():
     return session, target_run, scan_run
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestRunAgentSessionSuccess:
     @patch("apps.agent.tasks._build_driver")
     @patch("apps.agent.tasks._build_provider")
