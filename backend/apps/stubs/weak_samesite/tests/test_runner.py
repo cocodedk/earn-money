@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from apps.findings.models import Finding
@@ -93,9 +94,6 @@ def test_preference_cookie_no_finding(scan_run, target_run):
 
 @pytest.mark.django_db
 def test_sso_role_header_skips_cookie(scan_run, target_run):
-    from unittest.mock import MagicMock as MM
-    import httpx
-
     # Build response with X-Cookie-Role: sso and a SameSite=None cookie
     raw = [
         (b"set-cookie", b"sso_state=val; Path=/; Secure; HttpOnly; SameSite=None"),
