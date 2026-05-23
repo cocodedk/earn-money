@@ -91,3 +91,73 @@ class AgentTurn(TimestampedUUIDModel):
             )
         ]
         ordering = ("session", "index")
+
+
+class ValidationStatus(models.TextChoices):
+    VALID = "valid", "Valid"
+    INVALID_SCHEMA = "invalid_schema", "Invalid schema"
+    DENIED_PHASE = "denied_phase", "Denied by phase"
+    DENIED_ROE = "denied_roe", "Denied by RoE"
+    DENIED_BUDGET = "denied_budget", "Denied by budget"
+    DENIED_SCOPE = "denied_scope", "Denied by scope"
+
+
+class ExecutionStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    SKIPPED = "skipped", "Skipped"
+    EXECUTED = "executed", "Executed"
+    FAILED = "failed", "Failed"
+
+
+class AgentAction(TimestampedUUIDModel):
+    turn = models.ForeignKey(AgentTurn, on_delete=models.CASCADE, related_name="actions")
+    action_type = models.CharField(max_length=32)
+    args_redacted = models.JSONField(default=dict)
+    goal = models.TextField(blank=True, default="")
+    reason = models.TextField(blank=True, default="")
+    hypothesis = models.TextField(blank=True, default="")
+    validation_status = models.CharField(max_length=20, choices=ValidationStatus.choices)
+    execution_status = models.CharField(
+        max_length=16, choices=ExecutionStatus.choices, default=ExecutionStatus.PENDING,
+    )
+    denial_reason = models.TextField(blank=True, default="")
+    executed_at = models.DateTimeField(null=True, blank=True)
+
+
+class ObservationType(models.TextChoices):
+    PAGE = "page", "Page"
+    HTTP = "http", "HTTP"
+    STUB = "stub", "Stub"
+    TOOL = "tool", "Tool"
+    ASSET = "asset", "Asset"
+
+
+class AgentObservation(TimestampedUUIDModel):
+    action = models.ForeignKey(
+        AgentAction, on_delete=models.CASCADE, related_name="observations",
+    )
+    observation_type = models.CharField(max_length=8, choices=ObservationType.choices)
+    data = models.JSONField(default=dict)
+    artifact_refs = models.JSONField(default=dict, blank=True)
+    content_hash = models.CharField(max_length=64, blank=True, default="")
+    redactions = models.JSONField(default=list, blank=True)
+    is_delta = models.BooleanField(default=False)
+
+
+class NoteType(models.TextChoices):
+    HYPOTHESIS = "hypothesis", "Hypothesis"
+    GAP = "gap", "Gap"
+    CREDENTIAL_LABEL = "credential_label", "Credential label"
+    ROUTE = "route", "Route"
+    PARAMETER = "parameter", "Parameter"
+    CANDIDATE = "candidate", "Candidate"
+
+
+class AgentNote(TimestampedUUIDModel):
+    session = models.ForeignKey(
+        AgentSession, on_delete=models.CASCADE, related_name="notes",
+    )
+    turn = models.ForeignKey(AgentTurn, on_delete=models.CASCADE, related_name="notes")
+    note_type = models.CharField(max_length=20, choices=NoteType.choices)
+    content = models.JSONField(default=dict)
+    evidence_refs = models.JSONField(default=list, blank=True)

@@ -44,3 +44,44 @@ def test_agent_turn_unique_index(create_session):
             response_hash="h3", input_tokens=100, output_tokens=50,
             status=TurnStatus.COMPLETED,
         )
+
+
+from apps.agent.models import (  # noqa: E402
+    AgentAction, ValidationStatus, ExecutionStatus,
+    AgentObservation, ObservationType,
+    AgentNote, NoteType,
+)
+
+
+@pytest.mark.django_db
+def test_agent_action_creation(create_turn):
+    turn = create_turn()
+    action = AgentAction.objects.create(
+        turn=turn, action_type="observe_page",
+        args_redacted={}, goal="See the page",
+        validation_status=ValidationStatus.VALID,
+        execution_status=ExecutionStatus.EXECUTED,
+    )
+    assert action.turn == turn
+    assert action.action_type == "observe_page"
+
+
+@pytest.mark.django_db
+def test_agent_observation_creation(create_action):
+    action = create_action()
+    obs = AgentObservation.objects.create(
+        action=action, observation_type=ObservationType.PAGE,
+        data={"page": {"path": "/"}}, content_hash="abc123",
+    )
+    assert obs.observation_type == ObservationType.PAGE
+
+
+@pytest.mark.django_db
+def test_agent_note_creation(create_session, create_turn):
+    session = create_session()
+    turn = create_turn(session=session)
+    note = AgentNote.objects.create(
+        session=session, turn=turn, note_type=NoteType.HYPOTHESIS,
+        content={"text": "This looks interesting"},
+    )
+    assert note.note_type == NoteType.HYPOTHESIS
