@@ -52,8 +52,8 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | garak | https://github.com/NVIDIA/garak | Tool-use injection probe suite; tests function-call hijacking |
-| PyRIT | https://github.com/Azure/PyRIT | Multi-turn agentic attack orchestration; tool-call manipulation |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport: intercept tool-call API requests; inspect/modify selection |
+| PyRIT | https://github.com/Azure/PyRIT | Agentic orchestration: injects adversarial instructions to trigger tool-selector and argument-level manipulation |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport: intercept tool-call API requests; inspect/modify tool-name and argument fields |
 | Ffuf | https://github.com/ffuf/ffuf | Transport: fuzz tool-name and argument fields in agent API requests |
 
 ### 24.04 — Data Exfiltration Through Model Output
@@ -96,11 +96,11 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan for action endpoints reachable without secondary auth |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept agent action requests; remove confirmation tokens |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz agent action triggers for missing authorization checks |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates for agent action endpoints lacking confirmation steps |
+| garak | https://github.com/NVIDIA/garak | Agentic-safety probes: tool-invocation attack suite for destructive action bypass |
+| PyRIT | https://github.com/Azure/PyRIT | Multi-turn agent coercion: crafts prompts that bypass confirmation gates |
 | Playwright | https://github.com/microsoft/playwright | Drive UI flows that trigger agent actions; test for confirmation dialogs |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport: intercept agent action requests; remove confirmation tokens |
+| Ffuf | https://github.com/ffuf/ffuf | Transport: fuzz agent action triggers for missing authorization checks |
 
 ### 24.08 — Insecure Plugin/Tool Permissions
 
@@ -119,8 +119,8 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan injects prompt payloads designed to alter policy output |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept LLM response pipeline; inject false policy verdicts |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz policy-decision endpoints with crafted LLM-output lookalikes |
+| garak | https://github.com/NVIDIA/garak | Policy-bypass and output-manipulation probes; adversarial model inputs |
+| promptfoo | https://github.com/promptfoo/promptfoo | Adversarial eval: measures whether prompt variants flip policy verdicts |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport: intercept LLM response pipeline; inject false policy verdicts |
+| Ffuf | https://github.com/ffuf/ffuf | Transport: fuzz policy-decision endpoints with crafted LLM-output lookalikes |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates targeting endpoints that parse/evaluate model output as truth |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | DAST module for injection into decision-influencing text fields |

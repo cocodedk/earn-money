@@ -64,7 +64,7 @@ These tools enable discovery — without them, scanners only see the first page.
 | arjun | https://github.com/s0md3v/Arjun | 05,11 | Parameter discovery |
 | ParamSpider | https://github.com/devanshbatham/ParamSpider | 01,05 | Parameter mining |
 | Retire.js | https://github.com/RetireJS/retire.js | 15,21 | Outdated JS libs |
-| Ffuf | https://github.com/ffuf/ffuf | 01,04,11,22-24 | Fuzzing/enumeration |
+| Ffuf | https://github.com/ffuf/ffuf | 01,04,06,11,22-24 | Fuzzing/enumeration |
 | Gobuster | https://github.com/OJ/gobuster | 01,21 | Dir/DNS brute-force |
 | Feroxbuster | https://github.com/epi052/feroxbuster | 01,21 | Recursive discovery |
 | dirsearch | https://github.com/maurosoria/dirsearch | 01,21 | Path scanning |
