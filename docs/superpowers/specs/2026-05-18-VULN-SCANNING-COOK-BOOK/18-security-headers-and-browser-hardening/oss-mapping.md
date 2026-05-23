@@ -22,7 +22,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Observatory | https://github.com/mozilla/http-observatory | CSP presence and strength grading |
+| Observatory | https://github.com/mdn/mdn-http-observatory | CSP presence and strength grading |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10038 (CSP missing/weak) |
 | Nikto | https://github.com/sullo/nikto | Flags missing CSP header |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-csp` / `csp-misconfiguration` templates |
@@ -35,7 +35,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | testssl.sh | https://github.com/drwetter/testssl.sh | HSTS check including max-age and preload |
-| Observatory | https://github.com/mozilla/http-observatory | HSTS presence, max-age ≥ 6 months, preload check |
+| Observatory | https://github.com/mdn/mdn-http-observatory | HSTS presence, max-age ≥ 6 months, preload check |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10035 (HSTS missing) |
 | Nikto | https://github.com/sullo/nikto | Flags missing HSTS |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-hsts` templates |
@@ -47,7 +47,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10020 (X-Frame-Options missing) |
-| Observatory | https://github.com/mozilla/http-observatory | X-Frame-Options + CSP frame-ancestors check |
+| Observatory | https://github.com/mdn/mdn-http-observatory | X-Frame-Options + CSP frame-ancestors check |
 | Nikto | https://github.com/sullo/nikto | Flags missing X-Frame-Options |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-x-frame-options` templates |
 | httpx | https://github.com/projectdiscovery/httpx | Bulk header extraction for missing value |
@@ -58,7 +58,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Observatory | https://github.com/mozilla/http-observatory | Referrer-Policy presence and value strength |
+| Observatory | https://github.com/mdn/mdn-http-observatory | Referrer-Policy presence and value strength |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule for missing Referrer-Policy |
 | Nikto | https://github.com/sullo/nikto | Flags absence of Referrer-Policy |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-referrer-policy` templates |
@@ -69,7 +69,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Observatory | https://github.com/mozilla/http-observatory | Permissions-Policy presence check |
+| Observatory | https://github.com/mdn/mdn-http-observatory | Permissions-Policy presence check |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive scan rule for missing Permissions-Policy |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-permissions-policy` templates |
 | httpx | https://github.com/projectdiscovery/httpx | Bulk header presence check |
@@ -81,7 +81,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rules 10010/10011 (cookie attribute checks) |
-| Observatory | https://github.com/mozilla/http-observatory | Cookie attribute scoring |
+| Observatory | https://github.com/mdn/mdn-http-observatory | Cookie attribute scoring |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module cookieflags` cookie attribute module |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `cookie-without-httponly` / `cookie-without-secure` |
 | Nikto | https://github.com/sullo/nikto | Reports insecure cookie flags |
@@ -94,7 +94,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10021 (X-Content-Type-Options missing) |
 | Nikto | https://github.com/sullo/nikto | Flags absent nosniff header |
-| Observatory | https://github.com/mozilla/http-observatory | X-Content-Type-Options check |
+| Observatory | https://github.com/mdn/mdn-http-observatory | X-Content-Type-Options check |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-x-content-type-options` templates |
 | httpx | https://github.com/projectdiscovery/httpx | Bulk header extraction |
 
@@ -107,5 +107,5 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active rule 10020 + clickjacking PoC generation |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `clickjacking` template family |
 | Playwright | https://github.com/microsoft/playwright | Iframe rendering test to confirm frame load |
-| Observatory | https://github.com/mozilla/http-observatory | Combined framing-header check |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | Clickjacking module checks framing headers |
+| Observatory | https://github.com/mdn/mdn-http-observatory | Combined framing-header check |
+| Wapiti | https://github.com/wapiti-scanner/wapiti | `http_headers` module checks X-Frame-Options and CSP frame-ancestors presence |

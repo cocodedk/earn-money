@@ -37,7 +37,7 @@
 | YA-CORS | https://github.com/0x-Apollyon/YA-CORS | Sends multiple crafted origins; flags reflection with credentials |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates: `cors-arbitrary-origin-trusted`; reflection check with credentials |
 | ZAP | https://github.com/zaproxy/zaproxy | Active CORS scan; injects arbitrary origin and inspects ACAO response header |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | CORS module sends crafted origin headers; checks for reflection |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Inject arbitrary `Origin` headers; inspect `Access-Control-Allow-Origin` response |
 
 ### 16.03 — Null Origin Trust
 
@@ -82,4 +82,4 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan sends OPTIONS preflight; validates `ACAM`/`ACAH` headers |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates: `cors-preflight-*`; checks `Access-Control-Allow-Methods` permissiveness |
 | Ffuf | https://github.com/ffuf/ffuf | Fuzz `Access-Control-Request-Method` and `Access-Control-Request-Headers` in OPTIONS; flag unexpected approvals |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | CORS module validates preflight response consistency across endpoints |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Send crafted OPTIONS preflight; compare granted methods/headers vs actual enforcement |

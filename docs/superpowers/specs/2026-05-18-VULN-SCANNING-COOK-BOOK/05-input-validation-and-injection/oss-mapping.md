@@ -74,10 +74,11 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| graphql-cop | https://github.com/dolevf/graphql-cop | Primary: GraphQL-specific security checks (introspection, batching, field suggestion, DoS) |
 | Wfuzz | https://github.com/xmendez/wfuzz | JSON body payloads via `--data` with fuzzing |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL active scan via zap-extensions GraphQL add-on |
 | Nuclei | https://github.com/projectdiscovery/nuclei | GraphQL injection templates in nuclei-templates |
-| ffuf | https://github.com/ffuf/ffuf | JSON field fuzzing with custom wordlists |
+| Ffuf | https://github.com/ffuf/ffuf | JSON field fuzzing with custom wordlists |
 
 ### 5.07 — Shell Command Execution Through Parameters
 
@@ -106,7 +107,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Tplmap | https://github.com/epinna/tplmap | Primary SSTI tool; engine fingerprint + exploitation |
+| SSTImap | https://github.com/vladko312/SSTImap | Primary SSTI tool; engine fingerprint + exploitation (maintained fork of Tplmap) |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `90035` (SSTI) |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `ssti` tagged templates for common engines |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module ssti` module |
@@ -117,7 +118,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Tplmap | https://github.com/epinna/tplmap | Sandbox-escape payloads for Jinja2/Mako/Pebble |
+| SSTImap | https://github.com/vladko312/SSTImap | Sandbox-escape payloads for Jinja2/Mako/Pebble (maintained Tplmap fork) |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Custom OOB-confirmed templates for eval contexts |
 
 ### 5.11 — Directory Query Injection (LDAPi / XPath)
@@ -126,7 +127,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rules `90017` (XPath) and `40015` (LDAP) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rules `90021` (XPath) and `40015` (LDAP) |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module ldap` and `--module xpath` |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `ldap-injection` / `xpath-injection` templates |
 
@@ -147,10 +148,10 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `10005` (CRLF injection) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `40003` (CRLF injection) |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module crlf` |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `crlf-injection` templates |
-| ffuf | https://github.com/ffuf/ffuf | Header-value fuzzing with CRLF wordlists |
+| Ffuf | https://github.com/ffuf/ffuf | Header-value fuzzing with CRLF wordlists |
 
 ### 5.14 — Cache Poisoning Helpers
 
@@ -160,7 +161,7 @@
 |------|------|----------------|
 | Param Miner (ZAP) | https://github.com/zaproxy/zap-extensions | Header/param cache-poisoning probes |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `cache-poisoning` templates |
-| ffuf | https://github.com/ffuf/ffuf | Header fuzzing for unkeyed inputs |
+| Ffuf | https://github.com/ffuf/ffuf | Header fuzzing for unkeyed inputs |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and mutate cache headers |
 
 ### 5.15 — Mail Header Injection
@@ -169,7 +170,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `10098` (email header injection) |
+| ZAP | https://github.com/zaproxy/zaproxy | No native rule; use ZAP Fuzzer with CRLF+SMTP payloads on email fields |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | Covers form fields with CRLF + SMTP payloads |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `email-injection` templates |
 | Wfuzz | https://github.com/xmendez/wfuzz | Fuzz contact/subscribe forms with CRLF payloads |
@@ -180,7 +181,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Tplmap | https://github.com/epinna/tplmap | SSTI via notification preview endpoints |
+| SSTImap | https://github.com/vladko312/SSTImap | SSTI via notification preview endpoints (maintained Tplmap fork) |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive detection of reflected template markers |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `ssti` + custom notification-context templates |
 | Wfuzz | https://github.com/xmendez/wfuzz | Fuzz template fields with expression payloads |

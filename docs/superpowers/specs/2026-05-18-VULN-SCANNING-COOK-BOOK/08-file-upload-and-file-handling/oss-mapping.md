@@ -23,7 +23,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | Fuxploider | https://github.com/almandin/fuxploider | Primary file-upload fuzzer; tests multiple content types |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 90023 covers unrestricted upload |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40041 (File Upload add-on) covers unrestricted upload detection |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `file-upload` and `rce-via-upload` templates |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module upload` module |
 
@@ -36,7 +36,7 @@
 | Fuxploider | https://github.com/almandin/fuxploider | Tests script extensions with content-type bypass |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan checks for web shell upload |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `webshell-upload` and `rce-via-upload` templates |
-| ffuf | https://github.com/ffuf/ffuf | Fuzz file extension in multipart upload requests |
+| Ffuf | https://github.com/ffuf/ffuf | Fuzz file extension in multipart upload requests |
 
 ### 8.03 — SVG with Script
 
@@ -77,7 +77,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | Fuxploider | https://github.com/almandin/fuxploider | Built-in extension-trick wordlist |
-| ffuf | https://github.com/ffuf/ffuf | Custom wordlist with double/mixed extension variants |
+| Ffuf | https://github.com/ffuf/ffuf | Custom wordlist with double/mixed extension variants |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan with extension fuzzing payloads |
 | Wfuzz | https://github.com/xmendez/wfuzz | Extension bypass wordlists in multipart data |
 
@@ -97,7 +97,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ffuf | https://github.com/ffuf/ffuf | Brute-force upload directory paths |
+| Ffuf | https://github.com/ffuf/ffuf | Brute-force upload directory paths |
 | Feroxbuster | https://github.com/epi052/feroxbuster | Recursive content discovery on upload base path |
 | Gobuster | https://github.com/OJ/gobuster | Dir-mode scan against known upload directories |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `exposed-upload-directory` templates |
@@ -109,7 +109,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ffuf | https://github.com/ffuf/ffuf | Enumerate upload filenames with numeric/timestamp wordlists |
+| Ffuf | https://github.com/ffuf/ffuf | Enumerate upload filenames with numeric/timestamp wordlists |
 | Feroxbuster | https://github.com/epi052/feroxbuster | Recursive scan with pattern-based wordlists |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates for sequential filename probing |
 
@@ -132,7 +132,7 @@
 |------|------|----------------|
 | Wfuzz | https://github.com/xmendez/wfuzz | Upload truncated/malformed file variants |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan with malformed file payloads |
-| ffuf | https://github.com/ffuf/ffuf | Fuzz upload with zero-byte, oversized, and corrupt files |
+| Ffuf | https://github.com/ffuf/ffuf | Fuzz upload with zero-byte, oversized, and corrupt files |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `dos-via-upload` templates for known parser bugs |
 
 ### 8.12 — Metadata Leakage

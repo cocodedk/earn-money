@@ -77,7 +77,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL add-on (zap-extensions) + active CSRF rule |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `graphql-csrf` and `graphql-introspection` templates |
-| ffuf | https://github.com/ffuf/ffuf | Fuzz GraphQL endpoint with content-type variations |
+| Ffuf | https://github.com/ffuf/ffuf | Fuzz GraphQL endpoint with content-type variations |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Replay mutations without auth headers / CSRF tokens |
 
 ### 7.07 — CORS-Assisted CSRF-Style Abuse
@@ -89,4 +89,4 @@
 | CORScanner | https://github.com/chenjj/CORScanner | Primary tool for CORS misconfiguration detection |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40040 (CORS) |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `cors-misconfiguration` templates |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | `--module cors` checks origin reflection |
+| YA-CORS | https://github.com/0x-Apollyon/YA-CORS | CORS misconfiguration scanner with origin reflection checks |

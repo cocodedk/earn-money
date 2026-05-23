@@ -69,7 +69,8 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `graphql/graphql-introspection-*` templates |
+| graphql-cop | https://github.com/dolevf/graphql-cop | Primary: dedicated GraphQL security auditor; introspection, field suggestion, batching, depth checks |
+| Nuclei | https://github.com/projectdiscovery/nuclei | `http/misconfiguration/graphql/graphql-field-suggestion.yaml` + `technologies/graphql-detect.yaml` |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL passive/active scanner checks introspection |
 | httpx | https://github.com/projectdiscovery/httpx | Probe `/graphql` with introspection query; flag schema response |
 | Akto | https://github.com/akto-api-security/community-edition | GraphQL security checks including introspection |
@@ -91,7 +92,8 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `graphql/graphql-depth-limit-*` templates |
+| graphql-cop | https://github.com/dolevf/graphql-cop | Directive overloading and depth-abuse checks |
+| Nuclei | https://github.com/projectdiscovery/nuclei | `http/misconfiguration/graphql/graphql-directive-overloading.yaml` |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL active scanner includes depth-bomb tests |
 | Wfuzz | https://github.com/xmendez/wfuzz | Generate increasing-depth query payloads |
 
@@ -101,7 +103,8 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `graphql/graphql-batch-*` templates |
+| graphql-cop | https://github.com/dolevf/graphql-cop | Array and alias batching abuse checks |
+| Nuclei | https://github.com/projectdiscovery/nuclei | `http/misconfiguration/graphql/graphql-array-batching.yaml` |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan with batch query payloads |
 | Wfuzz | https://github.com/xmendez/wfuzz | Send batched query arrays; observe rate-limit bypass |
 
@@ -111,7 +114,8 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `graphql/graphql-alias-*` templates |
+| graphql-cop | https://github.com/dolevf/graphql-cop | Alias batching abuse detection |
+| Nuclei | https://github.com/projectdiscovery/nuclei | `http/misconfiguration/graphql/graphql-alias-batching.yaml` |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL scanner tests alias multiplication |
 | Wfuzz | https://github.com/xmendez/wfuzz | Generate N-alias payloads for a single operation |
 
@@ -121,7 +125,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | WebSocket passive scanner; flags unauthenticated upgrades |
+| ZAP | https://github.com/zaproxy/zaproxy | WebSocket add-on: intercepts and displays WS traffic passively; no active auth testing |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `websocket/` templates for unauthenticated connect |
 | Playwright | https://github.com/microsoft/playwright | Drive WS handshake without auth token; observe response |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept WS upgrade; strip auth header; check if accepted |
@@ -132,7 +136,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | WebSocket active scanner replays messages across sessions |
+| ZAP | https://github.com/zaproxy/zaproxy | WebSocket add-on: passive capture only; active WS replay requires mitmproxy or Playwright |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and replay WS frames with modified auth context |
 | Playwright | https://github.com/microsoft/playwright | Script message-level auth probe via browser WS client |
 
@@ -142,7 +146,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Multi-session WS comparison for cross-user message leaks |
+| ZAP | https://github.com/zaproxy/zaproxy | WebSocket add-on: passive capture only; cross-user comparison requires mitmproxy scripting |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Two-session proxy; compare message streams by user |
 | Playwright | https://github.com/microsoft/playwright | Two-browser-context test; observe cross-user message delivery |
 

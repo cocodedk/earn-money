@@ -95,7 +95,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan concurrent request mode for race detection |
 | Wfuzz | https://github.com/xmendez/wfuzz | `--threads` mode for simultaneous identical requests |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Script synchronized parallel replay of captured requests |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `race-condition/` templates with concurrent send |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates using `race: true` protocol attribute for concurrent send |
 
 ### 12.08 — Invalid Transitions
 
@@ -138,7 +138,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Session-expiry test; replay old token after revocation |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Replay captured requests with revoked credentials |
 | Playwright | https://github.com/microsoft/playwright | Automate role-change then re-test previously allowed actions |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `token-spray/` templates for stale token reuse |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing revocation endpoints with expired token replay |
 
 ### 12.12 — Trial Abuse
 
@@ -160,7 +160,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Replay invitation acceptance requests; test reuse |
 | Wfuzz | https://github.com/xmendez/wfuzz | Enumerate and fuzz invitation token space |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Capture invite token; replay multiple times |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `token-spray/` templates for invitation code bruteforce |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing invitation token endpoints with enumerated code payloads |
 
 ### 12.14 — Quota Bypass
 
@@ -171,7 +171,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan fuzzes quota-tracking fields |
 | Wfuzz | https://github.com/xmendez/wfuzz | High-volume requests to trigger and then bypass quota |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept quota-check requests; modify quota identifiers |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `rate-limit/` templates for quota bypass patterns |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom `misconfiguration/` templates for quota bypass patterns |
 
 ### 12.15 — Refund / Credit Abuse
 

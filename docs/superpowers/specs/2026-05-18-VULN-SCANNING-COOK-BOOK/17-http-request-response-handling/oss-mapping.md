@@ -33,7 +33,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 10098 (CRLF injection) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40003 (CRLF injection) |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module crlf` CRLF injection module |
 | Wfuzz | https://github.com/xmendez/wfuzz | `%0d%0a` payloads in header-reflected params |
 | Nuclei | https://github.com/projectdiscovery/nuclei | CRLF-injection templates in nuclei-templates |
@@ -55,6 +55,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| Web-Cache-Vulnerability-Scanner | https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner | Automated unkeyed-header enumeration and poisoned-entry confirmation |
 | ZAP | https://github.com/zaproxy/zaproxy | Cache poisoning active scan rules |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `cache-poisoning` templates |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Scriptable; inject unkeyed headers, observe `Age` |
@@ -66,6 +67,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| Web-Cache-Vulnerability-Scanner | https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner | Cache deception path-suffix tests; confirms dynamic content served with cacheable response |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `web-cache-deception` templates |
 | ZAP | https://github.com/zaproxy/zaproxy | Custom active scan script for extension appending |
 | Wfuzz | https://github.com/xmendez/wfuzz | Append `.css/.js/.png` to authenticated endpoints |
@@ -102,4 +104,4 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Parameter pollution scan rule |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | Duplicate param injection in module set |
 | Wfuzz | https://github.com/xmendez/wfuzz | Duplicate and multi-value param fuzzing |
-| W3af | https://github.com/andresriancho/w3af | `http_response_body_contains` plugin detects split |
+| W3af | https://github.com/andresriancho/w3af | `hpp` plugin (client-side HPP detection only; server-side HPP cannot be auto-detected) |

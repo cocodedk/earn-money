@@ -58,7 +58,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL support in active scan; sends deeply nested queries |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for GraphQL introspection and depth-abuse patterns |
 | Ffuf | https://github.com/ffuf/ffuf | POST crafted deeply-nested GraphQL queries to measure impact |
-| W3af | https://github.com/andresriancho/w3af | Plugin-based DAST for GraphQL endpoint analysis |
+| InQL | https://github.com/doyensec/inql | GraphQL-specialist: schema introspection, depth-unbounded query generation, complexity-abuse test cases (standalone CLI or Burp) |
 
 ### 23.05 — Pagination Abuse
 

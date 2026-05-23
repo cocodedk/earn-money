@@ -22,7 +22,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10027 scans response bodies for sensitive patterns |
+| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10027 flags suspicious developer comments; custom passive script needed for PII/token pattern matching in log endpoints |
 | truffleHog | https://github.com/trufflesecurity/trufflehog | Secret/PII pattern matching in crawled response content |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `sensitive-data-exposure` and log-endpoint templates |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Proxy script to flag PII patterns in all responses |
@@ -34,7 +34,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Passive rules 10023/10024/10032 (information disclosure) |
+| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10023 (debug error messages from ASP.NET/IIS/Apache); active scan to trigger server errors and inspect responses |
 | Nikto | https://github.com/sullo/nikto | Triggers error conditions; inspects responses for info leakage |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `error-disclosure` / `stack-trace-disclosure` templates |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | Error-handling module probes and inspects verbose errors |

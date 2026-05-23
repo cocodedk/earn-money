@@ -80,7 +80,7 @@
 |------|------|----------------|
 | ZAP Extensions | https://github.com/zaproxy/zap-extensions | Passive rule: `Information Disclosure - Suspicious Comments` |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates regex-matching `TODO`/`FIXME`/`password`/`secret` in comments |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | `comments` module extracts and flags suspicious comment content |
+| Katana | https://github.com/projectdiscovery/katana | Captures raw HTML including comment blocks for inline analysis |
 | hakrawler | https://github.com/hakluke/hakrawler | Captures raw HTML including comment blocks for downstream analysis |
 
 ### 15.07 — Missing Origin Checks (postMessage)
@@ -89,7 +89,6 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Domdig | https://github.com/fcavallarin/domdig | DOM analysis traces `postMessage` handler origin-check presence |
 | Playwright | https://github.com/microsoft/playwright | Send crafted `postMessage` from attacker origin; observe DOM mutations |
 | ZAP Extensions | https://github.com/zaproxy/zap-extensions | Passive scan for unguarded `message` event listeners |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Custom template: regex on JS source for `addEventListener.*message` without origin guard |

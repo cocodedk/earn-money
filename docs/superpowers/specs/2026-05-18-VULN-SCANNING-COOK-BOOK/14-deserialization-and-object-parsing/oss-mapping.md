@@ -24,7 +24,6 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rules for Java/PHP deserialization gadget chains |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for Java deserialization (ysoserial payloads), PHP object injection |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | Module `deserialization` probes serialized object parameters |
 | Jaeles | https://github.com/jaeles-project/jaeles | Custom signatures for deserialization OOB callbacks (OAST) |
 
 ### 14.02 — Unsafe YAML/XML Parsing
@@ -58,7 +57,7 @@
 |------|------|----------------|
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates: `prototype-pollution-*`; checks for `__proto__` reflection |
 | ZAP Extensions | https://github.com/zaproxy/zap-extensions | Client-side prototype pollution passive scan |
-| Domdig | https://github.com/fcavallarin/domdig | DOM-based analysis detects client-side prototype pollution sinks |
+| ppmap | https://github.com/kleiton0x00/ppmap | Client-side prototype pollution scanner; detects `__proto__` / `constructor.prototype` sinks |
 | Wfuzz | https://github.com/xmendez/wfuzz | Fuzz JSON body keys with `__proto__` variants; detect 500/behavioral diff |
 | ParamSpider | https://github.com/devanshbatham/ParamSpider | Discovers query parameters that feed JSON parsers |
 

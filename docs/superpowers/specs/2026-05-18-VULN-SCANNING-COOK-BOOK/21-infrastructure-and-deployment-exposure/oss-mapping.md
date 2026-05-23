@@ -34,6 +34,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| Nmap | https://github.com/nmap/nmap | NSE scripts `jdwp-version`, `jdwp-info` detect JDWP; `--script debug` covers Node/Python HTTP debug endpoints |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for debug port banners and responses |
 | Tsunami | https://github.com/google/tsunami-security-scanner | Plugin for JDWP/debug service detection |
 | httpx | https://github.com/projectdiscovery/httpx | Probes non-standard ports for HTTP debug endpoints |
@@ -91,6 +92,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| S3Scanner | https://github.com/sa7mon/S3Scanner | Purpose-built bucket enumerator; tests public-read/write across AWS S3, GCS, Azure Blob, and S3-compatible APIs |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for bucket URL patterns and public-read checks |
 | truffleHog | https://github.com/trufflesecurity/trufflehog | Scans bucket contents for secrets if public |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive detection of bucket URLs in responses |

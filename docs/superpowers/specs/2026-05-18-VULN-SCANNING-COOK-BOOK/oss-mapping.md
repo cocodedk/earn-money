@@ -44,8 +44,10 @@ These tools enable discovery — without them, scanners only see the first page.
 | XSStrike | https://github.com/s0md3v/XSStrike | 06 | XSS scanner |
 | Dalfox | https://github.com/hahwul/dalfox | 06 | XSS (fast, accurate) |
 | Domdig | https://github.com/fcavallarin/domdig | 06,15 | DOM XSS |
+| ppmap | https://github.com/kleiton0x00/ppmap | 14 | Client-side prototype pollution |
 | Commix | https://github.com/commixproject/commix | 05 | OS command injection |
-| Tplmap | https://github.com/epinna/tplmap | 05 | SSTI |
+| SSTImap | https://github.com/vladko312/SSTImap | 05 | SSTI (maintained Tplmap fork) |
+| graphql-cop | https://github.com/dolevf/graphql-cop | 05,11 | GraphQL security testing |
 | Fuxploider | https://github.com/almandin/fuxploider | 08 | File upload |
 | LFIscanner | https://github.com/R3LI4NT/LFIscanner | 09 | LFI |
 | YA-LFI | https://github.com/0x-Apollyon/YA-LFI | 09 | LFI |
@@ -53,11 +55,13 @@ These tools enable discovery — without them, scanners only see the first page.
 | CORScanner | https://github.com/chenjj/CORScanner | 16 | CORS |
 | YA-CORS | https://github.com/0x-Apollyon/YA-CORS | 16 | CORS |
 | smuggler | https://github.com/defparam/smuggler | 17 | HTTP smuggling |
+| Web-Cache-Vulnerability-Scanner | https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner | 17 | Cache poisoning and deception |
 | O-Saft | https://github.com/OWASP/O-Saft | 18,19 | TLS/SSL |
 | testssl.sh | https://github.com/drwetter/testssl.sh | 18,19 | TLS/SSL |
+| SSLyze | https://github.com/nabla-c0d3/sslyze | 19 | TLS/SSL (Python-native, wrappable in runners) |
 | truffleHog | https://github.com/trufflesecurity/trufflehog | 01,15,19,21,24 | Secrets |
 | gitleaks | https://github.com/gitleaks/gitleaks | 01,19,21 | Hardcoded secrets |
-| jwt_tool | https://github.com/ticarpi/jwt_tool | 02,03 | JWT attacks |
+| jwt_tool | https://github.com/ticarpi/jwt_tool | 02,03,19 | JWT attacks |
 | VulnAPI | https://github.com/cerberauth/vulnapi | 02,03,11,22 | JWT/OAuth/OpenAPI |
 | Cherrybomb | https://github.com/blst-security/cherrybomb | 11 | OpenAPI audit |
 | Akto | https://github.com/akto-api-security/community-edition | 11 | API security |
@@ -69,6 +73,9 @@ These tools enable discovery — without them, scanners only see the first page.
 | Feroxbuster | https://github.com/epi052/feroxbuster | 01,21 | Recursive discovery |
 | dirsearch | https://github.com/maurosoria/dirsearch | 01,21 | Path scanning |
 | Takeover | https://github.com/edoardottt/takeover | 01,21 | Subdomain takeover |
+| Nmap | https://github.com/nmap/nmap | 21 | Network port/service scanning; NSE scripts for debug protocol detection |
+| S3Scanner | https://github.com/sa7mon/S3Scanner | 21 | Cloud bucket exposure (AWS S3, GCS, Azure Blob) |
+| InQL | https://github.com/doyensec/inql | 23 | GraphQL security testing: introspection, depth-abuse, batch attacks |
 | Tsunami | https://github.com/google/tsunami-security-scanner | 21 | Infra plugin scanner |
 | Nuclei Templates | https://github.com/projectdiscovery/nuclei-templates | 01-24 | Template library |
 | httpx | https://github.com/projectdiscovery/httpx | 21 | HTTP probing |
@@ -81,25 +88,25 @@ These tools enable discovery — without them, scanners only see the first page.
 | 02 | Authentication | ZAP, VulnAPI, jwt_tool, Ffuf, Wfuzz, Playwright |
 | 03 | Session Management | jwt_tool, VulnAPI, ZAP, mitmproxy, Playwright |
 | 04 | Access Control | ZAP, Ffuf, arjun, Nuclei, Playwright |
-| 05 | Input Validation & Injection | Sqlmap, Commix, Tplmap, NoSQLMap, ZAP, Wfuzz |
+| 05 | Input Validation & Injection | Sqlmap, Commix, SSTImap, graphql-cop, NoSQLMap, ZAP, Wfuzz |
 | 06 | Cross-Site Scripting | Dalfox, XSStrike, Domdig, ZAP, Playwright |
 | 07 | CSRF & Browser-Side Request Abuse | ZAP, Wapiti, CORScanner, Playwright |
 | 08 | File Upload & File Handling | Fuxploider, ZAP, Nuclei, Ffuf |
 | 09 | Path Traversal & File Inclusion | LFIscanner, YA-LFI, ZAP, Wapiti, Ffuf |
 | 10 | Server-Side Request Forgery | SSRFmap, ZAP, Nuclei, Ffuf |
-| 11 | API Security | Cherrybomb, Akto, VulnAPI, ZAP, arjun, Wfuzz |
+| 11 | API Security | Cherrybomb, Akto, VulnAPI, graphql-cop, ZAP, arjun, Wfuzz |
 | 12 | Business Logic | ZAP, Ffuf, Wfuzz, Playwright, mitmproxy |
 | 13 | Race Conditions | turbo-intruder, race-the-web, Ffuf |
-| 14 | Deserialization & Object Parsing | ZAP, Nuclei, W3af, Cherrybomb |
+| 14 | Deserialization & Object Parsing | ZAP, Nuclei, W3af, Cherrybomb, ppmap |
 | 15 | Client-Side Security | Playwright, truffleHog, Katana, Retire.js |
 | 16 | CORS & Cross-Origin Policy | CORScanner, YA-CORS, ZAP, Ffuf |
-| 17 | HTTP Request/Response Handling | smuggler, ZAP, Nuclei, Wfuzz |
+| 17 | HTTP Request/Response Handling | smuggler, Web-Cache-Vulnerability-Scanner, ZAP, Nuclei, Wfuzz |
 | 18 | Security Headers & Browser Hardening | Observatory, ZAP, Nuclei, Nikto |
-| 19 | Cryptography & Secrets | truffleHog, gitleaks, testssl.sh, O-Saft |
+| 19 | Cryptography & Secrets | truffleHog, gitleaks, testssl.sh, SSLyze, O-Saft |
 | 20 | Logging, Monitoring & Privacy | truffleHog, mitmproxy, ZAP, Playwright |
-| 21 | Infrastructure & Deployment Exposure | Nuclei, Gobuster, Feroxbuster, Nikto, Tsunami, truffleHog |
+| 21 | Infrastructure & Deployment Exposure | Nmap, S3Scanner, Nuclei, Gobuster, Feroxbuster, Nikto, Tsunami, truffleHog |
 | 22 | Third-Party Integrations | VulnAPI, WS-Attacker, ZAP, mitmproxy, Ffuf |
-| 23 | Denial of Service Within RoE | ZAP, Ffuf, Nuclei, Wapiti |
+| 23 | Denial of Service Within RoE | InQL, ZAP, Ffuf, Nuclei, Wapiti |
 | 24 | AI/LLM-Specific Webapp Vectors | garak, promptfoo, PyRIT, mitmproxy, truffleHog |
 
 ## Integration Priority

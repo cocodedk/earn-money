@@ -25,7 +25,7 @@
 |------|------|----------------|
 | Dalfox | https://github.com/hahwul/dalfox | Fast reflected XSS; param-level analysis with DOM check |
 | XSStrike | https://github.com/s0md3v/XSStrike | Context-aware payload generation |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012/40014 |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012 (Cross Site Scripting - Reflected) |
 
 ### 6.02 — Path Reflection
 
@@ -53,7 +53,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40016 (persistent XSS) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent) |
 | Dalfox | https://github.com/hahwul/dalfox | Blind stored XSS via callback |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module permanentxss` |
 
@@ -63,7 +63,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40016; authenticated session |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent); authenticated session |
 | Dalfox | https://github.com/hahwul/dalfox | Blind stored XSS via callback URL |
 
 ### 6.06 — Stored XSS in Admin Panels
@@ -72,7 +72,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Authenticated scan with admin session; rule 40016 |
+| ZAP | https://github.com/zaproxy/zaproxy | Authenticated scan with admin session; rule 40014 (Cross Site Scripting - Persistent) |
 | Dalfox | https://github.com/hahwul/dalfox | Blind callback confirms admin-context execution |
 
 ### 6.07 — Stored XSS in Support Tickets
@@ -91,7 +91,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | Dalfox | https://github.com/hahwul/dalfox | Blind callback confirms dashboard execution |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40016 with privileged session |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent) with privileged session |
 
 ### 6.09 — Unsafe JavaScript Sinks
 
@@ -101,7 +101,7 @@
 |------|------|----------------|
 | Domdig | https://github.com/fcavallarin/domdig | Purpose-built DOM XSS scanner (headless Chrome) |
 | Dalfox | https://github.com/hahwul/dalfox | DOM sink analysis mode |
-| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10028 + DOM XSS script |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40026 (DOM XSS); requires AJAX spider |
 
 ### 6.10 — URL Fragment Handling
 
@@ -128,7 +128,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | XSStrike | https://github.com/s0md3v/XSStrike | HTML context-aware payload generation |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40016 |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent) |
 | Dalfox | https://github.com/hahwul/dalfox | Blind stored with HTML body payloads |
 
 ### 6.13 — XSS via HTML Attributes
@@ -164,7 +164,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Fuxploider | https://github.com/almandin/fuxploider | SVG upload with embedded script payloads |
+| Fuxploider | https://github.com/almandin/fuxploider | Discovers whether SVG upload is permitted (upload bypass enumeration); pair with Dalfox blind callback for XSS confirmation |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan detects SVG reflected in response |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `svg-xss` upload templates |
 

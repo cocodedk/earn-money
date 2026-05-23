@@ -82,7 +82,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule scans error messages for hash-related disclosure |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `password-hash-disclosure` templates |
 | Wfuzz | https://github.com/xmendez/wfuzz | Timing-attack probes on login endpoints |
-| truffleHog | https://github.com/trufflesecurity/trufflehog | Hash pattern detection in response bodies |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept login responses; inspect hash format leaks in verbose error messages |
 
 ### 19.07 — Weak Encryption Mode
 
@@ -91,6 +91,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | testssl.sh | https://github.com/drwetter/testssl.sh | Comprehensive TLS cipher suite and protocol analysis |
+| SSLyze | https://github.com/nabla-c0d3/sslyze | Python-native TLS scanner; programmable API for runner integration; cipher suite, protocol version, and known-vuln checks |
 | O-Saft | https://github.com/OWASP/O-Saft | TLS/SSL weakness analysis, OWASP-maintained |
 | ZAP | https://github.com/zaproxy/zaproxy | TLS passive checks; active scan for weak cipher negotiation |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `deprecated-tls` / `weak-cipher` templates |
@@ -102,8 +103,9 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| jwt_tool | https://github.com/ticarpi/jwt_tool | Dedicated JWT attack tool: alg:none (`-X a`), key confusion (`-X k`), signature stripping |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rules for JWT `alg:none` and missing SRI |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `jwt-none-algorithm` + `missing-sri` templates |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Script to intercept and mutate JWT / signed payloads |
-| Observatory | https://github.com/mozilla/http-observatory | SRI presence check on external script tags |
+| Observatory | https://github.com/mdn/mdn-http-observatory | SRI presence check on external script tags |
 | Wfuzz | https://github.com/xmendez/wfuzz | Forge `alg:none` JWTs and observe acceptance |
