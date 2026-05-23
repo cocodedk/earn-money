@@ -8,6 +8,7 @@ from apps.agent.llm.providers import (
     LLMProvider,
     MockProvider,
     AnthropicProvider,
+    OpenRouterProvider,
     create_provider,
 )
 
@@ -80,6 +81,19 @@ class TestAnthropicProvider:
         assert p._client is None
 
 
+class TestOpenRouterProvider:
+    def test_is_llm_provider(self):
+        assert isinstance(OpenRouterProvider("anthropic/claude-sonnet-4-6", "key"), LLMProvider)
+
+    def test_model_stored(self):
+        p = OpenRouterProvider("anthropic/claude-sonnet-4-6", "key")
+        assert p._model == "anthropic/claude-sonnet-4-6"
+
+    def test_client_is_lazy(self):
+        p = OpenRouterProvider("anthropic/claude-sonnet-4-6", "key")
+        assert p._client is None
+
+
 class TestCreateProvider:
     def test_mock_type(self):
         p = create_provider("mock-model", provider_type="mock")
@@ -89,9 +103,13 @@ class TestCreateProvider:
         p = create_provider("claude-sonnet-4-5", api_key="k", provider_type="anthropic")
         assert isinstance(p, AnthropicProvider)
 
+    def test_openrouter_type(self):
+        p = create_provider("anthropic/claude-sonnet-4-6", api_key="k", provider_type="openrouter")
+        assert isinstance(p, OpenRouterProvider)
+
     def test_unknown_type_raises(self):
         with pytest.raises(ValueError, match="Unknown provider_type"):
-            create_provider("x", provider_type="openai")
+            create_provider("x", provider_type="unknown")
 
     def test_default_is_anthropic(self):
         p = create_provider("claude-sonnet-4-5", api_key="k")

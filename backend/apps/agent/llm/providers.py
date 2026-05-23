@@ -88,6 +88,45 @@ class AnthropicProvider(LLMProvider):
         )
 
 
+class OpenRouterProvider(LLMProvider):
+    """Calls OpenRouter's OpenAI-compatible API."""
+
+    def __init__(self, model: str, api_key: str) -> None:
+        self._model = model
+        self._api_key = api_key
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            from openai import AsyncOpenAI
+            self._client = AsyncOpenAI(
+                api_key=self._api_key,
+                base_url="https://openrouter.ai/api/v1",
+            )
+        return self._client
+
+    async def complete(
+        self,
+        system_prompt: str,
+        messages: list[dict],
+    ) -> LLMResponse:
+        client = self._get_client()
+        all_messages = [{"role": "system", "content": system_prompt}, *messages]
+        response = await client.chat.completions.create(
+            model=self._model,
+            messages=all_messages,
+            max_tokens=4096,
+        )
+        choice = response.choices[0]
+        usage = response.usage
+        return LLMResponse(
+            raw_text=choice.message.content or "",
+            input_tokens=usage.prompt_tokens if usage else 0,
+            output_tokens=usage.completion_tokens if usage else 0,
+            model=self._model,
+        )
+
+
 def create_provider(
     model: str,
     api_key: str = "",
@@ -98,4 +137,6 @@ def create_provider(
         return MockProvider(model=model)
     if provider_type == "anthropic":
         return AnthropicProvider(model=model, api_key=api_key)
+    if provider_type == "openrouter":
+        return OpenRouterProvider(model=model, api_key=api_key)
     raise ValueError(f"Unknown provider_type {provider_type!r}")
