@@ -1,3 +1,7 @@
+---
+companion_of: 04-action-schemas
+---
+
 # 04-action-schemas — Implementation Code
 
 Part of [Task 04](04-action-schemas.md). This file contains Step 3.

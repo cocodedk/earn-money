@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on: [03-migrations]
+files:
+  creates:
+    - backend/apps/agent/llm/__init__.py
+    - backend/apps/agent/llm/providers.py
+    - backend/apps/agent/tests/test_providers.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 12: LLM provider interface
 
 **Files:**

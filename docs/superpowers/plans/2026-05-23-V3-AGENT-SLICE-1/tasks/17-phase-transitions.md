@@ -1,3 +1,14 @@
+---
+tier: FAST
+depends_on: [03-migrations]
+files:
+  creates:
+    - backend/apps/agent/phases.py
+    - backend/apps/agent/tests/test_phases.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 17: Phase transition logic
 
 **Files:**

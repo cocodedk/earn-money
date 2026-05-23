@@ -1,3 +1,14 @@
+---
+tier: CAPABLE
+depends_on: [01-session-turn-models, 02-action-obs-note-models, 03-migrations]
+files:
+  creates:
+    - backend/apps/agent/persistence.py
+    - backend/apps/agent/tests/test_persistence.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 14: Persistence layer
 
 **Files:**

@@ -1,3 +1,14 @@
+---
+tier: APEX
+depends_on: [04-action-schemas, 05-phase-matrix, 06-budget-tracker, 07-plateau-detection, 10-observation-builder, 11-playwright-driver, 13-system-prompt, 14-persistence, 15-event-logging, 17-phase-transitions]
+files:
+  creates:
+    - backend/apps/agent/controller.py
+    - backend/apps/agent/tests/test_controller.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 16: Controller loop
 
 **Files:**

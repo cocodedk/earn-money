@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on:
+  - 04-action-schemas
+files:
+  creates:
+    - backend/apps/agent/actions/matrix.py
+  modifies:
+    - backend/apps/agent/tests/test_actions.py
+allow_extra_files: false
+---
+
 ### Task 5: Phase-action matrix enforcement
 
 **Files:**

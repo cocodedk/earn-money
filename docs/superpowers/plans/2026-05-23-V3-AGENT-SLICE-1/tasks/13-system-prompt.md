@@ -1,3 +1,14 @@
+---
+tier: CAPABLE
+depends_on: [12-llm-provider]
+files:
+  creates:
+    - backend/apps/agent/llm/prompts.py
+    - backend/apps/agent/tests/test_prompts.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 13: System prompt and observation formatting
 
 **Files:**

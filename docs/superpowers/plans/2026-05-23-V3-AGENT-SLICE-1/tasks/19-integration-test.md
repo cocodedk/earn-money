@@ -1,3 +1,13 @@
+---
+tier: APEX
+depends_on: [16-controller-loop, 18-mission-profiles]
+files:
+  creates:
+    - backend/apps/agent/tests/test_integration.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 19: Integration test (mocked LLM, real DB)
 
 **Files:**

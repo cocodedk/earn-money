@@ -1,3 +1,7 @@
+---
+companion_of: 08-page-observation
+---
+
 # Task 08 — Composite Dataclasses
 
 Part of [Task 08](08-page-observation.md). Network, browser state, and

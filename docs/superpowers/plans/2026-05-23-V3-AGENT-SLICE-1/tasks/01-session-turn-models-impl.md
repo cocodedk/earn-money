@@ -1,3 +1,7 @@
+---
+companion_of: 01-session-turn-models
+---
+
 # 01-session-turn-models — Implementation Code
 
 Part of [Task 01](01-session-turn-models.md). This file contains Step 3.

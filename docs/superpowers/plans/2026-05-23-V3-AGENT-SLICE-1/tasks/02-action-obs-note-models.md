@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on:
+  - 01-session-turn-models
+files:
+  creates: []
+  modifies:
+    - backend/apps/agent/models.py
+    - backend/apps/agent/tests/test_models.py
+allow_extra_files: false
+---
+
 ### Task 2: AgentAction, AgentObservation, AgentNote models
 
 **Files:**

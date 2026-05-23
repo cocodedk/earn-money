@@ -1,3 +1,7 @@
+---
+companion_of: 16-controller-loop
+---
+
 # Task 16 — Controller: _execute_action()
 
 Part of [Task 16](16-controller-loop.md). Same file as

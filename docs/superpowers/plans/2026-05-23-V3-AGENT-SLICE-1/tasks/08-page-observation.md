@@ -1,3 +1,16 @@
+---
+tier: APEX
+depends_on:
+  - 03-migrations
+files:
+  creates:
+    - backend/apps/agent/observations/__init__.py
+    - backend/apps/agent/observations/page.py
+    - backend/apps/agent/tests/test_page_observation.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 8: PageObservation dataclass
 
 **Files:**

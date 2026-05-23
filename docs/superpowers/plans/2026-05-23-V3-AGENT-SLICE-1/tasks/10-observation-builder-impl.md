@@ -1,3 +1,7 @@
+---
+companion_of: 10-observation-builder
+---
+
 # 10-observation-builder — Implementation Code
 
 Part of [Task 10](10-observation-builder.md). This file contains Step 3.

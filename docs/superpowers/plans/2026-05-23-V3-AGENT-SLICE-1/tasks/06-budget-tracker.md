@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on:
+  - 03-migrations
+files:
+  creates:
+    - backend/apps/agent/budgets.py
+    - backend/apps/agent/tests/test_budgets.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 6: Budget accounting
 
 **Files:**
@@ -149,12 +161,17 @@ class BudgetTracker:
         for limits in (self._mission_limits, self._phase_limits):
             keys.update(_budget_key(k) for k in limits)
         for key in keys:
-            consumed = (
-                self._mission_consumed.get(key, 0)
-                or self._phase_consumed.get(key, 0)
-            )
-            if key == "turns" or consumed:
+            if key == "turns":
                 self.check(key)
+                continue
+            m_limit = self._mission_limits.get(f"max_{key}")
+            m_consumed = self._mission_consumed.get(key, 0)
+            if m_limit is not None and m_consumed and m_consumed >= m_limit:
+                raise BudgetExhaustedError(key, "mission", m_limit, m_consumed)
+            p_limit = self._phase_limits.get(f"max_{key}")
+            p_consumed = self._phase_consumed.get(key, 0)
+            if p_limit is not None and p_consumed and p_consumed >= p_limit:
+                raise BudgetExhaustedError(key, "phase", p_limit, p_consumed)
 
     def remaining(self, dimension: str) -> int:
         key = _budget_key(dimension)

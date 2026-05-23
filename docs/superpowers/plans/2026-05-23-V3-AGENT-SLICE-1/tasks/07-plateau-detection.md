@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on:
+  - 03-migrations
+files:
+  creates:
+    - backend/apps/agent/plateau.py
+    - backend/apps/agent/tests/test_plateau.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 7: Plateau detection
 
 **Files:**

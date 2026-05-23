@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on: [14-persistence]
+files:
+  creates:
+    - backend/apps/agent/event_log.py
+    - backend/apps/agent/tests/test_event_log.py
+  modifies:
+    - backend/apps/events/types.py
+allow_extra_files: false
+---
+
 ### Task 15: Event logging helpers + event types
 
 **Files:**

@@ -1,3 +1,16 @@
+---
+tier: APEX
+depends_on:
+  - 08-page-observation
+  - 09-asset-observation
+files:
+  creates:
+    - backend/apps/agent/observations/builder.py
+    - backend/apps/agent/tests/test_builder.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 10: Observation builder (Playwright → PageObservation)
 
 **Files:**

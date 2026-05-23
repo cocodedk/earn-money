@@ -1,3 +1,7 @@
+---
+companion_of: 16-controller-loop
+---
+
 # Task 16 — Controller Tests
 
 Part of [Task 16](16-controller-loop.md). Test code for Step 1.

@@ -1,3 +1,13 @@
+---
+tier: CAPABLE
+depends_on: [19-integration-test]
+files:
+  creates:
+    - backend/live_test_agent.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 20: Live Juice Shop run (manual verification)
 
 **Files:**

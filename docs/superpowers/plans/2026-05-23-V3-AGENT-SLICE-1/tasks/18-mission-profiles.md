@@ -1,3 +1,14 @@
+---
+tier: FAST
+depends_on: [03-migrations]
+files:
+  creates:
+    - backend/apps/agent/mission_profiles.py
+    - backend/apps/agent/tests/test_mission_profiles.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 18: Mission profiles
 
 **Files:**

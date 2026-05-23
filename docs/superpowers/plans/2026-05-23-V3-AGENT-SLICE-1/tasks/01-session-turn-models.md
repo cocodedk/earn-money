@@ -1,3 +1,18 @@
+---
+tier: CAPABLE
+depends_on: []
+files:
+  creates:
+    - backend/apps/agent/__init__.py
+    - backend/apps/agent/apps.py
+    - backend/apps/agent/models.py
+    - backend/apps/agent/tests/__init__.py
+    - backend/apps/agent/tests/conftest.py
+    - backend/apps/agent/tests/test_models.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 1: AgentSession and AgentTurn models
 
 **Files:**

@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on:
+  - 08-page-observation
+files:
+  creates:
+    - backend/apps/agent/observations/assets.py
+    - backend/apps/agent/tests/test_asset_observation.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 9: AssetObservation dataclass
 
 **Files:**

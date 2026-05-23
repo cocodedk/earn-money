@@ -1,3 +1,15 @@
+---
+tier: CAPABLE
+depends_on: [03-migrations]
+files:
+  creates:
+    - backend/apps/agent/browser/__init__.py
+    - backend/apps/agent/browser/driver.py
+    - backend/apps/agent/tests/test_driver.py
+  modifies: []
+allow_extra_files: false
+---
+
 # Phase 5 — Playwright Driver
 ### Task 11: Thin Playwright adapter
 

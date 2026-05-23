@@ -1,3 +1,16 @@
+---
+tier: FAST
+depends_on:
+  - 02-action-obs-note-models
+files:
+  creates: []
+  modifies:
+    - backend/config/settings.py
+  generated:
+    - backend/apps/agent/migrations/0001_initial.py
+allow_extra_files: false
+---
+
 ### Task 3: Migrations and app registration
 
 **Files:**

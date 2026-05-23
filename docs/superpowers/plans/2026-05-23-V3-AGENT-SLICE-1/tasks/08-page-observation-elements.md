@@ -1,3 +1,7 @@
+---
+companion_of: 08-page-observation
+---
+
 # Task 08 — Element Dataclasses
 
 Part of [Task 08](08-page-observation.md). Element and container types for

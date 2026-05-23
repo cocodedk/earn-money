@@ -1,3 +1,16 @@
+---
+tier: CAPABLE
+depends_on:
+  - 03-migrations
+files:
+  creates:
+    - backend/apps/agent/actions/__init__.py
+    - backend/apps/agent/actions/schemas.py
+    - backend/apps/agent/tests/test_actions.py
+  modifies: []
+allow_extra_files: false
+---
+
 ### Task 4: Action schemas with pydantic validation
 
 **Files:**
