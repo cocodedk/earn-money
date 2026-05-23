@@ -9,7 +9,11 @@ def create_session():
     def _factory(**overrides):
         from apps.agent.models import AgentSession, AutonomyMode, AgentPhase, SessionStatus
         project = Project.objects.create(name="test")
-        target = ScanTarget.objects.create(host="test.example.com", project=project)
+        target = ScanTarget.objects.create(
+            host="test.example.com",
+            base_url="https://test.example.com",
+            project=project,
+        )
         scan_run = ScanRun.objects.create(project=project, stub_slug="agent.v3")
         target_run = ScanTargetRun.objects.create(scan_run=scan_run, target=target)
         defaults = dict(
