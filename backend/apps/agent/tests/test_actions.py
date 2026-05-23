@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import pytest
 from apps.agent.actions import parse_action, ActionEnvelope, InvalidActionError
+from apps.agent.actions.matrix import (
+    PhaseViolationError,
+    check_phase_action,
+    allowed_actions_for_phase,
+)
 
 
 def _base(**kwargs) -> dict:
@@ -155,3 +160,102 @@ class TestMissingEnvelopeFields:
         raw = {"action": "stop", "goal": "g", "reason": "r"}
         with pytest.raises(InvalidActionError, match="hypothesis"):
             parse_action(raw)
+
+
+class TestPhaseActionMatrix:
+    def test_recon_allows_observe_page(self):
+        check_phase_action("recon", "observe_page")
+
+    def test_recon_allows_navigate(self):
+        check_phase_action("recon", "navigate")
+
+    def test_recon_allows_inspect_asset(self):
+        check_phase_action("recon", "inspect_asset")
+
+    def test_recon_allows_store_note(self):
+        check_phase_action("recon", "store_note")
+
+    def test_recon_allows_request_phase_transition(self):
+        check_phase_action("recon", "request_phase_transition")
+
+    def test_recon_allows_stop(self):
+        check_phase_action("recon", "stop")
+
+    def test_recon_rejects_click(self):
+        with pytest.raises(PhaseViolationError, match="click"):
+            check_phase_action("recon", "click")
+
+    def test_recon_rejects_submit_form(self):
+        with pytest.raises(PhaseViolationError):
+            check_phase_action("recon", "submit_form")
+
+    def test_enumerate_adds_click(self):
+        check_phase_action("enumerate", "click")
+
+    def test_enumerate_adds_fill_form(self):
+        check_phase_action("enumerate", "fill_form")
+
+    def test_enumerate_adds_submit_candidate(self):
+        check_phase_action("enumerate", "submit_candidate")
+
+    def test_enumerate_inherits_recon_actions(self):
+        check_phase_action("enumerate", "observe_page")
+        check_phase_action("enumerate", "navigate")
+
+    def test_enumerate_rejects_submit_form(self):
+        with pytest.raises(PhaseViolationError):
+            check_phase_action("enumerate", "submit_form")
+
+    def test_probe_adds_submit_form(self):
+        check_phase_action("probe", "submit_form")
+
+    def test_probe_adds_http_request(self):
+        check_phase_action("probe", "http_request")
+
+    def test_probe_adds_run_stub(self):
+        check_phase_action("probe", "run_stub")
+
+    def test_probe_adds_run_tool(self):
+        check_phase_action("probe", "run_tool")
+
+    def test_probe_adds_request_verify(self):
+        check_phase_action("probe", "request_verify")
+
+    def test_verify_inherits_probe_actions(self):
+        check_phase_action("verify", "submit_form")
+        check_phase_action("verify", "http_request")
+
+    def test_report_allows_store_note(self):
+        check_phase_action("report", "store_note")
+
+    def test_report_allows_submit_candidate(self):
+        check_phase_action("report", "submit_candidate")
+
+    def test_report_allows_stop(self):
+        check_phase_action("report", "stop")
+
+    def test_report_rejects_navigate(self):
+        with pytest.raises(PhaseViolationError):
+            check_phase_action("report", "navigate")
+
+    def test_report_rejects_click(self):
+        with pytest.raises(PhaseViolationError):
+            check_phase_action("report", "click")
+
+    def test_unknown_phase_raises(self):
+        with pytest.raises(PhaseViolationError, match="Unknown phase"):
+            check_phase_action("unknown_phase", "observe_page")
+
+    def test_allowed_actions_for_recon_is_sorted(self):
+        actions = allowed_actions_for_phase("recon")
+        assert actions == sorted(actions)
+
+    def test_allowed_actions_for_recon_contains_expected(self):
+        actions = allowed_actions_for_phase("recon")
+        assert "observe_page" in actions
+        assert "navigate" in actions
+        assert "click" not in actions
+
+    def test_allowed_actions_for_unknown_phase_raises(self):
+        with pytest.raises(PhaseViolationError, match="Unknown phase"):
+            allowed_actions_for_phase("nonexistent")
