@@ -21,7 +21,7 @@ _PROBE_PATHS = ("/", "/login")
 @guarded_runner(_STUB_ID)
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     base = target_run.target.base_url.rstrip("/")
-    scheme = urlparse(base).scheme
+    scheme = urlparse(base).scheme or "http"
     seen: set[str] = set()
     for path in _PROBE_PATHS:
         resp = submit_probe(httpx.Request("GET", base + path))

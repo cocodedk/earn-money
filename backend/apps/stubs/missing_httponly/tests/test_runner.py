@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
 from apps.findings.models import Finding
 from apps.stubs._test_factories import seed_target_run
+from apps.stubs._test_helpers import make_cookie_resp
 from apps.stubs.missing_httponly.runner import run
 
 
@@ -34,10 +34,7 @@ def target_run(_seed):
     return target_run
 
 
-def _resp(cookies: list[str], status: int = 200) -> httpx.Response:
-    raw = [(b"set-cookie", c.encode()) for c in cookies]
-    raw.append((b"content-type", b"application/json"))
-    return httpx.Response(status, headers=httpx.Headers(raw))
+_resp = make_cookie_resp
 
 
 @pytest.mark.django_db
