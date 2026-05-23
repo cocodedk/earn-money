@@ -12,7 +12,10 @@ Any phase may transition to report/stop on budget exhaustion, safety stop, no pr
 operator stop, or completed objective.
 
 Backwards transitions (e.g. verify → enumerate) are allowed in narrow controller-decided cases
-when replay reveals missing context. Normal path is forward-only.
+when replay reveals missing context. Guards: maximum one backward transition per mission,
+backward transitions do not reset phase budgets (the target phase keeps its already-consumed
+counts), and each backward transition emits an `agent.phase_changed` event with
+`direction: backward` and `reason`. Normal path is forward-only.
 
 ## Phase definitions
 

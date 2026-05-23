@@ -71,5 +71,10 @@ backend/apps/agent/
   tests/
 ```
 
-Deferred for post-slice-1: `observations/redaction.py` (basic redaction inline in builder),
-`llm/router.py` (single model, no routing), `tasks.py` (direct invocation, no Celery).
+Deferred for post-slice-1: `observations/redaction.py` (extracted when redaction logic grows
+beyond the slice 1 minimum), `llm/router.py` (single model, no routing), `tasks.py` (direct
+invocation, no Celery).
+
+Slice 1 redaction requirements (inline in builder): strip cookie values, redact password
+field values to `value_state: redacted`, mark all target-controlled text blocks with
+`trust: untrusted_target_content`, strip URL query parameters containing tokens/keys.

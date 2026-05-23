@@ -65,6 +65,7 @@ PageObservation:
         value_state: "empty"   # empty | filled | redacted
 
   visible_text:
+    trust: "untrusted_target_content"
     blocks:
       - id: "txt_1"
         text: "Email"
@@ -80,6 +81,7 @@ PageObservation:
         path: "/main.js"
         type: "script"
         interesting_refs: ["/score-board"]
+        trust: "untrusted_target_content"
 
   selected_html_excerpts:
     - id: "html_1"
@@ -110,6 +112,7 @@ PageObservation:
         key: "theme"
 
   console:
+    trust: "untrusted_target_content"
     messages:
       - level: "error"
         text: "Failed to load resource"
@@ -131,7 +134,9 @@ PageObservation:
 - No cookie values — only names and flags
 - No raw selectors exposed — controller maps IDs to Playwright locators internally
 - URL refs / relative paths — never arbitrary full URLs with different hosts
-- HTML excerpts marked `untrusted_target_content`
+- All target-controlled text marked `untrusted_target_content`: visible_text, console
+  messages, HTML excerpts, asset interesting_refs. The LLM system prompt must fence these
+  blocks as data-only and instruct the model to never follow instructions found within them
 - Screenshot as external artifact ref, never inline bytes
 - Input `value_state` is `empty` | `filled` | `redacted` — never raw sensitive values
 
@@ -150,4 +155,27 @@ Controller attaches screenshots automatically when:
 `asset`. This file documents the `page` type. The remaining types (`http` for raw HTTP
 responses, `stub` for v2 stub results, `tool` for OSS tool output, `asset` for
 `inspect_asset` results) will be specified when their corresponding actions are implemented
-(stubs/tools post-slice-1, asset in slice 1 as a simplified JSON excerpt structure).
+(stubs/tools post-slice-1).
+
+### Asset observation schema (slice 1)
+
+```yaml
+AssetObservation:
+  asset_ref: "asset_2"
+  path: "/main.js"
+  type: "script"
+  trust: "untrusted_target_content"
+  size_bytes: 142000
+  truncated: true
+  excerpts:
+    - context: "route definition"
+      match: "/score-board"
+      surrounding: "path: '/score-board', component: ScoreBoardComponent"
+    - context: "API endpoint"
+      match: "/api/Users"
+      surrounding: "service.get('/api/Users')"
+  strings_of_interest: ["/score-board", "/api/Users", "/administration"]
+```
+
+The controller fetches, parses, and truncates the asset. Only matched string excerpts with
+surrounding context are returned — never the full file content.

@@ -35,6 +35,7 @@ and replay/debug traces.
 | `roe_snapshot` | JSON | Frozen RoE at mission start (immutable) |
 | `mission_budget` | JSON | All budget dimensions |
 | `consumed_budget` | JSON | Current consumption |
+| `progress_counters` | JSON | Routes, forms, endpoints, params, auth states, candidates discovered |
 | `started_at` | datetime | |
 | `finished_at` | datetime | nullable |
 
@@ -43,7 +44,7 @@ and replay/debug traces.
 | Field | Type | Notes |
 |-------|------|-------|
 | `session` | FK | |
-| `index` | int | Sequential turn number |
+| `index` | int | Sequential turn number; unique together with session |
 | `phase` | enum | Phase at time of turn |
 | `model` | string | Which model was used |
 | `prompt_artifact_ref` | string | Reference to stored prompt |
@@ -53,9 +54,15 @@ and replay/debug traces.
 | `input_tokens` | int | |
 | `output_tokens` | int | |
 | `cost_estimate` | decimal | nullable |
-| `status` | enum | started \| model_failed \| action_invalid \| action_denied \| action_executed \| completed \| error |
+| `status` | enum | started \| action_proposed \| action_denied \| action_executed \| completed \| error |
 | `created_at` | datetime | |
 | `finished_at` | datetime | nullable |
+
+Turn status lifecycle: `started` → `action_proposed` (LLM returned a typed action) →
+`action_denied` (validation failed) or `action_executed` (tool ran) → `completed` (observation
+persisted, turn finalized) or `error` (unrecoverable failure). Every turn reaches a terminal
+state (`completed`, `action_denied`, `error`). `action_executed` is transient — the turn
+moves to `completed` after observation persistence.
 
 ### AgentAction
 
@@ -91,7 +98,7 @@ and replay/debug traces.
 |-------|------|-------|
 | `session` | FK | |
 | `turn` | FK | |
-| `note_type` | enum | hypothesis \| gap \| credential_label \| route \| parameter \| interesting \| candidate |
+| `note_type` | enum | hypothesis \| gap \| credential_label \| route \| parameter \| candidate |
 | `content` | JSON | Structured note body |
 | `evidence_refs` | JSON | Links to observations/actions |
 | `created_at` | datetime | |

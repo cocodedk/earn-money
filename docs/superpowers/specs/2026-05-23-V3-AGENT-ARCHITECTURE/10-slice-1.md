@@ -65,17 +65,19 @@ juice_shop_scoreboard:
   model_policy:
     primary_model: <frontier>
   budget:
-    max_turns: 20
+    max_turns: 25
     max_runtime_seconds: 300
+    max_llm_calls: 30
     max_http_requests: 60
+    max_browser_actions: 40
     max_asset_inspections: 10
   phase_budgets:
     recon:
-      max_turns: 5
+      max_turns: 6
       max_http_requests: 20
       max_asset_inspections: 5
     enumerate:
-      max_turns: 12
+      max_turns: 14
       max_http_requests: 35
       max_asset_inspections: 5
     report:

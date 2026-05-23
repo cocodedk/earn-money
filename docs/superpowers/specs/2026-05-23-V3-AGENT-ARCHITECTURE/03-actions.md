@@ -27,7 +27,12 @@ fields — the controller never infers capabilities from prose.
 
 - `click`, `fill_form`, `submit_form` use controller-assigned IDs (`btn_2`, `field_1`,
   `form_1`) — never CSS selectors or XPath.
-- `navigate` accepts relative paths or discovered URL refs — never arbitrary hosts.
+- `navigate` accepts relative paths or discovered URL refs — never arbitrary hosts. The
+  controller validates targets against the mission's scope allowlist: same-origin only by
+  default, reject `javascript:`, `data:`, and protocol-relative (`//`) URLs, reject any host
+  not in the target's scope. Redirects are followed by Playwright but the controller checks
+  the final URL post-navigation and flags out-of-scope landings as a scope edge case
+  (checkpoint trigger on real programs).
 - `run_stub` and `run_tool` are allowlisted per phase/RoE — the controller offers only
   permitted options. `run_tool` accepts known profiles like
   `{"tool":"nuclei","profile":"safe_http_headers"}`, never arbitrary command strings.
@@ -60,6 +65,12 @@ only for non-executing planner guidance ("this belongs in probe; request phase t
 
 "Limited (replay)" in verify means replaying already-identified paths/actions, not exploring
 new surface.
+
+"Passive findings only" in enumerate means findings derivable from observation without
+state-changing interaction: missing security headers, exposed metadata/version strings,
+information disclosure in error pages, debug endpoints in discovered routes. Behavioral
+vulnerabilities that require form submission, authentication, or multi-step interaction are
+not passive.
 
 ## Enforcement pipeline
 

@@ -38,7 +38,9 @@ model_policy:
 - Entering probe, verify, or impact_proof
 - Creating or promoting medium/high/critical candidates
 - Checkpoint request/response handling
-- Prompt-injection or sensitive-data risk detected
+- Prompt-injection or sensitive-data risk detected (heuristic: observation contains
+  instruction-like patterns, model output references content from untrusted blocks as if it
+  were instructions, or model proposes navigating to a host not in discovered routes)
 - Complex or contradictory PageObservation
 
 ## Fallback policy
