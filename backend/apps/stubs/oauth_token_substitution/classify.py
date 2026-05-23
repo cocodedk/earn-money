@@ -16,7 +16,7 @@ _OAUTH_PARAMS = frozenset({
 @dataclass(frozen=True)
 class PassiveOAuthEvidence:
     detected: bool
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     artifact_kind: str
     observed_parameters: list[str]
     flow_url: str

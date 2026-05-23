@@ -30,7 +30,7 @@ _REJECT_PHRASES = frozenset({
 class RedirectUriClassification:
     validation_result: ValidationResult
     status: Literal["confirmed", "candidate", "rejected", "stale"]
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     location_origin: str | None
     oauth_error: str | None
 

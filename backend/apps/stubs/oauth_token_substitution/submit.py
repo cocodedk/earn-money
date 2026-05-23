@@ -15,7 +15,7 @@ class SubstitutionResult:
     substitution_accepted: bool | None
     identity_mismatch_observed: bool | None
     status: Literal["candidate", "confirmed", "rejected", "stale"]
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     artifact_kind: str
     flow_url: str
 

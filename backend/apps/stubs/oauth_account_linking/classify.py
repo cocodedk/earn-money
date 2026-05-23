@@ -28,7 +28,7 @@ class LinkFlawClassification:
     kind: AccountLinkingFlawKind
     endpoint_url: str
     http_method: str
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     status: Literal["candidate", "confirmed", "rejected", "stale"]
     observed_parameters: list[str] = field(default_factory=list)
 
