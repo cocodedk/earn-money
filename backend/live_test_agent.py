@@ -29,7 +29,7 @@ from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
 from apps.projects.models import Project
 
-OPENROUTER_KEY_PATH = Path.home() / ".config/openclaw/openrouter_api_key"
+OPENROUTER_KEY_PATH = Path.home() / ".config/openrouter/openrouter_api_key"
 
 
 def _resolve_provider() -> tuple[str, str, str]:
