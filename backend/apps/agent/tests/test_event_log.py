@@ -228,3 +228,73 @@ class TestSummarizeObservation:
         assert result["asset_count"] == 0
         assert result["element_count"] == 0
         assert result["network_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Enriched emit_action_executed
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestEnrichedActionExecuted:
+    def test_includes_goal_reason_hypothesis_budget_obs(self, create_session):
+        session = create_session()
+        event = emit_action_executed(
+            session, turn_index=3, action_type="observe_page",
+            goal="Inspect page", reason="Find nav links",
+            hypothesis="Score-board in JS",
+            budget_snapshot={"phase": "recon", "consumed": {}, "mission_budget": {}},
+            observation_summary={"url": "https://example.com", "title": "Test",
+                                 "route_count": 2, "asset_count": 1,
+                                 "element_count": 5, "network_count": 3},
+        )
+        assert event.data["goal"] == "Inspect page"
+        assert event.data["reason"] == "Find nav links"
+        assert event.data["hypothesis"] == "Score-board in JS"
+        assert event.data["budget_snapshot"]["phase"] == "recon"
+        assert event.data["observation_summary"]["route_count"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Enriched emit_action_denied
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestEnrichedActionDenied:
+    def test_includes_goal_hypothesis_budget(self, create_session):
+        session = create_session()
+        event = emit_action_denied(
+            session, turn_index=2, action_type="http_request",
+            reason="Denied by phase",
+            goal="Send request", hypothesis="Endpoint exposes users",
+            budget_snapshot={"phase": "recon", "consumed": {}, "mission_budget": {}},
+        )
+        assert event.data["goal"] == "Send request"
+        assert event.data["hypothesis"] == "Endpoint exposes users"
+        assert event.data["budget_snapshot"]["phase"] == "recon"
+
+
+# ---------------------------------------------------------------------------
+# Enriched emit_phase_changed and emit_mission_finished
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestEnrichedPhaseChanged:
+    def test_includes_budget_snapshot(self, create_session):
+        session = create_session()
+        event = emit_phase_changed(
+            session, from_phase="recon", to_phase="enumerate",
+            reason="plateau",
+            budget_snapshot={"phase": "recon", "consumed": {}, "mission_budget": {}},
+        )
+        assert event.data["budget_snapshot"]["phase"] == "recon"
+
+
+@pytest.mark.django_db
+class TestEnrichedMissionFinished:
+    def test_includes_budget_snapshot(self, create_session):
+        session = create_session()
+        event = emit_mission_finished(
+            session, status="completed", reason="stop_action",
+            budget_snapshot={"phase": "report", "consumed": {}, "mission_budget": {}},
+        )
+        assert event.data["budget_snapshot"]["phase"] == "report"

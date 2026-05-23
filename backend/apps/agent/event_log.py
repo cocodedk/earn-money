@@ -27,6 +27,11 @@ def emit_action_executed(
     session: AgentSession,
     turn_index: int,
     action_type: str,
+    goal: str = "",
+    reason: str = "",
+    hypothesis: str = "",
+    budget_snapshot: dict | None = None,
+    observation_summary: dict | None = None,
 ) -> Event:
     """Emit an event when an agent action is executed."""
     return Event.log(
@@ -39,6 +44,11 @@ def emit_action_executed(
             "session_id": str(session.pk),
             "turn_index": turn_index,
             "action_type": action_type,
+            "goal": goal,
+            "reason": reason,
+            "hypothesis": hypothesis,
+            "budget_snapshot": budget_snapshot or {},
+            "observation_summary": observation_summary or {},
         },
     )
 
@@ -48,6 +58,9 @@ def emit_action_denied(
     turn_index: int,
     action_type: str,
     reason: str,
+    goal: str = "",
+    hypothesis: str = "",
+    budget_snapshot: dict | None = None,
 ) -> Event:
     """Emit an event when an agent action is denied."""
     return Event.log(
@@ -61,6 +74,9 @@ def emit_action_denied(
             "turn_index": turn_index,
             "action_type": action_type,
             "reason": reason,
+            "goal": goal,
+            "hypothesis": hypothesis,
+            "budget_snapshot": budget_snapshot or {},
         },
     )
 
@@ -70,6 +86,7 @@ def emit_phase_changed(
     from_phase: str,
     to_phase: str,
     reason: str,
+    budget_snapshot: dict | None = None,
 ) -> Event:
     """Emit an event when the agent transitions between phases."""
     return Event.log(
@@ -83,6 +100,7 @@ def emit_phase_changed(
             "from_phase": from_phase,
             "to_phase": to_phase,
             "reason": reason,
+            "budget_snapshot": budget_snapshot or {},
         },
     )
 
@@ -111,6 +129,7 @@ def emit_mission_finished(
     session: AgentSession,
     status: str,
     reason: str,
+    budget_snapshot: dict | None = None,
 ) -> Event:
     """Emit an event when the agent mission concludes."""
     return Event.log(
@@ -124,6 +143,7 @@ def emit_mission_finished(
             "status": status,
             "reason": reason,
             "mission_profile": session.mission_profile,
+            "budget_snapshot": budget_snapshot or {},
         },
     )
 
