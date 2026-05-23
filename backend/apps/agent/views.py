@@ -23,7 +23,7 @@ class AgentSessionViewSet(
 
     def get_queryset(self):
         qs = AgentSession.objects.select_related(
-            "target", "scan_run",
+            "target", "scan_run", "scan_target_run",
         ).order_by("-created_at")
         params = self.request.query_params
         if params.get("status"):

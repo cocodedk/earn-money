@@ -53,7 +53,9 @@ class AgentSessionDetailTests(TestCase):
         self.client = APIClient()
         project = Project.objects.create(name="test")
         target = ScanTarget.objects.create(
-            host="test.example.com", project=project,
+            host="test.example.com",
+            base_url="https://test.example.com",
+            project=project,
         )
         run = ScanRun.objects.create(
             project=project, stub_slug="agent.v3",
@@ -74,7 +76,7 @@ class AgentSessionDetailTests(TestCase):
         assert resp.status_code == 200
         data = resp.json()
         assert data["active_phases"] == ["recon", "enumerate", "report"]
-        assert data["target_base_url"] is not None
+        assert data["target_base_url"] == "https://test.example.com"
         assert data["scan_run"] is not None
 
 
