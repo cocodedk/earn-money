@@ -27,6 +27,7 @@ from .event_log import (
 )
 from .llm.prompts import build_system_prompt, format_observation_message
 from .llm.providers import LLMProvider
+from .phases import next_phase
 from .models import (
     AgentSession, SessionStatus, TurnStatus,
     ValidationStatus, ExecutionStatus,
@@ -40,7 +41,7 @@ SLICE_1_ACTIONS = [
     "request_phase_transition", "stop",
 ]
 
-PHASE_ORDER = ["recon", "enumerate", "report"]
+SLICE_1_PHASES = ["recon", "enumerate", "report"]
 
 
 class MissionController:
@@ -101,37 +102,15 @@ class MissionController:
                     break
                 if result == "phase_transition":
                     current = self._session.current_phase
-                    ci = PHASE_ORDER.index(current)
-                    if ci + 1 < len(PHASE_ORDER):
-                        next_phase = PHASE_ORDER[ci + 1]
-                        emit_phase_changed(
-                            self._session, current, next_phase,
-                            "LLM requested transition",
-                        )
-                        self._session.current_phase = next_phase
-                        self._session.save(
-                            update_fields=["current_phase", "updated_at"],
-                        )
-                        budget.switch_phase(
-                            self._phase_budgets.get(next_phase, {}),
-                        )
+                    nxt = next_phase(current)
+                    if nxt and nxt in SLICE_1_PHASES:
+                        self._advance_phase(nxt, current, "LLM requested transition", budget)
                         plateau = PlateauDetector()
                 if plateau.is_plateaued():
                     current = self._session.current_phase
-                    ci = PHASE_ORDER.index(current)
-                    if ci + 1 < len(PHASE_ORDER):
-                        next_phase = PHASE_ORDER[ci + 1]
-                        emit_phase_changed(
-                            self._session, current, next_phase,
-                            plateau.plateau_reason(),
-                        )
-                        self._session.current_phase = next_phase
-                        self._session.save(
-                            update_fields=["current_phase", "updated_at"],
-                        )
-                        budget.switch_phase(
-                            self._phase_budgets.get(next_phase, {}),
-                        )
+                    nxt = next_phase(current)
+                    if nxt and nxt in SLICE_1_PHASES:
+                        self._advance_phase(nxt, current, plateau.plateau_reason(), budget)
                         plateau = PlateauDetector()
         except BudgetExhaustedError:
             stop_reason = "budget_exhausted"
@@ -143,6 +122,15 @@ class MissionController:
         finish_session(self._session, final_status, budget.consumed_snapshot())
         emit_mission_finished(self._session, final_status, stop_reason)
         return self._session
+
+    def _advance_phase(
+        self, nxt: str, current: str, reason: str,
+        budget: BudgetTracker,
+    ) -> None:
+        emit_phase_changed(self._session, current, nxt, reason)
+        self._session.current_phase = nxt
+        self._session.save(update_fields=["current_phase", "updated_at"])
+        budget.switch_phase(self._phase_budgets.get(nxt, {}))
 ```
 
 Continues in [16-controller-loop-turn.md](16-controller-loop-turn.md).

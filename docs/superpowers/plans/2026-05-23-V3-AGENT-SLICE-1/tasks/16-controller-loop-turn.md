@@ -37,6 +37,7 @@ Part of [Task 16](16-controller-loop.md). Same file as
             "response_artifact_ref", "status", "updated_at",
         ])
 
+        raw: dict | str = {}
         try:
             raw = json.loads(resp.raw_text)
             envelope = parse_action(raw)

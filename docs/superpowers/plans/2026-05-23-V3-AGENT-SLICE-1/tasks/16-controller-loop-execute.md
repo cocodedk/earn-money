@@ -35,7 +35,13 @@ Part of [Task 16](16-controller-loop.md). Same file as
             return obs_dict
 
         if envelope.action == "navigate":
-            path = envelope.parsed.path or ""
+            path = envelope.parsed.path
+            if not path and envelope.parsed.url_ref:
+                path = self._obs_builder.resolve_url_ref(
+                    envelope.parsed.url_ref,
+                )
+            if not path:
+                path = "/"
             await self._driver.navigate(path)
             network = self._driver.drain_network_log()
             obs = await self._obs_builder.build_page_observation(

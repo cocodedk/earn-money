@@ -115,14 +115,14 @@ class ObservationBuilder:
         routes = []
         for link in links:
             if link.href_ref:
-                path = self._resolve_url_ref(link.href_ref)
+                path = self.resolve_url_ref(link.href_ref)
                 if path:
                     routes.append(DiscoveredRoute(
                         id=self._next_id("route"), path=path, source="link",
                     ))
         return routes
 
-    def _resolve_url_ref(self, ref: str) -> str | None:
+    def resolve_url_ref(self, ref: str) -> str | None:
         for path, url_ref in self._url_map.items():
             if url_ref == ref:
                 return path

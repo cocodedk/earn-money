@@ -131,7 +131,7 @@ async def test_controller_phase_transition(scan_context):
         },
     )
     session = await controller.run()
-    assert session.current_phase == "report"
+    assert session.current_phase == "enumerate"
     assert session.status == SessionStatus.COMPLETED
 
 
