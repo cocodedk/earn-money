@@ -24,11 +24,11 @@ control.
 
 | Dimension | Recon | Enumerate | Probe | Verify | Report |
 |-----------|-------|-----------|-------|--------|--------|
-| `max_turns` | 10 | 20 | 20 | 8 | 2 |
+| `max_turns` | 10 | 20 | 20 | 6 | 2 |
 | `max_runtime_seconds` | 90 | 180 | 200 | 90 | 30 |
 | `max_http_requests` | 30 | 80 | 50 | 20 | 0 |
 | `max_post_requests` | 0 | 0 | 10 | 5 | 0 |
-| `max_asset_inspections` | 10 | 10 | 5 | 0 | 0 |
+| `max_asset_inspections` | 5 | 8 | 5 | 0 | 0 |
 
 Per-phase sums are intentionally below mission caps to leave headroom. The mission budget is
 the hard ceiling; per-phase budgets are soft guides. If a phase exhausts its allocation, the
@@ -54,8 +54,8 @@ plateau:
 
 ## Turn accounting
 
-Denied and invalid turns (AgentTurn with status `action_invalid` or `action_denied`) count
-against phase and mission turn budgets. They consume a turn slot but do not count as progress.
+Denied turns (AgentTurn with status `action_denied`, which includes schema-validation
+failures) count against phase and mission turn budgets. They consume a turn slot but do not count as progress.
 This prevents the LLM from exploiting invalid actions to extend a phase indefinitely, and
 ensures plateau detection (`max_invalid_actions`, `max_repeated_denials`) can trigger early
 advancement.

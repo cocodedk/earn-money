@@ -22,8 +22,8 @@ structured observations, and find something automation alone cannot.
   `agent.phase_changed`, `agent.note_created`, `agent.mission_finished`
 - **Strict JSON schema validation** on all actions
 - **Controller-assigned element/URL/asset IDs** throughout
-- **`submit_candidate`** writes `AgentNote(note_type="candidate")` in slice 1. Promotion to
-  Finding is deferred.
+- **`submit_candidate`** writes `AgentNote(note_type="candidate")` in slice 1 and emits
+  `agent.note_created`. `agent.candidate_created` is deferred with Finding promotion.
 - **Lab mode only** (`autonomy_mode=lab_free_run`)
 
 ### Out of scope (deferred)
