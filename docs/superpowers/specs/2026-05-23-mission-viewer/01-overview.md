@@ -6,6 +6,10 @@ A real-time page where the operator watches the V3 LLM agent work a
 mission turn-by-turn.  The design goal is "a kid can understand it":
 one scrolling story, plain-language descriptions, no dashboard jargon.
 
+Persisted REST data is the source of truth.  SSE is used only to make
+the page feel live: it invalidates queries and temporarily overlays the
+budget counter between session refetches.
+
 ## Route
 
 `/missions/:sessionId` — read-only viewer.  No list page or nav entry
@@ -34,3 +38,14 @@ scan-runs pages.
 - Start missions (that is a POST from another page)
 - Show a sidebar, multi-panel layout, or permanent notes panel
 - Display JSON, UUIDs, or token counts by default
+- Treat SSE events as canonical turn data
+
+## Acceptance criteria
+
+- Direct navigation to `/missions/<session-id>` loads the mission from
+  the session endpoint and renders the top strip plus story timeline.
+- A non-technical viewer can understand each visible turn from the
+  default card text without opening Details.
+- Technical data remains available in Details without appearing in the
+  default view.
+- Terminal missions show a clear final state and stop live updates.

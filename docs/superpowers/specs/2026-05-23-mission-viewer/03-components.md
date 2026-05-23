@@ -11,9 +11,14 @@ All files under `features/missions/`.  Each under 200 lines.
 | `StoryTimeline.tsx` | Scrolling list of `TurnCard` + inline notebook entries; auto-scroll to newest unless user scrolled away |
 | `TurnCard.tsx` | Single turn: status icon (green/yellow/red/blue), plain-language sentence from `describeTurn`, phase badge, relative timestamp, collapsible Details |
 | `describeTurn.ts` | Pure function `(turn) => { title, result, tone }` — all plain-language mapping in one place |
-| `api.ts` | React Query hooks: `useSessionQuery`, `useTurnsQuery`, `useNotesQuery`, `useCreateMissionMutation`, query keys |
+| `api.ts` | React Query hooks: `useSessionQuery`, `useTurnsQuery`, `useNotesQuery`, query keys |
 | `useAgentEvents.ts` | SSE wrapper: filters `agent.*` by session, routes to invalidation, manages `optimisticBudgetSnapshot` |
 | `types.ts` | `AgentSession`, `AgentTurn`, `AgentAction`, `AgentNote`, phase/status/action-type enums |
+
+If `api.ts` or `useAgentEvents.ts` approaches the 200-line limit, split
+helpers into a small local module instead of compressing unrelated logic.
+Do not add `useCreateMissionMutation` in this slice; mission creation is
+owned by the future Start Mission flow.
 
 ## Fixtures and tests
 
@@ -32,10 +37,21 @@ All files under `features/missions/`.  Each under 200 lines.
 
 - `DetailPageGuard` — loading / 404 / error for session query
 - `Callout` — inline error for turns/notes fetch failures (page stays up)
-- `PageHeader` — not used; replaced by `MissionStrip`
+- `PageHeader` — not used in the happy state; `MissionStrip` replaces it
 
 ## Auto-scroll behaviour
 
 Reuse pattern from `ScanRunLiveEventsPanel`: track whether user has
 manually scrolled away; if not, scroll to bottom on new turn.  Reset
 scroll-lock when user scrolls back to bottom.
+
+## Acceptance criteria
+
+- `MissionViewerPage` keeps session-load failures page-level but turns
+  and notes failures inline.
+- `StoryTimeline` renders oldest-to-newest and preserves user scroll
+  position when the user has scrolled away from the bottom.
+- `TurnCard` never constructs its own headline text; all default card
+  wording comes from `describeTurn`.
+- `useAgentEvents` ignores non-agent events, agent events for other
+  sessions, and duplicate event IDs.
