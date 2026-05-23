@@ -56,7 +56,6 @@ def _format(event: Event) -> bytes:
     payload = EventSerializer(event).data
     frame = (
         f"id: {event.id}\n"
-        f"event: {payload['type']}\n"
         f"data: {json.dumps(payload, default=str)}\n\n"
     )
     return frame.encode("utf-8")
