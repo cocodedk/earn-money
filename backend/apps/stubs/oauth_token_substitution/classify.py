@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 from urllib.parse import urlparse, parse_qs
+
+from apps.stubs._shared.types import Confidence
 
 _OAUTH_PATHS = frozenset({"/oauth", "/oidc", "/authorize", "/callback", "/token", "/sso"})
 _OAUTH_PARAMS = frozenset({

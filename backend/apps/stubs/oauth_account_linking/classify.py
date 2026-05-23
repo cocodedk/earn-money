@@ -6,6 +6,8 @@ from enum import Enum
 from typing import Literal
 from urllib.parse import urlparse, parse_qs
 
+from apps.stubs._shared.types import Confidence
+
 
 class AccountLinkingFlawKind(str, Enum):
     LINK_OVER_GET = "link_over_get"

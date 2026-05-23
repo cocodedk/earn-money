@@ -122,8 +122,8 @@ def test_pre_check_not_2xx_no_finding(scan_run, target_run):
 
 @pytest.mark.django_db
 def test_no_session_cookie_in_seed_no_finding(scan_run, target_run):
-    # Seed response with empty-value cookie → value_redacted is None →
-    # _extract_session_cookie returns "" → covers loop branch + return "".
+    # Seed response with empty-value cookie → partition("=")[2] is "" →
+    # _extract_session_cookie skips it and returns "" → covers both branches.
     seed_resp = _make_resp(200, "sid=; Path=/; HttpOnly")
     check_pre_resp = _make_resp(401)
     with patch("apps.stubs.no_invalidation_after_logout.runner.submit_probe",

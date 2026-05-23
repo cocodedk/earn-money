@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlparse, parse_qs
 
+from apps.stubs._shared.types import Confidence
+
 
 @dataclass
 class SubstitutionResult:

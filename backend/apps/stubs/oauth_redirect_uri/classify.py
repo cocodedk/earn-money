@@ -7,6 +7,8 @@ from enum import Enum
 from typing import Literal
 from urllib.parse import urlsplit
 
+from apps.stubs._shared.types import Confidence
+
 from apps.stubs._shared.url import origin
 
 
