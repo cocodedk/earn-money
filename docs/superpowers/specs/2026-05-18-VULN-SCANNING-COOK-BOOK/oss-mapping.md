@@ -34,6 +34,13 @@ These tools enable discovery — without them, scanners only see the first page.
 | Sqlmap | https://github.com/sqlmapproject/sqlmap | 05 | SQL injection |
 | Ghauri | https://github.com/r0oth3x49/ghauri | 05 | SQL injection (modern) |
 | NoSQLMap | https://github.com/codingo/NoSQLMap | 05 | NoSQL injection |
+| Wfuzz | https://github.com/xmendez/wfuzz | 02,05,06,11,12,17 | Web fuzzer; rate/brute/param fuzzing |
+| turbo-intruder | https://github.com/PortSwigger/turbo-intruder | 13 | Single-packet concurrent request races |
+| race-the-web | https://github.com/TheHackerDev/race-the-web | 13 | Configurable concurrent request racing |
+| WS-Attacker | https://github.com/RUB-NDS/WS-Attacker | 22 | XML signature wrapping (SAML XSW attacks) |
+| garak | https://github.com/NVIDIA/garak | 24 | LLM red-teaming: prompt injection, jailbreak |
+| promptfoo | https://github.com/promptfoo/promptfoo | 24 | LLM testing: adversarial prompt evaluation |
+| PyRIT | https://github.com/Azure/PyRIT | 24 | LLM red-team: data exfil, indirect injection |
 | XSStrike | https://github.com/s0md3v/XSStrike | 06 | XSS scanner |
 | Dalfox | https://github.com/hahwul/dalfox | 06 | XSS (fast, accurate) |
 | Domdig | https://github.com/fcavallarin/domdig | 06,15 | DOM XSS |
@@ -70,10 +77,30 @@ These tools enable discovery — without them, scanners only see the first page.
 
 | Phase | Topic | Key Tools |
 |-------|-------|-----------|
-| 21 | Infrastructure and Deployment Exposure | Nuclei, Gobuster, Feroxbuster, Nikto, Tsunami, truffleHog |
-| 22 | Third-Party Integrations | VulnAPI, ZAP, mitmproxy, Ffuf |
+| 01 | Information Gathering | Nuclei, Nikto, Gobuster, Feroxbuster, truffleHog, Retire.js |
+| 02 | Authentication | ZAP, VulnAPI, jwt_tool, Ffuf, Wfuzz, Playwright |
+| 03 | Session Management | jwt_tool, VulnAPI, ZAP, mitmproxy, Playwright |
+| 04 | Access Control | ZAP, Ffuf, arjun, Nuclei, Playwright |
+| 05 | Input Validation & Injection | Sqlmap, Commix, Tplmap, NoSQLMap, ZAP, Wfuzz |
+| 06 | Cross-Site Scripting | Dalfox, XSStrike, Domdig, ZAP, Playwright |
+| 07 | CSRF & Browser-Side Request Abuse | ZAP, Wapiti, CORScanner, Playwright |
+| 08 | File Upload & File Handling | Fuxploider, ZAP, Nuclei, Ffuf |
+| 09 | Path Traversal & File Inclusion | LFIscanner, YA-LFI, ZAP, Wapiti, Ffuf |
+| 10 | Server-Side Request Forgery | SSRFmap, ZAP, Nuclei, Ffuf |
+| 11 | API Security | Cherrybomb, Akto, VulnAPI, ZAP, arjun, Wfuzz |
+| 12 | Business Logic | ZAP, Ffuf, Wfuzz, Playwright, mitmproxy |
+| 13 | Race Conditions | turbo-intruder, race-the-web, Ffuf |
+| 14 | Deserialization & Object Parsing | ZAP, Nuclei, W3af, Cherrybomb |
+| 15 | Client-Side Security | Playwright, truffleHog, Katana, Retire.js |
+| 16 | CORS & Cross-Origin Policy | CORScanner, YA-CORS, ZAP, Ffuf |
+| 17 | HTTP Request/Response Handling | smuggler, ZAP, Nuclei, Wfuzz |
+| 18 | Security Headers & Browser Hardening | Observatory, ZAP, Nuclei, Nikto |
+| 19 | Cryptography & Secrets | truffleHog, gitleaks, testssl.sh, O-Saft |
+| 20 | Logging, Monitoring & Privacy | truffleHog, mitmproxy, ZAP, Playwright |
+| 21 | Infrastructure & Deployment Exposure | Nuclei, Gobuster, Feroxbuster, Nikto, Tsunami, truffleHog |
+| 22 | Third-Party Integrations | VulnAPI, WS-Attacker, ZAP, mitmproxy, Ffuf |
 | 23 | Denial of Service Within RoE | ZAP, Ffuf, Nuclei, Wapiti |
-| 24 | AI/LLM-Specific Webapp Vectors | ZAP, mitmproxy, Ffuf, Playwright, truffleHog |
+| 24 | AI/LLM-Specific Webapp Vectors | garak, promptfoo, PyRIT, mitmproxy, truffleHog |
 
 ## Integration Priority
 

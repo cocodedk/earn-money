@@ -57,10 +57,10 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | SAML passive scan and active assertion manipulation |
-| VulnAPI | https://github.com/cerberauth/vulnapi | Covers auth protocol fuzzing including SAML vectors |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates for common SAML endpoint misconfigs |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and modify SAML assertions in transit |
+| WS-Attacker | https://github.com/RUB-NDS/WS-Attacker | Primary: XML Signature Wrapping (XSW) attacks, signature stripping |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and modify SAML assertions in transit; transport layer |
+| ZAP | https://github.com/zaproxy/zaproxy | Passive scan; transport layer only — no built-in XSW capability |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Templates for common SAML endpoint misconfigs (not XSW) |
 
 ### 22.05 — Email/SMS Provider Abuse
 

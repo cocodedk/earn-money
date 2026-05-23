@@ -63,7 +63,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Token analysis via Sequencer tool |
+| ZAP | https://github.com/zaproxy/zaproxy | Token Analysis (Fuzzer → Token Generator) to check entropy |
 | Ffuf | https://github.com/ffuf/ffuf | Enumerate token space if token is short/sequential |
 | Wfuzz | https://github.com/xmendez/wfuzz | Brute-force token range on reset endpoint |
 
@@ -132,7 +132,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Sequencer analysis on generated recovery codes |
+| ZAP | https://github.com/zaproxy/zaproxy | Token Analysis (Fuzzer → Token Generator) on generated recovery codes |
 | Ffuf | https://github.com/ffuf/ffuf | Brute-force short recovery code space |
 
 ### 2.13 — MFA Reset Abuse
@@ -220,7 +220,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Sequencer on invitation tokens |
+| ZAP | https://github.com/zaproxy/zaproxy | Token Analysis (Fuzzer → Token Generator) on invitation tokens |
 | Ffuf | https://github.com/ffuf/ffuf | Enumerate token space if low entropy |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and replay invitation token |
 

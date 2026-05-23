@@ -26,11 +26,11 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan injects prompt injection payloads in all text inputs |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz text/chat/query endpoints with known prompt injection strings |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates with prompt injection probe payloads |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept and inject payloads into LLM-bound request fields |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | DAST injects prompt strings across all discovered inputs |
+| garak | https://github.com/NVIDIA/garak | Primary: purpose-built LLM red-team; prompt injection probe suite |
+| promptfoo | https://github.com/promptfoo/promptfoo | Adversarial prompt evaluation with configurable attack strategies |
+| PyRIT | https://github.com/Azure/PyRIT | Red-team orchestration; multi-turn injection and jailbreak probes |
+| Ffuf | https://github.com/ffuf/ffuf | Transport layer: fuzz text/chat endpoints with injection wordlists |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport layer: intercept and inject payloads into request fields |
 
 ### 24.02 — Indirect Prompt Injection Through Webpages/Files
 
@@ -38,11 +38,11 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Passive scan identifies URLs fed to LLM retrieval; active injects via those URLs |
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept outbound LLM retrieval requests; serve crafted content |
+| garak | https://github.com/NVIDIA/garak | Indirect injection probes: retrieval-augmented attack strategies |
+| PyRIT | https://github.com/Azure/PyRIT | Multi-turn indirect injection; document poisoning scenarios |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept outbound retrieval requests; serve crafted poisoned content |
 | Playwright | https://github.com/microsoft/playwright | Render attacker-controlled pages the LLM agent visits |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates detecting LLM retrieval endpoints and injection surface |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz URL/file parameters passed to LLM context-loading |
+| Ffuf | https://github.com/ffuf/ffuf | Transport layer: fuzz URL/file parameters passed to context-loading |
 
 ### 24.03 — Tool Call Manipulation
 

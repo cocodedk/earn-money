@@ -18,6 +18,7 @@
 ## Stub Mappings
 
 ### 6.01 — Query Parameter Reflection
+
 **Detects:** Reflected XSS via URL query parameters
 
 | Tool | Repo | Coverage Notes |
@@ -27,6 +28,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012/40014 |
 
 ### 6.02 — Path Reflection
+
 **Detects:** Reflected XSS in URL path segments
 
 | Tool | Repo | Coverage Notes |
@@ -36,6 +38,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012 |
 
 ### 6.03 — Header Reflection
+
 **Detects:** Reflected XSS via HTTP request headers (User-Agent, Referer, X-* headers)
 
 | Tool | Repo | Coverage Notes |
@@ -45,6 +48,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012 with header vector |
 
 ### 6.04 — Stored XSS in Comments
+
 **Detects:** Stored XSS injected via comment/review input fields
 
 | Tool | Repo | Coverage Notes |
@@ -54,6 +58,7 @@
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module permanentxss` |
 
 ### 6.05 — Stored XSS in Profiles
+
 **Detects:** Stored XSS in user profile fields (bio, name, avatar URL)
 
 | Tool | Repo | Coverage Notes |
@@ -62,6 +67,7 @@
 | Dalfox | https://github.com/hahwul/dalfox | Blind stored XSS via callback URL |
 
 ### 6.06 — Stored XSS in Admin Panels
+
 **Detects:** Stored XSS surfaced in admin-only views from user-supplied data
 
 | Tool | Repo | Coverage Notes |
@@ -70,6 +76,7 @@
 | Dalfox | https://github.com/hahwul/dalfox | Blind callback confirms admin-context execution |
 
 ### 6.07 — Stored XSS in Support Tickets
+
 **Detects:** Stored XSS in ticket body/attachments rendered to support agents
 
 | Tool | Repo | Coverage Notes |
@@ -78,6 +85,7 @@
 | Dalfox | https://github.com/hahwul/dalfox | Blind callback fires when agent views ticket |
 
 ### 6.08 — Stored XSS in Logs Viewed in Dashboard
+
 **Detects:** Stored XSS in log/audit entries rendered in a web dashboard
 
 | Tool | Repo | Coverage Notes |
@@ -86,6 +94,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40016 with privileged session |
 
 ### 6.09 — Unsafe JavaScript Sinks
+
 **Detects:** DOM XSS via dangerous sinks: innerHTML, eval, location.href assignments
 
 | Tool | Repo | Coverage Notes |
@@ -95,6 +104,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10028 + DOM XSS script |
 
 ### 6.10 — URL Fragment Handling
+
 **Detects:** DOM XSS via location.hash fragment parsed client-side
 
 | Tool | Repo | Coverage Notes |
@@ -103,6 +113,7 @@
 | Playwright | https://github.com/microsoft/playwright | Navigate with malicious fragments; observe DOM mutations |
 
 ### 6.11 — postMessage Misuse
+
 **Detects:** XSS or data leakage via poorly validated window.postMessage handlers
 
 | Tool | Repo | Coverage Notes |
@@ -111,6 +122,7 @@
 | Domdig | https://github.com/fcavallarin/domdig | DOM analysis of message event handlers |
 
 ### 6.12 — Stored XSS via HTML Body
+
 **Detects:** Stored XSS in rich-text fields that render raw HTML
 
 | Tool | Repo | Coverage Notes |
@@ -120,6 +132,7 @@
 | Dalfox | https://github.com/hahwul/dalfox | Blind stored with HTML body payloads |
 
 ### 6.13 — XSS via HTML Attributes
+
 **Detects:** XSS injected into attribute values (onload=, onerror=, href=javascript:)
 
 | Tool | Repo | Coverage Notes |
@@ -128,6 +141,7 @@
 | XSStrike | https://github.com/s0md3v/XSStrike | Context-aware: detects attribute vs tag position |
 
 ### 6.14 — XSS via JavaScript Strings
+
 **Detects:** XSS injected into JS string literals (breaking out with quote characters)
 
 | Tool | Repo | Coverage Notes |
@@ -136,6 +150,7 @@
 | Domdig | https://github.com/fcavallarin/domdig | Runtime execution verification via headless Chrome |
 
 ### 6.15 — XSS via Template Literals
+
 **Detects:** XSS through backtick template literal injection in client-side code
 
 | Tool | Repo | Coverage Notes |
@@ -144,6 +159,7 @@
 | Playwright | https://github.com/microsoft/playwright | Inject and observe runtime eval in template literals |
 
 ### 6.16 — XSS via SVG
+
 **Detects:** XSS via uploaded or inlined SVG containing script or onload handlers
 
 | Tool | Repo | Coverage Notes |
@@ -153,6 +169,7 @@
 | Nuclei | https://github.com/projectdiscovery/nuclei | `svg-xss` upload templates |
 
 ### 6.17 — Missing CSP
+
 **Detects:** Absence of a Content-Security-Policy header
 
 | Tool | Repo | Coverage Notes |
@@ -162,6 +179,7 @@
 | Nuclei | https://github.com/projectdiscovery/nuclei | `missing-csp` header-check templates |
 
 ### 6.18 — Unsafe-Inline in CSP
+
 **Detects:** CSP present but weakened by unsafe-inline or unsafe-eval directives
 
 | Tool | Repo | Coverage Notes |
@@ -170,6 +188,7 @@
 | Nuclei | https://github.com/projectdiscovery/nuclei | `csp-unsafe-inline` templates |
 
 ### 6.19 — Weak Script Sources in CSP
+
 **Detects:** CSP script-src allowing CDNs, wildcards, or data: URIs that enable bypass
 
 | Tool | Repo | Coverage Notes |
@@ -178,6 +197,7 @@
 | Nuclei | https://github.com/projectdiscovery/nuclei | `csp-wildcard` / `csp-bypass` templates |
 
 ### 6.20 — JSONP or Callback Bypasses
+
 **Detects:** JSONP endpoints or callback= params that allow CSP/SOP bypass or data exfil
 
 | Tool | Repo | Coverage Notes |
