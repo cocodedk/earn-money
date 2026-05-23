@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture
 def _bypass_guard():
     """Patch resolve_and_guard so stub runners skip scope/rate-limit checks.
 
