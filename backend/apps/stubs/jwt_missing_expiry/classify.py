@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from apps.stubs._shared.auth.jwt_utils import ParsedJwt
-from apps.stubs._shared.types import Confidence, Status
+from apps.stubs._shared.types import Confidence
 
 _ACCESS_KINDS = frozenset({"access_token", "id_token", "session_jwt"})
 

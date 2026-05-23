@@ -13,11 +13,7 @@ from apps.stubs.runners import guarded_runner
 _STUB_ID = "3.11-jwt-missing-expiry"
 _PROBE_PATHS = ("/",)
 _TOKEN_BODY_KEYS = ("access_token", "id_token", "token")
-_KIND_MAP = {
-    "access_token": "access_token",
-    "id_token": "id_token",
-    "token": "access_token",
-}
+_KIND_REMAP = {"token": "access_token"}
 _STATUS_MAP = {
     ExpiryStatus.CONFIRMED: FindingStatus.CONFIRMED,
     ExpiryStatus.CANDIDATE: FindingStatus.CANDIDATE,
@@ -52,7 +48,7 @@ def _process_response(resp, scan_run, target_run):
 
 def _collect_tokens(resp) -> list[tuple[str, str]]:
     tokens: list[tuple[str, str]] = []
-    auth = (resp.headers or {}).get("Authorization", "")
+    auth = resp.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         tokens.append((auth[7:].strip(), "access_token"))
     try:
@@ -61,7 +57,7 @@ def _collect_tokens(resp) -> list[tuple[str, str]]:
             for key in _TOKEN_BODY_KEYS:
                 val = body.get(key)
                 if isinstance(val, str) and "." in val:
-                    tokens.append((val, _KIND_MAP.get(key, "unknown_jwt")))
+                    tokens.append((val, _KIND_REMAP.get(key, key)))
     except Exception:
         pass
     return tokens
@@ -74,9 +70,9 @@ def _emit(raw_token: str, kind: str, result, scan_run, target_run):
         stub_slug=_STUB_ID,
         title="JWT missing expiry claim",
         category="jwt_missing_expiry",
-        severity=_SEVERITY_MAP.get(result.confidence, Severity.LOW),
+        severity=_SEVERITY_MAP[result.confidence],
         confidence=result.confidence,
-        status=_STATUS_MAP.get(result.status, FindingStatus.CANDIDATE),
+        status=_STATUS_MAP[result.status],
         data={
             "token_kind": kind,
             "token_fingerprint": fingerprint_token(raw_token),

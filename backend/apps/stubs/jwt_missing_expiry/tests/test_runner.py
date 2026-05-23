@@ -1,34 +1,19 @@
 """Tests for stub 3.11 JWT missing-expiry runner."""
 from __future__ import annotations
 
-import base64
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.stubs._shared.auth.jwt_utils import build_hs_token
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.jwt_missing_expiry.runner import run
 
+_SECRET = b"test"
+_HEADER = {"alg": "HS256", "typ": "JWT"}
 
-def _b64url(data: dict) -> str:
-    return base64.urlsafe_b64encode(
-        json.dumps(data).encode()
-    ).rstrip(b"=").decode()
-
-
-def _make_token(header: dict, payload: dict, sig: str = "sig") -> str:
-    return f"{_b64url(header)}.{_b64url(payload)}.{sig}"
-
-
-_ACCESS_TOKEN = _make_token(
-    {"alg": "HS256", "typ": "JWT"},
-    {"sub": "u1"},  # no exp
-)
-_VALID_TOKEN = _make_token(
-    {"alg": "HS256", "typ": "JWT"},
-    {"sub": "u1", "exp": 9999999999},
-)
+_ACCESS_TOKEN = build_hs_token(_HEADER, {"sub": "u1"}, _SECRET, "HS256")  # no exp
+_VALID_TOKEN = build_hs_token(_HEADER, {"sub": "u1", "exp": 9999999999}, _SECRET, "HS256")
 
 
 @pytest.fixture(autouse=True)
