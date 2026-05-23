@@ -1,0 +1,148 @@
+# Task 16 — Controller: init + run()
+
+Part of [Task 16](16-controller-loop.md). Imports, `__init__`, and `run()` method.
+
+```python
+# backend/apps/agent/controller.py
+from __future__ import annotations
+
+import json
+import hashlib
+import logging
+from typing import Any
+
+from .actions.schemas import parse_action, InvalidActionError
+from .actions.matrix import check_phase_action, PhaseViolationError
+from .budgets import BudgetTracker, BudgetExhaustedError
+from .plateau import PlateauDetector
+from .observations.builder import ObservationBuilder
+from .observations.assets import AssetObservation, AssetExcerpt
+from .persistence import (
+    create_session, create_turn, record_action, record_observation,
+    record_note, finish_turn, finish_session,
+)
+from .event_log import (
+    emit_session_started, emit_action_executed, emit_action_denied,
+    emit_phase_changed, emit_note_created, emit_mission_finished,
+)
+from .llm.prompts import build_system_prompt, format_observation_message
+from .llm.providers import LLMProvider
+from .models import (
+    AgentSession, SessionStatus, TurnStatus,
+    ValidationStatus, ExecutionStatus,
+)
+
+logger = logging.getLogger(__name__)
+
+SLICE_1_ACTIONS = [
+    "observe_page", "navigate", "inspect_asset",
+    "store_note", "submit_candidate",
+    "request_phase_transition", "stop",
+]
+
+PHASE_ORDER = ["recon", "enumerate", "report"]
+
+
+class MissionController:
+    def __init__(
+        self,
+        provider: LLMProvider,
+        driver: Any,
+        scan_run: Any,
+        target_run: Any,
+        target: Any,
+        mission_profile: str,
+        mission_budget: dict[str, Any],
+        phase_budgets: dict[str, dict[str, Any]],
+        objective: str = "Find the hidden scoreboard page",
+    ) -> None:
+        self._provider = provider
+        self._driver = driver
+        self._scan_run = scan_run
+        self._target_run = target_run
+        self._target = target
+        self._profile = mission_profile
+        self._mission_budget = mission_budget
+        self._phase_budgets = phase_budgets
+        self._objective = objective
+        self._messages: list[dict[str, str]] = []
+        self._session: AgentSession | None = None
+        self._obs_builder: ObservationBuilder | None = None
+
+    async def run(self) -> AgentSession:
+        self._session = create_session(
+            scan_run=self._scan_run,
+            target_run=self._target_run,
+            target=self._target,
+            mission_profile=self._profile,
+            model_policy={"primary_model": "mock"},
+            mission_budget=self._mission_budget,
+        )
+        emit_session_started(self._session)
+        self._obs_builder = ObservationBuilder(
+            target_origin=self._target.host,
+        )
+        phase_budget = self._phase_budgets.get("recon", {})
+        budget = BudgetTracker(
+            mission_budget=self._mission_budget,
+            phase_budget=phase_budget,
+        )
+        plateau = PlateauDetector()
+
+        stop_reason = "budget_exhausted"
+        try:
+            while True:
+                budget.check("turns")
+                turn = create_turn(session=self._session, model="mock")
+                result = await self._run_turn(turn, budget, plateau)
+                budget.consume("turns", 1)
+                if result == "stop":
+                    stop_reason = "objective_or_stop"
+                    break
+                if result == "phase_transition":
+                    current = self._session.current_phase
+                    ci = PHASE_ORDER.index(current)
+                    if ci + 1 < len(PHASE_ORDER):
+                        next_phase = PHASE_ORDER[ci + 1]
+                        emit_phase_changed(
+                            self._session, current, next_phase,
+                            "LLM requested transition",
+                        )
+                        self._session.current_phase = next_phase
+                        self._session.save(
+                            update_fields=["current_phase", "updated_at"],
+                        )
+                        budget.switch_phase(
+                            self._phase_budgets.get(next_phase, {}),
+                        )
+                        plateau = PlateauDetector()
+                if plateau.is_plateaued():
+                    current = self._session.current_phase
+                    ci = PHASE_ORDER.index(current)
+                    if ci + 1 < len(PHASE_ORDER):
+                        next_phase = PHASE_ORDER[ci + 1]
+                        emit_phase_changed(
+                            self._session, current, next_phase,
+                            plateau.plateau_reason(),
+                        )
+                        self._session.current_phase = next_phase
+                        self._session.save(
+                            update_fields=["current_phase", "updated_at"],
+                        )
+                        budget.switch_phase(
+                            self._phase_budgets.get(next_phase, {}),
+                        )
+                        plateau = PlateauDetector()
+        except BudgetExhaustedError:
+            stop_reason = "budget_exhausted"
+
+        final_status = (
+            SessionStatus.COMPLETED if stop_reason == "objective_or_stop"
+            else SessionStatus.STOPPED
+        )
+        finish_session(self._session, final_status, budget.consumed_snapshot())
+        emit_mission_finished(self._session, final_status, stop_reason)
+        return self._session
+```
+
+Continues in [16-controller-loop-turn.md](16-controller-loop-turn.md).
