@@ -298,6 +298,19 @@ services:
       SCENARIO: tenant-org-join
     networks: [scanner-net]
 
+  # --- Phase 3 cookie-flag fixtures (stubs 3.1-3.4) ----------------------
+  session-cookie-lab:
+    build:
+      context: ./fixtures/session-cookie-lab
+      dockerfile: Dockerfile
+    image: earnmoney-session-cookie-lab:dev
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+    ports:
+      - "3004:3000"
+    networks: [scanner-net]
+
 networks:
   scanner-net:
     driver: bridge
