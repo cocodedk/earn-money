@@ -137,3 +137,13 @@ def test_raw_value_not_in_raw_set_cookie():
 def test_max_age_invalid_string_is_none():
     c = parse_set_cookie("sid=x; Max-Age=notanumber")
     assert c.max_age is None
+
+
+def test_cookie_category_auth():
+    c = parse_set_cookie("auth=x; Path=/")
+    assert c.category == CookieCategory.AUTH
+
+
+def test_cookie_category_remember_me():
+    c = parse_set_cookie("remember_me=x; Path=/")
+    assert c.category == CookieCategory.REMEMBER_ME
