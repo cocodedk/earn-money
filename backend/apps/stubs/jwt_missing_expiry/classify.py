@@ -32,7 +32,6 @@ def classify_jwt_expiry(
     """Classify a JWT for missing or malformed expiry."""
     raw_exp = parsed.payload.get("exp")
 
-    # Malformed (non-numeric, non-None) exp
     if raw_exp is not None and not isinstance(raw_exp, (int, float)):
         return ExpiryResult(
             status=ExpiryStatus.CONFIRMED, confidence="medium", exp=None
@@ -43,7 +42,6 @@ def classify_jwt_expiry(
     if exp is not None:
         return ExpiryResult(status=ExpiryStatus.REJECTED, confidence="high", exp=exp)
 
-    # Missing exp — severity by token kind
     if token_kind in _ACCESS_KINDS:
         return ExpiryResult(status=ExpiryStatus.CONFIRMED, confidence="high", exp=None)
 

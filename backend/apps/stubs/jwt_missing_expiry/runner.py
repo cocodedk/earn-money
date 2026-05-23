@@ -4,10 +4,11 @@ from __future__ import annotations
 import httpx
 
 from apps.findings.models import Finding, FindingStatus, Severity
+from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.jwt_utils import fingerprint_token, parse_jwt, redact_token
 from apps.stubs._shared.auth.requests import submit_probe
-from apps.stubs.jwt_missing_expiry.classify import ExpiryStatus, classify_jwt_expiry
+from apps.stubs.jwt_missing_expiry.classify import ExpiryResult, ExpiryStatus, classify_jwt_expiry
 from apps.stubs.runners import guarded_runner
 
 _STUB_ID = "3.11-jwt-missing-expiry"
@@ -48,22 +49,32 @@ def _process_response(resp, scan_run, target_run):
 
 def _collect_tokens(resp) -> list[tuple[str, str]]:
     tokens: list[tuple[str, str]] = []
+    seen: set[str] = set()
     auth = resp.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
-        tokens.append((auth[7:].strip(), "access_token"))
+        raw = auth[7:].strip()
+        seen.add(raw)
+        tokens.append((raw, "access_token"))
     try:
         body = resp.json()
         if isinstance(body, dict):
             for key in _TOKEN_BODY_KEYS:
                 val = body.get(key)
-                if isinstance(val, str) and "." in val:
+                if isinstance(val, str) and "." in val and val not in seen:
+                    seen.add(val)
                     tokens.append((val, _KIND_REMAP.get(key, key)))
-    except Exception:
+    except (ValueError, UnicodeDecodeError):
         pass
     return tokens
 
 
-def _emit(raw_token: str, kind: str, result, scan_run, target_run):
+def _emit(
+    raw_token: str,
+    kind: str,
+    result: ExpiryResult,
+    scan_run: ScanRun,
+    target_run: ScanTargetRun,
+) -> None:
     finding = Finding.objects.create(
         scan_run=scan_run,
         target=target_run.target,

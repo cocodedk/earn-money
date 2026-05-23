@@ -140,3 +140,16 @@ def test_body_non_dict_no_finding(scan_run, target_run):
 
     from apps.findings.models import Finding
     assert not Finding.objects.filter(stub_slug="3.11-jwt-missing-expiry").exists()
+
+
+@pytest.mark.django_db
+def test_same_token_in_header_and_body_creates_one_finding(scan_run, target_run):
+    r = _resp(
+        headers={"Authorization": f"Bearer {_ACCESS_TOKEN}"},
+        body={"access_token": _ACCESS_TOKEN},
+    )
+    with patch(_PATCH, return_value=r):
+        run(scan_run, target_run)
+
+    from apps.findings.models import Finding
+    assert Finding.objects.filter(stub_slug="3.11-jwt-missing-expiry").count() == 1
