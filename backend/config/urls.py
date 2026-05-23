@@ -10,6 +10,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.agent.views import AgentSessionViewSet
 from apps.events.views import EventViewSet, scan_run_event_stream
 from apps.evidence.views import EvidenceViewSet
 from apps.findings.views import FindingViewSet
@@ -22,6 +23,7 @@ from .health import health
 
 
 router = DefaultRouter()
+router.register(r"agent/sessions", AgentSessionViewSet, basename="agent-session")
 router.register(r"projects", ProjectViewSet, basename="project")
 router.register(r"targets", ScanTargetViewSet, basename="target")
 router.register(r"stubs", StubViewSet, basename="stub")
