@@ -47,7 +47,7 @@ These tools enable discovery — without them, scanners only see the first page.
 | ppmap | https://github.com/kleiton0x00/ppmap | 14 | Client-side prototype pollution |
 | Commix | https://github.com/commixproject/commix | 05 | OS command injection |
 | SSTImap | https://github.com/vladko312/SSTImap | 05 | SSTI (maintained Tplmap fork) |
-| graphql-cop | https://github.com/dolevf/graphql-cop | 05,11 | GraphQL security testing |
+| graphql-cop | https://github.com/dolevf/graphql-cop | 05,11,23 | GraphQL security testing |
 | Fuxploider | https://github.com/almandin/fuxploider | 08 | File upload |
 | LFIscanner | https://github.com/R3LI4NT/LFIscanner | 09 | LFI |
 | YA-LFI | https://github.com/0x-Apollyon/YA-LFI | 09 | LFI |

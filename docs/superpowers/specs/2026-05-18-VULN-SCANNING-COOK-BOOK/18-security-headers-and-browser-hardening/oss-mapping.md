@@ -104,7 +104,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10020 (X-Frame-Options Not Set) + clickjacking PoC generation |
+| ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10020 (X-Frame-Options Not Set) |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `clickjacking` template family |
 | Playwright | https://github.com/microsoft/playwright | Iframe rendering test to confirm frame load |
 | Observatory | https://github.com/mdn/mdn-http-observatory | Combined framing-header check |
