@@ -12,7 +12,6 @@ class HttpOnlyStatus(str, Enum):
     CONFIRMED = "confirmed"
     CANDIDATE = "candidate"
     REJECTED = "rejected"
-    STALE = "stale"
     NOT_APPLICABLE = "not_applicable"
 
 

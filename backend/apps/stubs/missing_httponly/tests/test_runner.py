@@ -18,32 +18,26 @@ def _bypass_guard():
 
 
 @pytest.fixture
-def scan_run_and_target(db):
-    scan_run, target_run = seed_target_run(stub_slug="3.1", host="fixture.test")
-    return scan_run, target_run
+def _seed(db):
+    return seed_target_run(stub_slug="3.1", host="fixture.test")
 
 
 @pytest.fixture
-def scan_run(scan_run_and_target):
-    return scan_run_and_target[0]
+def scan_run(_seed):
+    scan_run, _ = _seed
+    return scan_run
 
 
 @pytest.fixture
-def target_run(scan_run_and_target):
-    return scan_run_and_target[1]
+def target_run(_seed):
+    _, target_run = _seed
+    return target_run
 
 
 def _resp(cookies: list[str], status: int = 200) -> httpx.Response:
-    headers = {}
-    if cookies:
-        headers["Set-Cookie"] = cookies[0]
-    r = httpx.Response(status, headers=headers)
-    if len(cookies) > 1:
-        # httpx stores multi-value headers; build raw response with multiple Set-Cookie
-        raw_headers = [(b"set-cookie", c.encode()) for c in cookies]
-        raw_headers.append((b"content-type", b"application/json"))
-        r = httpx.Response(status, headers=httpx.Headers(raw_headers))
-    return r
+    raw = [(b"set-cookie", c.encode()) for c in cookies]
+    raw.append((b"content-type", b"application/json"))
+    return httpx.Response(status, headers=httpx.Headers(raw))
 
 
 @pytest.mark.django_db

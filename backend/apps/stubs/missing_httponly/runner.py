@@ -42,14 +42,14 @@ def _process_response(
                 scan_run=scan_run, target_run=target_run,
                 cookie_name=cookie.name,
                 raw_header=cookie.raw_set_cookie,
-                status=result.status.value,
+                status=result.status,
                 confidence=result.confidence,
             )
 
 
 def _emit_finding(
     *, scan_run: ScanRun, target_run: ScanTargetRun,
-    cookie_name: str, raw_header: str, status: str, confidence: str,
+    cookie_name: str, raw_header: str, status: HttpOnlyStatus, confidence: str,
 ) -> None:
     finding = Finding.objects.create(
         scan_run=scan_run,
@@ -59,7 +59,7 @@ def _emit_finding(
         category="missing_httponly",
         severity=Severity.MEDIUM,
         confidence=confidence,
-        status=FindingStatus.CONFIRMED if status == "confirmed" else FindingStatus.CANDIDATE,
+        status=FindingStatus.CONFIRMED if status is HttpOnlyStatus.CONFIRMED else FindingStatus.CANDIDATE,
         data={"cookie_name": cookie_name, "raw_set_cookie": raw_header},
     )
     log_finding_candidate(finding, stub_id=_STUB_ID)
