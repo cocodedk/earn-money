@@ -156,3 +156,20 @@ async def test_store_note_persists(db_objects):
     ])
     await c.run()
     assert AgentNote.objects.filter(session=c.session).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestConsumedBudgetPersistence:
+    """consumed_budget must be written to DB after every turn path."""
+
+    @pytest.mark.asyncio
+    async def test_budget_persisted_after_executed_turn(self, db_objects):
+        """Provider returns a stop action so the controller finishes after one turn."""
+        session_obj = _ctrl(
+            db_objects,
+            responses=[_action_json(action="stop", reason="done")],
+            budget={"max_turns": 10},
+        )
+        await session_obj.run()
+        session_obj.session.refresh_from_db()
+        assert session_obj.session.consumed_budget["mission"]["turns"] >= 1

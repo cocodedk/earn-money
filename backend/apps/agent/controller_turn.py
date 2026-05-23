@@ -29,24 +29,28 @@ async def run_turn(ctrl: MissionController) -> bool:
     turn = create_turn(ctrl.session, model=ctrl.model_name)
     ctrl.budget.consume("turns")
 
-    llm_resp = await ctrl.provider.complete(ctrl.system_prompt, ctrl.messages)
-    turn.input_tokens = llm_resp.input_tokens
-    turn.output_tokens = llm_resp.output_tokens
-    turn.save(update_fields=["input_tokens", "output_tokens"])
-
-    raw: dict | str = {}
     try:
-        raw = json.loads(llm_resp.raw_text)
-        envelope = parse_action(raw)
-    except (json.JSONDecodeError, InvalidActionError) as exc:
-        return _handle_invalid(ctrl, turn, str(exc), llm_resp.raw_text)
+        llm_resp = await ctrl.provider.complete(ctrl.system_prompt, ctrl.messages)
+        turn.input_tokens = llm_resp.input_tokens
+        turn.output_tokens = llm_resp.output_tokens
+        turn.save(update_fields=["input_tokens", "output_tokens"])
 
-    try:
-        check_phase_action(ctrl.session.current_phase, envelope.action)
-    except PhaseViolationError as exc:
-        return _handle_denied(ctrl, turn, envelope, str(exc))
+        raw: dict | str = {}
+        try:
+            raw = json.loads(llm_resp.raw_text)
+            envelope = parse_action(raw)
+        except (json.JSONDecodeError, InvalidActionError) as exc:
+            return _handle_invalid(ctrl, turn, str(exc), llm_resp.raw_text)
 
-    return await _execute(ctrl, turn, envelope)
+        try:
+            check_phase_action(ctrl.session.current_phase, envelope.action)
+        except PhaseViolationError as exc:
+            return _handle_denied(ctrl, turn, envelope, str(exc))
+
+        return await _execute(ctrl, turn, envelope)
+    finally:
+        ctrl.session.consumed_budget = ctrl.budget.consumed_snapshot()
+        ctrl.session.save(update_fields=["consumed_budget"])
 
 
 def _handle_invalid(ctrl, turn, error_msg: str, raw_text: str) -> bool:
@@ -80,8 +84,15 @@ def _handle_denied(ctrl, turn, envelope: ActionEnvelope, reason: str) -> bool:
     finish_turn(turn, TurnStatus.ACTION_DENIED)
     ctrl.plateau.record_denial()
 
-    from .event_log import emit_action_denied
-    emit_action_denied(ctrl.session, turn.index, envelope.action, reason)
+    from .event_log import build_budget_snapshot, emit_action_denied
+    snapshot = build_budget_snapshot(
+        ctrl.session, ctrl.budget.consumed_snapshot(),
+    )
+    emit_action_denied(
+        ctrl.session, turn.index, envelope.action, reason,
+        goal=envelope.goal, hypothesis=envelope.hypothesis,
+        budget_snapshot=snapshot,
+    )
 
     denial = format_observation_message(denial_reason=reason)
     raw = json.dumps({"action": envelope.action})
@@ -122,8 +133,20 @@ async def _execute(ctrl, turn, envelope: ActionEnvelope) -> bool:
         return False
 
     obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
-    from .event_log import emit_action_executed
-    emit_action_executed(ctrl.session, turn.index, envelope.action)
+    from .event_log import (
+        build_budget_snapshot, emit_action_executed, summarize_observation,
+    )
+    snapshot = build_budget_snapshot(
+        ctrl.session, ctrl.budget.consumed_snapshot(),
+    )
+    obs_summary = summarize_observation(obs_dict)
+    emit_action_executed(
+        ctrl.session, turn.index, envelope.action,
+        goal=envelope.goal, reason=envelope.reason,
+        hypothesis=envelope.hypothesis,
+        budget_snapshot=snapshot,
+        observation_summary=obs_summary,
+    )
     finish_turn(turn, TurnStatus.COMPLETED)
 
     obs_msg = format_observation_message(obs_dict=obs_dict)

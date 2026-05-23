@@ -116,8 +116,11 @@ class MissionController:
             return False  # pragma: no cover — defensive
 
         reason = f"auto-advance: {self.plateau.plateau_reason()}"
-        from .event_log import emit_phase_changed
-        emit_phase_changed(self.session, current, nxt, reason)
+        from .event_log import build_budget_snapshot, emit_phase_changed
+        snapshot = build_budget_snapshot(
+            self.session, self.budget.consumed_snapshot(),
+        )
+        emit_phase_changed(self.session, current, nxt, reason, budget_snapshot=snapshot)
         self.advance_phase(nxt, reason)
         return True
 
@@ -140,4 +143,6 @@ class MissionController:
     def _finish(self, status: str, reason: str) -> None:
         consumed = self.budget.consumed_snapshot()
         finish_session(self.session, status, consumed)
-        emit_mission_finished(self.session, status, reason)
+        from .event_log import build_budget_snapshot
+        snapshot = build_budget_snapshot(self.session, consumed)
+        emit_mission_finished(self.session, status, reason, budget_snapshot=snapshot)
