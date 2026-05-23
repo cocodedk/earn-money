@@ -143,6 +143,8 @@ services:
       FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
       FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
       FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
