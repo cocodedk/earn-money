@@ -217,3 +217,99 @@ class AgentSessionReadOnlyTests(TestCase):
     def test_delete_returns_405(self):
         url = reverse("agent-session-detail", args=[self.session.id])
         assert self.client.delete(url).status_code == 405
+
+
+class AgentSessionCreateTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.project = Project.objects.create(name="test")
+        self.target = ScanTarget.objects.create(
+            host="juiceshop.cocode.dk", project=self.project,
+            base_url="https://juiceshop.cocode.dk",
+        )
+
+    def test_create_returns_201_with_full_session(self):
+        url = reverse("agent-session-list")
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            resp = self.client.post(url, {
+                "target": str(self.target.id),
+                "mission_profile": "juice_shop_scoreboard",
+            }, format="json")
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["status"] == "running"
+        assert data["current_phase"] == "recon"
+        assert data["mission_profile"] == "juice_shop_scoreboard"
+        assert data["scan_run"] is not None
+        assert data["scan_target_run"] is not None
+        assert len(callbacks) == 1
+
+    def test_create_creates_scan_run_and_target_run(self):
+        url = reverse("agent-session-list")
+        with self.captureOnCommitCallbacks(execute=False):
+            self.client.post(url, {
+                "target": str(self.target.id),
+            }, format="json")
+        assert ScanRun.objects.filter(stub_slug="agent.v3").count() == 1
+        assert ScanTargetRun.objects.count() == 1
+
+    def test_create_emits_session_started_event(self):
+        from apps.events.models import Event
+        from apps.events.types import EventType
+        url = reverse("agent-session-list")
+        with self.captureOnCommitCallbacks(execute=False):
+            self.client.post(url, {
+                "target": str(self.target.id),
+            }, format="json")
+        assert Event.objects.filter(
+            type=EventType.AGENT_SESSION_STARTED
+        ).exists()
+
+
+class AgentSessionCreateValidationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.project = Project.objects.create(name="test")
+        self.target = ScanTarget.objects.create(
+            host="test.example.com", project=self.project,
+        )
+
+    def test_unknown_target_returns_400(self):
+        import uuid
+        url = reverse("agent-session-list")
+        resp = self.client.post(url, {
+            "target": str(uuid.uuid4()),
+        }, format="json")
+        assert resp.status_code == 400
+
+    def test_unknown_profile_returns_400(self):
+        url = reverse("agent-session-list")
+        resp = self.client.post(url, {
+            "target": str(self.target.id),
+            "mission_profile": "nonexistent",
+        }, format="json")
+        assert resp.status_code == 400
+
+    def test_duplicate_active_session_returns_400(self):
+        from apps.agent.models import (
+            AgentSession, AutonomyMode, AgentPhase, SessionStatus,
+        )
+        run = ScanRun.objects.create(
+            project=self.project, stub_slug="agent.v3",
+        )
+        tr = ScanTargetRun.objects.create(
+            scan_run=run, target=self.target,
+        )
+        AgentSession.objects.create(
+            scan_target_run=tr, scan_run=run, target=self.target,
+            autonomy_mode=AutonomyMode.LAB_FREE_RUN,
+            current_phase=AgentPhase.RECON,
+            status=SessionStatus.RUNNING,
+            mission_profile="test",
+        )
+        url = reverse("agent-session-list")
+        resp = self.client.post(url, {
+            "target": str(self.target.id),
+        }, format="json")
+        assert resp.status_code == 400
+        assert "active" in str(resp.json()).lower()

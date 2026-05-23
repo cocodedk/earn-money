@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.db import transaction
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -32,6 +33,12 @@ class AgentSessionViewSet(
             qs = qs.filter(target_id=params["target"])
         return qs
 
+    def perform_create(self, serializer):
+        session = serializer.save()
+        transaction.on_commit(
+            lambda: _enqueue_agent_session(str(session.id))
+        )
+
     @action(detail=True, methods=["get"])
     def turns(self, _request: Request, pk=None) -> Response:
         session = self.get_object()
@@ -49,3 +56,8 @@ class AgentSessionViewSet(
         page = self.paginate_queryset(qs)
         serializer = AgentNoteSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)
+
+
+def _enqueue_agent_session(session_id: str) -> None:
+    from .tasks import run_agent_session
+    run_agent_session.delay(session_id)
