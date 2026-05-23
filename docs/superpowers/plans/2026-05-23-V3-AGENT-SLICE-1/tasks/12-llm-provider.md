@@ -6,7 +6,8 @@
 - Create: `backend/apps/agent/tests/test_providers.py`
 
 Slice 1 uses a single frontier model. The provider interface is a thin wrapper
-around the Anthropic or OpenAI SDK. We test with a mock provider.
+around the Anthropic SDK plus a mock provider; OpenAI support is deferred but the
+interface should not prevent adding it later. We test with a mock provider.
 
 - [ ] **Step 1: Write tests for provider**
 

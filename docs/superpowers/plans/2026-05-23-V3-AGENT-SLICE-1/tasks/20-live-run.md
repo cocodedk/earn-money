@@ -1,6 +1,7 @@
 ### Task 20: Live Juice Shop run (manual verification)
 
-**Files:** No new files — this is a manual verification step.
+**Files:**
+- Create: `backend/live_test_agent.py` (manual verification runner)
 
 This task runs the agent against the real Juice Shop at
 `juiceshop.cocode.dk`. It requires a real LLM API key and Playwright
@@ -33,6 +34,7 @@ from apps.projects.models import Project
 
 async def main():
     profile = get_profile("juice_shop_scoreboard")
+    model_policy = profile.model_policy
     project, _ = Project.objects.get_or_create(name="v3-live-test")
     target, _ = ScanTarget.objects.get_or_create(
         host=profile.target, project=project,
@@ -41,9 +43,9 @@ async def main():
     target_run = ScanTargetRun.objects.create(scan_run=scan_run, target=target)
 
     provider = create_provider(
-        model="claude-sonnet-4-6",
+        model=model_policy["primary_model"],
         api_key=os.environ["ANTHROPIC_API_KEY"],
-        provider_type="anthropic",
+        provider_type=model_policy.get("provider_type", "anthropic"),
     )
     driver = PlaywrightDriver()
     await driver.start(f"https://{profile.target}")
@@ -56,6 +58,7 @@ async def main():
             mission_budget=profile.mission_budget,
             phase_budgets=profile.phase_budgets,
             objective=profile.objective,
+            model_name=model_policy["primary_model"],
         )
         session = await controller.run()
         print(f"Mission finished: {session.status}")

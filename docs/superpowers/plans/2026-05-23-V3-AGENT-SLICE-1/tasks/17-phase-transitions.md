@@ -4,6 +4,10 @@
 - Create: `backend/apps/agent/phases.py`
 - Create: `backend/apps/agent/tests/test_phases.py`
 
+`PHASE_ORDER` keeps the full architecture sequence for compatibility. Slice 1 controllers
+must still restrict automatic advancement to the mission profile phases
+(`recon`, `enumerate`, `report`).
+
 - [ ] **Step 1: Write tests**
 
 ```python

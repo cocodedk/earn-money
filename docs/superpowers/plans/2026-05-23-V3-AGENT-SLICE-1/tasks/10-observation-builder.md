@@ -75,6 +75,19 @@ async def test_builder_assigns_controller_ids(mock_page):
         assert link["id"].startswith("link_")
     for btn in d["elements"]["buttons"]:
         assert btn["id"].startswith("btn_")
+
+
+@pytest.mark.asyncio
+async def test_builder_resolves_asset_refs(mock_page):
+    builder = ObservationBuilder(target_origin="juiceshop.cocode.dk")
+    obs = await builder.build_page_observation(
+        page=mock_page, turn=0, phase="recon", action_ref="act_0",
+        network_entries=[
+            {"url": "https://juiceshop.cocode.dk/main.js", "resource_type": "script"},
+        ],
+    )
+    asset = obs.discovered.assets[0]
+    assert builder.resolve_asset_ref(asset.id) == "/main.js"
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**

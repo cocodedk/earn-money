@@ -37,6 +37,9 @@ def _scripted_provider() -> AsyncMock:
                   "reason": "Found JS bundle with routes", "evidence_refs": ["obs_0"]}},
         {"action": "navigate", "goal": "Go to scoreboard",
          "args": {"path": "/#/score-board"}},
+        {"action": "request_phase_transition", "goal": "Move to report",
+         "args": {"from_phase": "enumerate", "to_phase": "report",
+                  "reason": "Scoreboard page observed", "evidence_refs": ["obs_1"]}},
         {"action": "submit_candidate", "goal": "Report finding",
          "args": {"category": "hidden_route_discovered",
                   "description": "Found scoreboard at /#/score-board",
@@ -104,10 +107,11 @@ async def test_full_scoreboard_mission():
     target = ScanTarget.objects.create(host="juiceshop.cocode.dk", project=project)
     scan_run = ScanRun.objects.create(project=project, stub_slug="agent.v3")
     target_run = ScanTargetRun.objects.create(scan_run=scan_run, target=target)
+    driver = _scripted_driver()
 
     controller = MissionController(
         provider=_scripted_provider(),
-        driver=_scripted_driver(),
+        driver=driver,
         scan_run=scan_run,
         target_run=target_run,
         target=target,
@@ -124,10 +128,14 @@ async def test_full_scoreboard_mission():
     # Session completed successfully
     assert session.status == SessionStatus.COMPLETED
     assert session.finished_at is not None
+    assert session.current_phase == "report"
+    assert session.consumed_budget["turns"] == 7
+    assert session.consumed_budget["asset_inspections"] == 1
+    assert session.consumed_budget["http_requests"] >= 1
 
     # All turns persisted with artifact refs and tokens
     turns = AgentTurn.objects.filter(session=session).order_by("index")
-    assert turns.count() == 6
+    assert turns.count() == 7
     for turn in turns:
         assert turn.prompt_artifact_ref != ""
         assert turn.response_artifact_ref != ""
@@ -135,11 +143,12 @@ async def test_full_scoreboard_mission():
 
     # Actions persisted
     actions = AgentAction.objects.filter(turn__session=session)
-    assert actions.count() == 6
+    assert actions.count() == 7
 
     # Observations persisted for observe_page, navigate, inspect_asset
     observations = AgentObservation.objects.filter(action__turn__session=session)
     assert observations.count() >= 3
+    driver.fetch_asset.assert_awaited_with("/main.js")
 
     # Candidate note persisted
     candidates = AgentNote.objects.filter(session=session, note_type="candidate")
@@ -157,7 +166,7 @@ async def test_full_scoreboard_mission():
 
     # Phase transitions happened
     phase_events = events.filter(type="agent.phase_changed")
-    assert phase_events.count() >= 1
+    assert phase_events.count() >= 2
 ```
 
 - [ ] **Step 2: Run test**

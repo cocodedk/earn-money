@@ -12,7 +12,9 @@ import logging
 from typing import Any
 
 from .actions.schemas import parse_action, InvalidActionError
-from .actions.matrix import check_phase_action, PhaseViolationError
+from .actions.matrix import (
+    check_phase_action, allowed_actions_for_phase, PhaseViolationError,
+)
 from .budgets import BudgetTracker, BudgetExhaustedError
 from .plateau import PlateauDetector
 from .observations.builder import ObservationBuilder
@@ -27,19 +29,13 @@ from .event_log import (
 )
 from .llm.prompts import build_system_prompt, format_observation_message
 from .llm.providers import LLMProvider
-from .phases import next_phase
+from .phases import is_valid_transition
 from .models import (
     AgentSession, SessionStatus, TurnStatus,
     ValidationStatus, ExecutionStatus,
 )
 
 logger = logging.getLogger(__name__)
-
-SLICE_1_ACTIONS = [
-    "observe_page", "navigate", "inspect_asset",
-    "store_note", "submit_candidate",
-    "request_phase_transition", "stop",
-]
 
 SLICE_1_PHASES = ["recon", "enumerate", "report"]
 
@@ -56,6 +52,7 @@ class MissionController:
         mission_budget: dict[str, Any],
         phase_budgets: dict[str, dict[str, Any]],
         objective: str = "Find the hidden scoreboard page",
+        model_name: str = "mock",
     ) -> None:
         self._provider = provider
         self._driver = driver
@@ -66,9 +63,12 @@ class MissionController:
         self._mission_budget = mission_budget
         self._phase_budgets = phase_budgets
         self._objective = objective
+        self._model_name = model_name
         self._messages: list[dict[str, str]] = []
         self._session: AgentSession | None = None
         self._obs_builder: ObservationBuilder | None = None
+        self._seen_routes: set[str] = set()
+        self._seen_elements: set[str] = set()
 
     async def run(self) -> AgentSession:
         self._session = create_session(
@@ -76,7 +76,7 @@ class MissionController:
             target_run=self._target_run,
             target=self._target,
             mission_profile=self._profile,
-            model_policy={"primary_model": "mock"},
+            model_policy={"primary_model": self._model_name},
             mission_budget=self._mission_budget,
         )
         emit_session_started(self._session)
@@ -91,37 +91,54 @@ class MissionController:
         plateau = PlateauDetector()
 
         stop_reason = "budget_exhausted"
+        final_status = SessionStatus.STOPPED
         try:
             while True:
-                budget.check("turns")
-                turn = create_turn(session=self._session, model="mock")
+                budget.check_all()
+                turn = create_turn(session=self._session, model=self._model_name)
                 result = await self._run_turn(turn, budget, plateau)
                 budget.consume("turns", 1)
                 if result == "stop":
                     stop_reason = "objective_or_stop"
                     break
-                if result == "phase_transition":
+                if result.startswith("phase_transition:"):
+                    _, requested, reason = result.split(":", 2)
                     current = self._session.current_phase
-                    nxt = next_phase(current)
-                    if nxt and nxt in SLICE_1_PHASES:
-                        self._advance_phase(nxt, current, "LLM requested transition", budget)
+                    if (
+                        requested in SLICE_1_PHASES
+                        and is_valid_transition(current, requested)
+                    ):
+                        self._advance_phase(requested, current, reason, budget)
                         plateau = PlateauDetector()
                 if plateau.is_plateaued():
                     current = self._session.current_phase
-                    nxt = next_phase(current)
-                    if nxt and nxt in SLICE_1_PHASES:
+                    nxt = self._next_slice_phase(current)
+                    if nxt:
                         self._advance_phase(nxt, current, plateau.plateau_reason(), budget)
                         plateau = PlateauDetector()
         except BudgetExhaustedError:
             stop_reason = "budget_exhausted"
-
-        final_status = (
-            SessionStatus.COMPLETED if stop_reason == "objective_or_stop"
-            else SessionStatus.STOPPED
-        )
+        except Exception as exc:
+            logger.exception("Agent mission failed")
+            stop_reason = f"error:{exc.__class__.__name__}"
+            final_status = SessionStatus.FAILED
+        else:
+            final_status = (
+                SessionStatus.COMPLETED if stop_reason == "objective_or_stop"
+                else SessionStatus.STOPPED
+            )
         finish_session(self._session, final_status, budget.consumed_snapshot())
         emit_mission_finished(self._session, final_status, stop_reason)
         return self._session
+
+    def _next_slice_phase(self, current: str) -> str | None:
+        try:
+            idx = SLICE_1_PHASES.index(current)
+        except ValueError:
+            return None
+        if idx + 1 < len(SLICE_1_PHASES):
+            return SLICE_1_PHASES[idx + 1]
+        return None
 
     def _advance_phase(
         self, nxt: str, current: str, reason: str,

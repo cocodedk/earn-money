@@ -5,6 +5,9 @@
 - Create: `backend/apps/agent/actions/schemas.py`
 - Create: `backend/apps/agent/tests/test_actions.py`
 
+Use Pydantic v2 models for validation. Do not accept future/deferred actions here; they
+remain matrix constants only until a later slice implements their schemas.
+
 - [ ] **Step 1: Write tests for action schema validation**
 
 ```python
@@ -48,6 +51,16 @@ def test_parse_navigate_url_ref():
     }
     envelope = parse_action(raw)
     assert envelope.parsed.url_ref == "url_5"
+
+
+def test_navigate_rejects_both_path_and_url_ref():
+    raw = {
+        "action": "navigate",
+        "goal": "Ambiguous target",
+        "args": {"path": "/score-board", "url_ref": "url_5"},
+    }
+    with pytest.raises(InvalidActionError, match="exactly one"):
+        parse_action(raw)
 
 
 def test_navigate_rejects_absolute_url():

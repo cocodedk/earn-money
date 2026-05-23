@@ -73,6 +73,24 @@ def test_dimension_not_in_budget_is_unbounded():
     phase = {"max_turns": 6}
     tracker = BudgetTracker(mission_budget=mission, phase_budget=phase)
     tracker.check("http_requests")
+
+
+def test_check_all_covers_non_turn_dimensions():
+    mission = {"max_turns": 25, "max_http_requests": 2}
+    phase = {"max_turns": 6, "max_http_requests": 10}
+    tracker = BudgetTracker(mission_budget=mission, phase_budget=phase)
+    tracker.consume("http_requests", 2)
+    with pytest.raises(BudgetExhaustedError, match="http_requests"):
+        tracker.check_all()
+
+
+def test_zero_budget_dimension_does_not_block_turn_check_until_used():
+    mission = {"max_turns": 25, "max_http_requests": 0}
+    phase = {"max_turns": 6, "max_http_requests": 0}
+    tracker = BudgetTracker(mission_budget=mission, phase_budget=phase)
+    tracker.check_all()
+    with pytest.raises(BudgetExhaustedError, match="http_requests"):
+        tracker.check("http_requests")
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -125,6 +143,18 @@ class BudgetTracker:
             consumed = self._phase_consumed.get(key, 0)
             if consumed >= p_limit:
                 raise BudgetExhaustedError(key, "phase", p_limit, consumed)
+
+    def check_all(self) -> None:
+        keys = set()
+        for limits in (self._mission_limits, self._phase_limits):
+            keys.update(_budget_key(k) for k in limits)
+        for key in keys:
+            consumed = (
+                self._mission_consumed.get(key, 0)
+                or self._phase_consumed.get(key, 0)
+            )
+            if key == "turns" or consumed:
+                self.check(key)
 
     def remaining(self, dimension: str) -> int:
         key = _budget_key(dimension)

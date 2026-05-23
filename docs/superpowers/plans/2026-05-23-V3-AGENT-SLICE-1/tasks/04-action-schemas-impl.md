@@ -15,46 +15,83 @@ __all__ = ["parse_action", "ActionEnvelope", "InvalidActionError"]
 # backend/apps/agent/actions/schemas.py
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator, model_validator
 
 
 class InvalidActionError(ValueError):
     pass
 
 
-@dataclass(frozen=True)
-class ObservePageAction:
+class _ActionModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ObservePageAction(_ActionModel):
     include_screenshot: bool = False
     element_ids: list[str] | None = None
 
 
-@dataclass(frozen=True)
-class NavigateAction:
+class NavigateAction(_ActionModel):
     path: str | None = None
     url_ref: str | None = None
 
+    @field_validator("path")
+    @classmethod
+    def _validate_path(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        lowered = value.lower()
+        if lowered.startswith("javascript:"):
+            raise ValueError("javascript: URIs are forbidden")
+        if lowered.startswith("data:"):
+            raise ValueError("data: URIs are forbidden")
+        if value.startswith("//"):
+            raise ValueError("protocol-relative URLs are forbidden")
+        if "://" in value:
+            raise ValueError("absolute URLs are forbidden; use relative paths")
+        if not value.startswith("/"):
+            raise ValueError("navigate path must start with '/'")
+        return value
 
-@dataclass(frozen=True)
-class InspectAssetAction:
+    @model_validator(mode="after")
+    def _exactly_one_target(self) -> "NavigateAction":
+        if bool(self.path) == bool(self.url_ref):
+            raise ValueError("navigate requires exactly one of 'path' or 'url_ref'")
+        return self
+
+
+class InspectAssetAction(_ActionModel):
     asset_ref: str
 
 
-@dataclass(frozen=True)
-class StoreNoteAction:
+class StoreNoteAction(_ActionModel):
     note_type: str
     content: dict[str, Any]
 
+    @field_validator("note_type")
+    @classmethod
+    def _validate_note_type(cls, value: str) -> str:
+        if value not in VALID_NOTE_TYPES:
+            raise ValueError(f"Invalid note_type: {value!r}")
+        return value
 
-@dataclass(frozen=True)
-class SubmitCandidateAction:
+
+class SubmitCandidateAction(_ActionModel):
     category: str
     description: str
     evidence_refs: list[str]
 
+    @field_validator("category", "description")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("candidate category and description are required")
+        return value
 
-@dataclass(frozen=True)
-class RequestPhaseTransitionAction:
+
+class RequestPhaseTransitionAction(_ActionModel):
     from_phase: str
     to_phase: str
     reason: str
@@ -62,14 +99,13 @@ class RequestPhaseTransitionAction:
     remaining_questions: list[str] | None = None
 
 
-@dataclass(frozen=True)
-class StopAction:
+class StopAction(_ActionModel):
     reason: str
 
 
 VALID_NOTE_TYPES = {"hypothesis", "gap", "credential_label", "route", "parameter", "candidate"}
 
-_SCHEMA_MAP: dict[str, type] = {
+_SCHEMA_MAP: dict[str, type[_ActionModel]] = {
     "observe_page": ObservePageAction,
     "navigate": NavigateAction,
     "inspect_asset": InspectAssetAction,
@@ -80,8 +116,9 @@ _SCHEMA_MAP: dict[str, type] = {
 }
 
 
-@dataclass(frozen=True)
-class ActionEnvelope:
+class ActionEnvelope(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     action: str
     goal: str
     reason: str
@@ -89,24 +126,9 @@ class ActionEnvelope:
     parsed: Any
 
 
-def _validate_navigate(args: dict[str, Any]) -> NavigateAction:
-    path = args.get("path")
-    url_ref = args.get("url_ref")
-    if not path and not url_ref:
-        raise InvalidActionError("navigate requires 'path' or 'url_ref'")
-    if path:
-        if path.startswith("javascript:"):
-            raise InvalidActionError("javascript: URIs are forbidden")
-        if path.startswith("data:"):
-            raise InvalidActionError("data: URIs are forbidden")
-        if path.startswith("//"):
-            raise InvalidActionError("protocol-relative URLs are forbidden")
-        if "://" in path:
-            raise InvalidActionError("absolute URLs are forbidden — use relative paths")
-    return NavigateAction(path=path, url_ref=url_ref)
-
-
 def parse_action(raw: dict[str, Any]) -> ActionEnvelope:
+    if not isinstance(raw, dict):
+        raise InvalidActionError("Action response must be a JSON object")
     action_name = raw.get("action")
     if not action_name or action_name not in _SCHEMA_MAP:
         raise InvalidActionError(f"Unknown action: {action_name!r}")
@@ -115,47 +137,16 @@ def parse_action(raw: dict[str, Any]) -> ActionEnvelope:
     reason = raw.get("reason", "")
     hypothesis = raw.get("hypothesis", "")
     args = raw.get("args", {})
+    if not isinstance(args, dict):
+        raise InvalidActionError("'args' must be an object")
 
-    if action_name == "navigate":
-        parsed = _validate_navigate(args)
-    elif action_name == "observe_page":
-        parsed = ObservePageAction(
-            include_screenshot=args.get("include_screenshot", False),
-            element_ids=args.get("element_ids"),
-        )
-    elif action_name == "inspect_asset":
-        ref = args.get("asset_ref")
-        if not ref:
-            raise InvalidActionError("inspect_asset requires 'asset_ref'")
-        parsed = InspectAssetAction(asset_ref=ref)
-    elif action_name == "store_note":
-        nt = args.get("note_type")
-        if nt not in VALID_NOTE_TYPES:
-            raise InvalidActionError(f"Invalid note_type: {nt!r}")
-        parsed = StoreNoteAction(note_type=nt, content=args.get("content", {}))
-    elif action_name == "submit_candidate":
-        parsed = SubmitCandidateAction(
-            category=args.get("category", ""),
-            description=args.get("description", ""),
-            evidence_refs=args.get("evidence_refs", []),
-        )
-    elif action_name == "request_phase_transition":
-        for field in ("from_phase", "to_phase", "reason"):
-            if field not in args:
-                raise InvalidActionError(f"request_phase_transition requires '{field}'")
-        parsed = RequestPhaseTransitionAction(
-            from_phase=args["from_phase"], to_phase=args["to_phase"],
-            reason=args["reason"], evidence_refs=args.get("evidence_refs", []),
-            remaining_questions=args.get("remaining_questions"),
-        )
-    elif action_name == "stop":
-        parsed = StopAction(reason=args.get("reason", ""))
-    else:
-        raise InvalidActionError(f"Unknown action: {action_name!r}")
+    try:
+        parsed = _SCHEMA_MAP[action_name].model_validate(args)
+    except ValidationError as exc:
+        raise InvalidActionError(str(exc)) from exc
 
     return ActionEnvelope(
         action=action_name, goal=goal, reason=reason,
         hypothesis=hypothesis, parsed=parsed,
     )
 ```
-

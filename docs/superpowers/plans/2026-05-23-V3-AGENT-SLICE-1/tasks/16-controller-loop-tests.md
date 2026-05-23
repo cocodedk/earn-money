@@ -115,6 +115,9 @@ async def test_controller_phase_transition(scan_context):
         {"action": "request_phase_transition", "goal": "Move on",
          "args": {"from_phase": "recon", "to_phase": "enumerate",
                   "reason": "Baseline done", "evidence_refs": []}},
+        {"action": "request_phase_transition", "goal": "Report",
+         "args": {"from_phase": "enumerate", "to_phase": "report",
+                  "reason": "Candidate found", "evidence_refs": []}},
         {"action": "stop", "goal": "Done",
          "args": {"reason": "finished"}},
     ])
@@ -131,7 +134,7 @@ async def test_controller_phase_transition(scan_context):
         },
     )
     session = await controller.run()
-    assert session.current_phase == "enumerate"
+    assert session.current_phase == "report"
     assert session.status == SessionStatus.COMPLETED
 
 

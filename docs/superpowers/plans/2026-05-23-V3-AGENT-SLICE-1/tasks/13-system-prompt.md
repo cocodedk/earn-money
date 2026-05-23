@@ -99,7 +99,7 @@ Current phase: {phase}
 - observe_page: args={{}} — refresh the current page observation
 - navigate: args={{path: "/relative/path"}} or args={{url_ref: "url_N"}}
 - inspect_asset: args={{asset_ref: "asset_N"}} — inspect a discovered JS/CSS asset
-- store_note: args={{note_type: "hypothesis|gap|credential_label|route|parameter", content: {{...}}}}
+- store_note: args={{note_type: "hypothesis|gap|credential_label|route|parameter|candidate", content: {{...}}}}
 - submit_candidate: args={{category: "...", description: "...", evidence_refs: [...]}}
 - request_phase_transition: args={{from_phase: "...", to_phase: "...", reason: "...", evidence_refs: [...]}}
 - stop: args={{reason: "..."}}

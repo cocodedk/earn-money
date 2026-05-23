@@ -6,7 +6,8 @@ for the full list.
 
 - AgentCheckpoint model and operator gates
 - AgentPhaseTransition table
-- probe/verify phases
+- active probe/verify execution in slice 1; enum values, transition helpers, and matrix rows
+  may keep them as future-compatible constants
 - v2 stub integration (`run_stub` action)
 - OSS tool integration (`run_tool` action)
 - `click`, `fill_form`, `submit_form`, `http_request`, `request_verify` actions
@@ -17,3 +18,5 @@ for the full list.
 - Celery task integration
 - `observations/redaction.py` (inline in builder for slice 1)
 - `llm/router.py` (single model, no routing)
+- OpenAI provider implementation (the provider interface remains compatible, but slice 1
+  implements mock + Anthropic only)

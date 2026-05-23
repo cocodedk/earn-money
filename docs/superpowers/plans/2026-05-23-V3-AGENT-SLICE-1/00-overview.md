@@ -12,8 +12,8 @@ controller mediates all execution: LLM proposes typed actions → controller val
 phase/budget/scope → executor runs Playwright → observation builder normalizes results.
 Three phases for this slice: recon → enumerate → report/stop.
 
-**Tech Stack:** Django 5.x, Playwright (async), OpenAI/Anthropic SDK, pytest, pydantic for
-action schemas.
+**Tech Stack:** Django 5.x, Playwright (async), Anthropic SDK for slice 1, pytest,
+pydantic v2 for action schemas.
 
 **Spec:** `docs/superpowers/specs/2026-05-23-V3-AGENT-ARCHITECTURE/`
 
@@ -21,7 +21,8 @@ action schemas.
 
 ## Task files
 
-Execute in order. Each file is one logical unit.
+Execute in the dependency order below. File number prefixes are stable task IDs; the table
+order is authoritative when a later-numbered task is a prerequisite.
 
 | File | Topic |
 |------|-------|
@@ -40,11 +41,22 @@ Execute in order. Each file is one logical unit.
 | [tasks/13-system-prompt.md](tasks/13-system-prompt.md) | System prompt + observation formatting |
 | [tasks/14-persistence.md](tasks/14-persistence.md) | Persistence layer |
 | [tasks/15-event-logging.md](tasks/15-event-logging.md) | Event types + emission helpers |
-| [tasks/16-controller-loop.md](tasks/16-controller-loop.md) | Mission controller loop |
 | [tasks/17-phase-transitions.md](tasks/17-phase-transitions.md) | Phase transition validation |
+| [tasks/16-controller-loop.md](tasks/16-controller-loop.md) | Mission controller loop |
 | [tasks/18-mission-profiles.md](tasks/18-mission-profiles.md) | Juice Shop mission profile |
 | [tasks/19-integration-test.md](tasks/19-integration-test.md) | Full integration test |
 | [tasks/20-live-run.md](tasks/20-live-run.md) | Live Juice Shop verification |
+
+## Execution guardrails
+
+- Do not start a task until all preceding dependency-order tasks pass their stated tests.
+- Treat commit steps as checkpoints. If git is unavailable, complete the task only after the
+  same file set is cleanly implemented and tested.
+- Roll back a failed task by undoing only the files named in that task's **Files** section.
+  For Task 3 migration failures in a disposable dev database, migrate the `agent` app back to
+  the previous migration before regenerating.
+- Do not proceed to Task 20 until the unit tests, controller tests, and Task 19 integration
+  test pass.
 
 ## Supporting files
 

@@ -27,6 +27,7 @@ class ObservationBuilder:
         self._origin = target_origin
         self._id_counters: dict[str, int] = {}
         self._url_map: dict[str, str] = {}
+        self._asset_map: dict[str, str] = {}
 
     def _next_id(self, prefix: str) -> str:
         n = self._id_counters.get(prefix, 0)
@@ -88,11 +89,11 @@ class ObservationBuilder:
 
     def _parse_a11y(self, snapshot: dict) -> tuple:
         links, buttons, forms, inputs, texts = [], [], [], [], []
-        for child in snapshot.get("children", []):
-            role = child.get("role", "")
-            name = child.get("name", "")
+        def visit(node: dict) -> None:
+            role = node.get("role", "")
+            name = node.get("name", "")
             if role == "link":
-                url = child.get("url", "")
+                url = node.get("url", "")
                 links.append(LinkElement(
                     id=self._next_id("link"), text=name,
                     accessible_name=name,
@@ -103,12 +104,20 @@ class ObservationBuilder:
                 buttons.append(ButtonElement(
                     id=self._next_id("btn"), text=name,
                     aria_role="button", accessible_name=name,
-                    enabled=not child.get("disabled", False),
+                    enabled=not node.get("disabled", False),
+                ))
+            elif role in ("textbox", "combobox", "searchbox"):
+                inputs.append(InputElement(
+                    id=self._next_id("inp"), label=name, type=role,
+                    required=False, value_state="unknown",
                 ))
             elif name:
                 texts.append(VisibleTextBlock(
                     id=self._next_id("txt"), text=name, role_context=role,
                 ))
+            for child in node.get("children", []):
+                visit(child)
+        visit(snapshot)
         return links, buttons, forms, inputs, texts
 
     def _extract_routes(self, links: list[LinkElement]) -> list[DiscoveredRoute]:
@@ -134,10 +143,15 @@ class ObservationBuilder:
             rtype = entry.get("resource_type", "")
             if rtype in ("script", "stylesheet"):
                 path = urlparse(entry.get("url", "")).path
+                asset_id = self._next_id("asset")
+                self._asset_map[asset_id] = path
                 assets.append(DiscoveredAsset(
-                    id=self._next_id("asset"), path=path, type=rtype,
+                    id=asset_id, path=path, type=rtype,
                 ))
         return assets
+
+    def resolve_asset_ref(self, ref: str) -> str | None:
+        return self._asset_map.get(ref)
 
     def _redact_cookies(self, raw: list[dict]) -> list[CookieInfo]:
         return [
@@ -164,4 +178,3 @@ class ObservationBuilder:
             for e in entries
         ]
 ```
-

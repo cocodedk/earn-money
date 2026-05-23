@@ -1,5 +1,4 @@
 # Phase 5 — Playwright Driver
-
 ### Task 11: Thin Playwright adapter
 
 **Files:**
@@ -18,7 +17,6 @@ the LLM never touches Playwright directly.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from apps.agent.browser.driver import PlaywrightDriver
-
 
 @pytest.fixture
 def mock_playwright():
@@ -41,16 +39,16 @@ def mock_playwright():
 
     return pw, browser, context, page
 
-
 @pytest.mark.asyncio
 async def test_driver_navigate(mock_playwright):
     pw, browser, context, page = mock_playwright
     with patch("apps.agent.browser.driver.async_playwright") as mock_apw:
-        mock_apw.return_value.__aenter__ = AsyncMock(return_value=pw)
-        mock_apw.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_apw.return_value.start = AsyncMock(return_value=pw)
 
         driver = PlaywrightDriver()
         await driver.start("https://juiceshop.cocode.dk")
+        page.goto.assert_called_once()
+        page.goto.reset_mock()
         driver._page = page
 
         await driver.navigate("/about")
@@ -76,7 +74,6 @@ async def test_driver_fetch_asset_returns_truncated():
     assert size == 200_000
     assert len(content) < 200_000
 
-
 @pytest.mark.asyncio
 async def test_driver_scope_validation():
     driver = PlaywrightDriver()
@@ -84,6 +81,8 @@ async def test_driver_scope_validation():
 
     assert driver.is_in_scope("https://juiceshop.cocode.dk/api/users")
     assert not driver.is_in_scope("https://evil.com/steal")
+    assert not driver.is_in_scope("//evil.com/steal")
+    assert not driver.is_in_scope("javascript:alert(1)")
     assert driver.is_in_scope("/relative/path")
 ```
 
@@ -110,7 +109,6 @@ from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 
 MAX_ASSET_SIZE = 100_000
 
-
 class PlaywrightDriver:
     def __init__(self) -> None:
         self._pw: Any = None
@@ -127,6 +125,7 @@ class PlaywrightDriver:
         self._context = await self._browser.new_context()
         self._page = await self._context.new_page()
         self._page.on("response", self._on_response)
+        await self._page.goto(self._base_url, wait_until="networkidle")
 
     async def stop(self) -> None:
         if self._page:
@@ -145,11 +144,15 @@ class PlaywrightDriver:
 
     async def navigate(self, path: str) -> str:
         url = urljoin(self._base_url + "/", path)
+        if not self.is_in_scope(url):
+            raise ValueError(f"Out-of-scope navigation blocked: {url}")
         await self._page.goto(url, wait_until="networkidle")
         return self._page.url
 
     async def fetch_asset(self, path: str) -> tuple[str, int, bool]:
         url = urljoin(self._base_url + "/", path)
+        if not self.is_in_scope(url):
+            raise ValueError(f"Out-of-scope asset fetch blocked: {url}")
         response = await self._page.context.request.get(url)
         full_text = await response.text()
         size = len(full_text)
@@ -158,9 +161,13 @@ class PlaywrightDriver:
         return content, size, truncated
 
     def is_in_scope(self, url: str) -> bool:
+        if url.startswith("//"):
+            return False
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.scheme not in {"http", "https"}:
+            return False
         if url.startswith("/"):
             return True
-        parsed = urlparse(url)
         base_parsed = urlparse(self._base_url)
         return parsed.netloc == base_parsed.netloc
 

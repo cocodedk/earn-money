@@ -12,8 +12,13 @@ Part of [Task 16](16-controller-loop.md). Same file as
         system = build_system_prompt(
             objective=self._objective,
             phase=self._session.current_phase,
-            allowed_actions=SLICE_1_ACTIONS,
-            budget_remaining={"turns": budget.remaining("turns")},
+            allowed_actions=allowed_actions_for_phase(self._session.current_phase),
+            budget_remaining={
+                "turns": budget.remaining("turns"),
+                "http_requests": budget.remaining("http_requests"),
+                "browser_actions": budget.remaining("browser_actions"),
+                "asset_inspections": budget.remaining("asset_inspections"),
+            },
         )
         if not self._messages:
             self._messages.append({
@@ -103,7 +108,7 @@ Part of [Task 16](16-controller-loop.md). Same file as
             validation_status=ValidationStatus.VALID,
         )
 
-        obs_dict = await self._execute_action(envelope, action, turn)
+        obs_dict = await self._execute_action(envelope, action, turn, budget)
         finish_turn(turn, TurnStatus.COMPLETED)
         emit_action_executed(self._session, turn.index, envelope.action)
 
@@ -113,13 +118,37 @@ Part of [Task 16](16-controller-loop.md). Same file as
                 "role": "user",
                 "content": format_observation_message(obs_dict),
             })
-        plateau.record_turn(new_routes=0, new_elements=0)
+        new_routes, new_elements = self._progress_from_observation(obs_dict)
+        plateau.record_turn(new_routes=new_routes, new_elements=new_elements)
 
         if envelope.action == "stop":
             return "stop"
         if envelope.action == "request_phase_transition":
-            return "phase_transition"
+            return f"phase_transition:{envelope.parsed.to_phase}:{envelope.parsed.reason}"
         return "continue"
+
+    def _progress_from_observation(
+        self, obs_dict: dict[str, Any] | None,
+    ) -> tuple[int, int]:
+        if not obs_dict:
+            return 0, 0
+        route_paths = {
+            r.get("path", "")
+            for r in obs_dict.get("discovered", {}).get("routes", [])
+            if r.get("path")
+        }
+        element_ids: set[str] = set()
+        for bucket in ("links", "buttons", "forms", "inputs"):
+            element_ids.update(
+                e.get("id", "")
+                for e in obs_dict.get("elements", {}).get(bucket, [])
+                if e.get("id")
+            )
+        new_routes = route_paths - self._seen_routes
+        new_elements = element_ids - self._seen_elements
+        self._seen_routes.update(route_paths)
+        self._seen_elements.update(element_ids)
+        return len(new_routes), len(new_elements)
 ```
 
 Continues in [16-controller-loop-execute.md](16-controller-loop-execute.md).

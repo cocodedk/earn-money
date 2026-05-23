@@ -29,6 +29,12 @@ def test_profile_has_all_budget_dimensions():
     profile = get_profile("juice_shop_scoreboard")
     for dim in ("max_turns", "max_http_requests", "max_asset_inspections"):
         assert dim in profile.mission_budget
+
+
+def test_profile_declares_model_policy():
+    profile = get_profile("juice_shop_scoreboard")
+    assert profile.model_policy["provider_type"] == "anthropic"
+    assert profile.model_policy["primary_model"] == "claude-sonnet-4-6"
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -89,6 +95,10 @@ _PROFILES: dict[str, MissionProfile] = {
                 "max_http_requests": 0,
                 "max_asset_inspections": 0,
             },
+        },
+        model_policy={
+            "provider_type": "anthropic",
+            "primary_model": "claude-sonnet-4-6",
         },
     ),
 }

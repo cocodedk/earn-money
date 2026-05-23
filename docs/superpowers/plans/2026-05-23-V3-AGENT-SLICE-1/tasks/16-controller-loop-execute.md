@@ -7,7 +7,7 @@ Part of [Task 16](16-controller-loop.md). Same file as
 # backend/apps/agent/controller.py (continued — same class)
 
     async def _execute_action(
-        self, envelope: Any, action: Any, turn: Any,
+        self, envelope: Any, action: Any, turn: Any, budget: BudgetTracker,
     ) -> dict[str, Any] | None:
         from django.utils import timezone
         action.execution_status = ExecutionStatus.EXECUTED
@@ -18,6 +18,7 @@ Part of [Task 16](16-controller-loop.md). Same file as
 
         if envelope.action == "observe_page":
             network = self._driver.drain_network_log()
+            budget.consume("http_requests", len(network))
             obs = await self._obs_builder.build_page_observation(
                 page=self._driver.page, turn=turn.index,
                 phase=self._session.current_phase,
@@ -35,6 +36,7 @@ Part of [Task 16](16-controller-loop.md). Same file as
             return obs_dict
 
         if envelope.action == "navigate":
+            budget.check("browser_actions")
             path = envelope.parsed.path
             if not path and envelope.parsed.url_ref:
                 path = self._obs_builder.resolve_url_ref(
@@ -43,7 +45,9 @@ Part of [Task 16](16-controller-loop.md). Same file as
             if not path:
                 path = "/"
             await self._driver.navigate(path)
+            budget.consume("browser_actions", 1)
             network = self._driver.drain_network_log()
+            budget.consume("http_requests", len(network))
             obs = await self._obs_builder.build_page_observation(
                 page=self._driver.page, turn=turn.index,
                 phase=self._session.current_phase,
@@ -61,12 +65,21 @@ Part of [Task 16](16-controller-loop.md). Same file as
             return obs_dict
 
         if envelope.action == "inspect_asset":
-            content, size, truncated = await self._driver.fetch_asset(
-                envelope.parsed.asset_ref,
-            )
+            budget.check("asset_inspections")
+            asset_path = self._obs_builder.resolve_asset_ref(envelope.parsed.asset_ref)
+            if not asset_path:
+                action.execution_status = ExecutionStatus.FAILED
+                action.denial_reason = f"Unknown asset ref: {envelope.parsed.asset_ref}"
+                action.save(update_fields=[
+                    "execution_status", "denial_reason", "updated_at",
+                ])
+                return {"error": action.denial_reason}
+            content, size, truncated = await self._driver.fetch_asset(asset_path)
+            budget.consume("asset_inspections", 1)
+            budget.consume("http_requests", 1)
             asset_obs = AssetObservation(
                 asset_ref=envelope.parsed.asset_ref,
-                path=envelope.parsed.asset_ref,
+                path=asset_path,
                 type="script", size_bytes=size, truncated=truncated,
                 excerpts=[], strings_of_interest=[],
             )

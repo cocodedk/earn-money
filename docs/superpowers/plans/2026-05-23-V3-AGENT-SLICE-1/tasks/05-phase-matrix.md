@@ -8,7 +8,9 @@
 
 ```python
 # append to backend/apps/agent/tests/test_actions.py
-from apps.agent.actions.matrix import check_phase_action, PhaseViolationError
+from apps.agent.actions.matrix import (
+    check_phase_action, allowed_actions_for_phase, PhaseViolationError,
+)
 
 
 def test_observe_page_allowed_in_recon():
@@ -46,6 +48,13 @@ def test_stop_allowed_everywhere():
 def test_inspect_asset_denied_in_report():
     with pytest.raises(PhaseViolationError):
         check_phase_action("report", "inspect_asset")
+
+
+def test_allowed_actions_for_phase_filters_deferred_actions():
+    allowed = allowed_actions_for_phase("enumerate")
+    assert "navigate" in allowed
+    assert "click" not in allowed
+    assert "run_tool" not in allowed
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -62,6 +71,13 @@ from __future__ import annotations
 
 class PhaseViolationError(ValueError):
     pass
+
+
+IMPLEMENTED_SLICE_1_ACTIONS = {
+    "observe_page", "navigate", "inspect_asset",
+    "store_note", "submit_candidate",
+    "request_phase_transition", "stop",
+}
 
 
 _PHASE_ACTION_MATRIX: dict[str, set[str]] = {
@@ -99,6 +115,13 @@ def check_phase_action(phase: str, action: str) -> None:
         raise PhaseViolationError(
             f"Action {action!r} is not allowed in phase {phase!r}"
         )
+
+
+def allowed_actions_for_phase(phase: str) -> list[str]:
+    allowed = _PHASE_ACTION_MATRIX.get(phase)
+    if allowed is None:
+        raise PhaseViolationError(f"Unknown phase: {phase!r}")
+    return sorted(allowed & IMPLEMENTED_SLICE_1_ACTIONS)
 ```
 
 - [ ] **Step 4: Run tests**

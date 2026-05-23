@@ -7,6 +7,9 @@
 The controller is the core mission loop. It orchestrates: LLM call → parse →
 validate → execute → observe → persist → budget check → repeat.
 
+**Prerequisite:** Task 17 must be complete before this task because the controller
+imports phase transition helpers.
+
 - [ ] **Step 1: Write tests** — see [16-controller-loop-tests.md](16-controller-loop-tests.md)
 
 - [ ] **Step 2: Run tests to verify they fail**
