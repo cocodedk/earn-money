@@ -36,7 +36,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Token analysis tool (Fuzzer → token strength analysis) |
 | Wfuzz | https://github.com/xmendez/wfuzz | Collect token samples for offline entropy analysis |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `weak-token-generation` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates collecting token samples for entropy analysis |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept tokens across many requests; export for analysis |
 
 ### 19.03 — Predictable IDs
@@ -59,7 +59,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Fuzzer collects random values for entropy measurement |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Script to collect and analyse nonce distributions |
 | Wfuzz | https://github.com/xmendez/wfuzz | Harvest challenge/nonce values across many sessions |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `weak-random` detection templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates collecting nonce/challenge values for entropy analysis |
 
 ### 19.05 — Sensitive Data in URLs
 

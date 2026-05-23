@@ -84,7 +84,7 @@
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan exercises sensitive endpoints; compare log output |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Script to perform actions and poll log endpoint for entries |
 | Playwright | https://github.com/microsoft/playwright | Automate sensitive UI actions; assert log endpoint responds |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `missing-audit-log` templates for known action paths |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing sensitive action endpoints for missing audit entries |
 
 ### 20.07 — Log Injection
 

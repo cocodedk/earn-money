@@ -47,7 +47,7 @@
 | Fuxploider | https://github.com/almandin/fuxploider | SVG upload with XSS payload in content |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent) for stored SVG XSS |
 | Playwright | https://github.com/microsoft/playwright | Fetch and render uploaded SVG; confirm script execution |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `svg-xss-upload` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing SVG XSS via upload |
 
 ### 8.04 — HTML Upload
 
@@ -57,7 +57,7 @@
 |------|------|----------------|
 | Fuxploider | https://github.com/almandin/fuxploider | HTML file upload bypass tests |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan detects HTML served from upload path |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `html-upload-xss` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing HTML upload rendering XSS |
 
 ### 8.05 — MIME Mismatch
 
@@ -133,7 +133,7 @@
 | Wfuzz | https://github.com/xmendez/wfuzz | Upload truncated/malformed file variants |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan with malformed file payloads |
 | Ffuf | https://github.com/ffuf/ffuf | Fuzz upload with zero-byte, oversized, and corrupt files |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `dos-via-upload` templates for known parser bugs |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing parser DoS via malformed upload payloads |
 
 ### 8.12 — Metadata Leakage
 
@@ -153,7 +153,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan with zip-bomb payloads |
 | Wfuzz | https://github.com/xmendez/wfuzz | Upload crafted archive with extreme compression ratio |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `zip-bomb` upload templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing decompression bomb via archive upload |
 
 ### 8.14 — Path Traversal in Upload Name
 
