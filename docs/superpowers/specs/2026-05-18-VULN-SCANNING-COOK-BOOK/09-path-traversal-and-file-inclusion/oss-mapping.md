@@ -22,7 +22,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan path-traversal rule (rule 6); tests `../` sequences |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40017 (Path Traversal); tests `../` sequences |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module path_traversal`; fuzzes file params |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `file/lfi/` template pack; `/etc/passwd` canary |
 | LFIscanner | https://github.com/R3LI4NT/LFIscanner | Dedicated LFI param fuzzer |

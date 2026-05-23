@@ -111,7 +111,7 @@
 |------|------|----------------|
 | Playwright | https://github.com/microsoft/playwright | Post-login JS `localStorage` / `sessionStorage` inspection for token presence |
 | ZAP Extensions | https://github.com/zaproxy/zap-extensions | Passive rule flags JWT patterns in storage or non-HttpOnly cookies |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates: `jwt-in-localstorage`; JS response regex for storage writes |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing JWT stored in localStorage via JS response regex for storage writes |
 
 ### 15.10 — Sensitive User Data Exposed Client-Side
 

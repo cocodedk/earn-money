@@ -67,7 +67,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 20012 on login endpoint |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module csrf` on login form |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `login-csrf` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing CSRF on login endpoints |
 
 ### 7.06 — GraphQL CSRF
 

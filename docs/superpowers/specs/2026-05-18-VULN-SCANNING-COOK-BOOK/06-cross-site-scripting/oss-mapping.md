@@ -166,7 +166,7 @@
 |------|------|----------------|
 | Fuxploider | https://github.com/almandin/fuxploider | Discovers whether SVG upload is permitted (upload bypass enumeration); pair with Dalfox blind callback for XSS confirmation |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan detects SVG reflected in response |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `svg-xss` upload templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing SVG XSS via upload |
 
 ### 6.17 — Missing CSP
 

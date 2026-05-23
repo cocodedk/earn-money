@@ -24,7 +24,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule 10027 flags suspicious developer comments; custom passive script needed for PII/token pattern matching in log endpoints |
 | truffleHog | https://github.com/trufflesecurity/trufflehog | Secret/PII pattern matching in crawled response content |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `sensitive-data-exposure` and log-endpoint templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing sensitive data in log endpoints |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Proxy script to flag PII patterns in all responses |
 | Katana | https://github.com/projectdiscovery/katana | Discover `/logs`, `/debug`, `/admin/logs` endpoints |
 

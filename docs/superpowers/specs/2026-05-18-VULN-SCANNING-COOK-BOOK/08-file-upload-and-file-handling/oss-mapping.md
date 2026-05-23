@@ -100,7 +100,7 @@
 | Ffuf | https://github.com/ffuf/ffuf | Brute-force upload directory paths |
 | Feroxbuster | https://github.com/epi052/feroxbuster | Recursive content discovery on upload base path |
 | Gobuster | https://github.com/OJ/gobuster | Dir-mode scan against known upload directories |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `exposed-upload-directory` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing exposed upload directory paths |
 | Nikto | https://github.com/sullo/nikto | Identifies common upload path exposure |
 
 ### 8.09 — Predictable Filenames
@@ -141,7 +141,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `exif-metadata` / `metadata-disclosure` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing EXIF/metadata exposure in uploaded files |
 | ZAP | https://github.com/zaproxy/zaproxy | Passive scan downloads and inspects file metadata |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept download responses; inspect binary metadata |
 
@@ -163,7 +163,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40017 (Path Traversal) applied to filename param |
 | Wfuzz | https://github.com/xmendez/wfuzz | Fuzz filename with traversal sequences and encoding variants |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `path-traversal-upload` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing path traversal via upload filename |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module upload` with traversal payloads |
 
 ### 8.15 — Arbitrary File Write
@@ -172,7 +172,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| Nuclei | https://github.com/projectdiscovery/nuclei | `arbitrary-file-write` and `rce-via-upload` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing arbitrary file write; `rce-via-upload` templates for confirmed execution |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan combining path traversal + upload vectors |
 | Commix | https://github.com/commixproject/commix | Confirm file-write primitives lead to command execution |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Craft and replay upload requests with traversal filenames |

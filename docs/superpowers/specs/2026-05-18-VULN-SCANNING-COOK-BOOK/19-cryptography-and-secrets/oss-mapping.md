@@ -47,7 +47,7 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | IDOR active scan via ID enumeration |
 | Wfuzz | https://github.com/xmendez/wfuzz | Numeric/sequential ID fuzzing on object endpoints |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `idor` and `predictable-id` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | `idor` templates and Custom templates probing predictable ID enumeration |
 | W3af | https://github.com/andresriancho/w3af | Integer enumeration plugin |
 
 ### 19.04 — Weak Random Values
@@ -80,7 +80,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Passive rule scans error messages for hash-related disclosure |
-| Nuclei | https://github.com/projectdiscovery/nuclei | `password-hash-disclosure` templates |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Custom templates probing hash-algorithm disclosure in error messages |
 | Wfuzz | https://github.com/xmendez/wfuzz | Timing-attack probes on login endpoints |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept login responses; inspect hash format leaks in verbose error messages |
 
