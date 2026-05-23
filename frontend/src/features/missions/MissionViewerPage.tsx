@@ -17,6 +17,7 @@ function MissionBody({ session }: { session: AgentSession }) {
     session.id,
     session.scan_run,
     terminal,
+    session.updated_at,
   );
 
   const turns = turnsQ.data?.results ?? [];

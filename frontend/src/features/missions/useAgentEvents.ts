@@ -40,6 +40,7 @@ export function useAgentEvents(
   sessionId: string | undefined,
   scanRunId: string | undefined,
   isTerminal: boolean,
+  sessionUpdatedAt?: string,
 ): UseAgentEventsResult {
   const client = useQueryClient();
   const processedRef = useRef(new Set<string>());
@@ -57,6 +58,10 @@ export function useAgentEvents(
     setBudgetOverlay(null);
     setProcessedCount(0);
   }, [sessionId]);
+
+  useEffect(() => {
+    setBudgetOverlay(null);
+  }, [sessionUpdatedAt, isTerminal]);
 
   const processEvents = useCallback(
     (allEvents: ApiEvent[]) => {

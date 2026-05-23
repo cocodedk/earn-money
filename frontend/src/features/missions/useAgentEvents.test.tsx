@@ -115,6 +115,44 @@ describe("useAgentEvents", () => {
     expect(result.current.processedCount).toBe(0);
   });
 
+  it("clears budget overlay when sessionUpdatedAt changes", async () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result, rerender } = renderHook(
+      ({ updatedAt }: { updatedAt: string }) =>
+        useAgentEvents(SESSION_ID, SCAN_RUN_ID, false, updatedAt),
+      { wrapper: Wrapper, initialProps: { updatedAt: "2026-05-23T10:00:00Z" } },
+    );
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+    const es = MockEventSource.instances[0];
+    act(() =>
+      es.emit(agentEvent("agent.action_executed", {
+        budget_snapshot: { turns: 5, mission: { turns: 5 } },
+      })),
+    );
+    expect(result.current.budgetOverlay?.mission?.turns).toBe(5);
+    rerender({ updatedAt: "2026-05-23T10:01:00Z" });
+    expect(result.current.budgetOverlay).toBeNull();
+  });
+
+  it("clears budget overlay when isTerminal flips to true", async () => {
+    const { Wrapper } = makeRenderHookWrapper();
+    const { result, rerender } = renderHook(
+      ({ terminal }: { terminal: boolean }) =>
+        useAgentEvents(SESSION_ID, SCAN_RUN_ID, terminal, "2026-05-23T10:00:00Z"),
+      { wrapper: Wrapper, initialProps: { terminal: false } },
+    );
+    await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
+    const es = MockEventSource.instances[0];
+    act(() =>
+      es.emit(agentEvent("agent.action_executed", {
+        budget_snapshot: { turns: 7, mission: { turns: 7 } },
+      })),
+    );
+    expect(result.current.budgetOverlay?.mission?.turns).toBe(7);
+    rerender({ terminal: true });
+    expect(result.current.budgetOverlay).toBeNull();
+  });
+
   it("processes turn lifecycle events for the matching session", async () => {
     const { Wrapper } = makeRenderHookWrapper();
     const { result } = renderHook(
