@@ -173,3 +173,27 @@ class TestConsumedBudgetPersistence:
         await session_obj.run()
         session_obj.session.refresh_from_db()
         assert session_obj.session.consumed_budget["mission"]["turns"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_budget_persisted_after_denied_turn(self, db_objects):
+        """Denied action path also persists consumed_budget via finally."""
+        session_obj = _ctrl(db_objects, responses=[
+            _action_json("submit_candidate", category="xss", description="t",
+                         evidence_refs=[]),
+            _action_json("stop"),
+        ], budget={"max_turns": 10})
+        await session_obj.run()
+        session_obj.session.refresh_from_db()
+        assert session_obj.session.consumed_budget["mission"]["turns"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_budget_persisted_after_invalid_turn(self, db_objects):
+        """Invalid JSON path also persists consumed_budget via finally."""
+        session_obj = _ctrl(
+            db_objects,
+            responses=["not json", _action_json("stop")],
+            budget={"max_turns": 10},
+        )
+        await session_obj.run()
+        session_obj.session.refresh_from_db()
+        assert session_obj.session.consumed_budget["mission"]["turns"] >= 1

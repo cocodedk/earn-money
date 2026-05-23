@@ -160,11 +160,15 @@ def _handle_phase_transition(ctrl, parsed) -> None:
     from .phases import is_valid_transition
 
     if is_valid_transition(parsed.from_phase, parsed.to_phase):
-        ctrl.advance_phase(parsed.to_phase, parsed.reason)
-        from .event_log import emit_phase_changed
+        from .event_log import build_budget_snapshot, emit_phase_changed
+        snapshot = build_budget_snapshot(
+            ctrl.session, ctrl.budget.consumed_snapshot(),
+        )
         emit_phase_changed(
             ctrl.session, parsed.from_phase, parsed.to_phase, parsed.reason,
+            budget_snapshot=snapshot,
         )
+        ctrl.advance_phase(parsed.to_phase, parsed.reason)
 
 
 async def _execute_browser_action(ctrl, turn, action_rec, envelope):
