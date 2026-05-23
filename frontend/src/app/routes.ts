@@ -15,6 +15,7 @@ export const ROUTES = {
   evidence: "/evidence",
   evidenceDetail: "/evidence/:evidenceId",
   settings: "/settings",
+  missionDetail: "/missions/:sessionId",
 } as const;
 
 export const stubDetailPath = (slug: string) => `/stubs/${slug}`;
@@ -22,3 +23,4 @@ export const scanRunDetailPath = (id: string) => `/scan-runs/${id}`;
 export const targetResultPath = (id: string) => `/targets/${id}/results`;
 export const findingDetailPath = (id: string) => `/findings/${id}`;
 export const evidenceDetailPath = (id: string) => `/evidence/${id}`;
+export const missionDetailPath = (sessionId: string) => `/missions/${encodeURIComponent(sessionId)}`;
