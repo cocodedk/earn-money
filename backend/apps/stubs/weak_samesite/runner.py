@@ -71,7 +71,7 @@ def _emit_finding(
         data={
             "cookie_name": cookie_name,
             "raw_set_cookie": raw_header,
-            "weakness_kind": getattr(weakness_kind, "value", None),
+            "weakness_kind": weakness_kind.value if weakness_kind is not None else None,
         },
     )
     log_finding_candidate(finding, stub_id=_STUB_ID)

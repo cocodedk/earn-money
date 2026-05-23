@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional
+from typing import Optional
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+from apps.stubs._shared.types import Confidence
 
 
 class SameSiteStatus(str, Enum):
@@ -25,7 +26,7 @@ class WeaknessKind(str, Enum):
 @dataclass(frozen=True)
 class SameSiteResult:
     status: SameSiteStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     cookie_name: str
     raw_set_cookie: str
     weakness_kind: Optional[WeaknessKind] = field(default=None)

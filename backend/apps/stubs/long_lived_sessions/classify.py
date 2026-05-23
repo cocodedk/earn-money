@@ -5,9 +5,10 @@ import datetime
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from enum import Enum
-from typing import Literal, Optional
+from typing import Optional
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+from apps.stubs._shared.types import Confidence
 
 _DEFAULT_MAX_AGE = 86400  # seconds (24 hours)
 
@@ -21,7 +22,7 @@ class LongLivedStatus(str, Enum):
 @dataclass(frozen=True)
 class LongLivedResult:
     status: LongLivedStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     cookie_name: str
     observed_max_age: Optional[int]
 

@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+
+from apps.stubs._shared.types import Confidence
 
 
 class InvalidationStatus(str, Enum):
@@ -15,7 +16,7 @@ class InvalidationStatus(str, Enum):
 @dataclass(frozen=True)
 class InvalidationResult:
     status: InvalidationStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     pre_logout_status: int
     post_logout_status: int
 

@@ -1,17 +1,11 @@
 "use strict";
 const { Router } = require("express");
-const { randomUUID } = require("crypto");
+const { newToken, setCookie, getSid } = require("./helpers");
 
 const router = Router();
 
 // In-memory session store shared within this route module.
 const sessions = new Map();
-
-function newToken() { return randomUUID(); }
-
-function setCookie(res, name, value) {
-  res.setHeader("Set-Cookie", `${name}=${value}; Path=/; HttpOnly`);
-}
 
 // Vulnerable: GET sets anon sid; POST login keeps same sid.
 router.get("/login-vulnerable", (req, res) => {
@@ -22,7 +16,7 @@ router.get("/login-vulnerable", (req, res) => {
 });
 
 router.post("/login-vulnerable", (req, res) => {
-  const sid = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const sid = getSid(req);
   if (sid && sessions.has(sid)) {
     sessions.get(sid).authenticated = true;
     setCookie(res, "sid", sid);          // same token — fixation
@@ -43,7 +37,7 @@ router.get("/login-rotates", (req, res) => {
 });
 
 router.post("/login-rotates", (req, res) => {
-  const old = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const old = getSid(req);
   if (old) sessions.delete(old);
   const token = newToken();
   sessions.set(token, { authenticated: true });
@@ -61,7 +55,7 @@ router.post("/login-no-pre-cookie", (req, res) => {
 
 // Vulnerable: externally seeded sid preserved.
 router.post("/cookie-seed-vulnerable", (req, res) => {
-  const sid = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const sid = getSid(req);
   if (sid) {
     sessions.set(sid, { authenticated: true });
     setCookie(res, "sid", sid);          // preserves attacker-seeded value

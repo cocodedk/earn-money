@@ -1,14 +1,9 @@
 "use strict";
 const { Router } = require("express");
-const { randomUUID } = require("crypto");
+const { newToken, setCookie, getSid } = require("./helpers");
 
 const router = Router();
 const sessions = new Map();
-
-function newToken() { return randomUUID(); }
-function setCookie(res, name, value) {
-  res.setHeader("Set-Cookie", `${name}=${value}; Path=/; HttpOnly`);
-}
 
 // Helper: seed an authenticated session for testing.
 router.post("/seed", (req, res) => {
@@ -20,7 +15,7 @@ router.post("/seed", (req, res) => {
 
 // Check: returns 200 if session exists and authenticated, else 401.
 router.get("/check", (req, res) => {
-  const sid = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const sid = getSid(req);
   const sess = sid ? sessions.get(sid) : null;
   if (sess && sess.authenticated) return res.json({ msg: "session valid" });
   res.status(401).json({ msg: "no valid session" });
@@ -28,7 +23,7 @@ router.get("/check", (req, res) => {
 
 // Vulnerable: logout keeps session alive.
 router.post("/logout-keeps-session", (req, res) => {
-  const sid = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const sid = getSid(req);
   if (sid && sessions.has(sid)) {
     sessions.get(sid).authenticated = false;  // marked false but NOT deleted
   }
@@ -37,7 +32,7 @@ router.post("/logout-keeps-session", (req, res) => {
 
 // Safe: logout deletes session.
 router.post("/logout-invalidates", (req, res) => {
-  const sid = (req.headers.cookie || "").match(/sid=([^;]+)/)?.[1];
+  const sid = getSid(req);
   if (sid) sessions.delete(sid);
   res.json({ msg: "logged out (session deleted)" });
 });

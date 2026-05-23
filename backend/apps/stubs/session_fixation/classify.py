@@ -3,15 +3,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie
 from apps.stubs._shared.session.session_lifecycle import compare_session_cookies
+from apps.stubs._shared.types import Confidence
 
 
 class FixationStatus(str, Enum):
     CONFIRMED = "confirmed"
-    CANDIDATE = "candidate"
     REJECTED = "rejected"
     NOT_APPLICABLE = "not_applicable"
 
@@ -19,7 +18,7 @@ class FixationStatus(str, Enum):
 @dataclass(frozen=True)
 class FixationResult:
     status: FixationStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     affected_names: list[str] = field(default_factory=list)
 
 

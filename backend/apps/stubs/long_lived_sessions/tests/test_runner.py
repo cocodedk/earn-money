@@ -92,7 +92,7 @@ def test_no_cookies_no_finding(scan_run, target_run):
 
 @pytest.mark.django_db
 def test_deduplication_one_finding_per_cookie(scan_run, target_run):
-    # Two probe paths but same sid cookie → one finding only.
+    # Same cookie seen twice is deduplicated to one finding.
     resp = _resp(["sid=x; Max-Age=2592000; Path=/; Secure; HttpOnly"])
     with patch("apps.stubs.long_lived_sessions.runner.submit_probe", return_value=resp):
         run(scan_run, target_run)

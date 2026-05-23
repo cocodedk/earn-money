@@ -7,7 +7,6 @@ from apps.findings.models import Finding, FindingStatus, Severity
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.stubs._shared.auth.events import log_finding_candidate
 from apps.stubs._shared.auth.requests import submit_probe
-from apps.stubs._shared.session.cookie_parser import parse_set_cookie
 
 from ..runners import guarded_runner
 from .classify import InvalidationStatus, classify_invalidation
@@ -50,9 +49,8 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
 
 def _extract_session_cookie(resp: httpx.Response) -> str:
     for raw in resp.headers.get_list("Set-Cookie"):
-        cookie = parse_set_cookie(raw)
-        if cookie.name and cookie.value_redacted is not None:
-            name_val = raw.split(";")[0].strip()
+        name_val = raw.split(";", 1)[0].strip()
+        if "=" in name_val and name_val.partition("=")[2]:
             return name_val
     return ""
 

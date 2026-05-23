@@ -1,8 +1,6 @@
 """Stub 3.5 runner — session fixation."""
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 import httpx
 
 from apps.findings.models import Finding, FindingStatus, Severity

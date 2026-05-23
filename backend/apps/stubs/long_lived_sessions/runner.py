@@ -13,7 +13,7 @@ from ..runners import guarded_runner
 from .classify import LongLivedStatus, classify_cookie
 
 _STUB_ID = "3.8"
-_PROBE_PATHS = ("/", "/lifetime/session-cookie-long")
+_PROBE_PATHS = ("/",)
 
 
 @guarded_runner(_STUB_ID)

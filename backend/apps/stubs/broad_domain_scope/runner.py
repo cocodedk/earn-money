@@ -72,7 +72,7 @@ def _emit_finding(
         data={
             "cookie_name": cookie_name,
             "raw_set_cookie": raw_header,
-            "scope_issue": getattr(scope_issue, "value", None),
+            "scope_issue": scope_issue.value if scope_issue is not None else None,
         },
     )
     log_finding_candidate(finding, stub_id=_STUB_ID)

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+from apps.stubs._shared.types import Confidence
 
 
 class HttpOnlyStatus(str, Enum):
@@ -18,7 +18,7 @@ class HttpOnlyStatus(str, Enum):
 @dataclass(frozen=True)
 class HttpOnlyResult:
     status: HttpOnlyStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     cookie_name: str
     raw_set_cookie: str
 

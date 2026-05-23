@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Optional
+from typing import Optional
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
+from apps.stubs._shared.types import Confidence
 
 # Single-label public suffixes that are invalid as Domain= attributes.
 # NOTE: multi-label suffixes (e.g. co.uk, com.au) are not handled here — a full
@@ -34,7 +35,7 @@ class ScopeIssue(str, Enum):
 @dataclass(frozen=True)
 class DomainResult:
     status: DomainStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     cookie_name: str
     raw_set_cookie: str
     scope_issue: Optional[ScopeIssue] = field(default=None)

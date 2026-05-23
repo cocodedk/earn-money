@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie
 from apps.stubs._shared.session.session_lifecycle import compare_session_cookies
+from apps.stubs._shared.types import Confidence
 
 
 class RotationStatus(str, Enum):
@@ -18,7 +18,7 @@ class RotationStatus(str, Enum):
 @dataclass(frozen=True)
 class RotationResult:
     status: RotationStatus
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     affected_names: list[str] = field(default_factory=list)
 
 
