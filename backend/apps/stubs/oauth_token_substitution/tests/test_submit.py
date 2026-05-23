@@ -102,8 +102,10 @@ def test_confirmed_with_non_default_username():
         cred_b=("bob", "pass-b"),
         http=_make_http(callback_marker="alice_marker"),
     )
+    assert result.substitution_attempted is True
     assert result.identity_mismatch_observed is True
     assert result.status == "confirmed"
+    assert result.confidence == "high"
 
 
 def test_login_b_failure_returns_candidate():
