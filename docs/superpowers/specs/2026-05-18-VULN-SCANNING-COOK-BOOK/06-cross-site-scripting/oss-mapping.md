@@ -34,7 +34,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | Dalfox | https://github.com/hahwul/dalfox | Path segment fuzzing mode |
-| ffuf | https://github.com/ffuf/ffuf | Path-segment fuzzing with XSS wordlists |
+| Ffuf | https://github.com/ffuf/ffuf | Path-segment fuzzing with XSS wordlists |
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40012 |
 
 ### 6.03 — Header Reflection
@@ -204,4 +204,4 @@
 |------|------|----------------|
 | ZAP | https://github.com/zaproxy/zaproxy | Active scan; JSONP-specific passive rules |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `jsonp` and `open-redirect-jsonp` templates |
-| ffuf | https://github.com/ffuf/ffuf | Fuzz callback / jsonp / cb parameters |
+| Ffuf | https://github.com/ffuf/ffuf | Fuzz callback / jsonp / cb parameters |

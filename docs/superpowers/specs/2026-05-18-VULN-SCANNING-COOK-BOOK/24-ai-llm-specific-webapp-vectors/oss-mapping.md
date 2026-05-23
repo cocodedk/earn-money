@@ -40,6 +40,7 @@
 |------|------|----------------|
 | garak | https://github.com/NVIDIA/garak | Indirect injection probes: retrieval-augmented attack strategies |
 | PyRIT | https://github.com/Azure/PyRIT | Multi-turn indirect injection; document poisoning scenarios |
+| promptfoo | https://github.com/promptfoo/promptfoo | Adversarial prompt evaluation for indirect injection via retrieved content |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept outbound retrieval requests; serve crafted poisoned content |
 | Playwright | https://github.com/microsoft/playwright | Render attacker-controlled pages the LLM agent visits |
 | Ffuf | https://github.com/ffuf/ffuf | Transport layer: fuzz URL/file parameters passed to context-loading |
@@ -50,10 +51,10 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept tool-call API requests; inspect and modify tool selection |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan for tool-call parameter injection in agent API endpoints |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz tool-name and argument fields in agent API requests |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates targeting exposed agent tool-call endpoints |
+| garak | https://github.com/NVIDIA/garak | Tool-use injection probe suite; tests function-call hijacking |
+| PyRIT | https://github.com/Azure/PyRIT | Multi-turn agentic attack orchestration; tool-call manipulation |
+| mitmproxy | https://github.com/mitmproxy/mitmproxy | Transport: intercept tool-call API requests; inspect/modify selection |
+| Ffuf | https://github.com/ffuf/ffuf | Transport: fuzz tool-name and argument fields in agent API requests |
 
 ### 24.04 — Data Exfiltration Through Model Output
 
@@ -61,10 +62,10 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Passive scan analyses LLM responses for PII/secret patterns |
+| garak | https://github.com/NVIDIA/garak | Data-exfil and leak-replay probe categories; purpose-built for LLM |
 | truffleHog | https://github.com/trufflesecurity/trufflehog | Scans LLM output content for secrets and credentials |
-| Nuclei | https://github.com/projectdiscovery/nuclei | Templates matching sensitive data patterns in model responses |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Capture all LLM responses for offline secret/PII pattern analysis |
+| Nuclei | https://github.com/projectdiscovery/nuclei | Templates matching sensitive data patterns in model responses |
 
 ### 24.05 — Retrieval Poisoning
 
@@ -72,11 +73,11 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan for document-upload endpoints feeding the vector store |
-| Ffuf | https://github.com/ffuf/ffuf | Fuzz document ingestion endpoints with poisoned content |
+| PyRIT | https://github.com/Azure/PyRIT | Document poisoning scenarios; RAG/vector-store adversarial content |
+| garak | https://github.com/NVIDIA/garak | RAG and retrieval probes; adversarial document injection |
 | mitmproxy | https://github.com/mitmproxy/mitmproxy | Intercept document upload to inject adversarial content |
+| Ffuf | https://github.com/ffuf/ffuf | Fuzz document ingestion endpoints with poisoned content |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for exposed document/embedding ingestion APIs |
-| Wapiti | https://github.com/wapiti-scanner/wapiti | File upload module targets document ingestion endpoints |
 
 ### 24.06 — Cross-User Memory Leakage
 
