@@ -3,12 +3,14 @@ from __future__ import annotations
 import pytest
 
 from apps.agent.event_log import (
+    build_budget_snapshot,
     emit_action_denied,
     emit_action_executed,
     emit_mission_finished,
     emit_note_created,
     emit_phase_changed,
     emit_session_started,
+    summarize_observation,
 )
 from apps.events.models import Event
 from apps.events.types import EventType
@@ -153,3 +155,76 @@ def test_agent_event_types_exist():
     assert EventType.AGENT_PHASE_CHANGED == "agent.phase_changed"
     assert EventType.AGENT_NOTE_CREATED == "agent.note_created"
     assert EventType.AGENT_MISSION_FINISHED == "agent.mission_finished"
+
+
+# ---------------------------------------------------------------------------
+# build_budget_snapshot
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestBuildBudgetSnapshot:
+    def test_returns_phase_consumed_and_mission_budget(self, create_session):
+        session = create_session(
+            mission_budget={"max_turns": 25, "max_http_requests": 60},
+        )
+        session.current_phase = "enumerate"
+        consumed = {"mission": {"turns": 4}, "phase": {"turns": 2}}
+        result = build_budget_snapshot(session, consumed)
+        assert result == {
+            "phase": "enumerate",
+            "consumed": consumed,
+            "mission_budget": {"max_turns": 25, "max_http_requests": 60},
+        }
+
+
+# ---------------------------------------------------------------------------
+# summarize_observation
+# ---------------------------------------------------------------------------
+
+class TestSummarizeObservation:
+    def test_extracts_compact_summary(self):
+        obs = {
+            "url": "https://juiceshop.cocode.dk/",
+            "title": "OWASP Juice Shop",
+            "discovered": {
+                "routes": ["/", "/rest/products"],
+                "assets": ["/main.js"],
+            },
+            "elements": {
+                "links": [{"href": "/"}],
+                "buttons": [{"text": "Login"}, {"text": "Search"}],
+                "forms": [{"action": "/rest/user/login"}],
+            },
+            "network": [{"url": "/rest/products"}, {"url": "/api/Challenges"}],
+        }
+        result = summarize_observation(obs)
+        assert result == {
+            "url": "https://juiceshop.cocode.dk/",
+            "title": "OWASP Juice Shop",
+            "route_count": 2,
+            "asset_count": 1,
+            "element_count": 4,
+            "network_count": 2,
+        }
+
+    def test_handles_empty_observation(self):
+        result = summarize_observation({})
+        assert result == {
+            "url": "",
+            "title": "",
+            "route_count": 0,
+            "asset_count": 0,
+            "element_count": 0,
+            "network_count": 0,
+        }
+
+    def test_handles_malformed_nested_values(self):
+        result = summarize_observation({
+            "discovered": None,
+            "elements": {"links": None, "buttons": "bad", "forms": []},
+            "network": None,
+        })
+        assert result["route_count"] == 0
+        assert result["asset_count"] == 0
+        assert result["element_count"] == 0
+        assert result["network_count"] == 0

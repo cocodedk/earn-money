@@ -126,3 +126,39 @@ def emit_mission_finished(
             "mission_profile": session.mission_profile,
         },
     )
+
+
+def build_budget_snapshot(session: AgentSession, consumed: dict) -> dict:
+    """Return a compact budget snapshot for embedding in event data."""
+    return {
+        "phase": session.current_phase,
+        "consumed": consumed,
+        "mission_budget": session.mission_budget,
+    }
+
+
+def summarize_observation(obs_dict: dict) -> dict:
+    """Return a compact summary of a Playwright observation dict."""
+    obs_dict = obs_dict if isinstance(obs_dict, dict) else {}
+    discovered = obs_dict.get("discovered") or {}
+    elements = obs_dict.get("elements") or {}
+    if not isinstance(discovered, dict):
+        discovered = {}
+    if not isinstance(elements, dict):
+        elements = {}
+
+    def _list(value) -> list:
+        return value if isinstance(value, list) else []
+
+    return {
+        "url": obs_dict.get("url", ""),
+        "title": obs_dict.get("title", ""),
+        "route_count": len(_list(discovered.get("routes"))),
+        "asset_count": len(_list(discovered.get("assets"))),
+        "element_count": (
+            len(_list(elements.get("links")))
+            + len(_list(elements.get("buttons")))
+            + len(_list(elements.get("forms")))
+        ),
+        "network_count": len(_list(obs_dict.get("network"))),
+    }
