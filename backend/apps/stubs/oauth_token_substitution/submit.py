@@ -90,7 +90,7 @@ def run_substitution_test(
         )
 
     result_marker = cb_resp.json().get("marker", "")
-    wrong_identity = result_marker and "user_a" in result_marker and user_b != user_a
+    wrong_identity = result_marker and user_a in result_marker and user_b != user_a
 
     return SubstitutionResult(
         substitution_attempted=True,
