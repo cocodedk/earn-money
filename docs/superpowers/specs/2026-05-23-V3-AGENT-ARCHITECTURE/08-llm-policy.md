@@ -12,7 +12,7 @@ model_policy:
   verifier_model:    # candidate verification turns
   fallback_models:   # ordered list, operational failure path only
   routing_profile_snapshot:
-    structured_output: json_schema | tool_call | json_mode | none
+    structured_output: json_schema | tool_call | json_mode
     vision: true | false
     max_context_tokens: int
     pricing: object
