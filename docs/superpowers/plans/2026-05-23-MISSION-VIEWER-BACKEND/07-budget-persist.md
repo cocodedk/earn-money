@@ -1,3 +1,24 @@
+---
+tier: APEX
+depends_on: [06-event-enrichment-emitters]
+files:
+  creates: []
+  modifies:
+    - backend/apps/agent/controller_turn.py
+    - backend/apps/agent/controller.py
+    - backend/apps/agent/tests/test_controller.py
+  deletes: []
+  renames: []
+  generated: []
+exports: []
+imports:
+  - module: "apps.agent.event_log.build_budget_snapshot"
+    file: backend/apps/agent/controller.py
+  - module: "apps.agent.event_log.summarize_observation"
+    file: backend/apps/agent/controller_turn.py
+allow_extra_files: false
+---
+
 # Task 7: Controller Turn — Persist consumed_budget Every Turn
 
 **Files:**
@@ -18,22 +39,18 @@ class TestConsumedBudgetPersistence:
     """consumed_budget must be written to DB after every turn path."""
 
     @pytest.mark.asyncio
-    async def test_budget_persisted_after_executed_turn(self, create_session):
-        from apps.agent.controller import MissionController
-        from apps.agent.tests.helpers import make_stop_provider, MockDriver
-
-        session = create_session(
-            mission_budget={"max_turns": 10},
+    async def test_budget_persisted_after_executed_turn(self, db_objects):
+        """Use the existing _mock_provider/_mock_driver/_action_json
+        helpers from test_controller.py. Provider returns a stop action
+        so the controller finishes after one turn."""
+        session_obj = _ctrl(
+            db_objects,
+            responses=[_action_json(action="stop", reason="done")],
+            budget={"max_turns": 10},
         )
-        provider = make_stop_provider()
-        driver = MockDriver()
-        ctrl = MissionController(
-            session=session, provider=provider, driver=driver,
-            objective="test", mission_budget={"max_turns": 10},
-        )
-        await ctrl.run()
-        session.refresh_from_db()
-        assert session.consumed_budget["mission"]["turns"] >= 1
+        await session_obj.run()
+        session_obj.session.refresh_from_db()
+        assert session_obj.session.consumed_budget["mission"]["turns"] >= 1
 ```
 
 - [ ] **Step 2: Run test to verify it fails**

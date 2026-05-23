@@ -1,3 +1,17 @@
+---
+tier: FAST
+depends_on: []
+files:
+  creates: []
+  modifies: [backend/apps/events/types.py, backend/apps/events/test_types.py]
+  deletes: []
+  renames: []
+  generated: []
+exports: []
+imports: []
+allow_extra_files: false
+---
+
 # Task 1: Add SCAN_RUN_FAILED Event Type
 
 **Files:**
@@ -34,9 +48,19 @@ In `backend/apps/events/types.py`, add after the `SCAN_RUN_DONE` line:
 Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && python -m pytest apps/events/test_types.py::test_scan_run_failed_event_type_exists -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Generate migration if Django detects the choice-list change**
+
+Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && python manage.py makemigrations events --check`
+
+If it exits non-zero (changes detected), generate:
+`python manage.py makemigrations events -n add_scan_run_failed_choice`
+
+If it exits 0 (no changes), skip — Django sometimes does not require a
+migration for `choices=` additions since the DB column type doesn't change.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add backend/apps/events/types.py backend/apps/events/test_types.py
+git add backend/apps/events/types.py backend/apps/events/test_types.py backend/apps/events/migrations/
 git commit -m "feat(events): add SCAN_RUN_FAILED event type"
 ```

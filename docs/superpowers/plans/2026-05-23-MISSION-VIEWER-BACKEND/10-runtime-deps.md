@@ -1,3 +1,17 @@
+---
+tier: FAST
+depends_on: []
+files:
+  creates: []
+  modifies: [backend/requirements.txt, backend/Dockerfile, docker-compose.yml]
+  deletes: []
+  renames: []
+  generated: []
+exports: []
+imports: []
+allow_extra_files: false
+---
+
 # Task 10: Runtime Dependencies
 
 **Files:**
@@ -64,8 +78,13 @@ In `docker-compose.yml`, add to the `worker:` service `environment:` section:
 
 - [ ] **Step 4: Verify requirements install locally**
 
-Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && pip install playwright anthropic openai 2>&1 | tail -5`
+Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && python -m pip install -r requirements.txt`
 Expected: Successfully installed (or already satisfied)
+
+If the implementation environment has no package index access, do not replace
+this with unpinned ad hoc installs. Record the skipped local verification in
+the task notes and rely on the Docker build or CI install step to validate the
+same `requirements.txt` change.
 
 - [ ] **Step 5: Run full test suite to confirm nothing broke**
 

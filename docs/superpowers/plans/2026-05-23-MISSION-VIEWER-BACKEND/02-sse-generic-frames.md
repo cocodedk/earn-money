@@ -1,3 +1,17 @@
+---
+tier: FAST
+depends_on: []
+files:
+  creates: []
+  modifies: [backend/apps/events/views.py, backend/apps/events/test_streaming.py]
+  deletes: []
+  renames: []
+  generated: []
+exports: []
+imports: []
+allow_extra_files: false
+---
+
 # Task 2: SSE Generic Frames — Drop event: Line
 
 **Files:**

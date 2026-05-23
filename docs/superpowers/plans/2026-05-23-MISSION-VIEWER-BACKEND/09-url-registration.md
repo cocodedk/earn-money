@@ -1,3 +1,17 @@
+---
+tier: FAST
+depends_on: [04-viewset-read-list-detail]
+files:
+  creates: []
+  modifies: [backend/config/urls.py]
+  deletes: []
+  renames: []
+  generated: []
+exports: []
+imports: []
+allow_extra_files: false
+---
+
 # Task 9: URL Registration
 
 **Files:**
@@ -20,7 +34,7 @@ router.register(r"agent/sessions", AgentSessionViewSet, basename="agent-session"
 
 - [ ] **Step 2: Run a quick sanity test**
 
-Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && python -c "from django.urls import reverse; print(reverse('agent-session-list'))" --settings=config.settings`
+Run: `cd /home/cocodedk/0-projects/earn-money-backend/backend && DJANGO_SETTINGS_MODULE=config.settings python -c "import django; django.setup(); from django.urls import reverse; print(reverse('agent-session-list'))"`
 
 Expected output: `/api/agent/sessions/`
 
