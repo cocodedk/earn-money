@@ -17,6 +17,7 @@ import { EvidenceList } from "./features/evidence/EvidenceList";
 import { EvidenceDetail } from "./features/evidence/EvidenceDetail";
 import { Settings } from "./features/settings/Settings";
 import { ComingSoon } from "./features/coming-soon";
+import { MissionViewerPage } from "./features/missions/MissionViewerPage";
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
         <Route path={ROUTES.evidence} element={<EvidenceList />} />
         <Route path={ROUTES.evidenceDetail} element={<EvidenceDetail />} />
         <Route path={ROUTES.settings} element={<Settings />} />
+        <Route path={ROUTES.missionDetail} element={<MissionViewerPage />} />
         <Route path="*" element={<ComingSoon name="Not found" />} />
       </Route>
     </Routes>
