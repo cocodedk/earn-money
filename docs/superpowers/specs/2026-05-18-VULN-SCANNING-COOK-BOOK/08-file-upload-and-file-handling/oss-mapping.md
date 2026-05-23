@@ -45,7 +45,7 @@
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
 | Fuxploider | https://github.com/almandin/fuxploider | SVG upload with XSS payload in content |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan for SVG XSS (rule 40012/40016) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40014 (Cross Site Scripting - Persistent) for stored SVG XSS |
 | Playwright | https://github.com/microsoft/playwright | Fetch and render uploaded SVG; confirm script execution |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `svg-xss-upload` templates |
 
@@ -161,7 +161,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 6 (path traversal) applied to filename param |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule 40017 (Path Traversal) applied to filename param |
 | Wfuzz | https://github.com/xmendez/wfuzz | Fuzz filename with traversal sequences and encoding variants |
 | Nuclei | https://github.com/projectdiscovery/nuclei | `path-traversal-upload` templates |
 | Wapiti | https://github.com/wapiti-scanner/wapiti | `--module upload` with traversal payloads |

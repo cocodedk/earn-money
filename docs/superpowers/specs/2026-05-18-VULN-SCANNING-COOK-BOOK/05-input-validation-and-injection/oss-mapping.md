@@ -36,7 +36,7 @@
 |------|------|----------------|
 | Sqlmap | https://github.com/sqlmapproject/sqlmap | `--technique=BT`; time-based with adaptive delays |
 | Ghauri | https://github.com/r0oth3x49/ghauri | Boolean/time-blind with lower false-positive rate |
-| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `40020` (blind SQL injection) |
+| ZAP | https://github.com/zaproxy/zaproxy | Active scan rule `40020` (SQL Injection - Hypersonic SQL; time-based blind covered by `40018`) |
 
 ### 5.03 — Second-Order SQLi
 
@@ -74,7 +74,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
-| graphql-cop | https://github.com/dolevf/graphql-cop | Primary: GraphQL-specific security checks (introspection, batching, field suggestion, DoS) |
+| graphql-cop | https://github.com/dolevf/graphql-cop | GraphQL policy checks (introspection, batching, field suggestion, directive overloading); not for query-operator injection |
 | Wfuzz | https://github.com/xmendez/wfuzz | JSON body payloads via `--data` with fuzzing |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL active scan via zap-extensions GraphQL add-on |
 | Nuclei | https://github.com/projectdiscovery/nuclei | GraphQL injection templates in nuclei-templates |

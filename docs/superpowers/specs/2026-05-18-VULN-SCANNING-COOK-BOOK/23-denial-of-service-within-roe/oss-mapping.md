@@ -55,6 +55,7 @@
 
 | Tool | Repo | Coverage Notes |
 |------|------|----------------|
+| graphql-cop | https://github.com/dolevf/graphql-cop | Directive overloading and depth-abuse checks; produces DoS-triggering query patterns |
 | ZAP | https://github.com/zaproxy/zaproxy | GraphQL support in active scan; sends deeply nested queries |
 | Nuclei | https://github.com/projectdiscovery/nuclei | Templates for GraphQL introspection and depth-abuse patterns |
 | Ffuf | https://github.com/ffuf/ffuf | POST crafted deeply-nested GraphQL queries to measure impact |

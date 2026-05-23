@@ -53,8 +53,10 @@ These tools enable discovery — without them, scanners only see the first page.
 | YA-LFI | https://github.com/0x-Apollyon/YA-LFI | 09 | LFI |
 | SSRFmap | https://github.com/swisskyrepo/SSRFmap | 10 | SSRF |
 | CORScanner | https://github.com/chenjj/CORScanner | 16 | CORS |
-| YA-CORS | https://github.com/0x-Apollyon/YA-CORS | 16 | CORS |
+| YA-CORS | https://github.com/0x-Apollyon/YA-CORS | 07,16 | CORS |
 | smuggler | https://github.com/defparam/smuggler | 17 | HTTP smuggling |
+| h2csmuggler | https://github.com/BishopFox/h2csmuggler | 17 | HTTP/2 cleartext upgrade smuggling |
+| Jaeles | https://github.com/jaeles-project/jaeles | 13,14 | OOB/OAST-based signature scanning; deserialization callbacks |
 | Web-Cache-Vulnerability-Scanner | https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner | 17 | Cache poisoning and deception |
 | O-Saft | https://github.com/OWASP/O-Saft | 18,19 | TLS/SSL |
 | testssl.sh | https://github.com/drwetter/testssl.sh | 18,19 | TLS/SSL |
@@ -72,6 +74,7 @@ These tools enable discovery — without them, scanners only see the first page.
 | Gobuster | https://github.com/OJ/gobuster | 01,21 | Dir/DNS brute-force |
 | Feroxbuster | https://github.com/epi052/feroxbuster | 01,21 | Recursive discovery |
 | dirsearch | https://github.com/maurosoria/dirsearch | 01,21 | Path scanning |
+| Observatory | https://github.com/mdn/mdn-http-observatory | 18 | Security headers scoring and grading |
 | Takeover | https://github.com/edoardottt/takeover | 01,21 | Subdomain takeover |
 | Nmap | https://github.com/nmap/nmap | 21 | Network port/service scanning; NSE scripts for debug protocol detection |
 | S3Scanner | https://github.com/sa7mon/S3Scanner | 21 | Cloud bucket exposure (AWS S3, GCS, Azure Blob) |
@@ -90,23 +93,23 @@ These tools enable discovery — without them, scanners only see the first page.
 | 04 | Access Control | ZAP, Ffuf, arjun, Nuclei, Playwright |
 | 05 | Input Validation & Injection | Sqlmap, Commix, SSTImap, graphql-cop, NoSQLMap, ZAP, Wfuzz |
 | 06 | Cross-Site Scripting | Dalfox, XSStrike, Domdig, ZAP, Playwright |
-| 07 | CSRF & Browser-Side Request Abuse | ZAP, Wapiti, CORScanner, Playwright |
+| 07 | CSRF & Browser-Side Request Abuse | ZAP, Wapiti, CORScanner, YA-CORS, Playwright |
 | 08 | File Upload & File Handling | Fuxploider, ZAP, Nuclei, Ffuf |
 | 09 | Path Traversal & File Inclusion | LFIscanner, YA-LFI, ZAP, Wapiti, Ffuf |
 | 10 | Server-Side Request Forgery | SSRFmap, ZAP, Nuclei, Ffuf |
 | 11 | API Security | Cherrybomb, Akto, VulnAPI, graphql-cop, ZAP, arjun, Wfuzz |
 | 12 | Business Logic | ZAP, Ffuf, Wfuzz, Playwright, mitmproxy |
 | 13 | Race Conditions | turbo-intruder, race-the-web, Ffuf |
-| 14 | Deserialization & Object Parsing | ZAP, Nuclei, W3af, Cherrybomb, ppmap |
+| 14 | Deserialization & Object Parsing | ZAP, Nuclei, Jaeles, W3af, Cherrybomb, ppmap |
 | 15 | Client-Side Security | Playwright, truffleHog, Katana, Retire.js |
 | 16 | CORS & Cross-Origin Policy | CORScanner, YA-CORS, ZAP, Ffuf |
-| 17 | HTTP Request/Response Handling | smuggler, Web-Cache-Vulnerability-Scanner, ZAP, Nuclei, Wfuzz |
-| 18 | Security Headers & Browser Hardening | Observatory, ZAP, Nuclei, Nikto |
-| 19 | Cryptography & Secrets | truffleHog, gitleaks, testssl.sh, SSLyze, O-Saft |
+| 17 | HTTP Request/Response Handling | smuggler, h2csmuggler, Web-Cache-Vulnerability-Scanner, ZAP, Nuclei, Wfuzz |
+| 18 | Security Headers & Browser Hardening | Observatory, ZAP, Nuclei, Nikto, testssl.sh |
+| 19 | Cryptography & Secrets | truffleHog, gitleaks, jwt_tool, testssl.sh, SSLyze, O-Saft |
 | 20 | Logging, Monitoring & Privacy | truffleHog, mitmproxy, ZAP, Playwright |
 | 21 | Infrastructure & Deployment Exposure | Nmap, S3Scanner, Nuclei, Gobuster, Feroxbuster, Nikto, Tsunami, truffleHog |
 | 22 | Third-Party Integrations | VulnAPI, WS-Attacker, ZAP, mitmproxy, Ffuf |
-| 23 | Denial of Service Within RoE | InQL, ZAP, Ffuf, Nuclei, Wapiti |
+| 23 | Denial of Service Within RoE | graphql-cop, InQL, ZAP, Ffuf, Nuclei, Wapiti |
 | 24 | AI/LLM-Specific Webapp Vectors | garak, promptfoo, PyRIT, mitmproxy, truffleHog |
 
 ## Integration Priority
