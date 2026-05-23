@@ -11,11 +11,7 @@ from apps.stubs._test_factories import seed_target_run
 from apps.stubs._test_helpers import make_cookie_resp
 from apps.stubs.weak_samesite.runner import run
 
-
-@pytest.fixture(autouse=True)
-def _bypass_guard():
-    with patch("apps.stubs.runners.resolve_and_guard", return_value=MagicMock()):
-        yield
+pytestmark = pytest.mark.usefixtures("_bypass_guard")
 
 
 @pytest.fixture

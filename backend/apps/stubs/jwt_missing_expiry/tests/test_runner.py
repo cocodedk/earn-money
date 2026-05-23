@@ -10,17 +10,13 @@ from apps.stubs._shared.auth.jwt_utils import build_hs_token
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.jwt_missing_expiry.runner import run
 
+pytestmark = pytest.mark.usefixtures("_bypass_guard")
+
 _SECRET = b"test"
 _HEADER = {"alg": "HS256", "typ": "JWT"}
 
 _ACCESS_TOKEN = build_hs_token(_HEADER, {"sub": "u1"}, _SECRET, "HS256")  # no exp
 _VALID_TOKEN = build_hs_token(_HEADER, {"sub": "u1", "exp": 9999999999}, _SECRET, "HS256")
-
-
-@pytest.fixture(autouse=True)
-def _bypass_guard():
-    with patch("apps.stubs.runners.resolve_and_guard", return_value=MagicMock()):
-        yield
 
 
 @pytest.fixture

@@ -10,11 +10,7 @@ from apps.findings.models import Finding
 from apps.stubs._test_factories import seed_target_run
 from apps.stubs.no_invalidation_after_logout.runner import run
 
-
-@pytest.fixture(autouse=True)
-def _bypass_guard():
-    with patch("apps.stubs.runners.resolve_and_guard", return_value=MagicMock()):
-        yield
+pytestmark = pytest.mark.usefixtures("_bypass_guard")
 
 
 @pytest.fixture
