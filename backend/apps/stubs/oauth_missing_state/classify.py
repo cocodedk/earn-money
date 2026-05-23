@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 from urllib.parse import urlparse, parse_qs
 
 from apps.stubs._shared.types import Confidence

@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
 from urllib.parse import urlparse, parse_qs
 
-from apps.stubs._shared.types import Confidence
+from apps.stubs._shared.types import Confidence, Status
 
 
 class AccountLinkingFlawKind(str, Enum):
@@ -29,7 +28,7 @@ class LinkFlawClassification:
     endpoint_url: str
     http_method: str
     confidence: Confidence
-    status: Literal["candidate", "confirmed", "rejected", "stale"]
+    status: Status
     observed_parameters: list[str] = field(default_factory=list)
 
 

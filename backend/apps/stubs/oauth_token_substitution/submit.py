@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass
-from typing import Literal
 from urllib.parse import urlparse, parse_qs
 
-from apps.stubs._shared.types import Confidence
+from apps.stubs._shared.types import Confidence, Status
 
 
 @dataclass
@@ -14,7 +13,7 @@ class SubstitutionResult:
     substitution_attempted: bool
     substitution_accepted: bool | None
     identity_mismatch_observed: bool | None
-    status: Literal["candidate", "confirmed", "rejected", "stale"]
+    status: Status
     confidence: Confidence
     artifact_kind: str
     flow_url: str
@@ -91,7 +90,7 @@ def run_substitution_test(
         )
 
     result_marker = cb_resp.json().get("marker", "")
-    wrong_identity = result_marker and "user_a" in result_marker and user_b != "user_a"
+    wrong_identity = result_marker and "user_a" in result_marker and user_b != user_a
 
     return SubstitutionResult(
         substitution_attempted=True,

@@ -4,10 +4,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
 from urllib.parse import urlsplit
 
-from apps.stubs._shared.types import Confidence
+from apps.stubs._shared.types import Confidence, Status
 
 from apps.stubs._shared.url import origin
 
@@ -29,7 +28,7 @@ _REJECT_PHRASES = frozenset({
 @dataclass(frozen=True)
 class RedirectUriClassification:
     validation_result: ValidationResult
-    status: Literal["confirmed", "candidate", "rejected", "stale"]
+    status: Status
     confidence: Confidence
     location_origin: str | None
     oauth_error: str | None
