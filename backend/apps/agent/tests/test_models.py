@@ -1,9 +1,10 @@
 import pytest
-from apps.agent.models import AgentSession, AutonomyMode, AgentPhase, SessionStatus
-from apps.agent.models import AgentTurn, TurnStatus
+from apps.agent.models import AgentAction, AgentNote, AgentObservation, AgentSession, AgentTurn
+from apps.agent.models import AutonomyMode, AgentPhase, ExecutionStatus, NoteType
+from apps.agent.models import ObservationType, SessionStatus, TurnStatus, ValidationStatus
+from apps.projects.models import Project
 from apps.scans.models import ScanRun, ScanTargetRun
 from apps.targets.models import ScanTarget
-from apps.projects.models import Project
 
 
 @pytest.mark.django_db
@@ -44,13 +45,6 @@ def test_agent_turn_unique_index(create_session):
             response_hash="h3", input_tokens=100, output_tokens=50,
             status=TurnStatus.COMPLETED,
         )
-
-
-from apps.agent.models import (  # noqa: E402
-    AgentAction, ValidationStatus, ExecutionStatus,
-    AgentObservation, ObservationType,
-    AgentNote, NoteType,
-)
 
 
 @pytest.mark.django_db
