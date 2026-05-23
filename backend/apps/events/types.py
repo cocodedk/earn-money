@@ -54,3 +54,10 @@ class EventType(models.TextChoices):
     AUTH_PROBE_REFUSED = "auth.probe_refused", "Active auth probe refused by RoE / safety gate"
     AUTH_FINDING_CANDIDATE = "auth.finding_candidate", "Auth Finding emitted with status=candidate"
     AUTH_FIXTURE_REQUIRED = "auth.fixture_required", "Stub refused live target — fixture validation missing"
+    # V3 Agent lifecycle
+    AGENT_SESSION_STARTED = "agent.session_started", "Agent session started"
+    AGENT_ACTION_EXECUTED = "agent.action_executed", "Agent action executed"
+    AGENT_ACTION_DENIED = "agent.action_denied", "Agent action denied"
+    AGENT_PHASE_CHANGED = "agent.phase_changed", "Agent phase changed"
+    AGENT_NOTE_CREATED = "agent.note_created", "Agent note created"
+    AGENT_MISSION_FINISHED = "agent.mission_finished", "Agent mission finished"
