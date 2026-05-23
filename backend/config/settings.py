@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.evidence",
     "apps.programs",
     "apps.stubs",
+    "apps.agent",
 ]
 
 
