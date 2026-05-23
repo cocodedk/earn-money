@@ -94,7 +94,6 @@ def run_substitution_test(
         result_marker
         and user_a in result_marker
         and user_b not in result_marker
-        and user_b != user_a
     )
 
     return SubstitutionResult(
