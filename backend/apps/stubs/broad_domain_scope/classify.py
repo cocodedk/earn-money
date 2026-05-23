@@ -7,7 +7,10 @@ from typing import Literal, Optional
 
 from apps.stubs._shared.session.cookie_parser import ParsedCookie, Sensitivity
 
-# Single-label values that are public suffixes and therefore invalid as Domain attrs.
+# Single-label public suffixes that are invalid as Domain= attributes.
+# NOTE: multi-label suffixes (e.g. co.uk, com.au) are not handled here — a full
+# Public Suffix List (tldextract) integration is a future improvement. Stubs operate
+# on .test/.cocode.dk fixtures where this gap does not produce false results.
 _PUBLIC_SUFFIXES: frozenset[str] = frozenset({
     "com", "net", "org", "io", "co", "uk", "de", "fr", "test", "local",
     "example", "invalid", "localhost",

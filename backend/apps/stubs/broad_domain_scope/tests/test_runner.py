@@ -51,6 +51,7 @@ def test_parent_domain_creates_confirmed_finding(scan_run, target_run):
     assert f.status == "confirmed"
 
 
+@pytest.mark.django_db
 def test_exact_host_domain_attribute_creates_candidate(db):
     scan_run, target_run = seed_target_run(
         stub_slug="3.4", host="app.example.test",
