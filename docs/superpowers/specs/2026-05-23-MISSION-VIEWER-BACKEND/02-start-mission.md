@@ -18,7 +18,7 @@ Creates everything needed for a mission and enqueues it.
 
 ### What It Creates (atomic transaction)
 
-1. `ScanRun` with `stub_slug="agent.v3"`, `project` from target, status=PENDING
+1. `ScanRun` with `stub_slug="agent.v3"`, `project` from target, status=QUEUED
 2. `ScanTargetRun` linking the scan run to the target
 3. `AgentSession` via `persistence.create_session()` — status=RUNNING, phase=RECON
 4. Starts the ScanRun (status → RUNNING)
@@ -35,8 +35,8 @@ Full AgentSessionSerializer output including `scan_run` UUID for SSE.
 ### Validation
 
 - `target` must exist
-- `mission_profile` must exist in `mission_profiles._PROFILES`
-- Target must not already have an active (RUNNING/PENDING) agent session
+- `mission_profile` must resolve through `mission_profiles.get_profile()`
+- Target must not already have an active agent session with status `pending` or `running`
 
 ## Celery Task: run_agent_session
 
@@ -56,20 +56,27 @@ The task manages three levels of lifecycle state:
 **Before controller.run():**
 1. Load AgentSession, ScanTargetRun, ScanRun
 2. Mark ScanTargetRun as started (status → RUNNING, started_at=now)
-3. Emit `EventType.TARGET_RUN_STARTED` for the ScanTargetRun
-4. Build provider (from session.model_policy)
+3. Emit `EventType.SCAN_TARGET_RUN_STARTED` for the ScanTargetRun
+4. Build provider from `session.model_policy`
 5. Build PlaywrightDriver (browser created inside the task process)
 6. Build MissionController
 
 **After controller.run() completes:**
 1. AgentSession is already finished by controller._finish()
 2. Mark ScanTargetRun terminal: map session status → target_run status
-   - SessionStatus.COMPLETED → TargetRunStatus.DONE
-   - SessionStatus.STOPPED → TargetRunStatus.STOPPED
-   - SessionStatus.FAILED → TargetRunStatus.FAILED
-3. Emit `EventType.TARGET_RUN_DONE` / `TARGET_RUN_STOPPED` / `TARGET_RUN_FAILED`
+   - SessionStatus.COMPLETED → RunStatus.DONE
+   - SessionStatus.STOPPED → RunStatus.STOPPED
+   - SessionStatus.FAILED → RunStatus.FAILED
+3. Emit `EventType.SCAN_TARGET_RUN_DONE` / `SCAN_TARGET_RUN_STOPPED` / `SCAN_TARGET_RUN_FAILED`
 4. Mark ScanRun terminal (same mapping to RunStatus)
-5. Emit `EventType.SCAN_RUN_DONE` / `SCAN_RUN_STOPPED` / `SCAN_RUN_FAILED`
+5. Emit `EventType.SCAN_RUN_DONE` / `SCAN_RUN_STOPPED_FINAL` / `SCAN_RUN_FAILED`
+
+`EventType.SCAN_RUN_FAILED = "scan_run.failed"` does not exist yet. Add it in
+`backend/apps/events/types.py` with the task implementation, and add the
+corresponding migration if Django detects the choice-list change. Use
+`SCAN_RUN_STOPPED_FINAL`, not `SCAN_RUN_STOPPED`, for controller-driven terminal
+stops; `SCAN_RUN_STOPPED` is the existing operator-request event emitted by
+`ScanRun.stop()`.
 
 The SSE stream in `backend/apps/events/views.py:46` closes when
 ScanRun.status is terminal. Without step 4-5, the SSE stream
@@ -82,6 +89,10 @@ never closes and the frontend never sees mission completion.
 4. Emit failure events
 5. Re-raise (Celery logs it)
 
+Always call `await driver.stop()` in a `finally` block once the driver has been
+started. Finalization should be idempotent: do not overwrite a target run or scan
+run that is already in a terminal status.
+
 ### Status Mapping
 
 | AgentSession status | ScanTargetRun status | ScanRun status |
@@ -90,14 +101,44 @@ never closes and the frontend never sees mission completion.
 | STOPPED             | STOPPED              | STOPPED        |
 | FAILED              | FAILED               | FAILED         |
 
+All ScanTargetRun and ScanRun terminal statuses are values from
+`apps.scans.models.RunStatus`.
+
 ### Controller Budget Update
 
-Modify `controller_turn.run_turn()` to write `consumed_budget` to the
-session after every turn (not just at finish). This gives the REST
-endpoint live budget data for polling.
+Modify the controller turn path to write `consumed_budget` to the session after
+every turn, including invalid-action and denied-action branches. This gives the
+REST endpoint live budget data for polling.
 
 ```python
-# At end of run_turn, before return:
+# Use a helper/finally path, not a single line after _execute(), because
+# run_turn() has multiple early returns.
 ctrl.session.consumed_budget = ctrl.budget.consumed_snapshot()
 ctrl.session.save(update_fields=["consumed_budget"])
 ```
+
+The persisted `consumed_budget` shape is the current `BudgetTracker`
+`consumed_snapshot()` shape:
+
+```json
+{
+  "mission": {"turns": 4},
+  "phase": {"turns": 2}
+}
+```
+
+## Tests
+
+- Task success path marks ScanTargetRun RUNNING before controller execution,
+  then DONE, emits started/done target events, marks ScanRun DONE, and emits
+  `scan_run.done`.
+- Task stopped path maps SessionStatus.STOPPED to RunStatus.STOPPED and emits
+  `scan_target_run.stopped` plus `scan_run.stopped_final`.
+- Task failure path marks AgentSession, ScanTargetRun, and ScanRun FAILED,
+  emits `scan_target_run.failed` plus `scan_run.failed`, stops the driver, and
+  re-raises for Celery logging.
+- Task finalization is idempotent for already-terminal target runs and scan
+  runs.
+- Provider construction uses `session.model_policy["provider"]` and
+  `session.model_policy["model"]`, with compatibility for legacy
+  `provider_type` / `primary_model` keys if present in old test data.
