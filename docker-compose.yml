@@ -298,6 +298,19 @@ services:
       SCENARIO: tenant-org-join
     networks: [scanner-net]
 
+  # --- Phase 3 session-lifecycle fixture (stubs 3.5-3.8) -----------------
+  session-lifecycle-lab:
+    build:
+      context: ./fixtures/session-lifecycle-lab
+      dockerfile: Dockerfile
+    image: earnmoney-session-lifecycle-lab:dev
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+    ports:
+      - "3005:3000"
+    networks: [scanner-net]
+
   # --- Phase 3 cookie-flag fixtures (stubs 3.1-3.4) ----------------------
   session-cookie-lab:
     build:
