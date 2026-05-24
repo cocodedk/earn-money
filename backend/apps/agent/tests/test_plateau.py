@@ -126,6 +126,52 @@ class TestInvalidActionPlateau:
         assert pd.is_plateaued() is False
 
 
+class TestBaselineRoutes:
+    def test_known_route_does_not_reset_plateau_counter(self):
+        """A route already in the baseline is not novel — no reset."""
+        pd = PlateauDetector(
+            max_turns_without_new_route=2,
+            max_turns_without_new_interactive_element=100,
+            known_routes={"/"},
+        )
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/"])
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/"])
+        assert pd.is_plateaued() is True
+
+    def test_novel_route_resets_plateau_counter(self):
+        """A route not in the baseline counts as a new discovery."""
+        pd = PlateauDetector(
+            max_turns_without_new_route=2,
+            max_turns_without_new_interactive_element=100,
+            known_routes={"/"},
+        )
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/new"])
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/"])
+        assert pd.is_plateaued() is False
+
+    def test_no_baseline_treats_all_routes_as_novel(self):
+        """Without known_routes, route_paths are ignored for novelty filtering."""
+        pd = PlateauDetector(
+            max_turns_without_new_route=2,
+            max_turns_without_new_interactive_element=100,
+        )
+        pd.record_turn(new_routes=1, new_elements=0, route_paths=["/anything"])
+        pd.record_turn(new_routes=0, new_elements=0)
+        assert pd.is_plateaued() is False
+
+    def test_mixed_known_and_novel_routes(self):
+        """A turn with at least one novel route resets the counter."""
+        pd = PlateauDetector(
+            max_turns_without_new_route=2,
+            max_turns_without_new_interactive_element=100,
+            known_routes={"/", "/about"},
+        )
+        # one novel, one known — counts as discovery
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/", "/contact"])
+        pd.record_turn(new_routes=0, new_elements=0, route_paths=["/about"])
+        assert pd.is_plateaued() is False
+
+
 class TestCustomLimits:
     def test_single_turn_limit(self):
         pd = PlateauDetector(max_turns_without_new_route=1)

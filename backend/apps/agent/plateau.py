@@ -10,11 +10,13 @@ class PlateauDetector:
         max_turns_without_new_interactive_element: int = 3,
         max_repeated_denials: int = 3,
         max_invalid_actions: int = 2,
+        known_routes: set[str] | None = None,
     ) -> None:
         self._max_no_route = max_turns_without_new_route
         self._max_no_element = max_turns_without_new_interactive_element
         self._max_denials = max_repeated_denials
         self._max_invalid = max_invalid_actions
+        self._known_routes = known_routes
 
         self._turns_no_route: int = 0
         self._turns_no_element: int = 0
@@ -25,9 +27,24 @@ class PlateauDetector:
     # Recording
     # ------------------------------------------------------------------
 
-    def record_turn(self, new_routes: int, new_elements: int) -> None:
-        """Record a completed turn with discovery counts."""
-        if new_routes > 0:
+    def record_turn(
+        self,
+        new_routes: int,
+        new_elements: int,
+        route_paths: list[str] | None = None,
+    ) -> None:
+        """Record a completed turn with discovery counts.
+
+        When *route_paths* and *known_routes* are both supplied, only paths
+        not present in the baseline count as genuine new-route discoveries.
+        """
+        if route_paths is not None and self._known_routes is not None:
+            novel = any(p not in self._known_routes for p in route_paths)
+            effective_routes = 1 if novel else 0
+        else:
+            effective_routes = new_routes
+
+        if effective_routes > 0:
             self._turns_no_route = 0
         else:
             self._turns_no_route += 1
