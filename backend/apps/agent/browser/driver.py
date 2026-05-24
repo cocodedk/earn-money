@@ -109,6 +109,8 @@ class PlaywrightDriver:
         """Click the element identified by element_id in the registry."""
         if element_id not in self._element_registry:
             raise ValueError(f"Unknown element_id: {element_id!r}")
+        if self._page is None:
+            raise RuntimeError("browser not started")
         selector = self._element_registry[element_id]
         locator = self._page.locator(selector)
         await locator.click()
@@ -118,7 +120,7 @@ class PlaywrightDriver:
         if element_id not in self._element_registry:
             raise ValueError(f"Unknown element_id: {element_id!r}")
         if self._page is None:
-            raise RuntimeError("Cannot fill without an active page")
+            raise RuntimeError("browser not started")
         selector = self._element_registry[element_id]
         locator = self._page.locator(selector)
         await locator.fill(value)
