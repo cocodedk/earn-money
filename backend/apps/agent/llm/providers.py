@@ -119,6 +119,7 @@ class OpenRouterProvider(LLMProvider):
             "model": self._model,
             "messages": all_messages,
             "max_tokens": 4096,
+            "response_format": {"type": "json_object"},
         }
         if self._extra_params:
             kwargs["extra_body"] = self._extra_params
