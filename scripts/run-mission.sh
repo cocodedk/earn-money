@@ -37,23 +37,26 @@ case "$TARGET_ARG" in
   *-*-*-*-*) TARGET_ID="$TARGET_ARG" ;;
   *)
     log "looking up target: $TARGET_ARG"
-    TARGET_ID=$(curl -sf "$API_BASE/api/targets/?page_size=200" \
-      | python3 - "$TARGET_ARG" <<'PYEOF'
+    TARGETS_JSON=$(curl -sf "$API_BASE/api/targets/?page_size=200") \
+      || die "Failed to fetch targets from API"
+    TARGET_ID=$(echo "$TARGETS_JSON" | python3 -c "
 import sys, json
 host = sys.argv[1]
-d = json.load(sys.stdin)
-matches = [t for t in d["results"] if t["host"] == host]
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(1)
+d = json.loads(raw)
+matches = [t for t in d.get('results', []) if t.get('host') == host]
 if len(matches) > 1:
-    print("AMBIGUOUS", file=sys.stderr)
+    print('AMBIGUOUS', file=sys.stderr)
     for m in matches:
-        print(f"  {m['id']}  {m['base_url']}", file=sys.stderr)
+        print(f'  {m[\"id\"]}  {m[\"base_url\"]}', file=sys.stderr)
     sys.exit(1)
 if matches:
-    print(matches[0]["id"])
+    print(matches[0]['id'])
 else:
-    print("")
-PYEOF
-    )
+    print('')
+" "$TARGET_ARG")
     [ -z "$TARGET_ID" ] && die "No target with host '$TARGET_ARG'"
     ;;
 esac
@@ -71,11 +74,25 @@ print(json.dumps({
     'target': os.environ['TARGET_ID'],
     'mission_profile': os.environ['PROFILE'],
 }))
-")")
+")") || die "Failed to create session (API error or unreachable)"
 
-SESSION_ID=$(echo "$SESSION" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
-PHASES=$(echo "$SESSION" | python3 -c "import sys,json;print(' -> '.join(json.load(sys.stdin)['active_phases']))")
-BUDGET=$(echo "$SESSION" | python3 -c "import sys,json;print(json.load(sys.stdin)['mission_budget']['max_turns'])")
+SESSION_ID=$(echo "$SESSION" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('id', ''))
+") || die "Invalid session response"
+[ -z "$SESSION_ID" ] && die "Session response missing 'id'"
+
+PHASES=$(echo "$SESSION" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(' -> '.join(d.get('active_phases', ['?'])))
+")
+BUDGET=$(echo "$SESSION" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('mission_budget', {}).get('max_turns', '?'))
+")
 
 log "session: $SESSION_ID"
 log "phases: $PHASES"
@@ -105,9 +122,21 @@ while true; do
   fi
   FAIL_COUNT=0
 
-  STATUS=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['status'])")
-  PHASE=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['current_phase'])")
-  TURNS=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('consumed_budget',{}).get('mission',{}).get('turns',0))")
+  STATUS=$(echo "$DATA" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('status', 'unknown'))
+")
+  PHASE=$(echo "$DATA" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('current_phase', '?'))
+")
+  TURNS=$(echo "$DATA" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+print(d.get('consumed_budget', {}).get('mission', {}).get('turns', 0))
+")
 
   LINE="$STATUS | $PHASE | $TURNS/$BUDGET turns"
   if [ "$LINE" != "$PREV" ]; then
@@ -131,15 +160,19 @@ echo ""
 curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/turns/" \
   | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-for t in d['results']:
+raw = sys.stdin.read()
+if not raw.strip():
+    print('  (no turn data)')
+    sys.exit(0)
+d = json.loads(raw)
+for t in d.get('results', []):
     acts = t.get('actions', [])
     a = acts[0] if acts else {}
     goal = a.get('goal', '')[:65]
     atype = a.get('action_type', '?')
-    phase = t['phase']
+    phase = t.get('phase', '?')
     vs = a.get('validation_status', '?')
-    print(f'  Turn {t[\"index\"]:2d} | {phase:9s} | {atype:22s} | {vs:14s} | {goal}')
+    print(f'  Turn {t.get(\"index\", 0):2d} | {phase:9s} | {atype:22s} | {vs:14s} | {goal}')
 "
 
 echo ""
@@ -147,12 +180,16 @@ echo ""
 curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/notes/" \
   | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-notes = d['results']
+raw = sys.stdin.read()
+if not raw.strip():
+    print('  (no notes data)')
+    sys.exit(0)
+d = json.loads(raw)
+notes = d.get('results', [])
 if notes:
     print('  Notes:')
     for n in notes:
-        print(f'    {n[\"note_type\"]}: {json.dumps(n[\"content\"])[:80]}')
+        print(f'    {n.get(\"note_type\", \"?\")}: {json.dumps(n.get(\"content\", {}))[:80]}')
 else:
     print('  No notes recorded.')
 "
