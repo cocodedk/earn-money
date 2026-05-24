@@ -12,6 +12,7 @@ from .observations.builder import ObservationBuilder
 from .persistence import finish_session
 from .phases import is_valid_transition
 from .plateau import PlateauDetector
+from .target_intel import TargetIntel, format_intel_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class MissionController:
         phase_budgets: dict | None = None,
         model_name: str = "mock",
         mission_phases: list[str] | None = None,
+        target_intel: TargetIntel | None = None,
     ) -> None:
         self.session = session
         self.provider = provider
@@ -39,12 +41,14 @@ class MissionController:
         self.model_name = model_name
         self._phase_budgets = phase_budgets or {}
         self._mission_phases = mission_phases or SLICE_1_PHASES
+        self.target_intel = target_intel
+        self._known_routes = target_intel.known_routes if target_intel else None
 
         initial_phase_budget = self._phase_budgets.get(
             self.session.current_phase, {},
         )
         self.budget = BudgetTracker(mission_budget, initial_phase_budget)
-        self.plateau = PlateauDetector()
+        self.plateau = PlateauDetector(known_routes=self._known_routes)
         self.obs_builder = ObservationBuilder(
             target_origin=f"https://{session.target.host}",
         )
@@ -62,6 +66,7 @@ class MissionController:
             phase=phase,
             allowed_actions=allowed_actions_for_phase(phase),
             budget_remaining=self.budget.remaining("turns"),
+            prior_intel_section=format_intel_prompt(self.target_intel),
         )
 
     # ------------------------------------------------------------------
@@ -106,7 +111,7 @@ class MissionController:
         self.session.save(update_fields=["current_phase"])
         new_budget = self._phase_budgets.get(to_phase, {})
         self.budget.switch_phase(new_budget)
-        self.plateau = PlateauDetector()
+        self.plateau = PlateauDetector(known_routes=self._known_routes)
 
     def _try_auto_advance(self) -> bool:
         """Advance to next slice-1 phase on plateau. Return True if moved."""

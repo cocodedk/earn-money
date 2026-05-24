@@ -151,6 +151,7 @@ class NoteType(models.TextChoices):
     ROUTE = "route", "Route"
     PARAMETER = "parameter", "Parameter"
     CANDIDATE = "candidate", "Candidate"
+    FORM = "form", "Form"
 
 
 class AgentNote(TimestampedUUIDModel):

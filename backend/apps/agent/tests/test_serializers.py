@@ -123,7 +123,7 @@ class TestAgentSessionSerializer:
     def test_read_fields_include_active_phases_and_target_url(self, create_session):
         session = create_session(mission_profile="juice_shop_scoreboard")
         data = AgentSessionSerializer(session).data
-        assert data["active_phases"] == ["recon", "enumerate", "report"]
+        assert data["active_phases"] == ["recon", "enumerate", "probe", "report"]
         assert data["target_base_url"] is not None
         assert "scan_run" in data
         assert "scan_target_run" in data

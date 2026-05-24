@@ -18,6 +18,7 @@ You may ONLY emit actions from this list:
 ## Budget
 Remaining turns: {budget_remaining}
 
+{prior_intel}
 ## Safety Rules
 - You MUST NOT emit destructive payloads (DoS, data deletion, exfiltration).
 - You MUST NOT access any host outside the authorised scope.
@@ -169,15 +170,18 @@ def build_system_prompt(
     phase: str,
     allowed_actions: list[str],
     budget_remaining: int,
+    prior_intel_section: str = "",
 ) -> str:
     """Return a formatted system prompt string."""
     actions_str = "\n".join(f"  - {a}" for a in sorted(allowed_actions))
     action_schemas = _build_action_schemas(allowed_actions)
+    prior_intel = prior_intel_section if prior_intel_section else ""
     return _SYSTEM_HEADER.format(
         objective=objective,
         phase=phase,
         allowed_actions=actions_str,
         budget_remaining=budget_remaining,
+        prior_intel=prior_intel,
         action_schemas=action_schemas,
     )
 

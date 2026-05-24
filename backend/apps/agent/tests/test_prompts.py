@@ -183,3 +183,31 @@ class TestProbePromptSchemas:
         assert "fill_form" in prompt
         # submit_form is NOT in enumerate phase
         assert "submit_form" not in prompt
+
+
+class TestPriorIntelSection:
+    def _build(self, prior_intel_section=""):
+        return build_system_prompt(
+            objective=_OBJ,
+            phase=_PHASE,
+            allowed_actions=_ACTIONS,
+            budget_remaining=_BUDGET,
+            prior_intel_section=prior_intel_section,
+        )
+
+    def test_no_intel_omits_section(self):
+        prompt = self._build()
+        assert "## Prior Target Intel" not in prompt
+
+    def test_intel_injected_when_provided(self):
+        intel = "## Prior Intel\n- /admin returned 200 last run"
+        prompt = self._build(prior_intel_section=intel)
+        assert intel in prompt
+
+    def test_intel_appears_after_budget_before_safety(self):
+        intel = "## Prior Intel\n- /admin returned 200 last run"
+        prompt = self._build(prior_intel_section=intel)
+        budget_pos = prompt.index("Remaining turns")
+        intel_pos = prompt.index("Prior Intel")
+        safety_pos = prompt.index("Safety Rules")
+        assert budget_pos < intel_pos < safety_pos

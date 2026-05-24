@@ -14,6 +14,7 @@ from apps.scans.models import RunStatus
 from .controller import MissionController
 from .mission_profiles import get_profile
 from .models import AgentSession, SessionStatus
+from .target_intel import build_target_intel
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +68,15 @@ def _execute_agent_session(session_id: str) -> None:
         provider = _build_provider(session.model_policy)
         driver, base_url = _build_driver(session.target)
 
+        profile = get_profile(session.mission_profile)
+        intel = build_target_intel(
+            session.target,
+            exclude_session_id=session.pk,
+            stale_after_days=7,
+        )
+
         async def _run():
             await driver.start(base_url)
-            profile = get_profile(session.mission_profile)
             ctrl = MissionController(
                 session=session,
                 provider=provider,
@@ -79,6 +86,7 @@ def _execute_agent_session(session_id: str) -> None:
                 phase_budgets=profile.phase_budgets,
                 model_name=session.model_policy.get("model", "mock"),
                 mission_phases=profile.phases,
+                target_intel=intel,
             )
             await ctrl.run()
 
