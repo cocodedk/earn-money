@@ -1,3 +1,8 @@
+---
+slug: repo-structure
+status: done         # draft | in-progress | done
+---
+
 # Repo Structure
 
 Single Django app at `backend/apps/agent/` with internal subpackages. Locality over premature

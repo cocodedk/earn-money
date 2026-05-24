@@ -1,3 +1,8 @@
+---
+slug: state-machine
+status: done         # draft | in-progress | done
+---
+
 # State Machine & Phases
 
 The controller owns a forward-progressing state machine. The LLM cannot mutate phase directly —

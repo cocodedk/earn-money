@@ -1,3 +1,10 @@
+---
+slug: slice-b-plus-probe
+status: done         # draft | in-progress | done
+date: 2026-05-24
+implemented: 2026-05-24
+---
+
 # Slice B-plus - Narrow Probe + Evidence Contract
 
 Minimal next slice after the Juice Shop scoreboard discovery. This is not the full probe/verify

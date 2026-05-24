@@ -1,3 +1,8 @@
+---
+slug: checkpoints
+status: done         # draft | in-progress | done
+---
+
 # Operator Checkpoints
 
 Mixed blocking + async model based on risk. Labs run freely within budget; real programs pause

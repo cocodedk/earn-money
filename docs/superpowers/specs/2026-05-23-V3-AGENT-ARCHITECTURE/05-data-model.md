@@ -1,3 +1,8 @@
+---
+slug: data-model
+status: done         # draft | in-progress | done
+---
+
 # Data Model
 
 V3 agent tables live under the existing scan-run spine. Agent working memory is separate from

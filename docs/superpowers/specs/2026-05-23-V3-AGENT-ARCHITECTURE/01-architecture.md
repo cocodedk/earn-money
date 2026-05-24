@@ -1,3 +1,8 @@
+---
+slug: architecture
+status: done         # draft | in-progress | done
+---
+
 # Architecture Overview
 
 V3 adds an LLM-driven agent layer above the existing v2 scanner spine. The v2 stubs remain
