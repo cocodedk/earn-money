@@ -196,4 +196,4 @@ def format_intel_prompt(intel: TargetIntel | None) -> str:
         for h in intel.hypotheses:
             lines.append(f"  - {h}")
 
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
