@@ -79,6 +79,18 @@
   margin-top: 0.125rem;
   font-style: italic;
 }
+.intent {
+  font-size: var(--text-code);
+  color: var(--ink-muted);
+  margin-top: 0.125rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+.intentLabel {
+  font-weight: 600;
+  font-style: normal;
+  color: var(--ink-soft);
+}
 .detailsBtn {
   font-size: var(--text-micro);
   color: var(--ink-soft);

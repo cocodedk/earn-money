@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UIEvent } from "react";
 import type { AgentNote, AgentTurn } from "./types";
 import { TurnCard } from "./TurnCard";
+import { DiscoveryChips } from "./DiscoveryChips";
 import styles from "./StoryTimeline.module.css";
 
 type Props = {
@@ -84,6 +85,7 @@ export function StoryTimeline({
         return (
           <div key={turn.id} ref={i === orderedTurns.length - 1 ? lastRef : undefined}>
             <TurnCard turn={turn} />
+            <DiscoveryChips turn={turn} notes={turnNotes} />
             {turnNotes.map((note) => (
               <div key={note.id} data-testid={`note-${note.id}`} className={styles.note}>
                 <span className={styles.noteIcon}>{NOTE_ICONS[note.note_type] ?? "📌"}</span>
