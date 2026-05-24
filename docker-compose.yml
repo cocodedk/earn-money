@@ -119,6 +119,7 @@ services:
     image: earnmoney-backend:dev
     command: celery -A config worker --loglevel=info
     environment:
+      DJANGO_ALLOW_ASYNC_UNSAFE: "true"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG}
       DATABASE_URL: ${DATABASE_URL}
