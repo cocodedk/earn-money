@@ -124,14 +124,61 @@ async def test_denied_action_persisted(db_objects):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_invalid_json_recovers(db_objects):
-    c = _ctrl(db_objects, ["not json", _action_json("stop")])
+async def test_invalid_json_recovers_after_retries(db_objects):
+    c = _ctrl(db_objects, [
+        "not json", "not json", "not json",  # 1 attempt + 2 retries exhausted
+        _action_json("stop"),
+    ])
     await c.run()
     c.session.refresh_from_db()
     assert c.session.status == SessionStatus.COMPLETED
     assert AgentAction.objects.filter(
         validation_status=ValidationStatus.INVALID_SCHEMA,
     ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_retry_succeeds_on_second_attempt(db_objects):
+    c = _ctrl(db_objects, [
+        "{}",  # empty object → retry
+        _action_json("stop"),  # valid on retry
+    ])
+    await c.run()
+    c.session.refresh_from_db()
+    assert c.session.status == SessionStatus.COMPLETED
+    assert not AgentAction.objects.filter(
+        validation_status=ValidationStatus.INVALID_SCHEMA,
+    ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_retry_succeeds_on_third_attempt(db_objects):
+    c = _ctrl(db_objects, [
+        '{"action": "http_request"}',  # missing fields → retry
+        "{}",  # empty → retry
+        _action_json("stop"),  # valid on 3rd attempt
+    ])
+    await c.run()
+    c.session.refresh_from_db()
+    assert c.session.status == SessionStatus.COMPLETED
+    assert not AgentAction.objects.filter(
+        validation_status=ValidationStatus.INVALID_SCHEMA,
+    ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_retry_tokens_accumulate(db_objects):
+    c = _ctrl(db_objects, [
+        "{}",  # retry 1
+        _action_json("stop"),  # success
+    ])
+    await c.run()
+    from apps.agent.models import AgentTurn
+    turn = AgentTurn.objects.filter(session=c.session).first()
+    assert turn.input_tokens == 20  # 10 per call × 2 calls
 
 
 @pytest.mark.django_db(transaction=True)
@@ -191,7 +238,10 @@ class TestConsumedBudgetPersistence:
         """Invalid JSON path also persists consumed_budget via finally."""
         session_obj = _ctrl(
             db_objects,
-            responses=["not json", _action_json("stop")],
+            responses=[
+                "not json", "not json", "not json",  # exhaust retries
+                _action_json("stop"),
+            ],
             budget={"max_turns": 10},
         )
         await session_obj.run()
