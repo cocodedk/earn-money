@@ -144,6 +144,64 @@ class TestStopAction:
         assert env.parsed.reason == "need context"  # from _base() envelope default
 
 
+class TestClickAction:
+    def test_parse_valid_click(self):
+        raw = {
+            "action": "click", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "link_3",
+        }
+        env = parse_action(raw)
+        assert env.action == "click"
+        assert env.parsed.element_id == "link_3"
+
+    def test_reject_missing_element_id(self):
+        raw = {
+            "action": "click", "goal": "g", "reason": "r",
+            "hypothesis": "h",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
+
+
+_ALLOWED_METHODS = frozenset({"GET", "HEAD"})
+
+
+class TestHttpRequestAction:
+    def test_parse_valid_get(self):
+        raw = {
+            "action": "http_request", "goal": "g", "reason": "r",
+            "hypothesis": "h", "method": "GET", "path": "/api/test",
+        }
+        env = parse_action(raw)
+        assert env.parsed.method == "GET"
+        assert env.parsed.path == "/api/test"
+
+    def test_parse_valid_head(self):
+        raw = {
+            "action": "http_request", "goal": "g", "reason": "r",
+            "hypothesis": "h", "method": "HEAD", "path": "/",
+        }
+        env = parse_action(raw)
+        assert env.parsed.method == "HEAD"
+
+    def test_reject_post(self):
+        raw = {
+            "action": "http_request", "goal": "g", "reason": "r",
+            "hypothesis": "h", "method": "POST", "path": "/api/test",
+        }
+        with pytest.raises(InvalidActionError, match="GET.*HEAD"):
+            parse_action(raw)
+
+    def test_reject_absolute_url(self):
+        raw = {
+            "action": "http_request", "goal": "g", "reason": "r",
+            "hypothesis": "h", "method": "GET",
+            "path": "https://evil.com/steal",
+        }
+        with pytest.raises(InvalidActionError, match="must not contain"):
+            parse_action(raw)
+
+
 class TestUnknownAction:
     def test_raises(self):
         with pytest.raises(InvalidActionError, match="Unknown action"):
