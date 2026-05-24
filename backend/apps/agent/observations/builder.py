@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from urllib.parse import urlparse
 
+from ._form_parser import parse_form_node
 from .page import (
     ButtonElement,
     CookieInfo,
@@ -10,6 +11,7 @@ from .page import (
     DiscoveredItems,
     DiscoveredRoute,
     Elements,
+    FormElement,
     InputElement,
     LinkElement,
     NetworkEntry,
@@ -113,11 +115,23 @@ class ObservationBuilder:
         links: list[LinkElement] = []
         buttons: list[ButtonElement] = []
         inputs: list[InputElement] = []
+        forms: list[FormElement] = []
         visible: list[VisibleTextBlock] = []
 
         for node in children:
             role = node.get("role", "")
             name = node.get("name", "")
+
+            if role == "form":
+                form_elem, form_inputs, form_buttons, form_visible = (
+                    parse_form_node(node, self._next_id)
+                )
+                forms.append(form_elem)
+                inputs.extend(form_inputs)
+                buttons.extend(form_buttons)
+                visible.extend(form_visible)
+                continue
+
             if role == "link":
                 href = node.get("url", "") or node.get("value", "")
                 links.append(LinkElement(
@@ -141,7 +155,10 @@ class ObservationBuilder:
             if name:
                 visible.append(VisibleTextBlock(text=name))
 
-        return Elements(links=links, buttons=buttons, inputs=inputs), visible
+        return (
+            Elements(links=links, buttons=buttons, forms=forms, inputs=inputs),
+            visible,
+        )
 
     # ------------------------------------------------------------------
     # Route + asset extraction
