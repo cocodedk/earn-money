@@ -34,3 +34,4 @@ Playwright, HTTP, or tools directly — the controller mediates everything.
 | [09-repo-structure.md](09-repo-structure.md) | File layout for backend/apps/agent/ | **done** |
 | [10-slice-1.md](10-slice-1.md) | Juice Shop scoreboard mission — scope and acceptance | **done** |
 | [11-slice-b-plus-probe.md](11-slice-b-plus-probe.md) | Narrow probe phase + minimal evidence contract | **done** |
+| [12-slice-2-forms-verify.md](12-slice-2-forms-verify.md) | Forms interaction + verify phase | **draft** |
