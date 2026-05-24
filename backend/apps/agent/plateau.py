@@ -55,7 +55,7 @@ class PlateauDetector:
             self._turns_no_element += 1
 
         # A productive turn resets denial and invalid streaks.
-        if new_routes > 0 or new_elements > 0:
+        if effective_routes > 0 or new_elements > 0:
             self._denial_streak = 0
             self._invalid_streak = 0
 

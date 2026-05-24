@@ -17,6 +17,7 @@ You may ONLY emit actions from this list:
 
 ## Budget
 Remaining turns: {budget_remaining}
+
 {prior_intel}
 ## Safety Rules
 - You MUST NOT emit destructive payloads (DoS, data deletion, exfiltration).

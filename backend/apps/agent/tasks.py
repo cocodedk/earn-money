@@ -68,14 +68,15 @@ def _execute_agent_session(session_id: str) -> None:
         provider = _build_provider(session.model_policy)
         driver, base_url = _build_driver(session.target)
 
+        profile = get_profile(session.mission_profile)
+        intel = build_target_intel(
+            session.target,
+            exclude_session_id=session.pk,
+            stale_after_days=7,
+        )
+
         async def _run():
             await driver.start(base_url)
-            profile = get_profile(session.mission_profile)
-            intel = build_target_intel(
-                session.target,
-                exclude_session_id=session.pk,
-                stale_after_days=7,
-            )
             ctrl = MissionController(
                 session=session,
                 provider=provider,
