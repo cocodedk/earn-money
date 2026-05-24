@@ -10,6 +10,7 @@ import { TargetScanRunsTable } from "./TargetResult/TargetScanRunsTable";
 import { TargetFindingsPanel } from "./TargetResult/TargetFindingsPanel";
 import { TargetEvidencePanel } from "./TargetResult/TargetEvidencePanel";
 import { TargetEventsTable } from "./TargetResult/TargetEventsTable";
+import { TargetAuthEventsPanel } from "./TargetResult/TargetAuthEventsPanel";
 import type { Target } from "../../types/api";
 
 function DetailBody({ target }: { target: Target }) {
@@ -35,6 +36,7 @@ function DetailBody({ target }: { target: Target }) {
       <TargetScanRunsTable targetId={target.id} />
       <TargetFindingsPanel targetId={target.id} />
       <TargetEvidencePanel targetId={target.id} />
+      <TargetAuthEventsPanel targetId={target.id} />
       <TargetEventsTable targetId={target.id} />
     </>
   );

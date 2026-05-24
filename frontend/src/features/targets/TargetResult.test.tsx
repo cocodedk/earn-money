@@ -94,4 +94,44 @@ describe("TargetResult — happy path + empty states", () => {
     expect(await screen.findByTestId("target-evidence-empty")).toBeInTheDocument();
     expect(await screen.findByTestId("target-events-empty")).toBeInTheDocument();
   });
+
+  it("renders TargetAuthEventsPanel between Evidence and Events when there are auth events", async () => {
+    const authEventsPage = (rows: ReturnType<typeof makeEvent>[]) => ({
+      count: rows.length,
+      next: null,
+      previous: null,
+      results: rows,
+    });
+
+    server.use(
+      msw.get(`/api/targets/${TARGET_ID}/`, () => HttpResponse.json(TARGET)),
+      msw.get("/api/scan-runs/", () => HttpResponse.json(emptyPage())),
+      msw.get("/api/findings/", () => HttpResponse.json(emptyPage())),
+      msw.get("/api/evidence/", () => HttpResponse.json(emptyPage())),
+      msw.get("/api/events/", ({ request }) => {
+        const types = new URL(request.url).searchParams.getAll("type");
+        if (types.includes("auth.probe_refused")) {
+          return HttpResponse.json(
+            authEventsPage([
+              makeEvent({
+                id: "auth-1",
+                type: "auth.fixture_required",
+                message: "fixture missing",
+              }),
+            ]),
+          );
+        }
+        return HttpResponse.json(emptyPage());
+      }),
+    );
+    mountTargetResult();
+    const evidence = await screen.findByTestId("target-evidence-section");
+    const auth = await screen.findByTestId("target-auth-events-section");
+    const events = await screen.findByTestId("target-events-section");
+    expect(evidence.parentElement).toBe(auth.parentElement);
+    expect(auth.parentElement).toBe(events.parentElement);
+    const siblings = Array.from(auth.parentElement!.children);
+    expect(siblings.indexOf(evidence)).toBeLessThan(siblings.indexOf(auth));
+    expect(siblings.indexOf(auth)).toBeLessThan(siblings.indexOf(events));
+  });
 });

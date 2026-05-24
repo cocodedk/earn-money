@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ROUTES, scanRunDetailPath, stubDetailPath } from "./routes";
+import { ROUTES, scanRunDetailPath, stubDetailPath, missionDetailPath } from "./routes";
 
 describe("routes registry", () => {
   it("locks the navigation route paths", () => {
@@ -18,5 +18,19 @@ describe("routes registry", () => {
   it("builds a scan run detail path from a UUID", () => {
     expect(scanRunDetailPath("r-1")).toBe("/scan-runs/r-1");
     expect(scanRunDetailPath("abc-123")).toBe("/scan-runs/abc-123");
+  });
+
+  it("locks the mission detail route path", () => {
+    expect(ROUTES.missionDetail).toBe("/missions/:sessionId");
+  });
+
+  it("builds a mission detail path from a session UUID", () => {
+    expect(missionDetailPath("s-1")).toBe("/missions/s-1");
+    expect(missionDetailPath("abc-123")).toBe("/missions/abc-123");
+  });
+
+  it("path-encodes the session id segment", () => {
+    expect(missionDetailPath("abc/123")).toBe("/missions/abc%2F123");
+    expect(missionDetailPath("id with spaces")).toBe("/missions/id%20with%20spaces");
   });
 });
