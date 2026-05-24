@@ -1,83 +1,87 @@
 # earn-money
 
-Public operational repository for a continuous bug-bounty pipeline.
+Automated vulnerability scanning platform with an LLM-driven agent layer.
 
-## Status — v2 fresh start (2026-05-18)
+## Current state
 
-The v1 corpus — full pipeline built around `clawpwn`, with recon runners, agent, dashboard, triage, and reporting — is parked under [`archive/v1/`](archive/v1/). Tag `v1-final` marks its complete state; nothing was deleted.
+**V3 agent** — an LLM (DeepSeek V4 Pro via OpenRouter) drives a Playwright browser through recon → enumerate → probe → verify → report phases against target web apps. The controller validates every action against phase/budget/RoE/scope gates before execution. ~50 deterministic v2 stubs remain as fast pre-pass tools the agent invokes via `run_stub`.
 
-The active direction is the [**vuln-scanning cookbook**](docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/): 278 leaf-bullet specs across 24 phases of OWASP / PortSwigger coverage, each filled in by GPT-5.5 enrichment then implemented in TDD against local fixtures on `target.cocode.dk`.
+**Stack:** Django REST Framework backend, React/TypeScript frontend, Celery + Redis task queue, PostgreSQL, Playwright for browser automation, Caddy reverse proxy. All containerized via Docker Compose.
 
-## Direction
+**Mission viewer** — frontend page at `/missions/:sessionId` streams the agent's turn-by-turn timeline via SSE: LLM reasoning, controller decisions, observations, phase transitions, and budget state in real time.
 
-- **Deterministic first.** AI is not the automation layer. Reach for AI only when no deterministic option fits the bullet's intent — and the spec's `## AI involvement` section names that gap.
-- **Paste-ready contract.** Every spec stub carries an enrichment-zone marker telling GPT-5.5 what's protected (frontmatter, title, blockquote, `##` headings) and what's editable (body under each section).
-- **Shared schema.** Cross-cutting `ScanTarget` and `Evidence` live once in [`00-shared-schema.md`](docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/00-shared-schema.md); stubs define only their domain-specific `<X>Signature` / `<X>Finding`.
-- **One phase at a time.** A phase ships only when every spec is `done` AND every plan is `verified`.
+## Architecture
+
+```
+Frontend (React)  ──→  Django REST API  ──→  Celery Worker
+     ↕ SSE                  ↕                    ↕
+  Mission Viewer     AgentSession model    MissionController
+                     (audit snapshot)      ├─ LLM Provider (OpenRouter/Anthropic)
+                                           ├─ PlaywrightDriver (browser)
+                                           └─ BudgetTracker + PlateauDetector
+```
 
 ## Layout
 
 ```
-docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/  ← Cookbook specs (278 stubs, 24 phases)
-docs/superpowers/plans/2026-05-18-VULN-SCANNING-COOKBOOK/   ← Mirror plan tree
-scripts/cookbook_progress.py                                ← Reads frontmatter → PROGRESS.md
-scripts/cookbook_bootstrap.py                               ← Idempotent migrator (--apply to write)
-scripts/cookbook_templates.py                               ← Templates + section schemas
-archive/v1/                                                 ← Parked v1 corpus
-CLAUDE.md                                                   ← Operational rules
+backend/apps/agent/         ← V3 agent: controller, providers, browser driver, models
+backend/apps/stubs/         ← V2 deterministic stub runners (Phases 1-3)
+backend/apps/scans/         ← ScanRun lifecycle + Celery tasks
+backend/apps/events/        ← Unified event log + SSE streaming
+backend/apps/findings/      ← Finding + Evidence persistence
+frontend/                   ← React/TS dashboard + mission viewer
+fixtures/                   ← Lab fixture containers (session-cookie-lab, reset-canary, oauth-lab)
+docs/superpowers/specs/     ← Cookbook specs (278 stubs) + V3 agent architecture
+docs/superpowers/plans/     ← Implementation plans
+scripts/                    ← Cookbook progress, sync-vps, hooks
+archive/v1/                 ← Parked v1 corpus
 ```
 
 ## Test fixtures
 
-Operator-owned vuln-app host at `target.cocode.dk` (`89.167.63.167`). Four endpoints behind Caddy, all HTTPS:
+Operator-owned lab host at `target.cocode.dk` / `h1.cocode.dk`:
 
-| URL | App | Default access |
-|-----|-----|----------------|
-| `https://target.cocode.dk/` | OWASP Juice Shop | "Mystery" blind target — runners fingerprint; no hostname/path leak. |
-| `https://juiceshop.cocode.dk/` | OWASP Juice Shop | Same container, identifiable hostname. |
-| `https://dvwa.cocode.dk/` | DVWA | `admin` / `password`. DB auto-created via MariaDB sidecar (`dvwa-db` on docker network `dvwa-net`). |
-| `https://webgoat.cocode.dk/` | WebGoat | Root → `/WebGoat/login`. Self-service registration. |
+| URL | App |
+|-----|-----|
+| `https://juiceshop.cocode.dk/` | OWASP Juice Shop |
+| `https://dvwa.cocode.dk/` | DVWA (`admin`/`password`) |
+| `https://webgoat.cocode.dk/` | WebGoat (self-registration) |
+| `https://target.cocode.dk/` | Juice Shop (blind — no hostname leak) |
 
-All four URLs are authorised for any HTTP technique; the `roe.md` floor in [`CLAUDE.md`](CLAUDE.md) applies only to live programs. SSH: `root@target.cocode.dk` with `~/.ssh/id_cocodedk`.
-
-## Cookbook workflow
-
-1. **Spec.** GPT-5.5 enriches a stub. Operator reviews; flips spec `status:` to `done` and assigns `fixture:`.
-2. **Plan.** Once the spec is `done`, draft the matching plan at the mirror path under `docs/superpowers/plans/...`; walk plan `status:` through `drafted → approved → implemented → verified`.
-3. **Implement.** TDD per the plan against the assigned fixture URL.
-4. **Persist.** Each runner writes findings into shared `ScanTarget` + `Evidence` plus its own `<X>Signature` / `<X>Finding`.
-5. **Regenerate `PROGRESS.md`** with `python scripts/cookbook_progress.py` and commit.
-
-See the [cookbook README](docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/README.md) for the full workflow + frontmatter contract.
-
-## v1 reference
-
-To run the v1 pipeline from its archived state:
-
-```bash
-cd archive/v1
-make smoke      # the v1 lint + mypy + tests (1018 tests)
-```
-
-Project-wide invariants survive from v1 (scope is gospel, two human gates, three-tier program policy, `RECON_ENABLED` kill-switch). The current [`CLAUDE.md`](CLAUDE.md) preserves them; [`archive/v1/CLAUDE.md`](archive/v1/CLAUDE.md) carries the full original text.
+All authorised for any HTTP technique against these designated test environments.
 
 ## Local setup
 
 ```bash
-./scripts/install-hooks.sh    # one-time: pre-commit + pre-push + commit-msg
+cp .env.example .env          # fill in secrets
+./scripts/install-hooks.sh    # pre-commit + pre-push + commit-msg hooks
+docker compose up --build     # full stack at http://localhost
 ```
 
-The pre-push hook is owner-locked to `github.com/cocodedk`. The pre-commit hook refuses sensitive paths (RECON_ENABLED, *.sqlite, identity/platforms.md, recon/outputs/, .env) at both root and `archive/v1/` mirrors.
+### Environment variables
 
-For the cookbook scripts, any Python 3.12+ with `python-frontmatter` works. The existing `.venv/` at repo root (built from the v1 `pyproject.toml`) already has the dep:
+| Variable | Purpose |
+|----------|---------|
+| `AGENT_LLM_PROVIDER` | LLM provider: `openrouter`, `anthropic`, `mock` |
+| `AGENT_LLM_MODEL` | Model ID, e.g. `deepseek/deepseek-v4-pro` |
+| `AGENT_LLM_REASONING_EFFORT` | `high`, `medium`, `low` |
+| `OPENROUTER_API_KEY` | OpenRouter API key |
+| `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic provider) |
+
+## Deploy to VPS
 
 ```bash
-.venv/bin/python scripts/cookbook_progress.py    # regenerate PROGRESS.md
-.venv/bin/python scripts/cookbook_bootstrap.py   # dry-run preview
-.venv/bin/python scripts/cookbook_bootstrap.py --apply   # apply migrations
+VPS_HOST=root@h1.cocode.dk bash scripts/sync-vps.sh
+ssh root@h1.cocode.dk 'cd /opt/earn-money && docker compose up -d --build'
 ```
 
-When cookbook-v2 code lands, the venv will be rebuilt from a new root-level `pyproject.toml`. Until then, the v1 venv suffices for the scripts.
+## Safety boundaries
+
+- **Scope is gospel.** No scan of an asset not in the program's `scope.md`.
+- **Two human gates.** Findings queue → verified (operator) → submitted (`bin/submit`).
+- **Kill-switch.** `RECON_ENABLED` flag file at repo root.
+- **Per-program RoE.** `roe.md` declares technique-level authority per program.
+- **Budget gates.** Mission + per-phase budgets bound every agent session.
 
 ## Author
 
