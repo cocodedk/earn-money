@@ -250,6 +250,68 @@ class TestConsumedBudgetPersistence:
 
 
 @pytest.mark.django_db(transaction=True)
+class TestFillFormExecution:
+    @pytest.mark.asyncio
+    async def test_fill_form_calls_driver_fill(self, db_objects):
+        fill_json = _action_json(
+            action="fill_form", element_id="input_0", value="admin",
+        )
+        ctrl = _ctrl(
+            db_objects,
+            responses=[fill_json],
+            budget={
+                "max_turns": 5,
+                "max_browser_actions": 5,
+                "max_form_fills": 5,
+            },
+        )
+        ctrl.session.current_phase = "enumerate"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.fill = AsyncMock()
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.fill.assert_awaited_once_with("input_0", "admin")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="page",
+        ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestSubmitFormExecution:
+    @pytest.mark.asyncio
+    async def test_submit_form_calls_driver_click(self, db_objects):
+        submit_json = _action_json(
+            action="submit_form", element_id="btn_0",
+        )
+        ctrl = _ctrl(
+            db_objects,
+            responses=[submit_json],
+            budget={
+                "max_turns": 5,
+                "max_browser_actions": 5,
+                "max_form_submits": 5,
+            },
+        )
+        ctrl.session.current_phase = "probe"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.click = AsyncMock()
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.click.assert_awaited_once_with("btn_0")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="page",
+        ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
 class TestClickExecution:
     @pytest.mark.asyncio
     async def test_click_persists_page_observation(self, db_objects):

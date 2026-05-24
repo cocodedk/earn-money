@@ -5,8 +5,8 @@ import json
 from typing import TYPE_CHECKING
 
 from .actions.schemas import (
-    ClickAction, HttpRequestAction, NavigateAction,
-    RequestPhaseTransitionAction, StopAction, StoreNoteAction,
+    ClickAction, FillFormAction, HttpRequestAction, NavigateAction,
+    RequestPhaseTransitionAction, StopAction, StoreNoteAction, SubmitFormAction,
 )
 from .llm.prompts import format_observation_message
 from .models import ExecutionStatus, ObservationType, TurnStatus
@@ -56,6 +56,20 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
         await ctrl.driver.click(parsed.element_id)
         obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
         ctrl.budget.consume("browser_actions")
+        _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
+        return False
+
+    if isinstance(parsed, FillFormAction):
+        ctrl.budget.consume("form_fills")
+        await ctrl.driver.fill(parsed.element_id, parsed.value)
+        obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
+        _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
+        return False
+
+    if isinstance(parsed, SubmitFormAction):
+        ctrl.budget.consume("form_submits")
+        await ctrl.driver.click(parsed.element_id)
+        obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
         _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
         return False
 
