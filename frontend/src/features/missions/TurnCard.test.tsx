@@ -101,4 +101,36 @@ describe("TurnCard", () => {
     const icon = screen.getByTestId("turn-icon-success");
     expect(icon).toHaveAttribute("aria-label", "Completed");
   });
+
+  it("shows reason when non-empty", () => {
+    const turn = makeTurn({
+      actions: [makeAction({ reason: "Need to understand page structure" })],
+    });
+    renderWithProviders(<TurnCard turn={turn} />);
+    expect(screen.getByText(/Need to understand page structure/)).toBeInTheDocument();
+  });
+
+  it("shows hypothesis when non-empty", () => {
+    const turn = makeTurn({
+      actions: [makeAction({ hypothesis: "Page may contain hidden links" })],
+    });
+    renderWithProviders(<TurnCard turn={turn} />);
+    expect(screen.getByText(/Page may contain hidden links/)).toBeInTheDocument();
+  });
+
+  it("hides reason line when empty", () => {
+    const turn = makeTurn({
+      actions: [makeAction({ reason: "" })],
+    });
+    renderWithProviders(<TurnCard turn={turn} />);
+    expect(screen.queryByText("Why:")).not.toBeInTheDocument();
+  });
+
+  it("hides hypothesis line when empty", () => {
+    const turn = makeTurn({
+      actions: [makeAction({ hypothesis: "" })],
+    });
+    renderWithProviders(<TurnCard turn={turn} />);
+    expect(screen.queryByText("Expected:")).not.toBeInTheDocument();
+  });
 });
