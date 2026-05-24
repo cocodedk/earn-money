@@ -71,6 +71,13 @@ class PlateauDetector:
         """Record an invalid action emitted by the model."""
         self._invalid_streak += 1
 
+    def record_candidate(self) -> None:
+        """Record a newly accepted candidate finding as mission progress."""
+        self._turns_no_route = 0
+        self._turns_no_element = 0
+        self._denial_streak = 0
+        self._invalid_streak = 0
+
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------

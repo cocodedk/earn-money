@@ -1,6 +1,7 @@
 """Action dispatch and event emission for executed turns."""
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import TYPE_CHECKING
 
@@ -10,7 +11,7 @@ from .actions.schemas import (
     SubmitCandidateAction, SubmitFormAction,
 )
 from .llm.prompts import format_observation_message
-from .models import ExecutionStatus, ObservationType, TurnStatus
+from .models import ExecutionStatus, NoteType, ObservationType, TurnStatus
 from .persistence import (
     finish_turn, record_action, record_note, record_observation,
 )
@@ -32,6 +33,7 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
         args_redacted = {
             "category": envelope.parsed.category,
             "description": envelope.parsed.description[:200],
+            "evidence_refs": list(envelope.parsed.evidence_refs)[:20],
         }
     action_rec = record_action(
         turn=turn, action_type=envelope.action, args_redacted=args_redacted,
@@ -58,6 +60,9 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
         finish_turn(turn, TurnStatus.COMPLETED)
         ctrl.plateau.record_turn(new_routes=0, new_elements=0)
         return False
+
+    if isinstance(parsed, SubmitCandidateAction):
+        return _handle_submit_candidate(ctrl, turn, action_rec, envelope, parsed)
 
     if isinstance(parsed, ClickAction):
         await ctrl.driver.click(parsed.element_id)
@@ -95,6 +100,141 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
     obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
     _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
     return False
+
+
+def _handle_submit_candidate(
+    ctrl,
+    turn,
+    action_rec,
+    envelope: ActionEnvelope,
+    parsed: SubmitCandidateAction,
+) -> bool:
+    fingerprint = _candidate_fingerprint(parsed)
+    duplicate = _find_duplicate_candidate(ctrl.session, fingerprint)
+    if duplicate is not None:
+        reason = (
+            "Duplicate candidate already submitted. Do not submit it again; "
+            "stop if reporting is complete or continue only with new evidence."
+        )
+        _deny_duplicate_candidate(ctrl, turn, action_rec, envelope, reason)
+        return False
+
+    content = {
+        "category": parsed.category,
+        "description": parsed.description,
+        "fingerprint": fingerprint,
+    }
+    record_note(
+        ctrl.session,
+        turn,
+        NoteType.CANDIDATE,
+        content,
+        evidence_refs=parsed.evidence_refs,
+    )
+    from .event_log import emit_note_created
+    emit_note_created(ctrl.session, NoteType.CANDIDATE, turn.index)
+
+    action_rec.args_redacted = {
+        "category": parsed.category,
+        "description": parsed.description[:200],
+        "evidence_refs": list(parsed.evidence_refs)[:20],
+        "fingerprint": fingerprint,
+    }
+    action_rec.save(update_fields=["args_redacted"])
+    _mark_executed(action_rec)
+    ctrl.plateau.record_candidate()
+
+    obs_dict = {
+        "action": "submit_candidate",
+        "status": "accepted",
+        "candidate": {
+            "category": parsed.category,
+            "description": parsed.description,
+            "evidence_refs": parsed.evidence_refs,
+            "fingerprint": fingerprint,
+        },
+        "guidance": (
+            "Candidate recorded. Do not submit the same candidate again; "
+            "stop if reporting is complete or continue only with new evidence."
+        ),
+    }
+    _emit_and_finish(ctrl, turn, envelope, obs_dict)
+    return False
+
+
+def _candidate_fingerprint(parsed: SubmitCandidateAction) -> str:
+    return _candidate_fingerprint_from_values(
+        parsed.category,
+        parsed.description,
+        parsed.evidence_refs,
+    )
+
+
+def _candidate_fingerprint_from_values(
+    category: object,
+    description: object,
+    evidence_refs: object,
+) -> str:
+    refs = evidence_refs if isinstance(evidence_refs, list) else []
+    payload = {
+        "category": _normalize_candidate_text(category),
+        "description": _normalize_candidate_text(description),
+        "evidence_refs": sorted({
+            _normalize_candidate_text(ref) for ref in refs if ref is not None
+        }),
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _normalize_candidate_text(value: object) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _find_duplicate_candidate(session, fingerprint: str):
+    notes = (
+        session.notes
+        .filter(note_type=NoteType.CANDIDATE)
+        .order_by("pk")
+        .only("pk", "content", "evidence_refs")
+    )
+    for note in notes:
+        content = note.content if isinstance(note.content, dict) else {}
+        note_fingerprint = content.get("fingerprint") or _candidate_fingerprint_from_values(
+            content.get("category", ""),
+            content.get("description", ""),
+            note.evidence_refs,
+        )
+        if note_fingerprint == fingerprint:
+            return note
+    return None
+
+
+def _deny_duplicate_candidate(ctrl, turn, action_rec, envelope, reason: str) -> None:
+    action_rec.execution_status = ExecutionStatus.SKIPPED
+    action_rec.denial_reason = reason
+    action_rec.save(update_fields=["execution_status", "denial_reason"])
+    finish_turn(turn, TurnStatus.ACTION_DENIED)
+    ctrl.plateau.record_denial()
+
+    from .event_log import build_budget_snapshot, emit_action_denied
+    snapshot = build_budget_snapshot(ctrl.session, ctrl.budget.consumed_snapshot())
+    emit_action_denied(
+        ctrl.session,
+        turn.index,
+        envelope.action,
+        reason,
+        goal=envelope.goal,
+        hypothesis=envelope.hypothesis,
+        budget_snapshot=snapshot,
+    )
+
+    raw = json.dumps({"action": envelope.action})
+    ctrl.messages.append({"role": "assistant", "content": raw})
+    ctrl.messages.append({
+        "role": "user",
+        "content": format_observation_message(denial_reason=reason),
+    })
 
 
 def _handle_phase_transition(ctrl, parsed) -> None:

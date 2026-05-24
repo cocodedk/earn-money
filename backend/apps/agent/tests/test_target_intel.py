@@ -141,19 +141,22 @@ class TestBuildTargetIntelRoutesAndForms:
 class TestBuildTargetIntelCandidates:
     def test_extracts_candidates(self, target_with_session):
         session = target_with_session["session"]
-        from apps.agent.persistence import create_turn
-        from apps.agent.models import AgentAction, ValidationStatus, ExecutionStatus
+        from apps.agent.persistence import create_turn, record_note
         turn = create_turn(session, model="mock")
-        AgentAction.objects.create(
-            turn=turn, action_type="submit_candidate",
-            args_redacted={}, goal="found scoreboard",
-            reason="r", hypothesis="h",
-            validation_status=ValidationStatus.VALID,
-            execution_status=ExecutionStatus.EXECUTED,
+        record_note(
+            session,
+            turn,
+            "candidate",
+            {
+                "category": "hidden_route_discovered",
+                "description": "found scoreboard",
+            },
+            evidence_refs=["asset-1"],
         )
 
         intel = build_target_intel(target_with_session["target"], stale_after_days=7)
         assert len(intel.prior_candidates) == 1
+        assert intel.prior_candidates[0].category == "hidden_route_discovered"
         assert intel.prior_candidates[0].description == "found scoreboard"
 
 

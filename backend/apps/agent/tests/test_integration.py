@@ -153,14 +153,19 @@ async def test_scoreboard_mission_end_to_end(db_objects):
 
     # -- Observations for browser actions ----------------------------------
     obs_actions = AgentObservation.objects.filter(action__turn__session=session)
-    # observe_page, inspect_asset, navigate, submit_candidate all produce observations
-    assert obs_actions.count() == 4
+    # observe_page, inspect_asset, navigate produce page observations.
+    # submit_candidate records a candidate note instead.
+    assert obs_actions.count() == 3
 
-    # -- submit_candidate action recorded ----------------------------------
+    # -- submit_candidate action and note recorded ---------------------------
     candidate = AgentAction.objects.get(
         turn__session=session, action_type="submit_candidate",
     )
     assert candidate is not None  # action persisted
+    note = AgentNote.objects.get(session=session, note_type="candidate")
+    assert note.content["category"] == "hidden_route_discovered"
+    assert note.content["description"] == "Score-board route found via JS analysis"
+    assert note.evidence_refs == ["asset-1"]
 
     # -- Phase changed to enumerate ----------------------------------------
     session.refresh_from_db()
@@ -174,10 +179,10 @@ async def test_scoreboard_mission_end_to_end(db_objects):
 
     assert EventType.AGENT_ACTION_EXECUTED in event_types
     assert EventType.AGENT_PHASE_CHANGED in event_types
+    assert EventType.AGENT_NOTE_CREATED in event_types
     assert EventType.AGENT_MISSION_FINISHED in event_types
 
     finished_evt = session_events.get(type=EventType.AGENT_MISSION_FINISHED)
     assert finished_evt.data["status"] == SessionStatus.COMPLETED
     assert finished_evt.data["reason"] == "stop_action"
-
 

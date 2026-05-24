@@ -71,6 +71,14 @@ class SubmitCandidateAction:
     description: str
     evidence_refs: list[str]
 
+    def __post_init__(self) -> None:
+        if not self.category:
+            raise InvalidActionError("submit_candidate requires a non-empty category")
+        if not self.description:
+            raise InvalidActionError("submit_candidate requires a non-empty description")
+        if not isinstance(self.evidence_refs, list):
+            raise InvalidActionError("submit_candidate evidence_refs must be a list")
+
 
 @dataclass
 class RequestPhaseTransitionAction:
