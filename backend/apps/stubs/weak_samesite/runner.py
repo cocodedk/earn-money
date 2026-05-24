@@ -10,7 +10,7 @@ from apps.stubs._shared.auth.requests import submit_probe
 from apps.stubs._shared.session.cookie_parser import parse_set_cookie
 
 from ..runners import guarded_runner
-from .classify import SameSiteStatus, WeaknessKind, classify_cookie
+from .classify import SameSiteResult, SameSiteStatus, WeaknessKind, classify_cookie
 
 _STUB_ID = "3.3"
 _PROBE_PATHS = ("/", "/login")
@@ -19,7 +19,8 @@ _PROBE_PATHS = ("/", "/login")
 @guarded_runner(_STUB_ID)
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     base = target_run.target.base_url.rstrip("/")
-    seen: set[str] = set()
+    # Maps cookie name → best SameSiteResult seen so far (CONFIRMED beats CANDIDATE).
+    best: dict[str, SameSiteResult] = {}
     for path in _PROBE_PATHS:
         resp = submit_probe(httpx.Request("GET", base + path))
         if resp is None:
@@ -29,29 +30,35 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
         sso_allowlisted = resp.headers.get("X-Cookie-Role", "").lower() == "sso"
         _process_response(
             resp, scan_run=scan_run, target_run=target_run,
-            seen=seen, sso_allowlisted=sso_allowlisted,
+            best=best, sso_allowlisted=sso_allowlisted,
+        )
+    for result in best.values():
+        _emit_finding(
+            scan_run=scan_run, target_run=target_run,
+            cookie_name=result.cookie_name,
+            raw_header=result.raw_set_cookie,
+            status=result.status,
+            confidence=result.confidence,
+            weakness_kind=result.weakness_kind,
         )
 
 
 def _process_response(
     resp: httpx.Response, *, scan_run: ScanRun, target_run: ScanTargetRun,
-    seen: set[str], sso_allowlisted: bool,
+    best: dict[str, SameSiteResult], sso_allowlisted: bool,
 ) -> None:
     for raw in resp.headers.get_list("Set-Cookie"):
         cookie = parse_set_cookie(raw)
-        if cookie.name in seen:
-            continue
         result = classify_cookie(cookie, sso_allowlisted=sso_allowlisted)
-        if result.status in (SameSiteStatus.CONFIRMED, SameSiteStatus.CANDIDATE):
-            seen.add(cookie.name)
-            _emit_finding(
-                scan_run=scan_run, target_run=target_run,
-                cookie_name=cookie.name,
-                raw_header=cookie.raw_set_cookie,
-                status=result.status,
-                confidence=result.confidence,
-                weakness_kind=result.weakness_kind,
-            )
+        if result.status not in (SameSiteStatus.CONFIRMED, SameSiteStatus.CANDIDATE):
+            continue
+        existing = best.get(cookie.name)
+        # Prefer CONFIRMED over CANDIDATE; never downgrade an existing CONFIRMED.
+        if existing is None or (
+            result.status is SameSiteStatus.CONFIRMED
+            and existing.status is SameSiteStatus.CANDIDATE
+        ):
+            best[cookie.name] = result
 
 
 def _emit_finding(

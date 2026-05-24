@@ -122,3 +122,16 @@ def test_finding_cookie_value_redacted(scan_run, target_run):
         run(scan_run, target_run)
     f = Finding.objects.get(stub_slug="3.4")
     assert "supersecret123" not in str(f.data)
+
+
+@pytest.mark.django_db
+def test_confirmed_beats_candidate_in_dedup(scan_run, target_run):
+    """CONFIRMED finding must win even if a CANDIDATE was seen first."""
+    candidate_resp = _resp(["sid=x; Domain=app.example.test; Path=/; Secure; HttpOnly"])
+    confirmed_resp = _resp(["sid=x; Domain=example.test; Path=/; Secure; HttpOnly"])
+    responses = iter([candidate_resp, confirmed_resp])
+    with patch("apps.stubs.broad_domain_scope.runner.submit_probe", side_effect=responses):
+        run(scan_run, target_run)
+    f = Finding.objects.get(stub_slug="3.4")
+    assert f.status == "confirmed"
+    assert f.data["scope_issue"] == "parent_domain"

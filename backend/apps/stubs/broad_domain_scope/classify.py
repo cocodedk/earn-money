@@ -43,12 +43,14 @@ class DomainResult:
 def classify_cookie(
     cookie: ParsedCookie, *, host: str, sso_allowlisted: bool = False,
 ) -> DomainResult:
+    # DNS labels are case-insensitive; normalise before any comparison.
+    host = host.lower()
     if cookie.sensitivity == Sensitivity.LOW or sso_allowlisted:
         return DomainResult(
             status=DomainStatus.NOT_APPLICABLE, confidence="high",
             cookie_name=cookie.name, raw_set_cookie=cookie.raw_set_cookie,
         )
-    domain = cookie.domain  # already leading-dot-stripped by parser
+    domain = cookie.domain.lower() if cookie.domain else None  # leading-dot-stripped by parser
     if not domain:
         return DomainResult(
             status=DomainStatus.REJECTED, confidence="high",

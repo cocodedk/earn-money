@@ -134,3 +134,14 @@ def test_finding_cookie_value_redacted(scan_run, target_run):
         run(scan_run, target_run)
     f = Finding.objects.get(stub_slug="3.2")
     assert "supersecret123" not in str(f.data)
+
+
+@pytest.mark.django_db
+def test_same_cookie_different_paths_both_reported(scan_run, target_run):
+    """Cookie missing Secure on two distinct paths → two findings."""
+    root_resp = _resp(["sid=x; Path=/; HttpOnly"])
+    login_resp = _resp(["sid=x; Path=/login; HttpOnly"])
+    responses = iter([root_resp, login_resp])
+    with patch("apps.stubs.missing_secure.runner.submit_probe", side_effect=responses):
+        run(scan_run, target_run)
+    assert Finding.objects.filter(stub_slug="3.2").count() == 2

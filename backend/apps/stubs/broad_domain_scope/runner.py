@@ -12,7 +12,7 @@ from apps.stubs._shared.auth.requests import submit_probe
 from apps.stubs._shared.session.cookie_parser import parse_set_cookie
 
 from ..runners import guarded_runner
-from .classify import DomainStatus, ScopeIssue, classify_cookie
+from .classify import DomainResult, DomainStatus, ScopeIssue, classify_cookie
 
 _STUB_ID = "3.4"
 _PROBE_PATHS = ("/", "/login")
@@ -22,7 +22,8 @@ _PROBE_PATHS = ("/", "/login")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     base = target_run.target.base_url.rstrip("/")
     host = urlparse(base).hostname or target_run.target.host
-    seen: set[str] = set()
+    # Maps cookie name → best DomainResult seen so far (CONFIRMED beats CANDIDATE).
+    best: dict[str, DomainResult] = {}
     for path in _PROBE_PATHS:
         resp = submit_probe(httpx.Request("GET", base + path))
         if resp is None:
@@ -30,29 +31,35 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
         sso_allowlisted = resp.headers.get("X-Cookie-Role", "").lower() == "sso"
         _process_response(
             resp, scan_run=scan_run, target_run=target_run,
-            host=host, seen=seen, sso_allowlisted=sso_allowlisted,
+            host=host, best=best, sso_allowlisted=sso_allowlisted,
+        )
+    for result in best.values():
+        _emit_finding(
+            scan_run=scan_run, target_run=target_run,
+            cookie_name=result.cookie_name,
+            raw_header=result.raw_set_cookie,
+            status=result.status,
+            confidence=result.confidence,
+            scope_issue=result.scope_issue,
         )
 
 
 def _process_response(
     resp: httpx.Response, *, scan_run: ScanRun, target_run: ScanTargetRun,
-    host: str, seen: set[str], sso_allowlisted: bool,
+    host: str, best: dict[str, DomainResult], sso_allowlisted: bool,
 ) -> None:
     for raw in resp.headers.get_list("Set-Cookie"):
         cookie = parse_set_cookie(raw)
-        if cookie.name in seen:
-            continue
         result = classify_cookie(cookie, host=host, sso_allowlisted=sso_allowlisted)
-        if result.status in (DomainStatus.CONFIRMED, DomainStatus.CANDIDATE):
-            seen.add(cookie.name)
-            _emit_finding(
-                scan_run=scan_run, target_run=target_run,
-                cookie_name=cookie.name,
-                raw_header=cookie.raw_set_cookie,
-                status=result.status,
-                confidence=result.confidence,
-                scope_issue=result.scope_issue,
-            )
+        if result.status not in (DomainStatus.CONFIRMED, DomainStatus.CANDIDATE):
+            continue
+        existing = best.get(cookie.name)
+        # Prefer CONFIRMED over CANDIDATE; never downgrade an existing CONFIRMED.
+        if existing is None or (
+            result.status is DomainStatus.CONFIRMED
+            and existing.status is DomainStatus.CANDIDATE
+        ):
+            best[cookie.name] = result
 
 
 def _emit_finding(

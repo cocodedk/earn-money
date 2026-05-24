@@ -134,3 +134,18 @@ def test_finding_cookie_value_redacted(scan_run, target_run):
         run(scan_run, target_run)
     f = Finding.objects.get(stub_slug="3.3")
     assert "supersecret123" not in str(f.data)
+
+
+@pytest.mark.django_db
+def test_confirmed_beats_candidate_in_dedup(scan_run, target_run):
+    """CONFIRMED finding must win even if a CANDIDATE was seen first."""
+    # First path: SameSite=None+Secure → CANDIDATE (explicit_none)
+    candidate_resp = _resp(["sid=x; Path=/; Secure; HttpOnly; SameSite=None"])
+    # Second path: SameSite=None without Secure → CONFIRMED (none_without_secure)
+    confirmed_resp = _resp(["sid=x; Path=/; HttpOnly; SameSite=None"])
+    responses = iter([candidate_resp, confirmed_resp])
+    with patch("apps.stubs.weak_samesite.runner.submit_probe", side_effect=responses):
+        run(scan_run, target_run)
+    f = Finding.objects.get(stub_slug="3.3")
+    assert f.status == "confirmed"
+    assert f.data["weakness_kind"] == "none_without_secure"

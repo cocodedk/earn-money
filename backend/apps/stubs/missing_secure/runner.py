@@ -22,7 +22,9 @@ _PROBE_PATHS = ("/", "/login")
 def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
     base = target_run.target.base_url.rstrip("/")
     scheme = urlparse(base).scheme or "http"
-    seen: set[str] = set()
+    # Dedup by (name, path) so the same cookie name on different paths is
+    # treated independently; the worst-case (most vulnerable) finding wins.
+    seen: set[tuple[str, str]] = set()
     for path in _PROBE_PATHS:
         resp = submit_probe(httpx.Request("GET", base + path))
         if resp is None:
@@ -35,15 +37,16 @@ def run(scan_run: ScanRun, target_run: ScanTargetRun) -> None:
 
 def _process_response(
     resp: httpx.Response, *, scan_run: ScanRun, target_run: ScanTargetRun,
-    scheme: str, seen: set[str],
+    scheme: str, seen: set[tuple[str, str]],
 ) -> None:
     for raw in resp.headers.get_list("Set-Cookie"):
         cookie = parse_set_cookie(raw)
-        if cookie.name in seen:
+        key = (cookie.name, cookie.path or "/")
+        if key in seen:
             continue
         result = classify_cookie(cookie, scheme=scheme)
         if result.status in (SecureStatus.CONFIRMED, SecureStatus.CANDIDATE):
-            seen.add(cookie.name)
+            seen.add(key)
             _emit_finding(
                 scan_run=scan_run, target_run=target_run,
                 cookie_name=cookie.name,

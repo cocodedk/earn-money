@@ -92,3 +92,13 @@ def test_unrelated_domain_rejected():
 def test_raw_value_not_in_result():
     r = classify_cookie(_c("sid=supersecret; Domain=example.test; Path=/"), host="app.example.test")
     assert "supersecret" not in str(r)
+
+
+def test_case_insensitive_host_and_domain():
+    """DNS labels are case-insensitive; mixed-case host/domain must still match."""
+    r = classify_cookie(
+        _c("sid=x; Domain=Example.Test; Path=/; Secure; HttpOnly"),
+        host="App.Example.Test",
+    )
+    assert r.status == DomainStatus.CONFIRMED
+    assert r.scope_issue == ScopeIssue.PARENT_DOMAIN
