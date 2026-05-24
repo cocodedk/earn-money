@@ -93,16 +93,31 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
 def _handle_phase_transition(ctrl, parsed) -> None:
     from .phases import is_valid_transition
 
-    if is_valid_transition(parsed.from_phase, parsed.to_phase):
-        from .event_log import build_budget_snapshot, emit_phase_changed
-        snapshot = build_budget_snapshot(
-            ctrl.session, ctrl.budget.consumed_snapshot(),
-        )
-        emit_phase_changed(
-            ctrl.session, parsed.from_phase, parsed.to_phase, parsed.reason,
-            budget_snapshot=snapshot,
-        )
-        ctrl.advance_phase(parsed.to_phase, parsed.reason)
+    if not is_valid_transition(parsed.from_phase, parsed.to_phase):
+        return
+
+    if parsed.to_phase == "verify" and not _has_candidate(ctrl.session):
+        return
+
+    from .event_log import build_budget_snapshot, emit_phase_changed
+    snapshot = build_budget_snapshot(
+        ctrl.session, ctrl.budget.consumed_snapshot(),
+    )
+    emit_phase_changed(
+        ctrl.session, parsed.from_phase, parsed.to_phase, parsed.reason,
+        budget_snapshot=snapshot,
+    )
+    ctrl.advance_phase(parsed.to_phase, parsed.reason)
+
+
+def _has_candidate(session) -> bool:
+    """Return True if the session has at least one valid submit_candidate action."""
+    from .models import AgentAction, ValidationStatus
+    return AgentAction.objects.filter(
+        turn__session=session,
+        action_type="submit_candidate",
+        validation_status=ValidationStatus.VALID,
+    ).exists()
 
 
 def _emit_and_finish_browser(ctrl, turn, envelope, obs_dict: dict) -> None:

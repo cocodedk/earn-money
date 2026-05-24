@@ -362,3 +362,45 @@ class TestHttpRequestExecution:
             action__turn__session=ctrl.session,
             observation_type="http",
         ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestVerifyPhaseGate:
+    @pytest.mark.asyncio
+    async def test_verify_transition_denied_without_candidate(self, db_objects):
+        """Transition to verify is denied if no submit_candidate exists."""
+        c = _ctrl(db_objects, [
+            _action_json(
+                "request_phase_transition", from_phase="probe",
+                to_phase="verify", evidence_refs=[],
+            ),
+            _action_json("stop"),
+        ])
+        c.session.current_phase = "probe"
+        c.session.save(update_fields=["current_phase"])
+        c._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+        await c.run()
+        c.session.refresh_from_db()
+        assert c.session.current_phase == "probe"
+
+    @pytest.mark.asyncio
+    async def test_verify_transition_allowed_with_candidate(self, db_objects):
+        """Transition to verify is allowed when a submit_candidate action exists."""
+        c = _ctrl(db_objects, [
+            _action_json(
+                "submit_candidate", category="xss",
+                description="test", evidence_refs=[],
+            ),
+            _action_json(
+                "request_phase_transition", from_phase="probe",
+                to_phase="verify", evidence_refs=[],
+            ),
+            _action_json("stop"),
+        ])
+        c.session.current_phase = "probe"
+        c.session.save(update_fields=["current_phase"])
+        c._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+        await c.run()
+        c.session.refresh_from_db()
+        assert c.session.status == "completed"
+        assert c.session.current_phase == "verify"
