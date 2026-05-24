@@ -57,7 +57,7 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
           )}
           {firstAction?.hypothesis && (
             <p className={styles.intent} data-testid="turn-hypothesis">
-              <span className={styles.intentLabel}>Expects:</span> {firstAction.hypothesis}
+              <span className={styles.intentLabel}>Expected:</span> {firstAction.hypothesis}
             </p>
           )}
           {firstAction && <OutcomeDigest action={firstAction} />}
