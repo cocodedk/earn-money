@@ -29,26 +29,36 @@ TARGET_ARG="${1:-}"
 API_BASE="${API_BASE:-http://localhost}"
 PROFILE="${PROFILE:-juice_shop_scoreboard}"
 TIMEOUT="${TIMEOUT:-600}"
+STATUS="timeout"
+TURNS=0
 
 # --- Resolve target (UUID or host lookup) ---
 case "$TARGET_ARG" in
   *-*-*-*-*) TARGET_ID="$TARGET_ARG" ;;
   *)
     log "looking up target: $TARGET_ARG"
-    TARGET_ID=$(curl -sf "$API_BASE/api/targets/?limit=200" \
-      | python3 -c "
-import os, sys, json
-host = os.environ['TARGET_ARG']
+    TARGET_ID=$(curl -sf "$API_BASE/api/targets/?page_size=200" \
+      | python3 - "$TARGET_ARG" <<'PYEOF'
+import sys, json
+host = sys.argv[1]
 d = json.load(sys.stdin)
-for t in d['results']:
-    if t['host'] == host:
-        print(t['id']); break
+matches = [t for t in d["results"] if t["host"] == host]
+if len(matches) > 1:
+    print("AMBIGUOUS", file=sys.stderr)
+    for m in matches:
+        print(f"  {m['id']}  {m['base_url']}", file=sys.stderr)
+    sys.exit(1)
+if matches:
+    print(matches[0]["id"])
 else:
-    print('')
-")
+    print("")
+PYEOF
+    )
     [ -z "$TARGET_ID" ] && die "No target with host '$TARGET_ARG'"
     ;;
 esac
+
+export TARGET_ID PROFILE
 log "target ID: $TARGET_ID"
 
 # --- Start mission ---
