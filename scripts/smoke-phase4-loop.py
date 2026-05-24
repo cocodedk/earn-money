@@ -9,6 +9,7 @@ Usage:
     .venv/bin/python scripts/smoke-phase4-loop.py
 
 Fixtures + ledger renderer live in scripts/_phase4_smoke_lib.py.
+This smoke targets the archived v1 CLI corpus under archive/v1.
 """
 from __future__ import annotations
 
@@ -16,7 +17,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO / "src"))
+V1_REPO = REPO / "archive" / "v1"
+sys.path.insert(0, str(V1_REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts"))
 
 from _phase4_smoke_lib import (  # noqa: E402
@@ -31,6 +33,22 @@ from _phase4_smoke_lib import (  # noqa: E402
 )
 
 from earn_money import config  # noqa: E402
+
+
+def preflight() -> None:
+    """Fail early when the archived v1 CLI runtime is not installed."""
+    missing: list[str] = []
+    if not (V1_REPO / ".venv" / "bin" / "python").is_file():
+        missing.append("archive/v1/.venv/bin/python")
+    for name in ("draft", "submit", "ack-freeze"):
+        if not (V1_REPO / "bin" / name).is_file():
+            missing.append(f"archive/v1/bin/{name}")
+    if missing:
+        print("smoke-phase4-loop: archived v1 runtime is not ready", file=sys.stderr)
+        for item in missing:
+            print(f"  missing: {item}", file=sys.stderr)
+        print("run: cd archive/v1 && make install-dev", file=sys.stderr)
+        raise SystemExit(1)
 
 
 def step(n: int, label: str) -> None:
@@ -50,9 +68,9 @@ def _phase_2_full_happy_path(paths: config.Paths, root: Path) -> None:
     fh: str = _FINDINGS[0]["finding_hash"]  # type: ignore[assignment]
     transition(paths, fh=fh, to="verified", actor="operator",
                note="reproduced manually; impact: cookie-flag info")
-    res = run_bin(REPO, root, ["draft", "--hash", fh])
+    res = run_bin(V1_REPO, root, ["draft", "--hash", fh])
     print(f"  bin/draft exit={res.returncode}  stdout: {res.stdout.strip()}")
-    res = run_bin(REPO, root, [
+    res = run_bin(V1_REPO, root, [
         "submit", "--hash", fh,
         "--report-id", "H1-PROOF-001",
         "--note", "SMOKE: state-machine proof, not actually filed",
@@ -74,9 +92,9 @@ def _phase_4_filed_awaiting(paths: config.Paths, root: Path) -> None:
     fh: str = _FINDINGS[2]["finding_hash"]  # type: ignore[assignment]
     transition(paths, fh=fh, to="verified", actor="operator",
                note="reproduced; open-redirect via ?next=//evil")
-    res = run_bin(REPO, root, ["draft", "--hash", fh])
+    res = run_bin(V1_REPO, root, ["draft", "--hash", fh])
     print(f"  bin/draft exit={res.returncode}  stdout: {res.stdout.strip()}")
-    res = run_bin(REPO, root, [
+    res = run_bin(V1_REPO, root, [
         "submit", "--hash", fh,
         "--report-id", "H1-PROOF-002",
         "--note", "SMOKE: filed, awaiting platform response",
@@ -94,7 +112,7 @@ def _phase_5_resolved_dupe(paths: config.Paths) -> None:
 
 
 def _phase_6_freeze(root: Path) -> None:
-    res = synth_frozen_scenario(REPO, root)
+    res = synth_frozen_scenario(V1_REPO, root)
     print(f"  ack-freeze exit={res.returncode}")
     if res.stderr:
         print(f"  stderr: {res.stderr.strip()}")
@@ -107,7 +125,8 @@ def _phase_7_drafts(root: Path) -> None:
 
 
 def main() -> None:
-    root = setup_tree(REPO)
+    preflight()
+    root = setup_tree(V1_REPO)
     paths = config.Paths.from_root(root)
 
     step(1, "Setup: register demo/proof program + seed 4 findings (queued)")

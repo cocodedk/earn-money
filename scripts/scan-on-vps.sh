@@ -1,7 +1,7 @@
 #!/bin/sh
 # Trigger a scan on h1.cocode.dk (VPS) against a given URL.
 # Run from the laptop. Manages the RECON_ENABLED flag automatically:
-# creates it before dispatch, removes it after, regardless of outcome.
+# creates it before dispatch, and removes it only if this script created it.
 #
 # Usage:
 #   scripts/scan-on-vps.sh URL [STUB_SLUGS]
@@ -14,6 +14,7 @@
 # Env overrides:
 #   VPS_HOST=recon-vps         SSH host alias
 #   VPS_PATH=/opt/earn-money   stack root on the VPS
+#   DRY_RUN=1                  show remote actions without SSH
 
 set -eu
 
@@ -31,27 +32,40 @@ STUBS="${2:-1.1,1.2,1.3,1.20}"
 
 VPS_HOST="${VPS_HOST:-recon-vps}"
 VPS_PATH="${VPS_PATH:-/opt/earn-money}"
+DRY_RUN="${DRY_RUN:-0}"
 
 log "target  : ${URL}"
 log "stubs   : ${STUBS}"
 log "via     : ${VPS_HOST}:${VPS_PATH}"
 
-# POSIX single-quote escape: replace every `'` with `'\''` so values
-# can be safely embedded inside single quotes on the remote shell.
-# A URL like `https://foo'; rm -rf /` becomes `https://foo'\''; rm -rf /`
-# which the remote shell parses as a single literal.
-sq() { printf %s "$1" | sed "s/'/'\\\\''/g"; }
-URL_E=$(sq "$URL")
-STUBS_E=$(sq "$STUBS")
-PATH_E=$(sq "$VPS_PATH")
+if [ "$DRY_RUN" = "1" ]; then
+    log "DRY_RUN: would SSH to ${VPS_HOST}"
+    log "DRY_RUN: would cd ${VPS_PATH}"
+    log "DRY_RUN: would create flags/RECON_ENABLED only if missing"
+    log "DRY_RUN: would run docker compose exec -T backend python scripts/run_smoke.py '${URL}' --stubs '${STUBS}'"
+    exit 0
+fi
 
-# Single SSH call: enable flag → dispatch → disable flag (always).
-# `trap` guarantees the flag is removed even if python errors out, so
-# a stale flag never leaves the VPS armed.
-ssh "${VPS_HOST}" "
+# Single SSH call: enable flag -> dispatch -> restore flag state.
+ssh "${VPS_HOST}" sh -s -- "$VPS_PATH" "$URL" "$STUBS" <<'REMOTE'
 set -eu
-cd '${PATH_E}'
-trap 'rm -f flags/RECON_ENABLED' EXIT INT TERM
-echo '# scan-on-vps live smoke flag' > flags/RECON_ENABLED
-docker compose exec -T backend python scripts/run_smoke.py '${URL_E}' --stubs '${STUBS_E}'
-"
+cd "$1"
+url=$2
+stubs=$3
+
+mkdir -p flags
+created_flag=0
+if [ ! -f flags/RECON_ENABLED ]; then
+    echo '# scan-on-vps live smoke flag' > flags/RECON_ENABLED
+    created_flag=1
+fi
+
+cleanup() {
+    if [ "$created_flag" = "1" ]; then
+        rm -f flags/RECON_ENABLED
+    fi
+}
+trap cleanup EXIT INT TERM
+
+docker compose exec -T backend python scripts/run_smoke.py "$url" --stubs "$stubs"
+REMOTE

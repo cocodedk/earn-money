@@ -8,6 +8,7 @@ After=network.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/earn-money
+EnvironmentFile=-/opt/earn-money/.env
 ExecStart=/opt/earn-money/scripts/passive-tick.sh
 User=root
 PrivateTmp=true

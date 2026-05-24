@@ -29,18 +29,23 @@ install_wordlists() {
     done
 }
 
-install_dashboard_unit() {
-    log "dashboard systemd unit"
-    if [ ! -f /etc/systemd/system/earn-money-dashboard.service ]; then
-        install -m 0644 /opt/earn-money/scripts/dashboard.service \
-            /etc/systemd/system/earn-money-dashboard.service
-        systemctl daemon-reload
-        systemctl enable earn-money-dashboard.service >/dev/null 2>&1 || \
-            warn "  systemctl enable failed; check 'systemctl status'"
-        log "  installed and enabled. start with 'systemctl start earn-money-dashboard'"
-    else
-        log "  unit already installed; reload with 'systemctl daemon-reload' if you changed it"
+install_stack_unit() {
+    log "Docker Compose stack systemd unit"
+    if [ -f /etc/systemd/system/earn-money-dashboard.service ]; then
+        systemctl disable --now earn-money-dashboard.service >/dev/null 2>&1 || true
+        rm -f /etc/systemd/system/earn-money-dashboard.service
     fi
+    install -m 0644 /opt/earn-money/scripts/dashboard.service \
+        /etc/systemd/system/earn-money.service
+    systemctl daemon-reload
+    systemctl enable earn-money.service >/dev/null 2>&1 || \
+        warn "  systemctl enable failed; check 'systemctl status'"
+    log "  installed/updated and enabled. start with 'systemctl start earn-money'"
+}
+
+install_dashboard_unit() {
+    warn "install_dashboard_unit is deprecated; installing Docker Compose stack unit instead"
+    install_stack_unit
 }
 
 install_caddy() {
@@ -62,13 +67,18 @@ install_caddy() {
 }
 
 h1.cocode.dk {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy 127.0.0.1:80
     encode gzip
 }
 CADDY_EOF
         touch /etc/caddy/Caddyfile.earn-money-installed
         systemctl restart caddy
         log "  Caddyfile installed; auto-TLS via Let's Encrypt"
+    elif grep -q "reverse_proxy 127.0.0.1:8080" /etc/caddy/Caddyfile; then
+        sed -i 's/reverse_proxy 127\.0\.0\.1:8080/reverse_proxy 127.0.0.1:80/' \
+            /etc/caddy/Caddyfile
+        systemctl restart caddy
+        log "  Caddyfile updated from legacy :8080 proxy to Docker nginx :80"
     else
         log "  Caddyfile already installed; leaving in place"
     fi
@@ -88,19 +98,29 @@ install_passive_tick_timer() {
 
 print_installed_versions() {
     log "installed versions:"
-    subfinder -version 2>&1 | grep -i "current version" | head -1
-    httpx -version 2>&1 | grep -i "current version" | head -1
-    nuclei -version 2>&1 | grep -i "version" | head -1
-    katana -version 2>&1 | grep -i "current version" | head -1
-    subzy version 2>&1 | head -1 || warn "  subzy not on PATH — go install may have failed"
-    naabu -version 2>&1 | grep -i "current version" | head -1
-    nmap --version 2>&1 | head -1
-    sqlmap --version 2>&1 | head -1
-    ffuf -V 2>&1 | head -1
-    rustscan --version 2>&1 | head -1
-    amass -version 2>&1 | head -1
-    gau --version 2>&1 | head -1
-    dalfox version 2>&1 | head -1
-    gitleaks version 2>&1 | head -1
-    trufflehog --version 2>&1 | head -1
+    show_version "subfinder" subfinder -version
+    show_version "httpx" httpx -version
+    show_version "nuclei" nuclei -version
+    show_version "katana" katana -version
+    show_version "subzy" subzy version
+    show_version "naabu" naabu -version
+    show_version "nmap" nmap --version
+    show_version "sqlmap" sqlmap --version
+    show_version "ffuf" ffuf -V
+    show_version "rustscan" rustscan --version
+    show_version "amass" amass -version
+    show_version "gau" gau --version
+    show_version "dalfox" dalfox version
+    show_version "gitleaks" gitleaks version
+    show_version "trufflehog" trufflehog --version
+}
+
+show_version() {
+    name=$1
+    shift
+    if command -v "$name" >/dev/null 2>&1; then
+        "$@" 2>&1 | head -1 || true
+    else
+        warn "  $name not on PATH"
+    fi
 }
