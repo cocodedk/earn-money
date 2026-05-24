@@ -36,13 +36,14 @@ describe("MissionStrip", () => {
     expect(current).toHaveAttribute("aria-current", "step");
   });
 
-  it("shows 'N of M turns used' when max_turns present", () => {
+  it("shows budget bar when max_turns present", () => {
     const session = makeSession({
       mission_budget: { max_turns: 25 },
       consumed_budget: { turns: 8, mission: { turns: 8 } },
     });
     renderWithProviders(<MissionStrip session={session} budgetOverlay={null} />);
-    expect(screen.getByText("8 of 25 turns used")).toBeInTheDocument();
+    expect(screen.getByTestId("budget-bars")).toBeInTheDocument();
+    expect(screen.getByText("Turns: 8/25")).toBeInTheDocument();
   });
 
   it("degrades to 'N turns used' when max_turns absent", () => {
@@ -60,7 +61,7 @@ describe("MissionStrip", () => {
       consumed_budget: {},
     });
     renderWithProviders(<MissionStrip session={session} budgetOverlay={null} />);
-    expect(screen.getByText("0 of 25 turns used")).toBeInTheDocument();
+    expect(screen.getByText("Turns: 0/25")).toBeInTheDocument();
   });
 
   it("uses budgetOverlay when provided", () => {
@@ -70,7 +71,7 @@ describe("MissionStrip", () => {
     });
     const overlay: BudgetSnapshot = { turns: 7, mission: { turns: 7 } };
     renderWithProviders(<MissionStrip session={session} budgetOverlay={overlay} />);
-    expect(screen.getByText("7 of 25 turns used")).toBeInTheDocument();
+    expect(screen.getByText("Turns: 7/25")).toBeInTheDocument();
   });
 
   it("shows terminal reason when present", () => {

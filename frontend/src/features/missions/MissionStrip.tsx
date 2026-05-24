@@ -1,22 +1,12 @@
 import type { AgentSession, BudgetSnapshot } from "./types";
 import { isTerminalStatus } from "./types";
+import { BudgetBars } from "./BudgetBars";
 import styles from "./MissionStrip.module.css";
 
 type Props = {
   session: AgentSession;
   budgetOverlay: BudgetSnapshot | null;
 };
-
-function usedTurns(budget: BudgetSnapshot): number {
-  return budget.mission?.turns ?? budget.turns ?? 0;
-}
-
-function budgetText(session: AgentSession, overlay: BudgetSnapshot | null): string {
-  const snap = overlay ?? session.consumed_budget;
-  const used = usedTurns(snap);
-  const max = session.mission_budget.max_turns;
-  return max != null ? `${used} of ${max} turns used` : `${used} turns used`;
-}
 
 export function MissionStrip({ session, budgetOverlay }: Props) {
   const isTerminal = isTerminalStatus(session.status);
@@ -45,7 +35,7 @@ export function MissionStrip({ session, budgetOverlay }: Props) {
             </span>
           ))}
         </div>
-        <span className={styles.budget}>{budgetText(session, budgetOverlay)}</span>
+        <BudgetBars session={session} budgetOverlay={budgetOverlay} />
       </div>
       {isTerminal && (
         <p className={styles.reason}>{session.terminal_reason || "Mission ended."}</p>

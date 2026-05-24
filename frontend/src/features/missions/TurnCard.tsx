@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { AgentTurn } from "./types";
 import { describeTurn } from "./describeTurn";
+import { OutcomeDigest } from "./OutcomeDigest";
+import { ObservationDetails } from "./ObservationDetails";
 import styles from "./TurnCard.module.css";
 
 const GLYPHS: Record<string, string> = {
@@ -25,6 +27,7 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
   const desc = describeTurn(turn);
   const actions = turn.actions;
   const tone = desc.tone;
+  const firstAction = actions[0] ?? null;
 
   return (
     <div data-testid={`turn-card-${turn.index}`} className={styles.card}>
@@ -47,6 +50,17 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
           </div>
           <p className={styles.title}>{desc.title}</p>
           {desc.result && <p className={styles.result}>{desc.result}</p>}
+          {firstAction?.reason && (
+            <p className={styles.intent} data-testid="turn-reason">
+              <span className={styles.intentLabel}>Why:</span> {firstAction.reason}
+            </p>
+          )}
+          {firstAction?.hypothesis && (
+            <p className={styles.intent} data-testid="turn-hypothesis">
+              <span className={styles.intentLabel}>Expects:</span> {firstAction.hypothesis}
+            </p>
+          )}
+          {firstAction && <OutcomeDigest action={firstAction} />}
         </div>
       </div>
       {actions.length > 0 && (
@@ -67,16 +81,7 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
               <div>Validation: {action.validation_status}</div>
               <div>Execution: {action.execution_status}</div>
               {action.denial_reason && <div>Denied: {action.denial_reason}</div>}
-              {action.observations.length > 0 && (
-                <details style={{ marginTop: "0.25rem" }}>
-                  <summary>Observations ({action.observations.length})</summary>
-                  <pre>
-                    {JSON.stringify(action.observations.map((o) => ({
-                      type: o.observation_type, data: o.data,
-                    })), null, 2)}
-                  </pre>
-                </details>
-              )}
+              <ObservationDetails observations={action.observations} />
             </div>
           ))}
           <div>Tokens: {turn.input_tokens} in / {turn.output_tokens} out</div>

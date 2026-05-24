@@ -1,0 +1,53 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  margin-left: 2.25rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  font-size: var(--text-micro);
+  font-family: var(--font-mono);
+  padding: 0.0625rem 0.375rem;
+  border-radius: var(--radius-pill);
+  line-height: 1.4;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip[data-kind="route"] {
+  background: var(--info-soft);
+  color: var(--info);
+}
+.chip[data-kind="candidate"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.chip[data-kind="parameter"] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.chip[data-kind="gap"] {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.chipIcon {
+  font-style: normal;
+}
+.more {
+  font-size: var(--text-micro);
+  font-family: var(--font-mono);
+  color: var(--ink-soft);
+  background: var(--surface-sunken);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 0.0625rem 0.375rem;
+  cursor: pointer;
+}
+.more:hover {
+  color: var(--ink-default);
+}
