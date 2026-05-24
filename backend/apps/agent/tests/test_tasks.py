@@ -243,3 +243,42 @@ class TestBuildDriver:
         MockDriver.assert_called_once_with(
             target_origin="https://juiceshop.cocode.dk",
         )
+
+
+@pytest.mark.django_db(transaction=True)
+class TestTargetIntelWiring:
+    @patch("apps.agent.tasks._build_driver")
+    @patch("apps.agent.tasks._build_provider")
+    @patch("apps.agent.tasks.build_target_intel")
+    def test_passes_intel_to_mission_controller(
+        self, mock_intel, mock_provider, mock_driver,
+    ):
+        session, _target_run, _scan_run = _create_session_for_task()
+        mock_provider.return_value = MagicMock()
+        driver = MagicMock()
+        driver.start = AsyncMock()
+        driver.stop = AsyncMock()
+        mock_driver.return_value = (driver, "https://juiceshop.cocode.dk")
+
+        fake_intel = object()
+        mock_intel.return_value = fake_intel
+
+        with patch("apps.agent.tasks.MissionController") as MockCtrl:
+            ctrl_instance = MockCtrl.return_value
+
+            async def _set_completed():
+                from asgiref.sync import sync_to_async
+                await sync_to_async(
+                    AgentSession.objects.filter(pk=session.pk).update
+                )(status=SessionStatus.COMPLETED)
+
+            ctrl_instance.run = AsyncMock(side_effect=_set_completed)
+            run_agent_session(str(session.id))
+
+        mock_intel.assert_called_once_with(
+            session.target,
+            exclude_session_id=session.pk,
+            stale_after_days=7,
+        )
+        _call_kwargs = MockCtrl.call_args.kwargs
+        assert _call_kwargs["target_intel"] is fake_intel
