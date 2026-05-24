@@ -1,9 +1,7 @@
 #!/bin/sh
-# Push the local v2 scanner repo to the VPS. Run from the laptop.
+# Push the local repo to the VPS and rebuild containers.
 # Idempotent. Destructive — `rsync --delete` wipes anything on the
-# VPS path that isn't in the local tree (the v1 install at
-# /opt/earn-money/ is overwritten by design; v1 lives in
-# `archive/v1/` inside the v2 tree).
+# VPS path that isn't in the local tree.
 #
 # Defaults (override via env):
 #   VPS_HOST=recon-vps           — SSH host alias from ~/.ssh/config
@@ -11,7 +9,6 @@
 #
 # Excludes mirror .gitignore: never push outputs, program state,
 # sqlite DBs, the kill-switch flag, .env, or platform identity.
-# v2 adds frontend/node_modules and backend caches.
 
 set -eu
 
@@ -32,6 +29,7 @@ if ! git diff-index --quiet HEAD -- 2>/dev/null; then
     warn "working tree has uncommitted changes — syncing them anyway"
 fi
 
+# --- Step 1: rsync files ---
 log "rsync  → ${VPS_HOST}:${VPS_PATH}"
 rsync -az --delete \
     --exclude='.git' \
@@ -59,6 +57,8 @@ rsync -az --delete \
     --exclude='docker-compose.override.yml' \
     ./ "${VPS_HOST}:${VPS_PATH}"
 
-log "done — v2 stack on ${VPS_HOST}:${VPS_PATH}"
-log "next: ssh ${VPS_HOST} 'cd ${VPS_PATH} && docker compose up -d'"
-log "       (requires docker + docker-compose-plugin on the VPS)"
+# --- Step 2: rebuild and restart containers ---
+log "docker compose up -d --build on ${VPS_HOST}"
+ssh "${VPS_HOST}" "cd ${VPS_PATH} && docker compose up -d --build" 2>&1
+
+log "done — stack deployed on ${VPS_HOST}:${VPS_PATH}"
