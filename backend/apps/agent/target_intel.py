@@ -94,8 +94,10 @@ def _extract_form_signatures(session, max_forms: int) -> list[FormSignature]:
         input_names = content.get("input_names") or content.get("inputs") or []
         if not isinstance(input_names, list):
             input_names = []
-        if input_names and isinstance(input_names[0], dict):
-            input_names = [i.get("name", "") for i in input_names]
+        input_names = [
+            i.get("name", "") if isinstance(i, dict) else str(i)
+            for i in input_names
+        ]
         signature = FormSignature(
             action=_clean_text(content.get("action", ""), limit=120),
             method=_clean_text(content.get("method", "GET"), limit=12).upper(),

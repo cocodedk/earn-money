@@ -197,7 +197,7 @@ class TestPriorIntelSection:
 
     def test_no_intel_omits_section(self):
         prompt = self._build()
-        assert "## Prior Intel" not in prompt
+        assert "## Prior Target Intel" not in prompt
 
     def test_intel_injected_when_provided(self):
         intel = "## Prior Intel\n- /admin returned 200 last run"

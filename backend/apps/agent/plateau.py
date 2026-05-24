@@ -16,7 +16,9 @@ class PlateauDetector:
         self._max_no_element = max_turns_without_new_interactive_element
         self._max_denials = max_repeated_denials
         self._max_invalid = max_invalid_actions
-        self._known_routes = known_routes
+        self._known_routes: frozenset[str] | None = (
+            frozenset(known_routes) if known_routes else None
+        )
 
         self._turns_no_route: int = 0
         self._turns_no_element: int = 0
