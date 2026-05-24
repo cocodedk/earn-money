@@ -1,0 +1,25 @@
+.status {
+  font-size: var(--text-micro);
+  font-family: var(--font-mono);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.status[data-color="ok"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.status[data-color="err"] {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.status[data-color="warn"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.status[data-color="muted"] {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}

@@ -15,6 +15,13 @@ export const missionTurnsKey = (id: string) =>
 export const missionNotesKey = (id: string) =>
   [...MISSIONS_KEY, id, "notes"] as const;
 
+export function useSessionsQuery() {
+  return useQuery({
+    queryKey: MISSIONS_KEY,
+    queryFn: () => http<Paginated<AgentSession>>("/api/agent/sessions/"),
+  });
+}
+
 export function useSessionQuery(id: string | undefined) {
   return useQuery({
     queryKey: missionKey(id ?? ""),

@@ -35,6 +35,7 @@ describe("Layout", () => {
       "Scan Runs",
       "Findings",
       "Evidence",
+      "Missions",
       "Settings",
     ].forEach((label) => {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
@@ -73,9 +74,9 @@ describe("Layout", () => {
     expect(screen.getByText("Projects")).toHaveAttribute("data-active", "true");
   });
 
-  it("renders an icon for each of the seven nav items", () => {
+  it("renders an icon for each nav item", () => {
     const { container } = setup();
-    expect(container.querySelectorAll("nav svg")).toHaveLength(7);
+    expect(container.querySelectorAll("nav svg")).toHaveLength(8);
   });
 
   it("exposes a stable testid on each nav link", () => {
@@ -87,6 +88,7 @@ describe("Layout", () => {
       "nav-scan-runs",
       "nav-findings",
       "nav-evidence",
+      "nav-missions",
       "nav-settings",
     ].forEach((testid) => {
       expect(screen.getByTestId(testid)).toBeInTheDocument();

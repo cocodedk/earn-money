@@ -15,6 +15,7 @@ export const ROUTES = {
   evidence: "/evidence",
   evidenceDetail: "/evidence/:evidenceId",
   settings: "/settings",
+  missions: "/missions",
   missionDetail: "/missions/:sessionId",
 } as const;
 

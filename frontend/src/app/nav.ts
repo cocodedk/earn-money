@@ -6,6 +6,7 @@ import {
   AlertCircle,
   FileSearch,
   Settings as SettingsIcon,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "./routes";
@@ -24,5 +25,6 @@ export const navItems: NavItem[] = [
   { label: "Scan Runs", to: ROUTES.scanRuns, icon: Activity, testid: "nav-scan-runs" },
   { label: "Findings", to: ROUTES.findings, icon: AlertCircle, testid: "nav-findings" },
   { label: "Evidence", to: ROUTES.evidence, icon: FileSearch, testid: "nav-evidence" },
+  { label: "Missions", to: ROUTES.missions, icon: Bot, testid: "nav-missions" },
   { label: "Settings", to: ROUTES.settings, icon: SettingsIcon, testid: "nav-settings" },
 ];
