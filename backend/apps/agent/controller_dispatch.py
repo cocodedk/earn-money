@@ -60,16 +60,16 @@ async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> b
         return False
 
     if isinstance(parsed, FillFormAction):
-        ctrl.budget.consume("form_fills")
         await ctrl.driver.fill(parsed.element_id, parsed.value)
         obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
+        ctrl.budget.consume("form_fills")
         _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
         return False
 
     if isinstance(parsed, SubmitFormAction):
-        ctrl.budget.consume("form_submits")
         await ctrl.driver.click(parsed.element_id)
         obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
+        ctrl.budget.consume("form_submits")
         _emit_and_finish_browser(ctrl, turn, envelope, obs_dict)
         return False
 
@@ -175,6 +175,9 @@ async def _execute_browser_action(ctrl, turn, action_rec, envelope):
     _mark_executed(action_rec)
 
     new_routes = len(obs.discovered.routes)
-    new_elements = len(obs.elements.links) + len(obs.elements.buttons)
+    new_elements = (
+        len(obs.elements.links) + len(obs.elements.buttons)
+        + len(obs.elements.inputs) + len(obs.elements.forms)
+    )
     ctrl.plateau.record_turn(new_routes=new_routes, new_elements=new_elements)
     return obs_dict

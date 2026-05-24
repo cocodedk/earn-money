@@ -116,6 +116,10 @@ class MissionController:
             return False
         if not is_valid_transition(current, nxt):
             return False  # pragma: no cover — defensive
+        if nxt == "verify":
+            from .controller_dispatch import _has_candidate
+            if not _has_candidate(self.session):
+                return False
 
         reason = f"auto-advance: {self.plateau.plateau_reason()}"
         from .event_log import build_budget_snapshot, emit_phase_changed
