@@ -26,6 +26,7 @@ export function describeTurn(turn: AgentTurn): TurnDescription {
 
   if (!action) {
     if (turn.status === "error") return { title: "Turn failed", result: "No action details recorded", tone: "error" };
+    if (turn.status === "action_denied") return { title: "Action denied", result: "Blocked by policy", tone: "denied" };
     if (turn.status === "completed") return { title: "Turn completed", result: "No action details recorded", tone: "neutral" };
     return { title: "Thinking...", result: "", tone: "running" };
   }

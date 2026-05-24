@@ -67,29 +67,27 @@ export function useAgentEvents(
     (allEvents: ApiEvent[]) => {
       if (!sessionId) return;
       let newCount = 0;
+      let needSession = false;
+      let needTurns = false;
+      let needNotes = false;
+      let latestSnapshot: BudgetSnapshot | undefined;
+
       for (const evt of allEvents) {
         if (processedRef.current.has(evt.id)) continue;
         if (!isAgentEvent(evt, sessionId)) continue;
         processedRef.current.add(evt.id);
         newCount++;
-        if (SESSION_EVENTS.has(evt.type)) {
-          void client.invalidateQueries({ queryKey: missionKey(sessionId) });
-        }
-        if (TURNS_EVENTS.has(evt.type)) {
-          void client.invalidateQueries({
-            queryKey: missionTurnsKey(sessionId),
-          });
-        }
-        if (NOTES_EVENTS.has(evt.type)) {
-          void client.invalidateQueries({
-            queryKey: missionNotesKey(sessionId),
-          });
-        }
+        if (SESSION_EVENTS.has(evt.type)) needSession = true;
+        if (TURNS_EVENTS.has(evt.type)) needTurns = true;
+        if (NOTES_EVENTS.has(evt.type)) needNotes = true;
         const data = evt.data as Partial<AgentEventData> | undefined;
-        if (data?.budget_snapshot) {
-          setBudgetOverlay(data.budget_snapshot);
-        }
+        if (data?.budget_snapshot) latestSnapshot = data.budget_snapshot;
       }
+
+      if (needSession) void client.invalidateQueries({ queryKey: missionKey(sessionId) });
+      if (needTurns) void client.invalidateQueries({ queryKey: missionTurnsKey(sessionId) });
+      if (needNotes) void client.invalidateQueries({ queryKey: missionNotesKey(sessionId) });
+      if (latestSnapshot) setBudgetOverlay(latestSnapshot);
       if (newCount > 0) setProcessedCount((c) => c + newCount);
     },
     [sessionId, client],

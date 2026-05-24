@@ -110,7 +110,7 @@ describe("TargetResult — happy path + empty states", () => {
       msw.get("/api/evidence/", () => HttpResponse.json(emptyPage())),
       msw.get("/api/events/", ({ request }) => {
         const types = new URL(request.url).searchParams.getAll("type");
-        if (types.length === 3) {
+        if (types.includes("auth.probe_refused")) {
           return HttpResponse.json(
             authEventsPage([
               makeEvent({

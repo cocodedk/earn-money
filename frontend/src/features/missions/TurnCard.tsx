@@ -14,11 +14,11 @@ function StatusIcon({ tone }: { tone: string }) {
   const cfg = TONE_ICON[tone] ?? TONE_ICON.neutral;
   return (
     <span data-testid={cfg.testId} aria-label={cfg.label} className={cfg.cls}>
-      {tone === "success" && "✓"}
-      {tone === "denied" && "⚠"}
-      {tone === "error" && "✗"}
-      {tone === "running" && "●"}
-      {tone === "neutral" && "•"}
+      {tone === "success" ? "✓"
+        : tone === "denied" ? "⚠"
+        : tone === "error" ? "✗"
+        : tone === "running" ? "●"
+        : "•"}
     </span>
   );
 }

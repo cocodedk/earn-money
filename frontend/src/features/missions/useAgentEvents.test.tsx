@@ -6,9 +6,11 @@ import { useAgentEvents } from "./useAgentEvents";
 import { SESSION_ID, SCAN_RUN_ID } from "./__fixtures__/mission";
 import { makeEvent } from "../scan-runs/__fixtures__/event";
 
+let eventCounter = 0;
 function agentEvent(type: string, extra: Record<string, unknown> = {}) {
+  eventCounter += 1;
   return makeEvent({
-    id: `evt-${Math.random().toString(36).slice(2, 8)}`,
+    id: `evt-${type}-${eventCounter}`,
     type,
     data: { session_id: SESSION_ID, ...extra },
   });

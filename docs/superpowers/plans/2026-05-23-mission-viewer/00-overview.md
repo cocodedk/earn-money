@@ -56,7 +56,7 @@
 
 ## File Structure
 
-```
+```text
 frontend/src/features/missions/
   types.ts                  — all TypeScript types
   api.ts                    — React Query hooks and keys

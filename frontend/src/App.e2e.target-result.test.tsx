@@ -112,7 +112,7 @@ describe("end-to-end · target result", () => {
       msw.get("/api/evidence/", () => HttpResponse.json(paged([]))),
       msw.get("/api/events/", ({ request }) => {
         const types = new URL(request.url).searchParams.getAll("type");
-        if (types.length === 3) {
+        if (types.includes("auth.probe_refused")) {
           return HttpResponse.json(
             paged([
               makeEvent({
