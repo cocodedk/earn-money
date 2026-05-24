@@ -97,6 +97,14 @@ def _handle_phase_transition(ctrl, parsed) -> None:
         return
 
     if parsed.to_phase == "verify" and not _has_candidate(ctrl.session):
+        from .llm.prompts import format_observation_message
+        denial = format_observation_message(
+            denial_reason="Cannot transition to verify: no valid "
+            "submit_candidate action exists yet. Submit a candidate first.",
+        )
+        raw = json.dumps({"action": parsed.__class__.__name__})
+        ctrl.messages.append({"role": "assistant", "content": raw})
+        ctrl.messages.append({"role": "user", "content": denial})
         return
 
     from .event_log import build_budget_snapshot, emit_phase_changed
