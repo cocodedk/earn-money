@@ -11,7 +11,7 @@ export default defineConfig({
     allowedHosts: (
       process.env.VITE_ALLOWED_HOSTS ?? "localhost"
     ).split(","),
-    hmr: { protocol: "ws", host: "localhost", port: 80, clientPort: 80 },
+    hmr: process.env.VITE_HMR === "false" ? false : true,
   },
   test: {
     environment: "jsdom",
