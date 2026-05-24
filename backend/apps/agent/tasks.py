@@ -65,19 +65,23 @@ def _execute_agent_session(session_id: str) -> None:
     driver = None
     try:
         provider = _build_provider(session.model_policy)
-        driver = _build_driver(session.target)
+        driver, base_url = _build_driver(session.target)
 
-        profile = get_profile(session.mission_profile)
-        ctrl = MissionController(
-            session=session,
-            provider=provider,
-            driver=driver,
-            objective=profile.objective,
-            mission_budget=profile.mission_budget,
-            phase_budgets=profile.phase_budgets,
-            model_name=session.model_policy.get("model", "mock"),
-        )
-        asyncio.run(ctrl.run())
+        async def _run():
+            await driver.start(base_url)
+            profile = get_profile(session.mission_profile)
+            ctrl = MissionController(
+                session=session,
+                provider=provider,
+                driver=driver,
+                objective=profile.objective,
+                mission_budget=profile.mission_budget,
+                phase_budgets=profile.phase_budgets,
+                model_name=session.model_policy.get("model", "mock"),
+            )
+            await ctrl.run()
+
+        asyncio.run(_run())
     except Exception:
         logger.exception("Agent session %s failed", session_id)
         session.refresh_from_db()
@@ -194,7 +198,7 @@ def _build_provider(model_policy: dict):
     return MockProvider()
 
 
-def _build_driver(target):
+def _build_driver(target) -> tuple:
     from .browser.driver import PlaywrightDriver
-    target_origin = target.base_url or f"https://{target.host}"
-    return PlaywrightDriver(target_origin=target_origin)
+    base_url = target.base_url or f"https://{target.host}"
+    return PlaywrightDriver(), base_url
