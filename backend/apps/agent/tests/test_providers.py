@@ -93,6 +93,19 @@ class TestOpenRouterProvider:
         p = OpenRouterProvider("anthropic/claude-sonnet-4-6", "key")
         assert p._client is None
 
+    def test_deepseek_model_stored(self):
+        p = OpenRouterProvider("deepseek/deepseek-v4-pro", "key")
+        assert p._model == "deepseek/deepseek-v4-pro"
+
+    def test_extra_params_stored(self):
+        extra = {"reasoning": {"effort": "high"}}
+        p = OpenRouterProvider("deepseek/deepseek-v4-pro", "key", extra_params=extra)
+        assert p._extra_params == extra
+
+    def test_extra_params_default_empty(self):
+        p = OpenRouterProvider("deepseek/deepseek-v4-pro", "key")
+        assert p._extra_params == {}
+
 
 class TestCreateProvider:
     def test_mock_type(self):
@@ -114,3 +127,52 @@ class TestCreateProvider:
     def test_default_is_anthropic(self):
         p = create_provider("claude-sonnet-4-5", api_key="k")
         assert isinstance(p, AnthropicProvider)
+
+    def test_openrouter_with_extra_params(self):
+        extra = {"reasoning": {"effort": "high"}}
+        p = create_provider(
+            "deepseek/deepseek-v4-pro", api_key="k",
+            provider_type="openrouter", extra_params=extra,
+        )
+        assert isinstance(p, OpenRouterProvider)
+        assert p._extra_params == extra
+        assert p._model == "deepseek/deepseek-v4-pro"
+
+
+class TestBuildProviderFromPolicy:
+    """Tests for tasks._build_provider reading model_policy dicts."""
+
+    def test_mock_provider_for_mock_policy(self):
+        from apps.agent.tasks import _build_provider
+        p = _build_provider({"provider": "mock"})
+        assert isinstance(p, MockProvider)
+
+    def test_openrouter_reads_model_and_reasoning(self):
+        from apps.agent.tasks import _build_provider
+        import os
+        os.environ["OPENROUTER_API_KEY"] = "test-key"
+        try:
+            p = _build_provider({
+                "provider": "openrouter",
+                "model": "deepseek/deepseek-v4-pro",
+                "reasoning": {"effort": "high"},
+            })
+            assert isinstance(p, OpenRouterProvider)
+            assert p._model == "deepseek/deepseek-v4-pro"
+            assert p._extra_params["reasoning"] == {"effort": "high"}
+        finally:
+            del os.environ["OPENROUTER_API_KEY"]
+
+    def test_anthropic_reads_api_key_from_env(self):
+        from apps.agent.tasks import _build_provider
+        import os
+        os.environ["ANTHROPIC_API_KEY"] = "test-key"
+        try:
+            p = _build_provider({
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-5",
+            })
+            assert isinstance(p, AnthropicProvider)
+            assert p._model == "claude-sonnet-4-5"
+        finally:
+            del os.environ["ANTHROPIC_API_KEY"]

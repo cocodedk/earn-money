@@ -167,6 +167,8 @@ def _finalize_target_run(target_run, scan_run, run_status) -> None:
 
 
 def _build_provider(model_policy: dict):
+    import os
+
     from .llm.providers import MockProvider
     provider_name = model_policy.get("provider", "mock")
     if provider_name == "mock":
@@ -175,11 +177,19 @@ def _build_provider(model_policy: dict):
         from .llm.providers import AnthropicProvider
         return AnthropicProvider(
             model=model_policy.get("model", "claude-sonnet-4-5"),
+            api_key=os.environ["ANTHROPIC_API_KEY"],
         )
     if provider_name == "openrouter":
         from .llm.providers import OpenRouterProvider
+        extra = {}
+        if model_policy.get("reasoning"):
+            extra["reasoning"] = model_policy["reasoning"]
+        if model_policy.get("response_format"):
+            extra["response_format"] = model_policy["response_format"]
         return OpenRouterProvider(
             model=model_policy.get("model", ""),
+            api_key=os.environ["OPENROUTER_API_KEY"],
+            extra_params=extra,
         )
     return MockProvider()
 

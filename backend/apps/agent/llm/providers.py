@@ -91,9 +91,12 @@ class AnthropicProvider(LLMProvider):
 class OpenRouterProvider(LLMProvider):
     """Calls OpenRouter's OpenAI-compatible API."""
 
-    def __init__(self, model: str, api_key: str) -> None:
+    def __init__(
+        self, model: str, api_key: str, extra_params: dict | None = None,
+    ) -> None:
         self._model = model
         self._api_key = api_key
+        self._extra_params = extra_params or {}
         self._client = None
 
     def _get_client(self):
@@ -112,11 +115,13 @@ class OpenRouterProvider(LLMProvider):
     ) -> LLMResponse:
         client = self._get_client()
         all_messages = [{"role": "system", "content": system_prompt}, *messages]
-        response = await client.chat.completions.create(
-            model=self._model,
-            messages=all_messages,
-            max_tokens=4096,
-        )
+        kwargs: dict = {
+            "model": self._model,
+            "messages": all_messages,
+            "max_tokens": 4096,
+            **self._extra_params,
+        }
+        response = await client.chat.completions.create(**kwargs)
         choice = response.choices[0]
         usage = response.usage
         return LLMResponse(
@@ -131,6 +136,7 @@ def create_provider(
     model: str,
     api_key: str = "",
     provider_type: str = "anthropic",
+    extra_params: dict | None = None,
 ) -> LLMProvider:
     """Factory: return a provider instance by type name."""
     if provider_type == "mock":
@@ -138,5 +144,7 @@ def create_provider(
     if provider_type == "anthropic":
         return AnthropicProvider(model=model, api_key=api_key)
     if provider_type == "openrouter":
-        return OpenRouterProvider(model=model, api_key=api_key)
+        return OpenRouterProvider(
+            model=model, api_key=api_key, extra_params=extra_params,
+        )
     raise ValueError(f"Unknown provider_type {provider_type!r}")

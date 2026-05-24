@@ -53,9 +53,9 @@ _PROFILES: dict[str, MissionProfile] = {
             },
         },
         model_policy={
-            "provider": "anthropic",
-            "model": "claude-sonnet-4-5",
-            "temperature": 0.2,
+            "provider": "openrouter",
+            "model": "deepseek/deepseek-v4-pro",
+            "reasoning": {"effort": "high"},
         },
     ),
 }
