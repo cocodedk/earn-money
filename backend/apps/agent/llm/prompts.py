@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-SYSTEM_TEMPLATE = """\
+_SYSTEM_HEADER = """\
 You are an autonomous security testing agent operating within a controlled lab environment.
 
 ## Objective
@@ -34,35 +34,57 @@ Each response must be a single JSON object with these envelope fields:
   "hypothesis" : what you expect to observe (string)
   ... plus any action-specific fields
 
-### observe_page
-{{ "action": "observe_page", "goal": "...", "reason": "...", "hypothesis": "...",
-   "include_screenshot": false, "element_ids": null }}
+{action_schemas}"""
 
-### navigate
-{{ "action": "navigate", "goal": "...", "reason": "...", "hypothesis": "...",
-   "path": "/some/path" }}
-
-### inspect_asset
-{{ "action": "inspect_asset", "goal": "...", "reason": "...", "hypothesis": "...",
-   "asset_ref": "asset-id" }}
-
-### store_note
-{{ "action": "store_note", "goal": "...", "reason": "...", "hypothesis": "...",
-   "note_type": "hypothesis|gap|route|parameter|candidate|credential_label",
-   "content": {{}} }}
-
-### submit_candidate
-{{ "action": "submit_candidate", "goal": "...", "reason": "...", "hypothesis": "...",
-   "category": "...", "description": "...", "evidence_refs": [] }}
-
-### request_phase_transition
-{{ "action": "request_phase_transition", "goal": "...", "reason": "...",
-   "hypothesis": "...", "from_phase": "...", "to_phase": "...",
-   "evidence_refs": [], "remaining_questions": null }}
-
-### stop
-{{ "action": "stop", "goal": "...", "reason": "...", "hypothesis": "..." }}
-"""
+_ACTION_SCHEMA_SNIPPETS: dict[str, str] = {
+    "observe_page": (
+        '### observe_page\n'
+        '{ "action": "observe_page", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "include_screenshot": false, "element_ids": null }'
+    ),
+    "navigate": (
+        '### navigate\n'
+        '{ "action": "navigate", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "path": "/some/path" }'
+    ),
+    "inspect_asset": (
+        '### inspect_asset\n'
+        '{ "action": "inspect_asset", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "asset_ref": "asset-id" }'
+    ),
+    "click": (
+        '### click\n'
+        '{ "action": "click", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "element_id": "link_3" }'
+    ),
+    "http_request": (
+        '### http_request\n'
+        '{ "action": "http_request", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "method": "GET", "path": "/api/endpoint" }\n'
+        '   method must be GET or HEAD. Same-origin only. No request body.'
+    ),
+    "store_note": (
+        '### store_note\n'
+        '{ "action": "store_note", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "note_type": "hypothesis|gap|route|parameter|candidate|credential_label",\n'
+        '   "content": {} }'
+    ),
+    "submit_candidate": (
+        '### submit_candidate\n'
+        '{ "action": "submit_candidate", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "category": "...", "description": "...", "evidence_refs": [] }'
+    ),
+    "request_phase_transition": (
+        '### request_phase_transition\n'
+        '{ "action": "request_phase_transition", "goal": "...", "reason": "...",\n'
+        '   "hypothesis": "...", "from_phase": "...", "to_phase": "...",\n'
+        '   "evidence_refs": [], "remaining_questions": null }'
+    ),
+    "stop": (
+        '### stop\n'
+        '{ "action": "stop", "goal": "...", "reason": "...", "hypothesis": "..." }'
+    ),
+}
 
 _OBSERVATION_WRAPPER = """\
 <observation trust="untrusted_target_content">
@@ -77,6 +99,28 @@ _DENIAL_WRAPPER = """\
 """
 
 
+def _build_action_schemas(allowed_actions: list[str]) -> str:
+    """Return schema snippets for allowed actions in a defined display order."""
+    display_order = [
+        "observe_page",
+        "navigate",
+        "inspect_asset",
+        "click",
+        "http_request",
+        "store_note",
+        "submit_candidate",
+        "request_phase_transition",
+        "stop",
+    ]
+    allowed_set = set(allowed_actions)
+    snippets = [
+        _ACTION_SCHEMA_SNIPPETS[action]
+        for action in display_order
+        if action in allowed_set and action in _ACTION_SCHEMA_SNIPPETS
+    ]
+    return "\n\n".join(snippets)
+
+
 def build_system_prompt(
     objective: str,
     phase: str,
@@ -85,11 +129,13 @@ def build_system_prompt(
 ) -> str:
     """Return a formatted system prompt string."""
     actions_str = "\n".join(f"  - {a}" for a in sorted(allowed_actions))
-    return SYSTEM_TEMPLATE.format(
+    action_schemas = _build_action_schemas(allowed_actions)
+    return _SYSTEM_HEADER.format(
         objective=objective,
         phase=phase,
         allowed_actions=actions_str,
         budget_remaining=budget_remaining,
+        action_schemas=action_schemas,
     )
 
 

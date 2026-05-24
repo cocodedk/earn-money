@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import pytest
 from apps.agent.llm.prompts import build_system_prompt, format_observation_message
+from apps.agent.actions.matrix import allowed_actions_for_phase
 
 
 _OBJ = "Find the hidden scoreboard page."
@@ -108,3 +109,36 @@ class TestFormatObservationMessage:
         # JSON content should be parseable from the message
         assert '"key"' in msg
         assert '"value"' in msg
+
+
+class TestProbePromptSchemas:
+    def test_probe_prompt_includes_click(self):
+        prompt = build_system_prompt(
+            objective="test",
+            phase="probe",
+            allowed_actions=allowed_actions_for_phase("probe"),
+            budget_remaining=10,
+        )
+        assert "click" in prompt
+        assert "element_id" in prompt
+
+    def test_probe_prompt_includes_http_request(self):
+        prompt = build_system_prompt(
+            objective="test",
+            phase="probe",
+            allowed_actions=allowed_actions_for_phase("probe"),
+            budget_remaining=10,
+        )
+        assert "http_request" in prompt
+        assert '"method"' in prompt
+        assert '"path"' in prompt
+
+    def test_report_prompt_excludes_click(self):
+        prompt = build_system_prompt(
+            objective="test",
+            phase="report",
+            allowed_actions=allowed_actions_for_phase("report"),
+            budget_remaining=5,
+        )
+        assert "click" not in prompt
+        assert "http_request" not in prompt
