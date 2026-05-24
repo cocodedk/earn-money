@@ -27,8 +27,16 @@ class TestDriverClick:
     def test_click_unknown_element_raises(self):
         driver = PlaywrightDriver()
         driver._element_registry = {}
+        driver._page = MagicMock()
         with pytest.raises(ValueError, match="Unknown element_id"):
             run(driver.click("link_999"))
+
+    def test_click_without_page_raises_clear_error(self):
+        driver = PlaywrightDriver()
+        driver._element_registry = {"btn": "#submit"}
+        driver._page = None
+        with pytest.raises(RuntimeError, match="browser not started"):
+            run(driver.click("btn"))
 
 
 class TestDriverFill:
@@ -70,3 +78,11 @@ class TestDriverFill:
         driver._page = None
         with pytest.raises(RuntimeError, match="browser not started"):
             run(driver.fill("email_field", "anything"))
+
+    def test_fill_unknown_element_raises_before_page_check(self):
+        """ValueError for bad element_id even when _page is also None."""
+        driver = PlaywrightDriver()
+        driver._element_registry = {}
+        driver._page = None
+        with pytest.raises(ValueError, match="Unknown element_id"):
+            run(driver.fill("missing", "v"))
