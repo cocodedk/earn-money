@@ -1,14 +1,14 @@
 #!/bin/sh
 # Push git-tracked files to the VPS and rebuild containers.
 # Idempotent. Destructive — rsync --delete wipes anything on the
-# VPS path that isn't in the source tree.
+# VPS path that isn't in the staged tree.
 #
 # Defaults (override via env):
 #   VPS_HOST=recon-vps           — SSH host alias from ~/.ssh/config
 #   VPS_PATH=/opt/earn-money/    — install prefix on the VPS
 #
-# Only git-tracked files are synced (via git ls-files). Untracked
-# files, .gitignore'd paths, and local state never reach the VPS.
+# Deploys from `git archive HEAD` so only committed, tracked files
+# reach the VPS. Uncommitted changes and untracked files are excluded.
 
 set -eu
 
@@ -27,19 +27,21 @@ VPS_PATH="${VPS_PATH:-/opt/earn-money/}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-# Warn on any dirty state (tracked modifications + untracked files)
 if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    warn "working tree is dirty (modifications or untracked files)"
-    warn "only git-tracked files will be synced"
+    warn "working tree is dirty — only committed HEAD will be deployed"
 fi
 
-# --- Step 1: rsync git-tracked files only ---
-log "rsync (git-tracked) → ${VPS_HOST}:${VPS_PATH}"
-git ls-files -z | rsync -az --delete \
-    --files-from=- --from0 \
-    ./ "${VPS_HOST}:${VPS_PATH}"
+# --- Step 1: stage a clean tree from HEAD ---
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+log "staging git archive HEAD → $STAGE"
+git archive HEAD | tar -x -C "$STAGE"
 
-# --- Step 2: rebuild and restart all containers ---
+# --- Step 2: rsync staged tree to VPS ---
+log "rsync → ${VPS_HOST}:${VPS_PATH}"
+rsync -az --delete "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
+
+# --- Step 3: rebuild and restart all containers ---
 log "docker compose up -d --build --force-recreate on ${VPS_HOST}"
 ssh "${VPS_HOST}" "cd '${VPS_PATH}' && docker compose up -d --build --force-recreate" 2>&1
 
