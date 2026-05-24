@@ -77,6 +77,11 @@ services:
       RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      AGENT_LLM_PROVIDER: ${AGENT_LLM_PROVIDER:-openrouter}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-deepseek/deepseek-v4-pro}
+      AGENT_LLM_REASONING_EFFORT: ${AGENT_LLM_REASONING_EFFORT:-high}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       # Phase 2 fixture env. Defaults empty; absence of any one only
       # disables the dependent stub, not the whole stack.
       FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
