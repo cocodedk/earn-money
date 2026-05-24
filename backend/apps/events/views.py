@@ -19,7 +19,7 @@ from .serializers import EventSerializer
 
 
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
-    """Filters (AND semantics):
+    """Filters (AND across keys; OR within repeated values of the same key):
       ?target=<uuid>           events for one ScanTarget
       ?scan_run=<uuid>         events for one ScanRun
       ?type=<str>              events of one EventType
@@ -56,7 +56,6 @@ def _format(event: Event) -> bytes:
     payload = EventSerializer(event).data
     frame = (
         f"id: {event.id}\n"
-        f"event: {payload['type']}\n"
         f"data: {json.dumps(payload, default=str)}\n\n"
     )
     return frame.encode("utf-8")

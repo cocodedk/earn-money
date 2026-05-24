@@ -1,0 +1,10 @@
+{
+  "name": "session-lifecycle-lab",
+  "version": "0.1.0",
+  "description": "Stateful session-lifecycle fixture for Phase-3 stubs 3.5-3.8.",
+  "main": "server.js",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "4.21.2" },
+  "license": "MIT"
+}

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "apps.evidence",
     "apps.programs",
     "apps.stubs",
+    "apps.agent",
 ]
 
 
@@ -157,6 +158,16 @@ COOKBOOK_ROOT = os.environ.get("COOKBOOK_ROOT", "/cookbook")
 PROGRAMS_ROOT = Path(os.environ.get("PROGRAMS_ROOT", "/programs"))
 RECON_ENABLED_PATH = Path(
     os.environ.get("RECON_ENABLED_PATH", "/flags/RECON_ENABLED")
+)
+
+
+# --- V3 Agent LLM defaults (overridden per mission via model_policy) ---
+AGENT_LLM_PROVIDER = os.environ.get("AGENT_LLM_PROVIDER", "openrouter")
+AGENT_LLM_MODEL = os.environ.get(
+    "AGENT_LLM_MODEL", "deepseek/deepseek-v4-pro",
+)
+AGENT_LLM_REASONING_EFFORT = os.environ.get(
+    "AGENT_LLM_REASONING_EFFORT", "high",
 )
 
 

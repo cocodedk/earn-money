@@ -18,12 +18,13 @@ from __future__ import annotations
 
 from typing import Literal, NamedTuple
 
+from apps.stubs._shared.types import Confidence
+
 
 FrameworkName = Literal[
     "react", "vue", "angular", "svelte",
     "nextjs", "nuxt", "vite", "webpack", "remix", "other",
 ]
-Confidence = Literal["low", "medium", "high"]
 
 
 class FrameworkHint(NamedTuple):

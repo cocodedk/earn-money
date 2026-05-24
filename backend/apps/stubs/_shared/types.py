@@ -20,3 +20,7 @@ from typing import Literal
 # Cookbook §00-shared-schema "confidence" vocabulary. Used by every
 # stub classifier's Verdict.confidence and the runner's Finding.data.
 Confidence = Literal["low", "medium", "high"]
+
+# Cookbook §00-shared-schema "status" vocabulary. Used by every stub
+# classifier's result/verdict status field.
+Status = Literal["candidate", "confirmed", "rejected", "stale"]

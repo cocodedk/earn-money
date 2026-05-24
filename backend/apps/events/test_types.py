@@ -27,3 +27,8 @@ def test_phase_2_auth_event_values_stable() -> None:
 def test_finding_lifecycle_event_values_stable() -> None:
     assert EventType.FINDING_CREATED.value == "finding.created"
     assert EventType.FINDING_STATUS_CHANGED.value == "finding.status_changed"
+
+
+def test_scan_run_failed_event_type_exists():
+    assert EventType.SCAN_RUN_FAILED == "scan_run.failed"
+    assert EventType.SCAN_RUN_FAILED.label == "Scan run failed"

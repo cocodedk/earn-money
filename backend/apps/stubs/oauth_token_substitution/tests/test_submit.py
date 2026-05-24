@@ -93,6 +93,21 @@ def test_no_code_in_location_returns_candidate():
     assert result.substitution_attempted is False
 
 
+def test_confirmed_with_non_default_username():
+    # Verifies the marker check uses the variable `user_a`, not the literal "user_a".
+    # With a literal the check was False for any real username other than "user_a".
+    result = run_substitution_test(
+        base_url="http://localhost:3000",
+        cred_a=("alice", "pass-a"),
+        cred_b=("bob", "pass-b"),
+        http=_make_http(callback_marker="alice_marker"),
+    )
+    assert result.substitution_attempted is True
+    assert result.identity_mismatch_observed is True
+    assert result.status == "confirmed"
+    assert result.confidence == "high"
+
+
 def test_login_b_failure_returns_candidate():
     call_count = {"n": 0}
     http = MagicMock()

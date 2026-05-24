@@ -3,10 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal
-
 from apps.stubs._shared.body_match import contains_any, contains_any_lowered
-from apps.stubs._shared.types import Confidence
+from apps.stubs._shared.types import Confidence, Status
 
 
 class InviteFlawKind(str, Enum):
@@ -41,7 +39,7 @@ class InviteFlawClassification:
     endpoint_url: str
     http_method: str
     confidence: Confidence
-    status: Literal["candidate", "confirmed", "rejected", "stale"]
+    status: Status
     observed_fields: list[str] = field(default_factory=list)
     requested_role: str | None = None
     observed_role: str | None = None

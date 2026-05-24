@@ -77,6 +77,11 @@ services:
       RECON_ENABLED_PATH: /flags/RECON_ENABLED
       APP_VERSION: ${APP_VERSION:-dev}
       TZ: Europe/Copenhagen
+      AGENT_LLM_PROVIDER: ${AGENT_LLM_PROVIDER:-openrouter}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-deepseek/deepseek-v4-pro}
+      AGENT_LLM_REASONING_EFFORT: ${AGENT_LLM_REASONING_EFFORT:-high}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       # Phase 2 fixture env. Defaults empty; absence of any one only
       # disables the dependent stub, not the whole stack.
       FIXTURE_MAILBOX_BACKEND: ${FIXTURE_MAILBOX_BACKEND:-}
@@ -143,6 +148,11 @@ services:
       FIXTURE_INVITE_LAB_URL: ${FIXTURE_INVITE_LAB_URL:-http://invitation-abuse-lab:3000}
       FIXTURE_TENANT_ID: ${FIXTURE_TENANT_ID:-acme}
       FIXTURE_TENANT_LAB_URL: ${FIXTURE_TENANT_LAB_URL:-http://tenant-org-join-abuse-lab:3000}
+      AGENT_LLM_PROVIDER: ${AGENT_LLM_PROVIDER:-openrouter}
+      AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-deepseek/deepseek-v4-pro}
+      AGENT_LLM_REASONING_EFFORT: ${AGENT_LLM_REASONING_EFFORT:-high}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes:
       - ./backend:/app
       - ./docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK:/cookbook:ro
@@ -296,6 +306,32 @@ services:
       TZ: Europe/Copenhagen
       PORT: "3000"
       SCENARIO: tenant-org-join
+    networks: [scanner-net]
+
+  # --- Phase 3 session-lifecycle fixture (stubs 3.5-3.8) -----------------
+  session-lifecycle-lab:
+    build:
+      context: ./fixtures/session-lifecycle-lab
+      dockerfile: Dockerfile
+    image: earnmoney-session-lifecycle-lab:dev
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+    ports:
+      - "3005:3000"
+    networks: [scanner-net]
+
+  # --- Phase 3 cookie-flag fixtures (stubs 3.1-3.4) ----------------------
+  session-cookie-lab:
+    build:
+      context: ./fixtures/session-cookie-lab
+      dockerfile: Dockerfile
+    image: earnmoney-session-cookie-lab:dev
+    environment:
+      TZ: Europe/Copenhagen
+      PORT: "3000"
+    ports:
+      - "3004:3000"
     networks: [scanner-net]
 
 networks:

@@ -48,11 +48,11 @@ class SSEStreamTests(TestCase):
     def test_streams_all_events_then_closes(self) -> None:
         url = reverse("scanrun-event-stream", args=[self.run.id])
         body = b"".join(self.client.get(url).streaming_content).decode()
-        # SSE frames format
-        assert "event: system.test" in body
+        # Generic SSE frames — no event: line, type is in data payload
+        assert "event:" not in body
+        assert '"type": "system.test"' in body
         assert '"message": "first"' in body
         assert '"message": "second"' in body
-        # Stream close marker
         assert ": stream-closed" in body
 
     def test_excludes_events_from_other_runs(self) -> None:

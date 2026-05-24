@@ -15,13 +15,10 @@ Spec: docs/superpowers/specs/2026-05-18-VULN-SCANNING-COOK-BOOK/01-information-g
 """
 from __future__ import annotations
 
-from typing import Literal, NamedTuple
+from typing import NamedTuple
 
-from .._shared.types import Confidence
+from .._shared.types import Confidence, Status
 from .fetcher import BundleFetchKind
-
-
-Status = Literal["candidate", "confirmed", "rejected", "stale"]
 
 
 class Verdict(NamedTuple):

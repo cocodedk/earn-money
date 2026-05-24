@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 from urllib.parse import urlparse, parse_qs
+
+from apps.stubs._shared.types import Confidence
 
 _OAUTH_PATHS = frozenset({
     "/authorize", "/oauth/authorize", "/oauth2/authorize",
@@ -22,7 +23,7 @@ class OAuthUrlInspection:
     has_state: bool
     has_nonce: bool
     has_pkce: bool
-    confidence: Literal["low", "medium", "high"]
+    confidence: Confidence
     missing_parameters: list[str]
     observed_parameters: list[str]
     authorization_url: str
@@ -49,7 +50,7 @@ def inspect_authorization_url(url: str) -> OAuthUrlInspection:
     missing = ["state"] if not has_state else []
 
     has_full = {"client_id", "redirect_uri", "response_type"}.issubset(params)
-    confidence: Literal["low", "medium", "high"] = (
+    confidence: Confidence = (
         "high" if has_full and not has_state
         else "medium" if len(observed) >= 2
         else "low"
