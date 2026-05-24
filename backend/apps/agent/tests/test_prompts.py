@@ -142,3 +142,20 @@ class TestProbePromptSchemas:
         )
         assert "click" not in prompt
         assert "http_request" not in prompt
+
+    def test_all_phase_actions_have_schema_snippet(self):
+        from apps.agent.llm.prompts import _ACTION_SCHEMA_SNIPPETS
+        from apps.agent.actions.matrix import _PHASE_ACTION_MATRIX
+        all_actions = set().union(*_PHASE_ACTION_MATRIX.values())
+        missing = all_actions - set(_ACTION_SCHEMA_SNIPPETS)
+        assert missing == set(), f"Actions missing schema snippets: {missing}"
+
+    def test_enumerate_prompt_includes_fill_form(self):
+        prompt = build_system_prompt(
+            objective="test",
+            phase="enumerate",
+            allowed_actions=allowed_actions_for_phase("enumerate"),
+            budget_remaining=10,
+        )
+        assert "fill_form" in prompt
+        assert "element_id" in prompt

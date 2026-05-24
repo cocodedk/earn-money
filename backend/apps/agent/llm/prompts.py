@@ -80,6 +80,41 @@ _ACTION_SCHEMA_SNIPPETS: dict[str, str] = {
         '   "hypothesis": "...", "from_phase": "...", "to_phase": "...",\n'
         '   "evidence_refs": [], "remaining_questions": null }'
     ),
+    "fill_form": (
+        '### fill_form\n'
+        '{ "action": "fill_form", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "element_id": "input_1", "value": "test" }'
+    ),
+    "submit_form": (
+        '### submit_form\n'
+        '{ "action": "submit_form", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "element_id": "form_1" }'
+    ),
+    "run_stub": (
+        '### run_stub\n'
+        '{ "action": "run_stub", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "stub_id": "stub-name", "params": {} }'
+    ),
+    "run_tool": (
+        '### run_tool\n'
+        '{ "action": "run_tool", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "tool_id": "tool-name", "params": {} }'
+    ),
+    "request_verify": (
+        '### request_verify\n'
+        '{ "action": "request_verify", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "finding_ref": "candidate-id", "rationale": "..." }'
+    ),
+    "diff_response": (
+        '### diff_response\n'
+        '{ "action": "diff_response", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "baseline_ref": "asset-id", "current_ref": "asset-id" }'
+    ),
+    "compare_baseline": (
+        '### compare_baseline\n'
+        '{ "action": "compare_baseline", "goal": "...", "reason": "...", "hypothesis": "...",\n'
+        '   "baseline_ref": "asset-id", "target_ref": "asset-id" }'
+    ),
     "stop": (
         '### stop\n'
         '{ "action": "stop", "goal": "...", "reason": "...", "hypothesis": "..." }'
@@ -106,7 +141,14 @@ def _build_action_schemas(allowed_actions: list[str]) -> str:
         "navigate",
         "inspect_asset",
         "click",
+        "fill_form",
+        "submit_form",
         "http_request",
+        "run_stub",
+        "run_tool",
+        "request_verify",
+        "diff_response",
+        "compare_baseline",
         "store_note",
         "submit_candidate",
         "request_phase_transition",
