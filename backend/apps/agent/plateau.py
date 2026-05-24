@@ -20,6 +20,7 @@ class PlateauDetector:
             frozenset(known_routes) if known_routes else None
         )
 
+        self._seen_routes: set[str] = set(self._known_routes) if self._known_routes else set()
         self._turns_no_route: int = 0
         self._turns_no_element: int = 0
         self._denial_streak: int = 0
@@ -40,9 +41,10 @@ class PlateauDetector:
         When *route_paths* and *known_routes* are both supplied, only paths
         not present in the baseline count as genuine new-route discoveries.
         """
-        if route_paths is not None and self._known_routes is not None:
-            novel = any(p not in self._known_routes for p in route_paths)
-            effective_routes = 1 if novel else 0
+        if route_paths is not None:
+            novel_paths = [p for p in route_paths if p not in self._seen_routes]
+            self._seen_routes.update(route_paths)
+            effective_routes = len(novel_paths)
         else:
             effective_routes = new_routes
 

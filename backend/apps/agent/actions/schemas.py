@@ -8,7 +8,7 @@ _BLOCKED_URL_PREFIXES = ("javascript:", "data:", "//")
 _BLOCKED_URL_PATTERNS = ("://",)
 
 _VALID_NOTE_TYPES = frozenset(
-    {"hypothesis", "gap", "credential_label", "route", "parameter", "candidate"}
+    {"hypothesis", "gap", "credential_label", "route", "parameter", "candidate", "form"}
 )
 
 

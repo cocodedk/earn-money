@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from .actions.schemas import (
     ClickAction, FillFormAction, HttpRequestAction, NavigateAction,
-    RequestPhaseTransitionAction, StopAction, StoreNoteAction, SubmitFormAction,
+    RequestPhaseTransitionAction, StopAction, StoreNoteAction,
+    SubmitCandidateAction, SubmitFormAction,
 )
 from .llm.prompts import format_observation_message
 from .models import ExecutionStatus, ObservationType, TurnStatus
@@ -26,8 +27,14 @@ def _mark_executed(action_rec) -> None:
 
 async def dispatch(ctrl: MissionController, turn, envelope: ActionEnvelope) -> bool:
     """Execute a validated action. Return True if the mission should stop."""
+    args_redacted = {}
+    if isinstance(envelope.parsed, SubmitCandidateAction):
+        args_redacted = {
+            "category": envelope.parsed.category,
+            "description": envelope.parsed.description[:200],
+        }
     action_rec = record_action(
-        turn=turn, action_type=envelope.action, args_redacted={},
+        turn=turn, action_type=envelope.action, args_redacted=args_redacted,
         goal=envelope.goal, reason=envelope.reason, hypothesis=envelope.hypothesis,
     )
     parsed = envelope.parsed
