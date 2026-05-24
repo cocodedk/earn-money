@@ -75,7 +75,7 @@ class MissionController:
         try:
             while True:
                 try:
-                    self.budget.check("turns")
+                    self.budget.check_all()
                 except BudgetExhaustedError:
                     self._finish(SessionStatus.STOPPED, "budget_exhausted")
                     return
