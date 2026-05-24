@@ -6,7 +6,7 @@
 install_pd_tools() {
     log "ProjectDiscovery tools (subfinder, httpx, nuclei, katana, naabu) via prebuilt releases"
     mkdir -p /opt/recon-tools
-    cd /opt/recon-tools
+    cd /opt/recon-tools || return
     for tool in subfinder httpx nuclei katana naabu; do
         if [ -x "/usr/local/bin/$tool" ]; then
             log "  $tool: already present, skipping"
@@ -55,7 +55,7 @@ install_rustscan() {
     rs_num="${rs_ver#v}"
     rs_url="https://github.com/bee-san/RustScan/releases/download/${rs_ver}/rustscan_${rs_num}_amd64.deb"
     log "  rustscan: fetching $rs_ver"
-    cd /tmp
+    cd /tmp || return
     if curl -fsSL "$rs_url" -o rustscan.deb; then
         dpkg -i rustscan.deb >/dev/null 2>&1 || \
             apt-get install -y -qq --fix-broken

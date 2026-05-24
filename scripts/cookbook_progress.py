@@ -13,6 +13,7 @@ Plan status values:  pending · drafted · approved · implemented · verified
 """
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -66,6 +67,14 @@ def phase_title(phase_dir: Path, fallback: str) -> str:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Regenerate cookbook PROGRESS.md.")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit nonzero if PROGRESS.md is stale; do not write files.",
+    )
+    args = parser.parse_args()
+
     if not SPECS_ROOT.exists():
         print(f"error: specs folder not found: {SPECS_ROOT}", file=sys.stderr)
         return 1
@@ -146,13 +155,24 @@ def main() -> int:
             )
         out.append("")
 
-    OUT.write_text("\n".join(out))
-    print(
-        f"wrote PROGRESS.md: {counts['total']} specs, "
+    rendered = "\n".join(out)
+    summary = (
+        f"{counts['total']} specs, "
         f"{counts['specs_done']} specs done, "
         f"{counts['plans_verified']} plans verified, "
         f"{counts['phases_shipped']}/{len(phases)} phases shipped"
     )
+
+    if args.check:
+        current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
+        if current != rendered:
+            print(f"PROGRESS.md is stale: {summary}", file=sys.stderr)
+            return 1
+        print(f"PROGRESS.md is up to date: {summary}")
+        return 0
+
+    OUT.write_text(rendered, encoding="utf-8")
+    print(f"wrote PROGRESS.md: {summary}")
     return 0
 
 

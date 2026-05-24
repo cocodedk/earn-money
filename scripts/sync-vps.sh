@@ -1,11 +1,13 @@
 #!/bin/sh
 # Push git-tracked files to the VPS and rebuild containers.
 # Idempotent. Destructive — rsync --delete removes stale tracked
-# files but protects VPS-only runtime files (.env, overrides, flags).
+# files but protects VPS-only runtime files (.env, overrides, flags,
+# recon output, and per-program sqlite state).
 #
 # Defaults (override via env):
 #   VPS_HOST=recon-vps           — SSH host alias from ~/.ssh/config
 #   VPS_PATH=/opt/earn-money/    — install prefix on the VPS
+#   DRY_RUN=1                    — show rsync/delete plan and skip remote restart
 #
 # Deploys from `git archive HEAD` so only committed, tracked files
 # reach the VPS. Uncommitted changes and untracked files are excluded.
@@ -23,6 +25,7 @@ die() { printf "${RED}[sync-vps]${NC} %s\n" "$*" >&2; exit 1; }
 
 VPS_HOST="${VPS_HOST:-recon-vps}"
 VPS_PATH="${VPS_PATH:-/opt/earn-money/}"
+DRY_RUN="${DRY_RUN:-0}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
@@ -38,16 +41,48 @@ log "staging git archive HEAD → $STAGE"
 git archive HEAD | tar -x -C "$STAGE"
 
 # --- Step 2: rsync staged tree to VPS ---
-log "rsync → ${VPS_HOST}:${VPS_PATH}"
-rsync -az --delete \
-    --exclude='.env' \
-    --exclude='.env.*' \
-    --exclude='docker-compose.override.yml' \
-    --exclude='flags/' \
-    "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
+if [ "$DRY_RUN" = "1" ]; then
+    log "DRY_RUN: rsync preview -> ${VPS_HOST}:${VPS_PATH}"
+    rsync -azn --delete --itemize-changes \
+        --exclude='.env' \
+        --exclude='.env.*' \
+        --exclude='docker-compose.override.yml' \
+        --exclude='flags/' \
+        --exclude='recon/outputs/' \
+        --exclude='archive/v1/recon/outputs/' \
+        --exclude='programs/**/db.sqlite' \
+        --exclude='programs/**/db.sqlite-*' \
+        --exclude='archive/v1/programs/**/db.sqlite' \
+        --exclude='archive/v1/programs/**/db.sqlite-*' \
+        "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
+else
+    log "rsync -> ${VPS_HOST}:${VPS_PATH}"
+    rsync -az --delete \
+        --exclude='.env' \
+        --exclude='.env.*' \
+        --exclude='docker-compose.override.yml' \
+        --exclude='flags/' \
+        --exclude='recon/outputs/' \
+        --exclude='archive/v1/recon/outputs/' \
+        --exclude='programs/**/db.sqlite' \
+        --exclude='programs/**/db.sqlite-*' \
+        --exclude='archive/v1/programs/**/db.sqlite' \
+        --exclude='archive/v1/programs/**/db.sqlite-*' \
+        "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
+fi
 
 # --- Step 3: rebuild and restart all containers ---
+if [ "$DRY_RUN" = "1" ]; then
+    log "DRY_RUN: would run on ${VPS_HOST}: cd ${VPS_PATH} && docker compose up -d --build --force-recreate"
+    log "dry-run complete"
+    exit 0
+fi
+
 log "docker compose up -d --build --force-recreate on ${VPS_HOST}"
-ssh "${VPS_HOST}" "cd '${VPS_PATH}' && docker compose up -d --build --force-recreate" 2>&1
+ssh "${VPS_HOST}" sh -s -- "$VPS_PATH" <<'REMOTE' 2>&1
+set -eu
+cd "$1"
+docker compose up -d --build --force-recreate
+REMOTE
 
 log "done — stack deployed on ${VPS_HOST}:${VPS_PATH}"

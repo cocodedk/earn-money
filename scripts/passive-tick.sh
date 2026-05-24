@@ -19,7 +19,18 @@ warn() { printf "${YELLOW}[passive-tick]${NC} %s\n" "$*" >&2; }
 ROOT="${EARN_MONEY_ROOT:-/opt/earn-money}"
 cd "$ROOT" || { warn "ROOT $ROOT not found"; exit 1; }
 
-if [ ! -f "$ROOT/RECON_ENABLED" ]; then
+if [ ! -x "$ROOT/bin/scope-sync" ] || [ ! -x "$ROOT/bin/passive-recon" ]; then
+    warn "legacy v1 passive tick requires $ROOT/bin/scope-sync and $ROOT/bin/passive-recon"
+    warn "current Docker stack uses API/Celery scans; passive tick is disabled for this checkout"
+    exit 1
+fi
+
+if [ ! -d "$ROOT/programs" ]; then
+    warn "programs directory missing: $ROOT/programs"
+    exit 1
+fi
+
+if [ ! -f "$ROOT/RECON_ENABLED" ] && [ ! -f "$ROOT/flags/RECON_ENABLED" ]; then
     warn "RECON_ENABLED missing — halting (operator-explicit kill switch)"
     exit 0
 fi

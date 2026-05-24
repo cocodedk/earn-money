@@ -2,24 +2,30 @@
 # Apply repository settings and branch protection.
 # Prerequisites: gh CLI authenticated with admin rights on the repo.
 # Run once, after the repo has been created and the first commit pushed.
+# Env:
+#   DRY_RUN=1  print intended GitHub/CODEOWNERS changes without applying
 set -eu
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 OWNER=$(gh repo view --json owner -q .owner.login)
+DRY_RUN="${DRY_RUN:-0}"
 
 echo ""
 echo "=== Repository setup: $REPO ==="
 echo ""
 
 # ── Merge strategy ────────────────────────────────────────────────────────────
-gh repo edit "$REPO" \
-  --delete-branch-on-merge \
-  --enable-squash-merge \
-  --enable-rebase-merge \
-  --enable-merge-commit=false
-
-echo "ok: merge strategy = squash + rebase only, auto-delete head branches"
+if [ "$DRY_RUN" = "1" ]; then
+  echo "DRY_RUN: would set merge strategy = squash + rebase only, auto-delete head branches"
+else
+  gh repo edit "$REPO" \
+    --delete-branch-on-merge \
+    --enable-squash-merge \
+    --enable-rebase-merge \
+    --enable-merge-commit=false
+  echo "ok: merge strategy = squash + rebase only, auto-delete head branches"
+fi
 
 # ── Branch protection ─────────────────────────────────────────────────────────
 # Solo private operations repo: no required reviews, no required status checks
@@ -41,7 +47,10 @@ PROTECTION_BODY='{
 }'
 
 PROTECTION_APPLIED=0
-if printf '%s' "$PROTECTION_BODY" | gh api --method PUT \
+if [ "$DRY_RUN" = "1" ]; then
+  echo "DRY_RUN: would PUT branch protection to /repos/$REPO/branches/$DEFAULT_BRANCH/protection"
+  printf '%s\n' "$PROTECTION_BODY"
+elif printf '%s' "$PROTECTION_BODY" | gh api --method PUT \
      "/repos/$REPO/branches/$DEFAULT_BRANCH/protection" \
      --input - >/dev/null 2>&1; then
   echo "ok: branch protection on $DEFAULT_BRANCH"
@@ -52,11 +61,15 @@ else
 fi
 
 # ── CODEOWNERS ────────────────────────────────────────────────────────────────
-mkdir -p .github
-printf '# All files — repo owner review on every PR.\n* @%s\n' "$OWNER" \
-  > .github/CODEOWNERS
-
-echo "ok: .github/CODEOWNERS written"
+if [ "$DRY_RUN" = "1" ]; then
+  echo "DRY_RUN: would write .github/CODEOWNERS:"
+  printf '# All files — repo owner review on every PR.\n* @%s\n' "$OWNER"
+else
+  mkdir -p .github
+  printf '# All files — repo owner review on every PR.\n* @%s\n' "$OWNER" \
+    > .github/CODEOWNERS
+  echo "ok: .github/CODEOWNERS written"
+fi
 echo ""
 if [ "$PROTECTION_APPLIED" = "1" ]; then
   echo "Active on $DEFAULT_BRANCH (server-enforced):"

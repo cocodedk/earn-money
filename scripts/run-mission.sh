@@ -10,6 +10,7 @@
 #   API_BASE=http://localhost   — API base URL (nginx on port 80)
 #   PROFILE=juice_shop_scoreboard
 #   TIMEOUT=600                 — max seconds to wait for completion
+#   DRY_RUN=1                   — resolve target and print POST payload only
 
 set -eu
 
@@ -29,8 +30,14 @@ TARGET_ARG="${1:-}"
 API_BASE="${API_BASE:-http://localhost}"
 PROFILE="${PROFILE:-juice_shop_scoreboard}"
 TIMEOUT="${TIMEOUT:-600}"
+DRY_RUN="${DRY_RUN:-0}"
 STATUS="timeout"
 TURNS=0
+
+case "$TIMEOUT" in
+  ''|*[!0-9]*) die "TIMEOUT must be a positive integer, got '$TIMEOUT'" ;;
+esac
+[ "$TIMEOUT" -gt 0 ] || die "TIMEOUT must be greater than zero"
 
 # Helper: safe JSON parse — dies with message instead of traceback
 pyjson() {
@@ -52,36 +59,54 @@ case "$TARGET_ARG" in
   *-*-*-*-*) TARGET_ID="$TARGET_ARG" ;;
   *)
     log "looking up target: $TARGET_ARG"
-    TARGETS_JSON=$(curl -sf "$API_BASE/api/targets/?page_size=200") \
-      || die "Failed to fetch targets from API"
-    TARGET_ID=$(echo "$TARGETS_JSON" | python3 -c "
-import sys, json
-host = sys.argv[1]
-raw = sys.stdin.read()
-if not raw.strip():
-    sys.exit(1)
+    TARGET_ID=$(python3 -c "
+import json
+import sys
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
+
+api_base = sys.argv[1].rstrip('/')
+host = sys.argv[2]
+url = f'{api_base}/api/targets/?page_size=200'
+matches = []
+
 try:
-    d = json.loads(raw)
-except json.JSONDecodeError:
-    print('error: invalid JSON from targets API', file=sys.stderr)
-    sys.exit(1)
-matches = [t for t in d.get('results', []) if t.get('host') == host]
+    while url:
+        with urlopen(url, timeout=30) as resp:
+            data = json.load(resp)
+        matches.extend(t for t in data.get('results', []) if t.get('host') == host)
+        url = data.get('next')
+except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+    print(f'failed to fetch targets: {exc}', file=sys.stderr)
+    sys.exit(2)
+
 if len(matches) > 1:
-    print('AMBIGUOUS — multiple targets with this host:', file=sys.stderr)
+    print('ambiguous target host; use one of these UUIDs:', file=sys.stderr)
     for m in matches:
         print(f'  {m.get(\"id\", \"?\")}  {m.get(\"base_url\", \"?\")}', file=sys.stderr)
-    sys.exit(1)
-if matches:
-    print(matches[0].get('id', ''))
-else:
-    print('')
-" "$TARGET_ARG")
+    sys.exit(3)
+
+print(matches[0].get('id', '') if matches else '')
+" "$API_BASE" "$TARGET_ARG") || die "Target lookup failed for '$TARGET_ARG'"
     [ -z "$TARGET_ID" ] && die "No target with host '$TARGET_ARG'"
     ;;
 esac
 
 export TARGET_ID PROFILE
 log "target ID: $TARGET_ID"
+
+if [ "$DRY_RUN" = "1" ]; then
+  log "DRY_RUN: would POST $API_BASE/api/agent/sessions/"
+  python3 -c "
+import json
+import os
+print(json.dumps({
+    'target': os.environ['TARGET_ID'],
+    'mission_profile': os.environ['PROFILE'],
+}, indent=2))
+"
+  exit 0
+fi
 
 # --- Start mission ---
 log "starting mission (profile=$PROFILE)"
@@ -167,6 +192,12 @@ log "mission $STATUS after $TURNS turns"
 log "fetching turn summary..."
 echo ""
 
+EXIT_STATUS=0
+case "$STATUS" in
+  completed) EXIT_STATUS=0 ;;
+  *) EXIT_STATUS=1 ;;
+esac
+
 TURNS_JSON=$(curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/turns/" || echo "")
 echo "$TURNS_JSON" | pyjson "
 for t in d.get('results', []):
@@ -177,7 +208,7 @@ for t in d.get('results', []):
     phase = t.get('phase', '?')
     vs = a.get('validation_status', '?')
     print(f'  Turn {t.get(\"index\", 0):2d} | {phase:9s} | {atype:22s} | {vs:14s} | {goal}')
-" 2>/dev/null || warn "Could not fetch turn data"
+" 2>/dev/null || { warn "Could not fetch turn data"; EXIT_STATUS=1; }
 
 echo ""
 
@@ -190,4 +221,6 @@ if notes:
         print(f'    {n.get(\"note_type\", \"?\")}: {json.dumps(n.get(\"content\", {}))[:80]}')
 else:
     print('  No notes recorded.')
-" 2>/dev/null || warn "Could not fetch notes"
+" 2>/dev/null || { warn "Could not fetch notes"; EXIT_STATUS=1; }
+
+exit "$EXIT_STATUS"

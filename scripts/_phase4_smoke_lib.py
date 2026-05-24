@@ -125,12 +125,19 @@ def transition(paths: config.Paths, *, fh: str, to: str, actor: str, note: str) 
 
 def run_bin(repo: Path, root: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
     """Run a bin/<name> CLI with --root pointed at the tmpdir."""
-    return subprocess.run(
+    result = subprocess.run(
         [str(repo / "bin" / args[0]),
          "--root", str(root), "--platform", PLATFORM,
          "--program", SLUG, *args[1:]],
         capture_output=True, text=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"bin/{args[0]} failed with exit {result.returncode}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+    return result
 
 
 def synth_frozen_scenario(repo: Path, root: Path) -> subprocess.CompletedProcess[str]:
