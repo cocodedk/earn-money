@@ -1,3 +1,8 @@
+---
+slug: actions
+status: done         # draft | in-progress | done
+---
+
 # Action Vocabulary
 
 The LLM proposes exactly one typed action per turn. Each action is a JSON object validated

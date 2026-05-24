@@ -1,3 +1,10 @@
+---
+slug: slice-1-scoreboard
+status: done         # draft | in-progress | done
+date: 2026-05-23
+implemented: 2026-05-23
+---
+
 # Slice 1 — Juice Shop Scoreboard Mission
 
 Minimal proof of loop with real contracts. Proves the LLM can drive Playwright, reason over

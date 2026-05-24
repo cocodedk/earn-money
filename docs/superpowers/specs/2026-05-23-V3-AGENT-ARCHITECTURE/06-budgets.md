@@ -1,3 +1,8 @@
+---
+slug: budgets
+status: done         # draft | in-progress | done
+---
+
 # Budget Model
 
 Dual-layer: mission budget is the hard safety envelope; per-phase budgets control behavior and

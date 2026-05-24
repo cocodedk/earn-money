@@ -1,3 +1,8 @@
+---
+slug: llm-policy
+status: done         # draft | in-progress | done
+---
+
 # LLM & Model Policy
 
 Frontier-first for MVP. Fixed routing profile per mission — no live model roulette per turn.

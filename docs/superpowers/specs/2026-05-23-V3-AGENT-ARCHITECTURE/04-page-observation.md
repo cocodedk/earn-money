@@ -1,3 +1,8 @@
+---
+slug: page-observation
+status: done         # draft | in-progress | done
+---
+
 # PageObservation Schema
 
 The controller produces a normalized `PageObservation` after every browser action. The LLM
