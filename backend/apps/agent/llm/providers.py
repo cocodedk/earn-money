@@ -119,8 +119,9 @@ class OpenRouterProvider(LLMProvider):
             "model": self._model,
             "messages": all_messages,
             "max_tokens": 4096,
-            **self._extra_params,
         }
+        if self._extra_params:
+            kwargs["extra_body"] = self._extra_params
         response = await client.chat.completions.create(**kwargs)
         choice = response.choices[0]
         usage = response.usage
