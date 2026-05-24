@@ -1,7 +1,7 @@
 #!/bin/sh
 # Push git-tracked files to the VPS and rebuild containers.
-# Idempotent. Destructive — rsync --delete wipes anything on the
-# VPS path that isn't in the staged tree.
+# Idempotent. Destructive — rsync --delete removes stale tracked
+# files but protects VPS-only runtime files (.env, overrides, flags).
 #
 # Defaults (override via env):
 #   VPS_HOST=recon-vps           — SSH host alias from ~/.ssh/config
@@ -39,7 +39,12 @@ git archive HEAD | tar -x -C "$STAGE"
 
 # --- Step 2: rsync staged tree to VPS ---
 log "rsync → ${VPS_HOST}:${VPS_PATH}"
-rsync -az --delete "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
+rsync -az --delete \
+    --exclude='.env' \
+    --exclude='.env.*' \
+    --exclude='docker-compose.override.yml' \
+    --exclude='flags/' \
+    "$STAGE/" "${VPS_HOST}:${VPS_PATH}"
 
 # --- Step 3: rebuild and restart all containers ---
 log "docker compose up -d --build --force-recreate on ${VPS_HOST}"
