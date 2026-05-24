@@ -179,3 +179,5 @@ async def test_scoreboard_mission_end_to_end(db_objects):
     finished_evt = session_events.get(type=EventType.AGENT_MISSION_FINISHED)
     assert finished_evt.data["status"] == SessionStatus.COMPLETED
     assert finished_evt.data["reason"] == "stop_action"
+
+
