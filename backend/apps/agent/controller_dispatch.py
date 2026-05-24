@@ -183,9 +183,10 @@ async def _execute_browser_action(ctrl, turn, action_rec, envelope):
     _mark_executed(action_rec)
 
     new_routes = len(obs.discovered.routes)
+    route_paths = [r.path for r in obs.discovered.routes]
     new_elements = (
         len(obs.elements.links) + len(obs.elements.buttons)
         + len(obs.elements.inputs) + len(obs.elements.forms)
     )
-    ctrl.plateau.record_turn(new_routes=new_routes, new_elements=new_elements)
+    ctrl.plateau.record_turn(new_routes=new_routes, new_elements=new_elements, route_paths=route_paths)
     return obs_dict
