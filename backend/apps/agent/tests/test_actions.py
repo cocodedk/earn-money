@@ -215,6 +215,85 @@ class TestHttpRequestAction:
             parse_action(raw)
 
 
+class TestFillFormAction:
+    def test_parse_valid_fill(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "input_1", "value": "admin",
+        }
+        env = parse_action(raw)
+        assert env.action == "fill_form"
+        assert env.parsed.element_id == "input_1"
+        assert env.parsed.value == "admin"
+
+    def test_reject_missing_element_id(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "value": "test",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
+
+    def test_reject_empty_element_id(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "", "value": "test",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
+
+    def test_empty_value_clears_field(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "input_0", "value": "",
+        }
+        env = parse_action(raw)
+        assert env.parsed.value == ""
+
+    def test_reject_missing_value(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "input_0",
+        }
+        with pytest.raises(InvalidActionError, match="value"):
+            parse_action(raw)
+
+    def test_reject_null_value(self):
+        raw = {
+            "action": "fill_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "input_0", "value": None,
+        }
+        with pytest.raises(InvalidActionError, match="value"):
+            parse_action(raw)
+
+
+class TestSubmitFormAction:
+    def test_parse_valid_submit(self):
+        raw = {
+            "action": "submit_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "btn_0",
+        }
+        env = parse_action(raw)
+        assert env.action == "submit_form"
+        assert env.parsed.element_id == "btn_0"
+
+    def test_reject_missing_element_id(self):
+        raw = {
+            "action": "submit_form", "goal": "g", "reason": "r",
+            "hypothesis": "h",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
+
+    def test_reject_empty_element_id(self):
+        raw = {
+            "action": "submit_form", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
+
+
 class TestUnknownAction:
     def test_raises(self):
         with pytest.raises(InvalidActionError, match="Unknown action"):
