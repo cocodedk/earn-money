@@ -4,9 +4,9 @@ import time
 from urllib.parse import urlparse
 
 from ._form_parser import parse_form_node
+from ._helpers import build_network, redact_cookies
 from .page import (
     ButtonElement,
-    CookieInfo,
     DiscoveredAsset,
     DiscoveredItems,
     DiscoveredRoute,
@@ -14,7 +14,6 @@ from .page import (
     FormElement,
     InputElement,
     LinkElement,
-    NetworkEntry,
     ObservationMeta,
     PageIdentity,
     PageObservation,
@@ -90,8 +89,8 @@ class ObservationBuilder:
         elements, visible_text = self._parse_a11y(children)
         routes = self._extract_routes(elements.links)
         assets = self._extract_assets(network_entries)
-        cookies = self._redact_cookies(raw_cookies)
-        network = self._build_network(network_entries)
+        cookies = redact_cookies(raw_cookies)
+        network = build_network(network_entries)
 
         elapsed = int((time.monotonic() - start) * 1000)
 
@@ -197,28 +196,4 @@ class ObservationBuilder:
             assets.append(DiscoveredAsset(asset_ref=ref, url=url, asset_type=asset_type))
         return assets
 
-    # ------------------------------------------------------------------
-    # Cookie + network helpers
-    # ------------------------------------------------------------------
-
-    def _redact_cookies(self, raw: list[dict]) -> list[CookieInfo]:
-        return [
-            CookieInfo(
-                name=c.get("name", ""),
-                domain=c.get("domain", ""),
-                secure=bool(c.get("secure", False)),
-                http_only=bool(c.get("httpOnly", False)),
-            )
-            for c in raw
-        ]
-
-    def _build_network(self, entries: list[dict]) -> list[NetworkEntry]:
-        return [
-            NetworkEntry(
-                url=e.get("url", ""),
-                method=e.get("method", "GET"),
-                status=e.get("status", 0),
-                content_type=e.get("content_type", ""),
-            )
-            for e in entries
-        ]
+    # Cookie + network helpers delegated to _helpers.py
