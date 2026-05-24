@@ -14,7 +14,7 @@ describe("useSessionQuery", () => {
   it("fetches the session by id", async () => {
     const session = makeSession();
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json(session),
       ),
     );
@@ -47,7 +47,7 @@ describe("useTurnsQuery", () => {
   it("fetches paginated turns for a session", async () => {
     const turn = makeTurn({ index: 0 });
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
         HttpResponse.json(paged([turn])),
       ),
     );
@@ -73,7 +73,7 @@ describe("useNotesQuery", () => {
   it("fetches paginated notes for a session", async () => {
     const note = makeNote({ turn_index: 0 });
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
         HttpResponse.json(paged([note])),
       ),
     );

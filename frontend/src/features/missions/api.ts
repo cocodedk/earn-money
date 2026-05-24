@@ -18,7 +18,7 @@ export const missionNotesKey = (id: string) =>
 export function useSessionQuery(id: string | undefined) {
   return useQuery({
     queryKey: missionKey(id ?? ""),
-    queryFn: () => http<AgentSession>(`/api/agent-sessions/${id}/`),
+    queryFn: () => http<AgentSession>(`/api/agent/sessions/${id}/`),
     enabled: Boolean(id),
     refetchInterval: (q) => {
       const status = q.state.data?.status;
@@ -32,7 +32,7 @@ export function useTurnsQuery(sessionId: string | undefined) {
     queryKey: missionTurnsKey(sessionId ?? ""),
     queryFn: () =>
       http<Paginated<AgentTurn>>(
-        `/api/agent-sessions/${sessionId}/turns/?page_size=200`,
+        `/api/agent/sessions/${sessionId}/turns/?page_size=200`,
       ),
     enabled: Boolean(sessionId),
   });
@@ -43,7 +43,7 @@ export function useNotesQuery(sessionId: string | undefined) {
     queryKey: missionNotesKey(sessionId ?? ""),
     queryFn: () =>
       http<Paginated<AgentNote>>(
-        `/api/agent-sessions/${sessionId}/notes/?page_size=200`,
+        `/api/agent/sessions/${sessionId}/notes/?page_size=200`,
       ),
     enabled: Boolean(sessionId),
   });

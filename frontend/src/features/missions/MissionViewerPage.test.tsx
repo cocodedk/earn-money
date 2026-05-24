@@ -29,13 +29,13 @@ function renderAt(route: string) {
 
 function stubSession(session = makeSession()) {
   server.use(
-    msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+    msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
       HttpResponse.json(session),
     ),
-    msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+    msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
       HttpResponse.json(paged([])),
     ),
-    msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+    msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
       HttpResponse.json(paged([])),
     ),
   );
@@ -53,13 +53,13 @@ describe("MissionViewerPage", () => {
       actions: [makeAction({ goal: "Looked at home" })],
     });
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json(makeSession()),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
         HttpResponse.json(paged([turn])),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
         HttpResponse.json(paged([])),
       ),
     );
@@ -72,7 +72,7 @@ describe("MissionViewerPage", () => {
 
   it("shows loading state", () => {
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         new Promise(() => {}),
       ),
     );
@@ -82,7 +82,7 @@ describe("MissionViewerPage", () => {
 
   it("shows 404", async () => {
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json({ detail: "Not found." }, { status: 404 }),
       ),
     );
@@ -94,13 +94,13 @@ describe("MissionViewerPage", () => {
 
   it("shows inline error when turns fail", async () => {
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json(makeSession()),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
         HttpResponse.json({ detail: "error" }, { status: 500 }),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
         HttpResponse.json(paged([])),
       ),
     );
@@ -115,13 +115,13 @@ describe("MissionViewerPage", () => {
 
   it("shows inline error when notes fail", async () => {
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json(makeSession()),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
         HttpResponse.json(paged([])),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
         HttpResponse.json({ detail: "error" }, { status: 500 }),
       ),
     );
@@ -136,13 +136,13 @@ describe("MissionViewerPage", () => {
 
   it("shows a turns loading state instead of the empty timeline while loading", async () => {
     server.use(
-      msw.get(`/api/agent-sessions/${SESSION_ID}/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/`, () =>
         HttpResponse.json(makeSession()),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/turns/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/turns/`, () =>
         new Promise(() => {}),
       ),
-      msw.get(`/api/agent-sessions/${SESSION_ID}/notes/`, () =>
+      msw.get(`/api/agent/sessions/${SESSION_ID}/notes/`, () =>
         HttpResponse.json(paged([])),
       ),
     );
