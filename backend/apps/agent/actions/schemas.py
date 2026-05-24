@@ -108,6 +108,8 @@ class HttpRequestAction:
             raise InvalidActionError(
                 f"http_request method must be GET or HEAD, got {self.method!r}"
             )
+        if not self.path:
+            raise InvalidActionError("http_request requires a non-empty path")
         _validate_url(self.path, "path")
 
 

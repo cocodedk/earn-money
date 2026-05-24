@@ -162,8 +162,13 @@ class TestClickAction:
         with pytest.raises(InvalidActionError, match="element_id"):
             parse_action(raw)
 
-
-_ALLOWED_METHODS = frozenset({"GET", "HEAD"})
+    def test_reject_empty_element_id(self):
+        raw = {
+            "action": "click", "goal": "g", "reason": "r",
+            "hypothesis": "h", "element_id": "",
+        }
+        with pytest.raises(InvalidActionError, match="element_id"):
+            parse_action(raw)
 
 
 class TestHttpRequestAction:
@@ -199,6 +204,14 @@ class TestHttpRequestAction:
             "path": "https://evil.com/steal",
         }
         with pytest.raises(InvalidActionError, match="must not contain"):
+            parse_action(raw)
+
+    def test_reject_empty_path(self):
+        raw = {
+            "action": "http_request", "goal": "g", "reason": "r",
+            "hypothesis": "h", "method": "GET", "path": "",
+        }
+        with pytest.raises(InvalidActionError, match="path"):
             parse_action(raw)
 
 
