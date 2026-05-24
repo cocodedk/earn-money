@@ -20,7 +20,7 @@ def run(coro):
     return asyncio.run(coro)
 
 
-@pytest.mark.skipunless(LIVE, reason=SKIP_REASON)
+@pytest.mark.skipif(not LIVE, reason=SKIP_REASON)
 class TestLiveOpenRouter:
     def test_returns_valid_json_action(self):
         from apps.agent.llm.providers import OpenRouterProvider
