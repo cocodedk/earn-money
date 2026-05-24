@@ -37,7 +37,7 @@ class TestJuiceShopScoreboard:
         assert self.profile.success_category == "security_misconfiguration"
 
     def test_phases(self):
-        assert self.profile.phases == ["recon", "enumerate", "report"]
+        assert self.profile.phases == ["recon", "enumerate", "probe", "report"]
 
     def test_mission_budget_has_required_keys(self):
         budget = self.profile.mission_budget
@@ -56,7 +56,7 @@ class TestJuiceShopScoreboard:
             assert value > 0, f"{key}={value} should be positive"
 
     def test_mission_budget_turns(self):
-        assert self.profile.mission_budget["max_turns"] == 25
+        assert self.profile.mission_budget["max_turns"] == 35
 
     def test_mission_budget_runtime(self):
         assert self.profile.mission_budget["max_runtime_seconds"] == 300
@@ -129,6 +129,25 @@ class TestResolveModelPolicy:
             "model": "test-model",
             "reasoning": {"effort": "low"},
         }
+
+
+class TestJuiceShopScoreboardProbe:
+    def setup_method(self):
+        self.profile = get_profile("juice_shop_scoreboard")
+
+    def test_phases_include_probe(self):
+        assert self.profile.phases == [
+            "recon", "enumerate", "probe", "report",
+        ]
+
+    def test_probe_budget_exists(self):
+        assert "probe" in self.profile.phase_budgets
+
+    def test_probe_budget_has_turns(self):
+        assert self.profile.phase_budgets["probe"]["max_turns"] > 0
+
+    def test_probe_budget_has_http_requests(self):
+        assert self.profile.phase_budgets["probe"]["max_http_requests"] > 0
 
 
 class TestProfilesDict:
