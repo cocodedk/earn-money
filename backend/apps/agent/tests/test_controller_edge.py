@@ -150,7 +150,7 @@ def test_next_slice_phase_unknown():
 class TestProbePhaseAutoAdvance:
     @pytest.mark.asyncio
     async def test_plateau_advances_enumerate_to_probe(self, db_objects):
-        responses = [_action_json(action="observe_page")] * 8
+        responses = [_action_json(action="observe_page")] * 12
         ctrl = _ctrl(
             db_objects, responses=responses,
             budget={"max_turns": 20},

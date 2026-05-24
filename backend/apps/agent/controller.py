@@ -30,6 +30,7 @@ class MissionController:
         mission_budget: dict,
         phase_budgets: dict | None = None,
         model_name: str = "mock",
+        mission_phases: list[str] | None = None,
     ) -> None:
         self.session = session
         self.provider = provider
@@ -37,6 +38,7 @@ class MissionController:
         self.objective = objective
         self.model_name = model_name
         self._phase_budgets = phase_budgets or {}
+        self._mission_phases = mission_phases or SLICE_1_PHASES
 
         initial_phase_budget = self._phase_budgets.get(
             self.session.current_phase, {},
@@ -124,17 +126,16 @@ class MissionController:
         self.advance_phase(nxt, reason)
         return True
 
-    @staticmethod
-    def _next_slice_phase(current: str) -> str | None:
-        """Return the next phase in SLICE_1_PHASES, or None."""
+    def _next_slice_phase(self, current: str) -> str | None:
+        """Return the next phase in the mission phase list, or None."""
         try:
-            idx = SLICE_1_PHASES.index(current)
+            idx = self._mission_phases.index(current)
         except ValueError:
             return None
         nxt = idx + 1
-        if nxt >= len(SLICE_1_PHASES):
+        if nxt >= len(self._mission_phases):
             return None
-        return SLICE_1_PHASES[nxt]
+        return self._mission_phases[nxt]
 
     # ------------------------------------------------------------------
     # Finish helper

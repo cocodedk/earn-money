@@ -78,6 +78,7 @@ def _execute_agent_session(session_id: str) -> None:
                 mission_budget=profile.mission_budget,
                 phase_budgets=profile.phase_budgets,
                 model_name=session.model_policy.get("model", "mock"),
+                mission_phases=profile.phases,
             )
             await ctrl.run()
 
