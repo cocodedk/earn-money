@@ -19,9 +19,9 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-log() { printf "${GREEN}[mission]${NC} %s\n" "$*"; }
-warn() { printf "${YELLOW}[mission]${NC} %s\n" "$*" >&2; }
-die() { printf "${RED}[mission]${NC} %s\n" "$*" >&2; exit 1; }
+log() { printf "${GREEN}[mission]${NC} %s\n" "$1"; }
+warn() { printf "${YELLOW}[mission]${NC} %s\n" "$1" >&2; }
+die() { printf "${RED}[mission]${NC} %s\n" "$1" >&2; exit 1; }
 
 TARGET_ARG="${1:-}"
 [ -z "$TARGET_ARG" ] && die "Usage: $0 <target-host-or-uuid>"
@@ -32,28 +32,50 @@ TIMEOUT="${TIMEOUT:-600}"
 STATUS="timeout"
 TURNS=0
 
+# Helper: safe JSON parse — dies with message instead of traceback
+pyjson() {
+  python3 -c "
+import sys, json
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(1)
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError:
+    sys.exit(1)
+$1
+"
+}
+
 # --- Resolve target (UUID or host lookup) ---
 case "$TARGET_ARG" in
   *-*-*-*-*) TARGET_ID="$TARGET_ARG" ;;
   *)
     log "looking up target: $TARGET_ARG"
-    TARGET_ID=$(curl -sf "$API_BASE/api/targets/?page_size=200" \
-      | python3 - "$TARGET_ARG" <<'PYEOF'
+    TARGETS_JSON=$(curl -sf "$API_BASE/api/targets/?page_size=200") \
+      || die "Failed to fetch targets from API"
+    TARGET_ID=$(echo "$TARGETS_JSON" | python3 -c "
 import sys, json
 host = sys.argv[1]
-d = json.load(sys.stdin)
-matches = [t for t in d["results"] if t["host"] == host]
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(1)
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError:
+    print('error: invalid JSON from targets API', file=sys.stderr)
+    sys.exit(1)
+matches = [t for t in d.get('results', []) if t.get('host') == host]
 if len(matches) > 1:
-    print("AMBIGUOUS", file=sys.stderr)
+    print('AMBIGUOUS — multiple targets with this host:', file=sys.stderr)
     for m in matches:
-        print(f"  {m['id']}  {m['base_url']}", file=sys.stderr)
+        print(f'  {m.get(\"id\", \"?\")}  {m.get(\"base_url\", \"?\")}', file=sys.stderr)
     sys.exit(1)
 if matches:
-    print(matches[0]["id"])
+    print(matches[0].get('id', ''))
 else:
-    print("")
-PYEOF
-    )
+    print('')
+" "$TARGET_ARG")
     [ -z "$TARGET_ID" ] && die "No target with host '$TARGET_ARG'"
     ;;
 esac
@@ -71,11 +93,20 @@ print(json.dumps({
     'target': os.environ['TARGET_ID'],
     'mission_profile': os.environ['PROFILE'],
 }))
-")")
+")") || die "Failed to create session (API error or unreachable)"
 
-SESSION_ID=$(echo "$SESSION" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
-PHASES=$(echo "$SESSION" | python3 -c "import sys,json;print(' -> '.join(json.load(sys.stdin)['active_phases']))")
-BUDGET=$(echo "$SESSION" | python3 -c "import sys,json;print(json.load(sys.stdin)['mission_budget']['max_turns'])")
+# Parse session response once
+PARSED=$(echo "$SESSION" | pyjson "
+sid = d.get('id', '')
+phases = ' -> '.join(d.get('active_phases', ['?']))
+budget = d.get('mission_budget', {}).get('max_turns', '?')
+print(f'{sid}|{phases}|{budget}')
+") || die "Invalid session response"
+
+SESSION_ID=$(echo "$PARSED" | cut -d'|' -f1)
+PHASES=$(echo "$PARSED" | cut -d'|' -f2)
+BUDGET=$(echo "$PARSED" | cut -d'|' -f3)
+[ -z "$SESSION_ID" ] && die "Session response missing 'id'"
 
 log "session: $SESSION_ID"
 log "phases: $PHASES"
@@ -105,9 +136,17 @@ while true; do
   fi
   FAIL_COUNT=0
 
-  STATUS=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['status'])")
-  PHASE=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['current_phase'])")
-  TURNS=$(echo "$DATA" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('consumed_budget',{}).get('mission',{}).get('turns',0))")
+  # Parse all three fields in one Python call
+  POLL=$(echo "$DATA" | pyjson "
+s = d.get('status', 'unknown')
+p = d.get('current_phase', '?')
+t = d.get('consumed_budget', {}).get('mission', {}).get('turns', 0)
+print(f'{s}|{p}|{t}')
+" 2>/dev/null) || { sleep 5; continue; }
+
+  STATUS=$(echo "$POLL" | cut -d'|' -f1)
+  PHASE=$(echo "$POLL" | cut -d'|' -f2)
+  TURNS=$(echo "$POLL" | cut -d'|' -f3)
 
   LINE="$STATUS | $PHASE | $TURNS/$BUDGET turns"
   if [ "$LINE" != "$PREV" ]; then
@@ -128,31 +167,27 @@ log "mission $STATUS after $TURNS turns"
 log "fetching turn summary..."
 echo ""
 
-curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/turns/" \
-  | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-for t in d['results']:
+TURNS_JSON=$(curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/turns/" || echo "")
+echo "$TURNS_JSON" | pyjson "
+for t in d.get('results', []):
     acts = t.get('actions', [])
     a = acts[0] if acts else {}
     goal = a.get('goal', '')[:65]
     atype = a.get('action_type', '?')
-    phase = t['phase']
+    phase = t.get('phase', '?')
     vs = a.get('validation_status', '?')
-    print(f'  Turn {t[\"index\"]:2d} | {phase:9s} | {atype:22s} | {vs:14s} | {goal}')
-"
+    print(f'  Turn {t.get(\"index\", 0):2d} | {phase:9s} | {atype:22s} | {vs:14s} | {goal}')
+" 2>/dev/null || warn "Could not fetch turn data"
 
 echo ""
 
-curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/notes/" \
-  | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-notes = d['results']
+NOTES_JSON=$(curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/notes/" || echo "")
+echo "$NOTES_JSON" | pyjson "
+notes = d.get('results', [])
 if notes:
     print('  Notes:')
     for n in notes:
-        print(f'    {n[\"note_type\"]}: {json.dumps(n[\"content\"])[:80]}')
+        print(f'    {n.get(\"note_type\", \"?\")}: {json.dumps(n.get(\"content\", {}))[:80]}')
 else:
     print('  No notes recorded.')
-"
+" 2>/dev/null || warn "Could not fetch notes"
