@@ -49,8 +49,9 @@ class TestRunAgentSessionSuccess:
         session, target_run, scan_run = _create_session_for_task()
         mock_provider.return_value = MagicMock()
         driver = MagicMock()
+        driver.start = AsyncMock()
         driver.stop = AsyncMock()
-        mock_driver.return_value = driver
+        mock_driver.return_value = (driver, "https://juiceshop.cocode.dk")
 
         with patch("apps.agent.tasks.MissionController") as MockCtrl:
             ctrl_instance = MockCtrl.return_value
@@ -80,8 +81,9 @@ class TestRunAgentSessionSuccess:
         session, target_run, scan_run = _create_session_for_task()
         mock_provider.return_value = MagicMock()
         driver = MagicMock()
+        driver.start = AsyncMock()
         driver.stop = AsyncMock()
-        mock_driver.return_value = driver
+        mock_driver.return_value = (driver, "https://juiceshop.cocode.dk")
 
         with patch("apps.agent.tasks.MissionController") as MockCtrl:
             ctrl_instance = MockCtrl.return_value
@@ -117,8 +119,9 @@ class TestRunAgentSessionStopped:
         session, target_run, scan_run = _create_session_for_task()
         mock_provider.return_value = MagicMock()
         driver = MagicMock()
+        driver.start = AsyncMock()
         driver.stop = AsyncMock()
-        mock_driver.return_value = driver
+        mock_driver.return_value = (driver, "https://juiceshop.cocode.dk")
 
         with patch("apps.agent.tasks.MissionController") as MockCtrl:
             ctrl_instance = MockCtrl.return_value
@@ -155,8 +158,9 @@ class TestRunAgentSessionFailure:
         session, target_run, scan_run = _create_session_for_task()
         mock_provider.return_value = MagicMock()
         driver = MagicMock()
+        driver.start = AsyncMock()
         driver.stop = AsyncMock()
-        mock_driver.return_value = driver
+        mock_driver.return_value = (driver, "https://juiceshop.cocode.dk")
 
         with patch("apps.agent.tasks.MissionController") as MockCtrl:
             ctrl_instance = MockCtrl.return_value
@@ -233,16 +237,15 @@ class TestIdempotentFinalization:
 
 @pytest.mark.django_db
 class TestBuildDriver:
-    @patch("apps.agent.browser.driver.PlaywrightDriver")
-    def test_uses_target_base_url_when_present(self, MockDriver):
+    def test_uses_target_base_url_when_present(self):
         session, _target_run, _scan_run = _create_session_for_task()
         from apps.agent.tasks import _build_driver
 
-        _build_driver(session.target)
+        driver, base_url = _build_driver(session.target)
 
-        MockDriver.assert_called_once_with(
-            target_origin="https://juiceshop.cocode.dk",
-        )
+        assert base_url == "https://juiceshop.cocode.dk"
+        from apps.agent.browser.driver import PlaywrightDriver
+        assert isinstance(driver, PlaywrightDriver)
 
 
 @pytest.mark.django_db(transaction=True)

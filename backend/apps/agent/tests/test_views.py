@@ -75,7 +75,7 @@ class AgentSessionDetailTests(TestCase):
         resp = self.client.get(url)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["active_phases"] == ["recon", "enumerate", "report"]
+        assert data["active_phases"] == ["recon", "enumerate", "probe", "report"]
         assert data["target_base_url"] == "https://test.example.com"
         assert data["scan_run"] is not None
 
