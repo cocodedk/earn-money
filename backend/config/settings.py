@@ -161,6 +161,16 @@ RECON_ENABLED_PATH = Path(
 )
 
 
+# --- V3 Agent LLM defaults (overridden per mission via model_policy) ---
+AGENT_LLM_PROVIDER = os.environ.get("AGENT_LLM_PROVIDER", "openrouter")
+AGENT_LLM_MODEL = os.environ.get(
+    "AGENT_LLM_MODEL", "deepseek/deepseek-v4-pro",
+)
+AGENT_LLM_REASONING_EFFORT = os.environ.get(
+    "AGENT_LLM_REASONING_EFFORT", "high",
+)
+
+
 # --- App version (surfaced by /api/health/) ---
 # Set in compose / deployment. Use git SHA or release tag in production.
 APP_VERSION = os.environ.get("APP_VERSION", "dev")

@@ -14,7 +14,7 @@ class MissionProfile:
     phases: list[str]
     mission_budget: dict
     phase_budgets: dict
-    model_policy: dict
+    model_policy: dict  # defaults — resolved at session start
 
 
 _PROFILES: dict[str, MissionProfile] = {
@@ -52,11 +52,7 @@ _PROFILES: dict[str, MissionProfile] = {
                 "max_http_requests": 10,
             },
         },
-        model_policy={
-            "provider": "openrouter",
-            "model": "deepseek/deepseek-v4-pro",
-            "reasoning": {"effort": "high"},
-        },
+        model_policy={},
     ),
 }
 
@@ -70,3 +66,36 @@ def get_profile(name: str) -> MissionProfile:
         raise KeyError(
             f"Unknown mission profile {name!r}. Available: {available}"
         ) from None
+
+
+def resolve_model_policy(
+    profile: MissionProfile,
+    overrides: dict | None = None,
+) -> dict:
+    """Merge profile defaults with settings/env, then overrides.
+
+    Returns the final snapshot stored on AgentSession.model_policy.
+    """
+    from django.conf import settings
+
+    overrides = overrides or {}
+    provider = (
+        overrides.get("provider")
+        or profile.model_policy.get("provider")
+        or settings.AGENT_LLM_PROVIDER
+    )
+    model = (
+        overrides.get("model")
+        or profile.model_policy.get("model")
+        or settings.AGENT_LLM_MODEL
+    )
+    effort = (
+        overrides.get("reasoning_effort")
+        or profile.model_policy.get("reasoning", {}).get("effort")
+        or settings.AGENT_LLM_REASONING_EFFORT
+    )
+    return {
+        "provider": provider,
+        "model": model,
+        "reasoning": {"effort": effort},
+    }

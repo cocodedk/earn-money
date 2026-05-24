@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from apps.agent.mission_profiles import get_profile, MissionProfile, _PROFILES
+from apps.agent.mission_profiles import (
+    get_profile, resolve_model_policy, MissionProfile, _PROFILES,
+)
 
 
 class TestGetProfile:
@@ -81,11 +83,52 @@ class TestJuiceShopScoreboard:
             for key in budget:
                 assert key.startswith("max_"), f"{key} should start with max_"
 
-    def test_model_policy_has_provider(self):
-        assert "provider" in self.profile.model_policy
+    def test_model_policy_is_dict(self):
+        assert isinstance(self.profile.model_policy, dict)
 
-    def test_model_policy_has_model(self):
-        assert "model" in self.profile.model_policy
+
+class TestResolveModelPolicy:
+    def test_uses_settings_defaults_when_profile_empty(self, settings):
+        settings.AGENT_LLM_PROVIDER = "openrouter"
+        settings.AGENT_LLM_MODEL = "deepseek/deepseek-v4-pro"
+        settings.AGENT_LLM_REASONING_EFFORT = "high"
+        profile = get_profile("juice_shop_scoreboard")
+        result = resolve_model_policy(profile)
+        assert result == {
+            "provider": "openrouter",
+            "model": "deepseek/deepseek-v4-pro",
+            "reasoning": {"effort": "high"},
+        }
+
+    def test_profile_overrides_settings(self, settings):
+        settings.AGENT_LLM_PROVIDER = "openrouter"
+        settings.AGENT_LLM_MODEL = "deepseek/deepseek-v4-pro"
+        settings.AGENT_LLM_REASONING_EFFORT = "high"
+        profile = MissionProfile(
+            name="custom", target="t", objective="o",
+            success_category="c", phases=["recon"],
+            mission_budget={}, phase_budgets={},
+            model_policy={"provider": "anthropic", "model": "claude-sonnet-4-5"},
+        )
+        result = resolve_model_policy(profile)
+        assert result["provider"] == "anthropic"
+        assert result["model"] == "claude-sonnet-4-5"
+
+    def test_overrides_win_over_everything(self, settings):
+        settings.AGENT_LLM_PROVIDER = "openrouter"
+        settings.AGENT_LLM_MODEL = "deepseek/deepseek-v4-pro"
+        settings.AGENT_LLM_REASONING_EFFORT = "high"
+        profile = get_profile("juice_shop_scoreboard")
+        result = resolve_model_policy(profile, overrides={
+            "provider": "mock",
+            "model": "test-model",
+            "reasoning_effort": "low",
+        })
+        assert result == {
+            "provider": "mock",
+            "model": "test-model",
+            "reasoning": {"effort": "low"},
+        }
 
 
 class TestProfilesDict:

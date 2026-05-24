@@ -140,12 +140,13 @@ class AgentSessionSerializer(serializers.ModelSerializer):
         from apps.scans.models import ScanRun, ScanTargetRun
 
         from .event_log import emit_session_started
-        from .mission_profiles import get_profile
+        from .mission_profiles import get_profile, resolve_model_policy
         from .persistence import create_session
 
         target = validated_data["target"]
         profile_name = validated_data["mission_profile"]
         profile = get_profile(profile_name)
+        model_policy = resolve_model_policy(profile)
 
         with transaction.atomic():
             target = ScanTarget.objects.select_for_update().get(pk=target.pk)
@@ -174,7 +175,7 @@ class AgentSessionSerializer(serializers.ModelSerializer):
                 target_run=target_run,
                 target=target,
                 mission_profile=profile_name,
-                model_policy=profile.model_policy,
+                model_policy=model_policy,
                 mission_budget=profile.mission_budget,
             )
             emit_session_started(session)
