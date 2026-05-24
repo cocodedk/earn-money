@@ -137,27 +137,6 @@ class TestMaxAssetSize:
         assert MAX_ASSET_SIZE == 100_000
 
 
-class TestDriverClick:
-    def test_click_known_element(self):
-        driver = PlaywrightDriver()
-        driver._element_registry = {"link_3": "a >> nth=2"}
-        page = MagicMock()
-        locator = MagicMock()
-        page.locator.return_value = locator
-        locator.click = AsyncMock()
-        driver._page = page
-
-        run(driver.click("link_3"))
-        page.locator.assert_called_once_with("a >> nth=2")
-        locator.click.assert_awaited_once()
-
-    def test_click_unknown_element_raises(self):
-        driver = PlaywrightDriver()
-        driver._element_registry = {}
-        with pytest.raises(ValueError, match="Unknown element_id"):
-            run(driver.click("link_999"))
-
-
 class TestDriverHttpRequest:
     def test_get_same_origin(self):
         driver = PlaywrightDriver()

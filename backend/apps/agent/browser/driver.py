@@ -113,6 +113,16 @@ class PlaywrightDriver:
         locator = self._page.locator(selector)
         await locator.click()
 
+    async def fill(self, element_id: str, value: str) -> None:
+        """Fill the element identified by element_id with value."""
+        if self._page is None:
+            raise RuntimeError("browser not started")
+        if element_id not in self._element_registry:
+            raise ValueError(f"Unknown element_id: {element_id!r}")
+        selector = self._element_registry[element_id]
+        locator = self._page.locator(selector)
+        await locator.fill(value)
+
     # ------------------------------------------------------------------
     # HTTP requests
     # ------------------------------------------------------------------
