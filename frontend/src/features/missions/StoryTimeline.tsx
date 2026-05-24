@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UIEvent } from "react";
 import type { AgentNote, AgentTurn } from "./types";
 import { TurnCard } from "./TurnCard";
+import styles from "./StoryTimeline.module.css";
 
 type Props = {
   turns: AgentTurn[];
@@ -12,12 +13,8 @@ type Props = {
 };
 
 const NOTE_ICONS: Record<string, string> = {
-  hypothesis: "💡",
-  gap: "❓",
-  credential_label: "🔑",
-  route: "🔗",
-  parameter: "📝",
-  candidate: "🎯",
+  hypothesis: "💡", gap: "❓", credential_label: "🔑",
+  route: "🔗", parameter: "📝", candidate: "🎯",
 };
 
 const SCROLL_THRESHOLD_PX = 20;
@@ -45,9 +42,7 @@ function orderTurns(turns: AgentTurn[]): AgentTurn[] {
 }
 
 function isScrolledUp(el: HTMLElement): boolean {
-  return (
-    el.scrollTop < el.scrollHeight - el.clientHeight - SCROLL_THRESHOLD_PX
-  );
+  return el.scrollTop < el.scrollHeight - el.clientHeight - SCROLL_THRESHOLD_PX;
 }
 
 export function StoryTimeline({
@@ -72,23 +67,17 @@ export function StoryTimeline({
   }
 
   if (orderedTurns.length === 0) {
-    return (
-      <p className="text-gray-500 text-center py-8">
-        The agent has not started yet.
-      </p>
-    );
+    return <p className={styles.empty}>The agent has not started yet.</p>;
   }
 
   return (
     <div
       onScroll={onScroll}
       aria-label={isLive ? "Live mission timeline" : "Mission timeline"}
-      className="flex-1 overflow-y-auto px-4"
+      className={styles.timeline}
     >
       {isTruncated && (
-        <p className="text-sm text-gray-400 text-center py-2">
-          Showing first {orderedTurns.length} turns
-        </p>
+        <p className={styles.truncHint}>Showing first {orderedTurns.length} turns</p>
       )}
       {orderedTurns.map((turn, i) => {
         const turnNotes = notesByTurn.get(turn.index) ?? [];
@@ -96,15 +85,9 @@ export function StoryTimeline({
           <div key={turn.id} ref={i === orderedTurns.length - 1 ? lastRef : undefined}>
             <TurnCard turn={turn} />
             {turnNotes.map((note) => (
-              <div
-                key={note.id}
-                data-testid={`note-${note.id}`}
-                className="ml-8 pl-2 border-l-2 border-blue-200 py-1 text-sm text-gray-600"
-              >
-                <span className="mr-1">{NOTE_ICONS[note.note_type] ?? "📌"}</span>
-                <span className="text-xs font-medium text-blue-600 mr-1">
-                  {note.note_type}
-                </span>
+              <div key={note.id} data-testid={`note-${note.id}`} className={styles.note}>
+                <span className={styles.noteIcon}>{NOTE_ICONS[note.note_type] ?? "📌"}</span>
+                <span className={styles.noteType}>{note.note_type}</span>
                 {noteText(note)}
               </div>
             ))}
@@ -112,9 +95,7 @@ export function StoryTimeline({
         );
       })}
       {isNotesTruncated && (
-        <p className="text-sm text-gray-400 text-center py-2">
-          Some notebook entries are hidden
-        </p>
+        <p className={styles.truncHint}>Some notebook entries are hidden</p>
       )}
     </div>
   );
