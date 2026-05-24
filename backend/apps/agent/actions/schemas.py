@@ -114,6 +114,29 @@ class HttpRequestAction:
 
 
 @dataclass
+class FillFormAction:
+    element_id: str
+    value: str
+
+    def __post_init__(self) -> None:
+        if not self.element_id:
+            raise InvalidActionError("fill_form requires a non-empty element_id")
+        if self.value is None:
+            raise InvalidActionError("fill_form requires value")
+        if not isinstance(self.value, str):
+            raise InvalidActionError("fill_form value must be a string")
+
+
+@dataclass
+class SubmitFormAction:
+    element_id: str
+
+    def __post_init__(self) -> None:
+        if not self.element_id:
+            raise InvalidActionError("submit_form requires a non-empty element_id")
+
+
+@dataclass
 class ActionEnvelope:
     action: str
     goal: str
@@ -132,6 +155,8 @@ _ACTION_MAP: dict[str, type] = {
     "stop": StopAction,
     "click": ClickAction,
     "http_request": HttpRequestAction,
+    "fill_form": FillFormAction,
+    "submit_form": SubmitFormAction,
 }
 
 _REQUIRED_ENVELOPE_KEYS = {"action", "goal", "reason", "hypothesis"}

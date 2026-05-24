@@ -150,6 +150,39 @@ class TestJuiceShopScoreboardProbe:
         assert self.profile.phase_budgets["probe"]["max_http_requests"] > 0
 
 
+class TestJuiceShopLoginProfile:
+    def setup_method(self):
+        self.profile = get_profile("juice_shop_login")
+
+    def test_name(self):
+        assert self.profile.name == "juice_shop_login"
+
+    def test_phases_include_verify(self):
+        assert "verify" in self.profile.phases
+        assert self.profile.phases == [
+            "recon", "enumerate", "probe", "verify", "report"
+        ]
+
+    def test_mission_budget_has_form_keys(self):
+        budget = self.profile.mission_budget
+        assert "max_form_fills" in budget, "Missing max_form_fills"
+        assert "max_form_submits" in budget, "Missing max_form_submits"
+        assert budget["max_form_fills"] == 50
+        assert budget["max_form_submits"] == 20
+
+    def test_verify_phase_budget_exists(self):
+        assert "verify" in self.profile.phase_budgets
+
+    def test_probe_and_verify_have_form_limits(self):
+        for phase in ("probe", "verify"):
+            budget = self.profile.phase_budgets[phase]
+            assert "max_form_fills" in budget, f"{phase} missing max_form_fills"
+            assert "max_form_submits" in budget, f"{phase} missing max_form_submits"
+
+    def test_verify_phase_has_turns(self):
+        assert self.profile.phase_budgets["verify"]["max_turns"] > 0
+
+
 class TestProfilesDict:
     def test_profiles_is_dict(self):
         assert isinstance(_PROFILES, dict)

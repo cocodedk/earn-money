@@ -250,6 +250,68 @@ class TestConsumedBudgetPersistence:
 
 
 @pytest.mark.django_db(transaction=True)
+class TestFillFormExecution:
+    @pytest.mark.asyncio
+    async def test_fill_form_calls_driver_fill(self, db_objects):
+        fill_json = _action_json(
+            action="fill_form", element_id="input_0", value="admin",
+        )
+        ctrl = _ctrl(
+            db_objects,
+            responses=[fill_json],
+            budget={
+                "max_turns": 5,
+                "max_browser_actions": 5,
+                "max_form_fills": 5,
+            },
+        )
+        ctrl.session.current_phase = "enumerate"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.fill = AsyncMock()
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.fill.assert_awaited_once_with("input_0", "admin")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="page",
+        ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestSubmitFormExecution:
+    @pytest.mark.asyncio
+    async def test_submit_form_calls_driver_click(self, db_objects):
+        submit_json = _action_json(
+            action="submit_form", element_id="btn_0",
+        )
+        ctrl = _ctrl(
+            db_objects,
+            responses=[submit_json],
+            budget={
+                "max_turns": 5,
+                "max_browser_actions": 5,
+                "max_form_submits": 5,
+            },
+        )
+        ctrl.session.current_phase = "probe"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.click = AsyncMock()
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.click.assert_awaited_once_with("btn_0")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="page",
+        ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
 class TestClickExecution:
     @pytest.mark.asyncio
     async def test_click_persists_page_observation(self, db_objects):
@@ -300,3 +362,117 @@ class TestHttpRequestExecution:
             action__turn__session=ctrl.session,
             observation_type="http",
         ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestVerifyPhaseGate:
+    @pytest.mark.asyncio
+    async def test_verify_transition_denied_without_candidate(self, db_objects):
+        """Transition to verify is denied if no submit_candidate exists."""
+        c = _ctrl(db_objects, [
+            _action_json(
+                "request_phase_transition", from_phase="probe",
+                to_phase="verify", evidence_refs=[],
+            ),
+            _action_json("stop"),
+        ])
+        c.session.current_phase = "probe"
+        c.session.save(update_fields=["current_phase"])
+        c._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+        await c.run()
+        c.session.refresh_from_db()
+        assert c.session.current_phase == "probe"
+
+    @pytest.mark.asyncio
+    async def test_verify_transition_allowed_with_candidate(self, db_objects):
+        """Transition to verify is allowed when a submit_candidate action exists."""
+        c = _ctrl(db_objects, [
+            _action_json(
+                "submit_candidate", category="xss",
+                description="test", evidence_refs=[],
+            ),
+            _action_json(
+                "request_phase_transition", from_phase="probe",
+                to_phase="verify", evidence_refs=[],
+            ),
+            _action_json("stop"),
+        ])
+        c.session.current_phase = "probe"
+        c.session.save(update_fields=["current_phase"])
+        c._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+        await c.run()
+        c.session.refresh_from_db()
+        assert c.session.status == "completed"
+        assert c.session.current_phase == "verify"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_full_form_flow_with_verify(db_objects):
+    """
+    End-to-end: navigate → fill×2 → submit → candidate → transition verify
+    → navigate → fill → submit → stop.
+
+    Asserts status=completed, current_phase=verify,
+    3 fill_form actions and 2 submit_form actions recorded.
+    """
+    budget = {
+        "max_turns": 20,
+        "max_llm_calls": 20,
+        "max_browser_actions": 20,
+        "max_form_fills": 10,
+        "max_form_submits": 10,
+    }
+    responses = [
+        _action_json("navigate", path="/login"),
+        _action_json("fill_form", element_id="input_email", value="admin@example.com"),
+        _action_json("fill_form", element_id="input_password", value="admin"),
+        _action_json("submit_form", element_id="btn_login"),
+        _action_json(
+            "submit_candidate", category="broken_auth",
+            description="login form exposes credentials in URL", evidence_refs=[],
+        ),
+        _action_json(
+            "request_phase_transition", from_phase="probe",
+            to_phase="verify", evidence_refs=[],
+        ),
+        _action_json("navigate", path="/login"),
+        _action_json("fill_form", element_id="input_email", value="victim@example.com"),
+        _action_json("submit_form", element_id="btn_login"),
+        _action_json("stop"),
+    ]
+
+    driver = _mock_driver()
+    driver.fill = AsyncMock()
+    driver.click = AsyncMock()
+
+    ctrl = _ctrl(db_objects, responses, driver=driver, budget=budget)
+    ctrl.session.current_phase = "probe"
+    ctrl.session.save(update_fields=["current_phase"])
+    ctrl._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+
+    from unittest.mock import patch
+    from apps.agent.plateau import PlateauDetector
+
+    lenient = {"max_turns_without_new_route": 20,
+               "max_turns_without_new_interactive_element": 20}
+
+    def _lenient_plateau(*_args, **_kw):
+        return PlateauDetector(**lenient)
+
+    ctrl.plateau = PlateauDetector(**lenient)
+    with patch("apps.agent.controller.PlateauDetector", side_effect=_lenient_plateau):
+        await ctrl.run()
+
+    ctrl.session.refresh_from_db()
+    assert ctrl.session.status == SessionStatus.COMPLETED
+    assert ctrl.session.current_phase == "verify"
+
+    fill_count = AgentAction.objects.filter(
+        turn__session=ctrl.session, action_type="fill_form",
+    ).count()
+    submit_count = AgentAction.objects.filter(
+        turn__session=ctrl.session, action_type="submit_form",
+    ).count()
+    assert fill_count == 3
+    assert submit_count == 2

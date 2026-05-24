@@ -59,6 +59,58 @@ _PROFILES: dict[str, MissionProfile] = {
         },
         model_policy={},
     ),
+    "juice_shop_login": MissionProfile(
+        name="juice_shop_login",
+        target="juiceshop.cocode.dk",
+        objective=(
+            "Authenticate to OWASP Juice Shop by submitting the login form "
+            "and verify successful session establishment."
+        ),
+        success_category="authentication",
+        phases=["recon", "enumerate", "probe", "verify", "report"],
+        mission_budget={
+            "max_turns": 40,
+            "max_runtime_seconds": 360,
+            "max_llm_calls": 35,
+            "max_http_requests": 60,
+            "max_browser_actions": 50,
+            "max_asset_inspections": 10,
+            "max_form_fills": 50,
+            "max_form_submits": 20,
+        },
+        phase_budgets={
+            "recon": {
+                "max_turns": 8,
+                "max_browser_actions": 15,
+                "max_http_requests": 20,
+            },
+            "enumerate": {
+                "max_turns": 10,
+                "max_browser_actions": 15,
+                "max_http_requests": 20,
+            },
+            "probe": {
+                "max_turns": 10,
+                "max_browser_actions": 15,
+                "max_http_requests": 20,
+                "max_form_fills": 30,
+                "max_form_submits": 10,
+            },
+            "verify": {
+                "max_turns": 8,
+                "max_browser_actions": 10,
+                "max_http_requests": 10,
+                "max_form_fills": 20,
+                "max_form_submits": 10,
+            },
+            "report": {
+                "max_turns": 4,
+                "max_browser_actions": 5,
+                "max_http_requests": 10,
+            },
+        },
+        model_policy={},
+    ),
 }
 
 

@@ -237,3 +237,89 @@ class TestAssetExtraction:
         page = _mock_page()
         obs = run(_builder().build_page_observation(page, 0, "recon", "act_0", entries))
         assert obs.discovered.assets[0].asset_ref == "asset_0"
+
+
+# ---------------------------------------------------------------------------
+# Form extraction from a11y snapshot
+# ---------------------------------------------------------------------------
+
+class TestFormExtraction:
+    def test_form_node_creates_form_element(self):
+        """role=form node produces FormElement; child inputs land in forms[0].fields
+        and also in elements.inputs; child button lands in elements.buttons."""
+        builder = ObservationBuilder("https://example.com")
+        children = [
+            {
+                "role": "form",
+                "name": "Login",
+                "children": [
+                    {"role": "textbox", "name": "Email"},
+                    {"role": "textbox", "name": "Password"},
+                    {"role": "button", "name": "Sign In", "type": "submit"},
+                ],
+            },
+        ]
+        elements, visible = builder._parse_a11y(children)
+        assert len(elements.forms) == 1
+        assert elements.forms[0].element_id.startswith("form_")
+        assert len(elements.forms[0].fields) == 2
+        assert len(elements.inputs) == 2
+        assert len(elements.buttons) == 1
+
+    def test_orphan_inputs_remain_standalone(self):
+        """Inputs not under a form node are still in elements.inputs."""
+        builder = ObservationBuilder("https://example.com")
+        children = [
+            {"role": "textbox", "name": "Search"},
+            {"role": "button", "name": "Go"},
+        ]
+        elements, visible = builder._parse_a11y(children)
+        assert len(elements.forms) == 0
+        assert len(elements.inputs) == 1
+        assert len(elements.buttons) == 1
+
+    def test_form_fields_have_correct_types(self):
+        """FormField.type reflects the a11y role of each child input."""
+        builder = ObservationBuilder("https://example.com")
+        children = [
+            {
+                "role": "form",
+                "name": "Register",
+                "children": [
+                    {"role": "textbox", "name": "Username"},
+                    {"role": "combobox", "name": "Country"},
+                    {"role": "searchbox", "name": "Filter"},
+                ],
+            },
+        ]
+        elements, visible = builder._parse_a11y(children)
+        form = elements.forms[0]
+        assert form.fields[0].type == "textbox"
+        assert form.fields[1].type == "combobox"
+        assert form.fields[2].type == "searchbox"
+
+    def test_nested_form_controls_are_grouped(self):
+        """Inputs inside a role=group child of role=form are also grouped."""
+        builder = ObservationBuilder("https://example.com")
+        children = [
+            {
+                "role": "form",
+                "name": "Login",
+                "children": [
+                    {
+                        "role": "group",
+                        "name": "Credentials",
+                        "children": [
+                            {"role": "textbox", "name": "Email"},
+                            {"role": "textbox", "name": "Password"},
+                            {"role": "button", "name": "Sign In", "type": "submit"},
+                        ],
+                    },
+                ],
+            },
+        ]
+        elements, visible = builder._parse_a11y(children)
+        assert len(elements.forms) == 1
+        assert [f.name for f in elements.forms[0].fields] == ["Email", "Password"]
+        assert len(elements.inputs) == 2
+        assert len(elements.buttons) == 1

@@ -3,16 +3,17 @@ from __future__ import annotations
 import time
 from urllib.parse import urlparse
 
+from ._form_parser import parse_form_node
+from ._helpers import build_network, redact_cookies
 from .page import (
     ButtonElement,
-    CookieInfo,
     DiscoveredAsset,
     DiscoveredItems,
     DiscoveredRoute,
     Elements,
+    FormElement,
     InputElement,
     LinkElement,
-    NetworkEntry,
     ObservationMeta,
     PageIdentity,
     PageObservation,
@@ -88,8 +89,8 @@ class ObservationBuilder:
         elements, visible_text = self._parse_a11y(children)
         routes = self._extract_routes(elements.links)
         assets = self._extract_assets(network_entries)
-        cookies = self._redact_cookies(raw_cookies)
-        network = self._build_network(network_entries)
+        cookies = redact_cookies(raw_cookies)
+        network = build_network(network_entries)
 
         elapsed = int((time.monotonic() - start) * 1000)
 
@@ -113,11 +114,23 @@ class ObservationBuilder:
         links: list[LinkElement] = []
         buttons: list[ButtonElement] = []
         inputs: list[InputElement] = []
+        forms: list[FormElement] = []
         visible: list[VisibleTextBlock] = []
 
         for node in children:
             role = node.get("role", "")
             name = node.get("name", "")
+
+            if role == "form":
+                form_elem, form_inputs, form_buttons, form_visible = (
+                    parse_form_node(node, self._next_id)
+                )
+                forms.append(form_elem)
+                inputs.extend(form_inputs)
+                buttons.extend(form_buttons)
+                visible.extend(form_visible)
+                continue
+
             if role == "link":
                 href = node.get("url", "") or node.get("value", "")
                 links.append(LinkElement(
@@ -141,7 +154,10 @@ class ObservationBuilder:
             if name:
                 visible.append(VisibleTextBlock(text=name))
 
-        return Elements(links=links, buttons=buttons, inputs=inputs), visible
+        return (
+            Elements(links=links, buttons=buttons, forms=forms, inputs=inputs),
+            visible,
+        )
 
     # ------------------------------------------------------------------
     # Route + asset extraction
@@ -180,28 +196,4 @@ class ObservationBuilder:
             assets.append(DiscoveredAsset(asset_ref=ref, url=url, asset_type=asset_type))
         return assets
 
-    # ------------------------------------------------------------------
-    # Cookie + network helpers
-    # ------------------------------------------------------------------
-
-    def _redact_cookies(self, raw: list[dict]) -> list[CookieInfo]:
-        return [
-            CookieInfo(
-                name=c.get("name", ""),
-                domain=c.get("domain", ""),
-                secure=bool(c.get("secure", False)),
-                http_only=bool(c.get("httpOnly", False)),
-            )
-            for c in raw
-        ]
-
-    def _build_network(self, entries: list[dict]) -> list[NetworkEntry]:
-        return [
-            NetworkEntry(
-                url=e.get("url", ""),
-                method=e.get("method", "GET"),
-                status=e.get("status", 0),
-                content_type=e.get("content_type", ""),
-            )
-            for e in entries
-        ]
+    # Cookie + network helpers delegated to _helpers.py
