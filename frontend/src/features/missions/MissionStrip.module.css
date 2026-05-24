@@ -1,0 +1,100 @@
+.strip {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--rule-hair);
+  padding: 0.75rem 1.25rem;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.profile {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-default);
+  color: var(--ink-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.host {
+  font-size: var(--text-code);
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+.statusPill {
+  font-size: var(--text-micro);
+  font-family: var(--font-mono);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-pill);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.statusPill[data-status="running"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.statusPill[data-status="completed"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.statusPill[data-status="failed"] {
+  background: var(--err-soft);
+  color: var(--err);
+}
+.statusPill[data-status="stopped"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.statusPill[data-status="pending"],
+.statusPill[data-status="paused"] {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.phases {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.arrow {
+  color: var(--ink-soft);
+  font-size: var(--text-micro);
+}
+.chip {
+  font-size: var(--text-micro);
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sharp);
+  font-family: var(--font-mono);
+}
+.chip[data-current="false"] {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
+.chip[data-current="true"] {
+  background: var(--accent);
+  color: var(--ink-inverse);
+  font-weight: 600;
+}
+.budget {
+  font-size: var(--text-code);
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+  margin-left: auto;
+}
+.reason {
+  font-size: var(--text-code);
+  color: var(--ink-muted);
+  margin-top: 0.25rem;
+  font-style: italic;
+}

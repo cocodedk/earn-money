@@ -1,27 +1,15 @@
 import { useState } from "react";
 import type { AgentTurn } from "./types";
 import { describeTurn } from "./describeTurn";
+import styles from "./TurnCard.module.css";
 
-const TONE_ICON: Record<string, { testId: string; label: string; cls: string }> = {
-  success: { testId: "turn-icon-success", label: "Completed", cls: "text-green-600" },
-  denied:  { testId: "turn-icon-denied",  label: "Blocked",   cls: "text-yellow-600" },
-  error:   { testId: "turn-icon-error",   label: "Failed",    cls: "text-red-600" },
-  running: { testId: "turn-icon-running", label: "Running",   cls: "text-blue-500" },
-  neutral: { testId: "turn-icon-neutral", label: "Done",      cls: "text-gray-500" },
+const GLYPHS: Record<string, string> = {
+  success: "✓", denied: "⚠", error: "✗", running: "●", neutral: "•",
 };
-
-function StatusIcon({ tone }: { tone: string }) {
-  const cfg = TONE_ICON[tone] ?? TONE_ICON.neutral;
-  return (
-    <span data-testid={cfg.testId} aria-label={cfg.label} className={cfg.cls}>
-      {tone === "success" ? "✓"
-        : tone === "denied" ? "⚠"
-        : tone === "error" ? "✗"
-        : tone === "running" ? "●"
-        : "•"}
-    </span>
-  );
-}
+const LABELS: Record<string, string> = {
+  success: "Completed", denied: "Blocked", error: "Failed",
+  running: "Running", neutral: "Done",
+};
 
 function relativeTime(iso: string): string {
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
@@ -36,21 +24,29 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
   const [open, setOpen] = useState(false);
   const desc = describeTurn(turn);
   const actions = turn.actions;
+  const tone = desc.tone;
 
   return (
-    <div data-testid={`turn-card-${turn.index}`} className="py-2 border-b">
-      <div className="flex items-start gap-2">
-        <StatusIcon tone={desc.tone} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-sm text-gray-500">#{turn.index}</span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100">{turn.phase}</span>
-            <span className="text-xs text-gray-400" title={turn.created_at}>
+    <div data-testid={`turn-card-${turn.index}`} className={styles.card}>
+      <div className={styles.cardBody}>
+        <span
+          className={styles.icon}
+          data-tone={tone}
+          data-testid={`turn-icon-${tone}`}
+          aria-label={LABELS[tone] ?? "Done"}
+        >
+          {GLYPHS[tone] ?? "•"}
+        </span>
+        <div className={styles.content}>
+          <div className={styles.meta}>
+            <span className={styles.turnNum}>#{turn.index}</span>
+            <span className={styles.phaseBadge}>{turn.phase}</span>
+            <span className={styles.time} title={turn.created_at}>
               {relativeTime(turn.created_at)}
             </span>
           </div>
-          <p className="mt-0.5">{desc.title}</p>
-          {desc.result && <p className="text-sm text-gray-600 mt-0.5">{desc.result}</p>}
+          <p className={styles.title}>{desc.title}</p>
+          {desc.result && <p className={styles.result}>{desc.result}</p>}
         </div>
       </div>
       {actions.length > 0 && (
@@ -58,23 +54,23 @@ export function TurnCard({ turn }: { turn: AgentTurn }) {
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="text-xs text-gray-500 mt-1 underline"
+          className={styles.detailsBtn}
         >
           Details
         </button>
       )}
       {open && actions.length > 0 && (
-        <div className="mt-1 text-xs text-gray-500 bg-gray-50 p-2 rounded font-mono">
+        <div className={styles.detailsPanel}>
           {actions.map((action) => (
-            <div key={action.id} className="mb-2 last:mb-0">
+            <div key={action.id} style={{ marginBottom: "0.5rem" }}>
               <div>Action: {action.action_type}</div>
               <div>Validation: {action.validation_status}</div>
               <div>Execution: {action.execution_status}</div>
               {action.denial_reason && <div>Denied: {action.denial_reason}</div>}
               {action.observations.length > 0 && (
-                <details className="mt-1">
+                <details style={{ marginTop: "0.25rem" }}>
                   <summary>Observations ({action.observations.length})</summary>
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap">
+                  <pre>
                     {JSON.stringify(action.observations.map((o) => ({
                       type: o.observation_type, data: o.data,
                     })), null, 2)}

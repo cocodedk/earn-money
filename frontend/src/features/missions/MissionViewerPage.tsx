@@ -26,7 +26,7 @@ function MissionBody({ session }: { session: AgentSession }) {
   const isNotesTruncated = Boolean(notesQ.data && notesQ.data.next !== null);
 
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <MissionStrip session={session} budgetOverlay={budgetOverlay} />
       {turnsQ.isError && (
         <CalloutSlot>
@@ -39,7 +39,9 @@ function MissionBody({ session }: { session: AgentSession }) {
         </CalloutSlot>
       )}
       {turnsQ.isLoading ? (
-        <p className="text-gray-500 text-center py-8">Loading turns...</p>
+        <p style={{ color: "var(--ink-soft)", textAlign: "center", padding: "3rem 0" }}>
+          Loading turns...
+        </p>
       ) : (
         <StoryTimeline
           turns={turns}
