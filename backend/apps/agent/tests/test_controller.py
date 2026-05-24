@@ -404,3 +404,75 @@ class TestVerifyPhaseGate:
         c.session.refresh_from_db()
         assert c.session.status == "completed"
         assert c.session.current_phase == "verify"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_full_form_flow_with_verify(db_objects):
+    """
+    End-to-end: navigate → fill×2 → submit → candidate → transition verify
+    → navigate → fill → submit → stop.
+
+    Asserts status=completed, current_phase=verify,
+    3 fill_form actions and 2 submit_form actions recorded.
+    """
+    budget = {
+        "max_turns": 20,
+        "max_llm_calls": 20,
+        "max_browser_actions": 20,
+        "max_form_fills": 10,
+        "max_form_submits": 10,
+    }
+    responses = [
+        _action_json("navigate", path="/login"),
+        _action_json("fill_form", element_id="input_email", value="admin@example.com"),
+        _action_json("fill_form", element_id="input_password", value="admin"),
+        _action_json("submit_form", element_id="btn_login"),
+        _action_json(
+            "submit_candidate", category="broken_auth",
+            description="login form exposes credentials in URL", evidence_refs=[],
+        ),
+        _action_json(
+            "request_phase_transition", from_phase="probe",
+            to_phase="verify", evidence_refs=[],
+        ),
+        _action_json("navigate", path="/login"),
+        _action_json("fill_form", element_id="input_email", value="victim@example.com"),
+        _action_json("submit_form", element_id="btn_login"),
+        _action_json("stop"),
+    ]
+
+    driver = _mock_driver()
+    driver.fill = AsyncMock()
+    driver.click = AsyncMock()
+
+    ctrl = _ctrl(db_objects, responses, driver=driver, budget=budget)
+    ctrl.session.current_phase = "probe"
+    ctrl.session.save(update_fields=["current_phase"])
+    ctrl._mission_phases = ["recon", "enumerate", "probe", "verify", "report"]
+
+    from unittest.mock import patch
+    from apps.agent.plateau import PlateauDetector
+
+    lenient = {"max_turns_without_new_route": 20,
+               "max_turns_without_new_interactive_element": 20}
+
+    def _lenient_plateau(*_args, **_kw):
+        return PlateauDetector(**lenient)
+
+    ctrl.plateau = PlateauDetector(**lenient)
+    with patch("apps.agent.controller.PlateauDetector", side_effect=_lenient_plateau):
+        await ctrl.run()
+
+    ctrl.session.refresh_from_db()
+    assert ctrl.session.status == SessionStatus.COMPLETED
+    assert ctrl.session.current_phase == "verify"
+
+    fill_count = AgentAction.objects.filter(
+        turn__session=ctrl.session, action_type="fill_form",
+    ).count()
+    submit_count = AgentAction.objects.filter(
+        turn__session=ctrl.session, action_type="submit_form",
+    ).count()
+    assert fill_count == 3
+    assert submit_count == 2
