@@ -78,7 +78,10 @@ class ObservationBuilder:
 
         url: str = page.url
         title: str = await page.title()
-        snapshot = await page.accessibility.snapshot() or {}
+        try:
+            snapshot = await page.accessibility.snapshot() or {}
+        except AttributeError:
+            snapshot = {}
         raw_cookies: list[dict] = await page.context.cookies()
 
         children = snapshot.get("children", [])
