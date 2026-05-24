@@ -89,7 +89,7 @@ _ACTION_SCHEMA_SNIPPETS: dict[str, str] = {
     "submit_form": (
         '### submit_form\n'
         '{ "action": "submit_form", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "element_id": "form_1" }'
+        '   "element_id": "btn_0" }'
     ),
     "run_stub": (
         '### run_stub\n'

@@ -159,3 +159,27 @@ class TestProbePromptSchemas:
         )
         assert "fill_form" in prompt
         assert "element_id" in prompt
+
+    @pytest.mark.parametrize("phase", ["probe", "verify"])
+    def test_probe_and_verify_prompts_include_fill_and_submit_schemas(self, phase):
+        prompt = build_system_prompt(
+            objective="test",
+            phase=phase,
+            allowed_actions=allowed_actions_for_phase(phase),
+            budget_remaining=10,
+        )
+        assert "fill_form" in prompt
+        assert "submit_form" in prompt
+        # submit_form must guide the LLM to use a button element ID, not a form ID
+        assert "btn_0" in prompt
+
+    def test_enumerate_prompt_includes_fill_schema_only(self):
+        prompt = build_system_prompt(
+            objective="test",
+            phase="enumerate",
+            allowed_actions=allowed_actions_for_phase("enumerate"),
+            budget_remaining=10,
+        )
+        assert "fill_form" in prompt
+        # submit_form is NOT in enumerate phase
+        assert "submit_form" not in prompt
