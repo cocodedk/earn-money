@@ -57,8 +57,8 @@ rsync -az --delete \
     --exclude='docker-compose.override.yml' \
     ./ "${VPS_HOST}:${VPS_PATH}"
 
-# --- Step 2: rebuild and restart containers ---
+# --- Step 2: rebuild and restart all containers ---
 log "docker compose up -d --build on ${VPS_HOST}"
-ssh "${VPS_HOST}" "cd ${VPS_PATH} && docker compose up -d --build" 2>&1
+ssh "${VPS_HOST}" "cd ${VPS_PATH} && docker compose up -d --build --force-recreate" 2>&1
 
 log "done — stack deployed on ${VPS_HOST}:${VPS_PATH}"
