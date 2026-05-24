@@ -30,3 +30,4 @@ Playwright, HTTP, or tools directly — the controller mediates everything.
 | [08-llm-policy.md](08-llm-policy.md) | Model selection, routing, escalation |
 | [09-repo-structure.md](09-repo-structure.md) | File layout for backend/apps/agent/ |
 | [10-slice-1.md](10-slice-1.md) | Juice Shop scoreboard mission — scope and acceptance |
+| [11-slice-b-plus-probe.md](11-slice-b-plus-probe.md) | Narrow probe phase + minimal evidence contract |

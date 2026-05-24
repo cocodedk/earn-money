@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 MAX_ASSET_SIZE = 100_000
+MAX_BODY_EXCERPT = 10_000
 
 _BLOCKED_SCHEMES = frozenset({"javascript", "data", "file", "ftp"})
 
@@ -22,6 +23,7 @@ class PlaywrightDriver:
         self._context = None
         self._page = None
         self._network_log: list[dict] = []
+        self._element_registry: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -93,6 +95,50 @@ class PlaywrightDriver:
             "content": text,
             "size_bytes": len(raw),
             "truncated": truncated,
+        }
+
+    # ------------------------------------------------------------------
+    # Element registry
+    # ------------------------------------------------------------------
+
+    def register_elements(self, registry: dict[str, str]) -> None:
+        """Replace the element registry with the given mapping."""
+        self._element_registry = dict(registry)
+
+    async def click(self, element_id: str) -> None:
+        """Click the element identified by element_id in the registry."""
+        if element_id not in self._element_registry:
+            raise ValueError(f"Unknown element_id: {element_id!r}")
+        selector = self._element_registry[element_id]
+        locator = self._page.locator(selector)
+        await locator.click()
+
+    # ------------------------------------------------------------------
+    # HTTP requests
+    # ------------------------------------------------------------------
+
+    async def http_request(self, method: str, path: str) -> dict:
+        """Perform a GET or HEAD request and return a structured result."""
+        url = self._resolve(path)
+        if not self.is_in_scope(url):
+            raise ScopeViolationError(f"HTTP request out of scope: {url!r}")
+        if method == "GET":
+            resp = await self._page.request.get(url)
+        else:
+            resp = await self._page.request.head(url)
+        raw_body = await resp.body()
+        truncated = len(raw_body) > MAX_BODY_EXCERPT
+        excerpt = raw_body[:MAX_BODY_EXCERPT].decode("utf-8", errors="replace")
+        return {
+            "url": resp.url,
+            "method": method,
+            "status": resp.status,
+            "content_type": resp.headers.get("content-type", ""),
+            "redirected": resp.url != url,
+            "final_url": resp.url,
+            "body_excerpt": excerpt,
+            "body_truncated": truncated,
+            "trust": "untrusted_target_content",
         }
 
     # ------------------------------------------------------------------

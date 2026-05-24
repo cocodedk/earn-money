@@ -197,3 +197,56 @@ class TestConsumedBudgetPersistence:
         await session_obj.run()
         session_obj.session.refresh_from_db()
         assert session_obj.session.consumed_budget["mission"]["turns"] >= 1
+
+
+@pytest.mark.django_db(transaction=True)
+class TestClickExecution:
+    @pytest.mark.asyncio
+    async def test_click_persists_page_observation(self, db_objects):
+        click_json = _action_json(
+            action="click", element_id="link_0",
+        )
+        ctrl = _ctrl(db_objects, responses=[click_json], budget={"max_turns": 5})
+        ctrl.session.current_phase = "probe"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.click = AsyncMock()
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.click.assert_awaited_once_with("link_0")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="page",
+        ).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestHttpRequestExecution:
+    @pytest.mark.asyncio
+    async def test_http_request_persists_http_observation(self, db_objects):
+        req_json = _action_json(
+            action="http_request", method="GET", path="/api/test",
+        )
+        ctrl = _ctrl(db_objects, responses=[req_json], budget={"max_turns": 5})
+        ctrl.session.current_phase = "probe"
+        ctrl.session.save(update_fields=["current_phase"])
+        ctrl.driver.http_request = AsyncMock(return_value={
+            "url": "https://test.example.com/api/test",
+            "method": "GET", "status": 200,
+            "content_type": "application/json",
+            "redirected": False, "final_url": "https://test.example.com/api/test",
+            "body_excerpt": '{"ok": true}', "body_truncated": False,
+            "trust": "untrusted_target_content",
+        })
+
+        from apps.agent.controller_turn import run_turn
+        await run_turn(ctrl)
+
+        ctrl.driver.http_request.assert_awaited_once_with("GET", "/api/test")
+        from apps.agent.models import AgentObservation
+        assert AgentObservation.objects.filter(
+            action__turn__session=ctrl.session,
+            observation_type="http",
+        ).exists()

@@ -87,6 +87,33 @@ class StopAction:
 
 
 @dataclass
+class ClickAction:
+    element_id: str
+
+    def __post_init__(self) -> None:
+        if not self.element_id:
+            raise InvalidActionError("click requires a non-empty element_id")
+
+
+_SAFE_HTTP_METHODS = frozenset({"GET", "HEAD"})
+
+
+@dataclass
+class HttpRequestAction:
+    method: str
+    path: str
+
+    def __post_init__(self) -> None:
+        if self.method not in _SAFE_HTTP_METHODS:
+            raise InvalidActionError(
+                f"http_request method must be GET or HEAD, got {self.method!r}"
+            )
+        if not self.path:
+            raise InvalidActionError("http_request requires a non-empty path")
+        _validate_url(self.path, "path")
+
+
+@dataclass
 class ActionEnvelope:
     action: str
     goal: str
@@ -103,6 +130,8 @@ _ACTION_MAP: dict[str, type] = {
     "submit_candidate": SubmitCandidateAction,
     "request_phase_transition": RequestPhaseTransitionAction,
     "stop": StopAction,
+    "click": ClickAction,
+    "http_request": HttpRequestAction,
 }
 
 _REQUIRED_ENVELOPE_KEYS = {"action", "goal", "reason", "hypothesis"}

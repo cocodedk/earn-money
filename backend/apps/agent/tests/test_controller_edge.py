@@ -120,13 +120,48 @@ async def test_invalid_phase_transition_ignored(db_objects):
     assert c.session.current_phase == "enumerate"
 
 
+def _bare_ctrl():
+    """Build a MissionController with a mock session for pure-unit tests."""
+    session = MagicMock()
+    session.current_phase = "recon"
+    session.target.host = "test.example.com"
+    return MissionController(
+        session=session,
+        provider=AsyncMock(),
+        driver=AsyncMock(),
+        objective="Test",
+        mission_budget={"max_turns": 5},
+    )
+
+
 def test_next_slice_phase_recon():
-    assert MissionController._next_slice_phase("recon") == "enumerate"
+    assert _bare_ctrl()._next_slice_phase("recon") == "enumerate"
 
 
 def test_next_slice_phase_report_terminal():
-    assert MissionController._next_slice_phase("report") is None
+    assert _bare_ctrl()._next_slice_phase("report") is None
 
 
 def test_next_slice_phase_unknown():
-    assert MissionController._next_slice_phase("probe") is None
+    assert _bare_ctrl()._next_slice_phase("probe") is None
+
+
+@pytest.mark.django_db(transaction=True)
+class TestProbePhaseAutoAdvance:
+    @pytest.mark.asyncio
+    async def test_plateau_advances_enumerate_to_probe(self, db_objects):
+        responses = [_action_json(action="observe_page")] * 12
+        ctrl = _ctrl(
+            db_objects, responses=responses,
+            budget={"max_turns": 20},
+        )
+        ctrl.session.current_phase = "enumerate"
+        ctrl.session.save(update_fields=["current_phase"])
+        # Override the controller's phase list to include probe
+        ctrl._mission_phases = ["recon", "enumerate", "probe", "report"]
+
+        await ctrl.run()
+
+        ctrl.session.refresh_from_db()
+        # Should have advanced past enumerate (plateau)
+        assert ctrl.session.current_phase in ("probe", "report", "stopped")

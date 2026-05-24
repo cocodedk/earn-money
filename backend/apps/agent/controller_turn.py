@@ -132,27 +132,29 @@ async def _execute(ctrl, turn, envelope: ActionEnvelope) -> bool:
         ctrl.plateau.record_turn(new_routes=0, new_elements=0)
         return False
 
-    obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
-    from .event_log import (
-        build_budget_snapshot, emit_action_executed, summarize_observation,
-    )
-    snapshot = build_budget_snapshot(
-        ctrl.session, ctrl.budget.consumed_snapshot(),
-    )
-    obs_summary = summarize_observation(obs_dict)
-    emit_action_executed(
-        ctrl.session, turn.index, envelope.action,
-        goal=envelope.goal, reason=envelope.reason,
-        hypothesis=envelope.hypothesis,
-        budget_snapshot=snapshot,
-        observation_summary=obs_summary,
-    )
-    finish_turn(turn, TurnStatus.COMPLETED)
+    from .actions.schemas import ClickAction, HttpRequestAction
 
-    obs_msg = format_observation_message(obs_dict=obs_dict)
-    raw = json.dumps({"action": envelope.action})
-    ctrl.messages.append({"role": "assistant", "content": raw})
-    ctrl.messages.append({"role": "user", "content": obs_msg})
+    if isinstance(parsed, ClickAction):
+        await ctrl.driver.click(parsed.element_id)
+        obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
+        ctrl.budget.consume("browser_actions")
+        _emit_and_finish_browser(ctrl, turn, action_rec, envelope, obs_dict)
+        return False
+
+    if isinstance(parsed, HttpRequestAction):
+        http_obs = await ctrl.driver.http_request(parsed.method, parsed.path)
+        record_observation(
+            action=action_rec,
+            observation_type=ObservationType.HTTP,
+            data=http_obs,
+        )
+        _mark_executed(action_rec)
+        ctrl.budget.consume("http_requests")
+        _emit_and_finish(ctrl, turn, envelope, http_obs)
+        return False
+
+    obs_dict = await _execute_browser_action(ctrl, turn, action_rec, envelope)
+    _emit_and_finish_browser(ctrl, turn, action_rec, envelope, obs_dict)
     return False
 
 
@@ -169,6 +171,45 @@ def _handle_phase_transition(ctrl, parsed) -> None:
             budget_snapshot=snapshot,
         )
         ctrl.advance_phase(parsed.to_phase, parsed.reason)
+
+
+def _emit_and_finish_browser(ctrl, turn, _action_rec, envelope, obs_dict: dict) -> None:
+    """Emit action_executed event and finish the turn for browser-type actions."""
+    from .event_log import (
+        build_budget_snapshot, emit_action_executed, summarize_observation,
+    )
+    snapshot = build_budget_snapshot(ctrl.session, ctrl.budget.consumed_snapshot())
+    obs_summary = summarize_observation(obs_dict)
+    emit_action_executed(
+        ctrl.session, turn.index, envelope.action,
+        goal=envelope.goal, reason=envelope.reason,
+        hypothesis=envelope.hypothesis,
+        budget_snapshot=snapshot,
+        observation_summary=obs_summary,
+    )
+    finish_turn(turn, TurnStatus.COMPLETED)
+    obs_msg = format_observation_message(obs_dict=obs_dict)
+    raw = json.dumps({"action": envelope.action})
+    ctrl.messages.append({"role": "assistant", "content": raw})
+    ctrl.messages.append({"role": "user", "content": obs_msg})
+
+
+def _emit_and_finish(ctrl, turn, envelope, obs_dict: dict) -> None:
+    """Emit action_executed event and finish the turn for non-browser actions."""
+    from .event_log import build_budget_snapshot, emit_action_executed
+    snapshot = build_budget_snapshot(ctrl.session, ctrl.budget.consumed_snapshot())
+    emit_action_executed(
+        ctrl.session, turn.index, envelope.action,
+        goal=envelope.goal, reason=envelope.reason,
+        hypothesis=envelope.hypothesis,
+        budget_snapshot=snapshot,
+        observation_summary=obs_dict,
+    )
+    finish_turn(turn, TurnStatus.COMPLETED)
+    obs_msg = format_observation_message(obs_dict=obs_dict)
+    raw = json.dumps({"action": envelope.action})
+    ctrl.messages.append({"role": "assistant", "content": raw})
+    ctrl.messages.append({"role": "user", "content": obs_msg})
 
 
 async def _execute_browser_action(ctrl, turn, action_rec, envelope):

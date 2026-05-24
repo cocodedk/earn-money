@@ -26,9 +26,9 @@ _PROFILES: dict[str, MissionProfile] = {
             "/#!/score-board on OWASP Juice Shop."
         ),
         success_category="security_misconfiguration",
-        phases=["recon", "enumerate", "report"],
+        phases=["recon", "enumerate", "probe", "report"],
         mission_budget={
-            "max_turns": 25,
+            "max_turns": 35,
             "max_runtime_seconds": 300,
             "max_llm_calls": 30,
             "max_http_requests": 60,
@@ -45,6 +45,11 @@ _PROFILES: dict[str, MissionProfile] = {
                 "max_turns": 12,
                 "max_browser_actions": 20,
                 "max_http_requests": 30,
+            },
+            "probe": {
+                "max_turns": 10,
+                "max_browser_actions": 15,
+                "max_http_requests": 20,
             },
             "report": {
                 "max_turns": 5,
