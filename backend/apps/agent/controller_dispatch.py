@@ -11,7 +11,9 @@ from .actions.schemas import (
     SubmitCandidateAction, SubmitFormAction,
 )
 from .llm.prompts import format_observation_message
-from .models import ExecutionStatus, NoteType, ObservationType, TurnStatus
+from .models import (
+    ExecutionStatus, NoteType, ObservationType, TurnStatus, ValidationStatus,
+)
 from .persistence import (
     finish_turn, record_action, record_note, record_observation,
 )
@@ -211,9 +213,10 @@ def _find_duplicate_candidate(session, fingerprint: str):
 
 
 def _deny_duplicate_candidate(ctrl, turn, action_rec, envelope, reason: str) -> None:
+    action_rec.validation_status = ValidationStatus.DENIED_BUDGET
     action_rec.execution_status = ExecutionStatus.SKIPPED
     action_rec.denial_reason = reason
-    action_rec.save(update_fields=["execution_status", "denial_reason"])
+    action_rec.save(update_fields=["validation_status", "execution_status", "denial_reason"])
     finish_turn(turn, TurnStatus.ACTION_DENIED)
     ctrl.plateau.record_denial()
 
@@ -266,13 +269,8 @@ def _handle_phase_transition(ctrl, parsed) -> None:
 
 
 def _has_candidate(session) -> bool:
-    """Return True if the session has at least one valid submit_candidate action."""
-    from .models import AgentAction, ValidationStatus
-    return AgentAction.objects.filter(
-        turn__session=session,
-        action_type="submit_candidate",
-        validation_status=ValidationStatus.VALID,
-    ).exists()
+    """Return True if the session has at least one accepted candidate note."""
+    return session.notes.filter(note_type=NoteType.CANDIDATE).exists()
 
 
 def _emit_and_finish_browser(ctrl, turn, envelope, obs_dict: dict) -> None:
