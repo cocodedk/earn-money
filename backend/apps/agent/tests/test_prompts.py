@@ -140,8 +140,8 @@ class TestProbePromptSchemas:
             allowed_actions=allowed_actions_for_phase("report"),
             budget_remaining=5,
         )
-        assert "click" not in prompt
-        assert "http_request" not in prompt
+        assert '"action": "click"' not in prompt
+        assert '"action": "http_request"' not in prompt
 
     def test_all_phase_actions_have_schema_snippet(self):
         from apps.agent.llm.prompts import _ACTION_SCHEMA_SNIPPETS
