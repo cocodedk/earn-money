@@ -35,4 +35,5 @@ Playwright, HTTP, or tools directly — the controller mediates everything.
 | [10-slice-1.md](10-slice-1.md) | Juice Shop scoreboard mission — scope and acceptance | **done** |
 | [11-slice-b-plus-probe.md](11-slice-b-plus-probe.md) | Narrow probe phase + minimal evidence contract | **done** |
 | [12-slice-2-forms-verify.md](12-slice-2-forms-verify.md) | Forms interaction + verify phase | **done** |
-| [13-slice-3-warm-start.md](13-slice-3-warm-start.md) | Warm-start target memory | **draft** |
+| [13-slice-3-warm-start.md](13-slice-3-warm-start.md) | Warm-start target memory | **done** |
+| [14-submit-candidate-dispatch.md](14-submit-candidate-dispatch.md) | Submit candidate dispatch + dedup | **draft** |
