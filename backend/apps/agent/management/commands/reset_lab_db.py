@@ -55,7 +55,13 @@ class Command(BaseCommand):
 
     def _ensure_target(self, host: str) -> ScanTarget:
         """Return existing target or create one under the 'lab' project."""
-        target = ScanTarget.objects.filter(host=host).first()
+        targets = ScanTarget.objects.filter(host=host)
+        if targets.count() > 1:
+            raise CommandError(
+                f"Multiple targets with host '{host}'. "
+                f"Delete duplicates first or pass a specific UUID."
+            )
+        target = targets.first()
         if target is not None:
             return target
         project, _ = Project.objects.get_or_create(name="lab")
