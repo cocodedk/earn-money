@@ -36,4 +36,5 @@ Playwright, HTTP, or tools directly — the controller mediates everything.
 | [11-slice-b-plus-probe.md](11-slice-b-plus-probe.md) | Narrow probe phase + minimal evidence contract | **done** |
 | [12-slice-2-forms-verify.md](12-slice-2-forms-verify.md) | Forms interaction + verify phase | **done** |
 | [13-slice-3-warm-start.md](13-slice-3-warm-start.md) | Warm-start target memory | **done** |
-| [14-submit-candidate-dispatch.md](14-submit-candidate-dispatch.md) | Submit candidate dispatch + dedup | **draft** |
+| [14-submit-candidate-dispatch.md](14-submit-candidate-dispatch.md) | Submit candidate dispatch + dedup | **done** |
+| [15-lead-queue-stop-discipline.md](15-lead-queue-stop-discipline.md) | Lead queue + stop discipline | **draft** |

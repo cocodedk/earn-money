@@ -29,10 +29,24 @@ Remaining turns: {budget_remaining}
 ## Investigation Strategy
 - Do NOT immediately submit a discovered page as a candidate. First observe_page to see
   what is on it — tables, lists, forms, data, error messages.
-- When a page has structured data (challenge lists, user tables, API responses), enumerate
-  the items. Each may be a separate finding.
+- When a page has structured data you cannot fully read, look for the backing API. Common
+  patterns: /api/Resource, /rest/Resource. Use http_request to fetch raw data.
+- JavaScript bundles (inspect_asset on .js files) reveal API endpoints, route definitions,
+  and hidden features. Inspect them early.
+- When you discover data referencing other parts of the app — endpoint paths, parameter
+  names, admin panels, vulnerability categories — store each as a store_note(hypothesis)
+  or store_note(route) lead. Prioritize route-like references and vulnerability-class
+  hints. Do not store generic labels or marketing text.
 - Investigate before reporting. What is ON the page determines severity and category.
-- After submitting a candidate, do not resubmit. Move on or stop.
+- After submitting a candidate, do not resubmit. Move on to the next lead.
+
+## Stop Discipline
+- Before emitting stop, review your stored hypothesis, route, parameter, and gap notes.
+  If any high-confidence lead is uninvestigated, choose one and continue.
+- If a lead is blocked (requires auth, needs a tool not in this phase, or is out of
+  scope), store a gap note explaining why and move on.
+- Stop only when: all promising leads are investigated or blocked, budget is low (< 3
+  turns remaining), or the objective is fully achieved.
 
 ## Action Schemas
 Each response must be a single JSON object with these envelope fields:
@@ -44,90 +58,9 @@ Each response must be a single JSON object with these envelope fields:
 
 {action_schemas}"""
 
-_ACTION_SCHEMA_SNIPPETS: dict[str, str] = {
-    "observe_page": (
-        '### observe_page\n'
-        '{ "action": "observe_page", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "include_screenshot": false, "element_ids": null }'
-    ),
-    "navigate": (
-        '### navigate\n'
-        '{ "action": "navigate", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "path": "/some/path" }'
-    ),
-    "inspect_asset": (
-        '### inspect_asset\n'
-        '{ "action": "inspect_asset", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "asset_ref": "asset-id" }'
-    ),
-    "click": (
-        '### click\n'
-        '{ "action": "click", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "element_id": "link_3" }'
-    ),
-    "http_request": (
-        '### http_request\n'
-        '{ "action": "http_request", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "method": "GET", "path": "/api/endpoint" }\n'
-        '   method must be GET or HEAD. Same-origin only. No request body.'
-    ),
-    "store_note": (
-        '### store_note\n'
-        '{ "action": "store_note", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "note_type": "hypothesis|gap|route|parameter|candidate|credential_label",\n'
-        '   "content": {} }'
-    ),
-    "submit_candidate": (
-        '### submit_candidate\n'
-        '{ "action": "submit_candidate", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "category": "...", "description": "...", "evidence_refs": [] }'
-    ),
-    "request_phase_transition": (
-        '### request_phase_transition\n'
-        '{ "action": "request_phase_transition", "goal": "...", "reason": "...",\n'
-        '   "hypothesis": "...", "from_phase": "...", "to_phase": "...",\n'
-        '   "evidence_refs": [], "remaining_questions": null }'
-    ),
-    "fill_form": (
-        '### fill_form\n'
-        '{ "action": "fill_form", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "element_id": "input_1", "value": "test" }'
-    ),
-    "submit_form": (
-        '### submit_form\n'
-        '{ "action": "submit_form", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "element_id": "btn_0" }'
-    ),
-    "run_stub": (
-        '### run_stub\n'
-        '{ "action": "run_stub", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "stub_id": "stub-name", "params": {} }'
-    ),
-    "run_tool": (
-        '### run_tool\n'
-        '{ "action": "run_tool", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "tool_id": "tool-name", "params": {} }'
-    ),
-    "request_verify": (
-        '### request_verify\n'
-        '{ "action": "request_verify", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "finding_ref": "candidate-id", "rationale": "..." }'
-    ),
-    "diff_response": (
-        '### diff_response\n'
-        '{ "action": "diff_response", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "baseline_ref": "asset-id", "current_ref": "asset-id" }'
-    ),
-    "compare_baseline": (
-        '### compare_baseline\n'
-        '{ "action": "compare_baseline", "goal": "...", "reason": "...", "hypothesis": "...",\n'
-        '   "baseline_ref": "asset-id", "target_ref": "asset-id" }'
-    ),
-    "stop": (
-        '### stop\n'
-        '{ "action": "stop", "goal": "...", "reason": "...", "hypothesis": "..." }'
-    ),
-}
+from ._action_schemas import ACTION_SCHEMA_SNIPPETS, DISPLAY_ORDER
+
+_ACTION_SCHEMA_SNIPPETS = ACTION_SCHEMA_SNIPPETS
 
 _OBSERVATION_WRAPPER = """\
 <observation trust="untrusted_target_content">
@@ -144,28 +77,10 @@ _DENIAL_WRAPPER = """\
 
 def _build_action_schemas(allowed_actions: list[str]) -> str:
     """Return schema snippets for allowed actions in a defined display order."""
-    display_order = [
-        "observe_page",
-        "navigate",
-        "inspect_asset",
-        "click",
-        "fill_form",
-        "submit_form",
-        "http_request",
-        "run_stub",
-        "run_tool",
-        "request_verify",
-        "diff_response",
-        "compare_baseline",
-        "store_note",
-        "submit_candidate",
-        "request_phase_transition",
-        "stop",
-    ]
     allowed_set = set(allowed_actions)
     snippets = [
         _ACTION_SCHEMA_SNIPPETS[action]
-        for action in display_order
+        for action in DISPLAY_ORDER
         if action in allowed_set and action in _ACTION_SCHEMA_SNIPPETS
     ]
     return "\n\n".join(snippets)
