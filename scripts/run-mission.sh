@@ -11,6 +11,8 @@
 #   PROFILE=juice_shop_scoreboard
 #   TIMEOUT=600                 — max seconds to wait for completion
 #   DRY_RUN=1                   — resolve target and print POST payload only
+#   CLEAN_SLATE=1               — wipe agent/scan/event DB on VPS before mission
+#   CLEAN_SLATE_CONFIRM=DELETE_LAB_DB — required safety confirmation for CLEAN_SLATE
 
 set -eu
 
@@ -31,6 +33,10 @@ API_BASE="${API_BASE:-http://localhost}"
 PROFILE="${PROFILE:-juice_shop_scoreboard}"
 TIMEOUT="${TIMEOUT:-600}"
 DRY_RUN="${DRY_RUN:-0}"
+CLEAN_SLATE="${CLEAN_SLATE:-0}"
+CLEAN_SLATE_CONFIRM="${CLEAN_SLATE_CONFIRM:-}"
+VPS_HOST="${VPS_HOST:-recon-vps}"
+VPS_PATH="${VPS_PATH:-/opt/earn-money/}"
 STATUS="timeout"
 TURNS=0
 
@@ -38,6 +44,35 @@ case "$TIMEOUT" in
   ''|*[!0-9]*) die "TIMEOUT must be a positive integer, got '$TIMEOUT'" ;;
 esac
 [ "$TIMEOUT" -gt 0 ] || die "TIMEOUT must be greater than zero"
+
+# --- Clean slate (optional) ---
+if [ "$CLEAN_SLATE" = "1" ]; then
+  [ "$CLEAN_SLATE_CONFIRM" = "DELETE_LAB_DB" ] || \
+    die "CLEAN_SLATE=1 requires CLEAN_SLATE_CONFIRM=DELETE_LAB_DB"
+  [ "$DRY_RUN" = "1" ] && die "CLEAN_SLATE and DRY_RUN cannot be used together"
+  if echo "$TARGET_ARG" | grep -Eiq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+    die "CLEAN_SLATE requires a hostname, not a UUID"
+  fi
+  case "$TARGET_ARG" in
+    *[!a-zA-Z0-9._-]*) die "TARGET_ARG contains unsafe characters: '$TARGET_ARG'" ;;
+  esac
+
+  log "CLEAN SLATE: wiping agent/scan/event data on ${VPS_HOST}"
+  if ! RESET_OUTPUT=$(ssh "${VPS_HOST}" \
+    "cd ${VPS_PATH} && docker compose exec -T backend \
+     python manage.py reset_lab_db \
+       --host ${TARGET_ARG} --confirm DELETE_LAB_DB" 2>&1); then
+    die "Clean slate failed: ${RESET_OUTPUT}"
+  fi
+
+  TARGET_ID=$(echo "$RESET_OUTPUT" | grep -Ei '^[0-9a-f-]{36}$' | tail -1)
+  [ -n "$TARGET_ID" ] || die "Could not parse target UUID from reset output"
+  log "target seeded: $TARGET_ID"
+
+  echo "$RESET_OUTPUT" | grep "deleted" | while read -r line; do
+    log "  $line"
+  done
+fi
 
 # Helper: safe JSON parse — dies with message instead of traceback
 pyjson() {
@@ -55,7 +90,10 @@ $1
 }
 
 # --- Resolve target (UUID or host lookup) ---
-case "$TARGET_ARG" in
+if [ -n "${TARGET_ID:-}" ]; then
+  : # already set by clean slate
+else
+  case "$TARGET_ARG" in
   *-*-*-*-*) TARGET_ID="$TARGET_ARG" ;;
   *)
     log "looking up target: $TARGET_ARG"
@@ -91,6 +129,7 @@ print(matches[0].get('id', '') if matches else '')
     [ -z "$TARGET_ID" ] && die "No target with host '$TARGET_ARG'"
     ;;
 esac
+fi
 
 export TARGET_ID PROFILE
 log "target ID: $TARGET_ID"
