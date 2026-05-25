@@ -49,15 +49,23 @@ esac
 if [ "$CLEAN_SLATE" = "1" ]; then
   [ "$CLEAN_SLATE_CONFIRM" = "DELETE_LAB_DB" ] || \
     die "CLEAN_SLATE=1 requires CLEAN_SLATE_CONFIRM=DELETE_LAB_DB"
+  [ "$DRY_RUN" = "1" ] && die "CLEAN_SLATE and DRY_RUN cannot be used together"
+  case "$TARGET_ARG" in
+    *-*-*-*-*) die "CLEAN_SLATE requires a hostname, not a UUID" ;;
+  esac
+  case "$TARGET_ARG" in
+    *[!a-zA-Z0-9._-]*) die "TARGET_ARG contains unsafe characters: '$TARGET_ARG'" ;;
+  esac
 
   log "CLEAN SLATE: wiping agent/scan/event data on ${VPS_HOST}"
-  RESET_OUTPUT=$(ssh "${VPS_HOST}" \
-    "cd '${VPS_PATH}' && docker compose exec -T backend \
+  if ! RESET_OUTPUT=$(ssh "${VPS_HOST}" \
+    "cd ${VPS_PATH} && docker compose exec -T backend \
      python manage.py reset_lab_db \
-       --host '${TARGET_ARG}' --confirm DELETE_LAB_DB" 2>&1) \
-    || die "Clean slate failed: ${RESET_OUTPUT}"
+       --host ${TARGET_ARG} --confirm DELETE_LAB_DB" 2>&1); then
+    die "Clean slate failed: ${RESET_OUTPUT}"
+  fi
 
-  TARGET_ID=$(echo "$RESET_OUTPUT" | grep -E '^[0-9a-f-]{36}$' | tail -1)
+  TARGET_ID=$(echo "$RESET_OUTPUT" | grep -Ei '^[0-9a-f-]{36}$' | tail -1)
   [ -n "$TARGET_ID" ] || die "Could not parse target UUID from reset output"
   log "target seeded: $TARGET_ID"
 
