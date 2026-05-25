@@ -59,7 +59,7 @@ if [ "$CLEAN_SLATE" = "1" ]; then
 
   log "CLEAN SLATE: wiping agent/scan/event data on ${VPS_HOST}"
   if ! RESET_OUTPUT=$(ssh "${VPS_HOST}" \
-    "cd ${VPS_PATH} && docker compose exec -T backend \
+    "cd '${VPS_PATH}' && docker compose exec -T backend \
      python manage.py reset_lab_db \
        --host ${TARGET_ARG} --confirm DELETE_LAB_DB" 2>&1); then
     die "Clean slate failed: ${RESET_OUTPUT}"
