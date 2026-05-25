@@ -1,0 +1,7 @@
+hooks = ".codex/hooks.json"
+
+[mcp_servers.claude-chat]
+url = "http://127.0.0.1:8420/mcp/"
+
+[features]
+hooks = true

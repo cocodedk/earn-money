@@ -126,6 +126,25 @@ class TestInvalidActionPlateau:
         assert pd.is_plateaued() is False
 
 
+class TestCandidateProgress:
+    def test_new_candidate_resets_plateau_counters(self):
+        pd = PlateauDetector(
+            max_turns_without_new_route=3,
+            max_turns_without_new_interactive_element=3,
+            max_repeated_denials=3,
+            max_invalid_actions=2,
+        )
+        pd.record_turn(new_routes=0, new_elements=0)
+        pd.record_turn(new_routes=0, new_elements=0)
+        pd.record_denial()
+        pd.record_invalid()
+        pd.record_candidate()
+        pd.record_turn(new_routes=0, new_elements=0)
+        pd.record_denial()
+        pd.record_invalid()
+        assert pd.is_plateaued() is False
+
+
 class TestBaselineRoutes:
     def test_known_route_does_not_reset_plateau_counter(self):
         """A route already in the baseline is not novel — no reset."""

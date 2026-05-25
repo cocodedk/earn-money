@@ -11,7 +11,10 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 from apps.agent.controller import MissionController
 from apps.agent.llm.providers import LLMResponse
-from apps.agent.models import AgentAction, AgentNote, SessionStatus, ValidationStatus
+from apps.agent.models import (
+    AgentAction, AgentNote, AgentObservation, ExecutionStatus, SessionStatus,
+    ValidationStatus,
+)
 from apps.agent.persistence import create_session
 
 
@@ -203,6 +206,57 @@ async def test_store_note_persists(db_objects):
     ])
     await c.run()
     assert AgentNote.objects.filter(session=c.session).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_submit_candidate_persists_note_without_page_observation(db_objects):
+    c = _ctrl(db_objects, [
+        _action_json(
+            "submit_candidate",
+            category="hidden_route_discovered",
+            description="Score-board route found",
+            evidence_refs=["asset-1"],
+        ),
+    ])
+    c.session.current_phase = "enumerate"
+    c.session.save(update_fields=["current_phase"])
+
+    from apps.agent.controller_turn import run_turn
+    await run_turn(c)
+
+    note = AgentNote.objects.get(session=c.session, note_type="candidate")
+    assert note.content["category"] == "hidden_route_discovered"
+    assert note.content["description"] == "Score-board route found"
+    assert "fingerprint" in note.content
+    assert note.evidence_refs == ["asset-1"]
+    assert not AgentObservation.objects.filter(action__turn__session=c.session).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_duplicate_submit_candidate_is_denied_without_extra_note(db_objects):
+    candidate = _action_json(
+        "submit_candidate",
+        category="hidden_route_discovered",
+        description="Score-board route found",
+        evidence_refs=["asset-1"],
+    )
+    c = _ctrl(db_objects, [candidate, candidate])
+    c.session.current_phase = "enumerate"
+    c.session.save(update_fields=["current_phase"])
+
+    from apps.agent.controller_turn import run_turn
+    await run_turn(c)
+    await run_turn(c)
+
+    assert AgentNote.objects.filter(session=c.session, note_type="candidate").count() == 1
+    actions = list(AgentAction.objects.filter(turn__session=c.session).order_by("turn__index"))
+    assert actions[0].execution_status == ExecutionStatus.EXECUTED
+    assert actions[1].execution_status == ExecutionStatus.SKIPPED
+    assert actions[1].validation_status == ValidationStatus.DENIED_BUDGET
+    assert "Duplicate candidate" in actions[1].denial_reason
+    assert "Duplicate candidate" in c.messages[-1]["content"]
 
 
 @pytest.mark.django_db(transaction=True)

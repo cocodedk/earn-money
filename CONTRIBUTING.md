@@ -20,7 +20,7 @@ This is a private operational repository. The operator is the sole maintainer. N
 
 Three hooks ship in `.githooks/` and are activated by the installer:
 
-- **`pre-commit`** — runs the smoke check (currently a no-op stub; will run linters when code lands)
+- **`pre-commit`** — blocks staged sensitive paths, then runs `./scripts/test.sh quick`
 - **`commit-msg`** — enforces Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `ci:`, `build:`, `perf:`, `revert:`, `style:`)
 - **`pre-push`** — owner-locked. Refuses any push to a remote whose URL is not under `github.com/cocodedk`. Stops accidents, not malice (`--no-verify` bypasses it by design).
 

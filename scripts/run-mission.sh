@@ -121,7 +121,7 @@ print(json.dumps({
 ")") || die "Failed to create session (API error or unreachable)"
 
 # Parse session response once
-PARSED=$(echo "$SESSION" | pyjson "
+PARSED=$(printf '%s' "$SESSION" | pyjson "
 sid = d.get('id', '')
 phases = ' -> '.join(d.get('active_phases', ['?']))
 budget = d.get('mission_budget', {}).get('max_turns', '?')
@@ -162,7 +162,7 @@ while true; do
   FAIL_COUNT=0
 
   # Parse all three fields in one Python call
-  POLL=$(echo "$DATA" | pyjson "
+  POLL=$(printf '%s' "$DATA" | pyjson "
 s = d.get('status', 'unknown')
 p = d.get('current_phase', '?')
 t = d.get('consumed_budget', {}).get('mission', {}).get('turns', 0)
@@ -199,7 +199,7 @@ case "$STATUS" in
 esac
 
 TURNS_JSON=$(curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/turns/" || echo "")
-echo "$TURNS_JSON" | pyjson "
+printf '%s' "$TURNS_JSON" | pyjson "
 for t in d.get('results', []):
     acts = t.get('actions', [])
     a = acts[0] if acts else {}
@@ -213,7 +213,7 @@ for t in d.get('results', []):
 echo ""
 
 NOTES_JSON=$(curl -sf "$API_BASE/api/agent/sessions/$SESSION_ID/notes/" || echo "")
-echo "$NOTES_JSON" | pyjson "
+printf '%s' "$NOTES_JSON" | pyjson "
 notes = d.get('results', [])
 if notes:
     print('  Notes:')

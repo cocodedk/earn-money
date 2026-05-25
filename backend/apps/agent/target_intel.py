@@ -113,21 +113,28 @@ def _extract_form_signatures(session, max_forms: int) -> list[FormSignature]:
 
 
 def _extract_candidates(session, max_candidates: int) -> list[PriorCandidate]:
-    from .models import AgentAction, ValidationStatus
-
-    actions = AgentAction.objects.filter(
-        turn__session=session,
-        action_type="submit_candidate",
-        validation_status=ValidationStatus.VALID,
-    ).order_by("pk").values("goal", "args_redacted")[:max_candidates]
+    notes = (
+        session.notes
+        .filter(note_type="candidate")
+        .order_by("pk")
+        .values_list("content", flat=True)
+    )
 
     results: list[PriorCandidate] = []
-    for action in actions:
-        args = action.get("args_redacted") or {}
-        results.append(PriorCandidate(
-            category=_clean_text(args.get("category", "unknown"), limit=80) or "unknown",
-            description=_clean_text(action.get("goal", ""), limit=200),
-        ))
+    seen: set[tuple[str, str]] = set()
+    for content in notes:
+        if not isinstance(content, dict):
+            continue
+        candidate = PriorCandidate(
+            category=_clean_text(content.get("category", "unknown"), limit=80) or "unknown",
+            description=_clean_text(content.get("description", ""), limit=200),
+        )
+        key = (candidate.category, candidate.description)
+        if candidate.description and key not in seen:
+            results.append(candidate)
+            seen.add(key)
+        if len(results) >= max_candidates:
+            break
     return results
 
 

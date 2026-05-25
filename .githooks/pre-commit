@@ -15,7 +15,8 @@ if git diff --cached --name-only | grep -E "$LEAK_PATTERNS" >/dev/null 2>&1; the
   exit 1
 fi
 
-# `make smoke` is intentionally disabled during the cookbook-v2 fresh-start.
-# v1 code lives under archive/v1/ — to run the v1 lint + mypy + test suite:
-#   cd archive/v1 && make smoke
-# Re-enable here when cookbook-v2 code lands and has its own smoke target.
+TEST_ARGS="${PRE_COMMIT_TEST_ARGS:-quick}"
+
+echo "pre-commit: running ./scripts/test.sh $TEST_ARGS"
+# shellcheck disable=SC2086
+./scripts/test.sh $TEST_ARGS
