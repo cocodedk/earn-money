@@ -254,6 +254,7 @@ async def test_duplicate_submit_candidate_is_denied_without_extra_note(db_object
     actions = list(AgentAction.objects.filter(turn__session=c.session).order_by("turn__index"))
     assert actions[0].execution_status == ExecutionStatus.EXECUTED
     assert actions[1].execution_status == ExecutionStatus.SKIPPED
+    assert actions[1].validation_status == ValidationStatus.DENIED_BUDGET
     assert "Duplicate candidate" in actions[1].denial_reason
     assert "Duplicate candidate" in c.messages[-1]["content"]
 
